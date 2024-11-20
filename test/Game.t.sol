@@ -24,13 +24,7 @@ contract GameTest is Test {
     function _generateRandomSeed(address player) private view returns (uint256) {
         return uint256(
             keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    block.prevrandao,
-                    blockhash(block.number - 1),
-                    player,
-                    address(this)
-                )
+                abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), player, address(this))
             )
         );
     }
