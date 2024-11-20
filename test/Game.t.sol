@@ -8,14 +8,29 @@ contract GameTest is Test {
     Game public game;
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("RPC_URL"));
+        // For CI environment, use a mock chain
+        try vm.envString("RPC_URL") returns (string memory rpcUrl) {
+            vm.createSelectFork(rpcUrl);
+        } catch {
+            // If RPC_URL is not available, use a local mock setup
+            vm.warp(1_000_000);
+            vm.roll(16_000_000);
+            // Mock prevrandao value
+            vm.prevrandao(bytes32(uint256(0x1234567890)));
+        }
         game = new Game();
     }
 
     function _generateRandomSeed(address player) private view returns (uint256) {
         return uint256(
             keccak256(
-                abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), player, address(this))
+                abi.encodePacked(
+                    block.timestamp,
+                    block.prevrandao,
+                    blockhash(block.number - 1),
+                    player,
+                    address(this)
+                )
             )
         );
     }
