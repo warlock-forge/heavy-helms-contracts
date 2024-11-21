@@ -8,11 +8,21 @@ contract GameTest is Test {
     Game public game;
 
     function setUp() public {
-        // For CI environment, require a live chain connection
-        try vm.envString("RPC_URL") returns (string memory rpcUrl) {
-            vm.createSelectFork(rpcUrl);
+        // Check if we're in CI environment
+        try vm.envString("CI") returns (string memory) {
+            // In CI: use mock data
+            vm.warp(1_000_000);
+            vm.roll(16_000_000);
+            vm.prevrandao(bytes32(uint256(0x1234567890)));
         } catch {
-            revert("RPC_URL environment variable not set - tests require live blockchain data");
+            // Local dev: require live blockchain data
+            try vm.envString("RPC_URL") returns (string memory rpcUrl) {
+                vm.createSelectFork(rpcUrl);
+            } catch {
+                revert(
+                    "RPC_URL environment variable not set - tests require live blockchain data for local development"
+                );
+            }
         }
         game = new Game();
     }
