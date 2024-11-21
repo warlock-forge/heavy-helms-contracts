@@ -32,12 +32,19 @@ contract Game {
     }
 
     enum CombatResultType {
-        ATTACK, // Basic attack that hit
-        MISS, // Attack that missed
-        BLOCK, // Successful block
-        COUNTER, // Counter attack
-        DODGE, // Successful dodge
-        HIT // Taking damage (no defense)
+        MISS, // 0
+        ATTACK, // 1
+        BLOCK, // 2
+        COUNTER, // 3
+        DODGE, // 4
+        HIT // 5
+
+    }
+
+    enum WinCondition {
+        HEALTH, // Won by reducing opponent's health to 0
+        EXHAUSTION, // Won because opponent couldn't attack (low stamina)
+        MAX_ROUNDS // Won by having more health after max rounds
 
     }
 
@@ -45,42 +52,115 @@ contract Game {
         address indexed player1, address indexed player2, uint256 randomSeed, bytes packedResults, address winner
     );
 
-    // Constants for stamina costs
-    uint8 constant STAMINA_ATTACK = 20;
-    uint8 constant STAMINA_BLOCK = 25;
-    uint8 constant STAMINA_DODGE = 20;
-    uint8 constant STAMINA_COUNTER = 30;
+    // Further reduced stamina costs
+    uint8 public constant STAMINA_ATTACK = 10; // Was 15
+    uint8 constant STAMINA_BLOCK = 12; // Was 18
+    uint8 constant STAMINA_DODGE = 8; // Was 12
+    uint8 constant STAMINA_COUNTER = 15; // Was 20
 
     // Add a maximum number of rounds to prevent infinite loops
     uint8 constant MAX_ROUNDS = 50;
 
-    function playGame(address player1, address player2, uint256 seed)
+    // Add this struct to hold just the combat data
+    struct CombatAction {
+        CombatResultType p1Result;
+        uint8 p1Damage;
+        uint8 p1StaminaLost;
+        CombatResultType p2Result;
+        uint8 p2Damage;
+        uint8 p2StaminaLost;
+    }
+
+    // Add at contract level with other structs
+    struct CombatState {
+        uint256 p1Health;
+        uint256 p2Health;
+        uint256 p1Stamina;
+        uint256 p2Stamina;
+        bool isPlayer1Turn;
+        uint8 winner;
+        WinCondition condition;
+    }
+
+    /// @notice Splits combat results bytes into structured format
+    /// @param results The packed combat results bytes (first byte = winner, second byte = condition, remaining = combat actions)
+    /// @return winner 1 for player1 wins, 2 for player2 wins
+    /// @return condition The win condition (HEALTH, EXHAUSTION, or MAX_ROUNDS)
+    /// @return actions Array of combat actions
+    function decodeCombatLog(bytes memory results)
         public
-        view
-        returns (bytes memory packedResults, address winner)
+        pure
+        returns (uint8 winner, WinCondition condition, CombatAction[] memory actions)
     {
+        require(results.length >= 2, "Results too short");
+
+        // Extract winner and condition from first two bytes
+        winner = uint8(results[0]);
+        condition = WinCondition(uint8(results[1]));
+
+        // Decode remaining combat actions
+        uint256 numActions = (results.length - 2) / 6;
+        actions = new CombatAction[](numActions);
+
+        for (uint256 i = 0; i < numActions; i++) {
+            uint256 offset = 2 + (i * 6); // Start after winner/condition
+            actions[i] = CombatAction({
+                p1Result: CombatResultType(uint8(results[offset])),
+                p1Damage: uint8(results[offset + 1]),
+                p1StaminaLost: uint8(results[offset + 2]),
+                p2Result: CombatResultType(uint8(results[offset + 3])),
+                p2Damage: uint8(results[offset + 4]),
+                p2StaminaLost: uint8(results[offset + 5])
+            });
+        }
+
+        return (winner, condition, actions);
+    }
+
+    function playGame(address player1, address player2, uint256 seed) public view returns (bytes memory) {
         require(players[player1].strength != 0, "Player 1 does not exist");
         require(players[player2].strength != 0, "Player 2 does not exist");
 
-        // Get initial states and stats
-        (uint256 p1Health, uint256 p1Stamina) = getPlayerState(player1);
-        (uint256 p2Health, uint256 p2Stamina) = getPlayerState(player2);
+        // Initialize combat state
+        CombatState memory state;
+        (state.p1Health, state.p1Stamina) = getPlayerState(player1);
+        (state.p2Health, state.p2Stamina) = getPlayerState(player2);
 
         CalculatedStats memory p1Stats = calculateStats(players[player1]);
         CalculatedStats memory p2Stats = calculateStats(players[player2]);
 
+        // Keep existing initiative logic, just store in state
+        if (p1Stats.initiative != p2Stats.initiative) {
+            uint8 initiativeDiff = p1Stats.initiative > p2Stats.initiative
+                ? p1Stats.initiative - p2Stats.initiative
+                : p2Stats.initiative - p1Stats.initiative;
+
+            uint16 scaledDiff = uint16(initiativeDiff) * 19;
+            uint8 upsetChance = 20 - uint8(scaledDiff / 126);
+
+            bool naturalOrder = p1Stats.initiative > p2Stats.initiative;
+            uint8 randomRoll = uint8(uint256(keccak256(abi.encodePacked(seed, "initiative"))).uniform(100));
+
+            state.isPlayer1Turn = randomRoll < upsetChance ? !naturalOrder : naturalOrder;
+        } else {
+            state.isPlayer1Turn = uint256(keccak256(abi.encodePacked(seed, "initiative"))).uniform(2) == 0;
+        }
+
         bytes memory results;
         uint8 roundCount = 0;
-        bool isPlayer1Turn = true;
 
-        while (p1Health > 0 && p2Health > 0 && roundCount < MAX_ROUNDS) {
-            // Handle exhaustion first
-            if (p1Stamina < STAMINA_ATTACK && p2Stamina < STAMINA_ATTACK) {
-                return (results, p1Stamina >= p2Stamina ? player1 : player2);
-            } else if (p1Stamina < STAMINA_ATTACK) {
-                return (results, player2);
-            } else if (p2Stamina < STAMINA_ATTACK) {
-                return (results, player1);
+        while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
+            // Check for exhaustion
+            uint8 MINIMUM_ACTION_COST = 5; // Even lower than dodge cost
+
+            if ((state.p1Stamina < MINIMUM_ACTION_COST) || (state.p2Stamina < MINIMUM_ACTION_COST)) {
+                state.condition = WinCondition.EXHAUSTION;
+                if (state.p1Stamina < MINIMUM_ACTION_COST && state.p2Stamina < MINIMUM_ACTION_COST) {
+                    state.winner = uint256(keccak256(abi.encodePacked(seed, "exhaust"))).uniform(2) == 0 ? 1 : 2;
+                } else {
+                    state.winner = state.p1Stamina < MINIMUM_ACTION_COST ? 2 : 1;
+                }
+                break;
             }
 
             uint256 roll = uint256(keccak256(abi.encodePacked(seed, roundCount)));
@@ -92,32 +172,29 @@ contract Game {
             uint8 defenseDamage;
             uint8 defenseStaminaCost;
 
-            // Get current attacker/defender stats
             CalculatedStats memory attackerStats;
             CalculatedStats memory defenderStats;
             uint256 attackerStamina;
             uint256 defenderStamina;
 
-            if (isPlayer1Turn) {
+            if (state.isPlayer1Turn) {
                 attackerStats = p1Stats;
                 defenderStats = p2Stats;
-                attackerStamina = p1Stamina;
-                defenderStamina = p2Stamina;
+                attackerStamina = state.p1Stamina;
+                defenderStamina = state.p2Stamina;
             } else {
                 attackerStats = p2Stats;
                 defenderStats = p1Stats;
-                attackerStamina = p2Stamina;
-                defenderStamina = p1Stamina;
+                attackerStamina = state.p2Stamina;
+                defenderStamina = state.p1Stamina;
             }
 
-            // Process attack
             uint8 hitRoll = uint8(roll % 100);
             if (hitRoll < attackerStats.hitChance) {
                 attackResult = uint8(CombatResultType.ATTACK);
                 attackDamage = attackerStats.damage;
                 attackStaminaCost = STAMINA_ATTACK;
 
-                // Defender gets chance to block/counter
                 uint8 defenseRoll = uint8((roll >> 8) % 100);
                 if (defenseRoll < defenderStats.blockChance && defenderStamina >= STAMINA_BLOCK) {
                     defenseResult = uint8(CombatResultType.BLOCK);
@@ -130,9 +207,8 @@ contract Game {
             } else {
                 attackResult = uint8(CombatResultType.MISS);
                 attackDamage = 0;
-                attackStaminaCost = STAMINA_ATTACK / 2;
+                attackStaminaCost = STAMINA_ATTACK / 3;
 
-                // Counter attack chance on miss
                 uint8 counterRoll = uint8((roll >> 16) % 100);
                 if (counterRoll < defenderStats.counterChance && defenderStamina >= STAMINA_COUNTER) {
                     defenseResult = uint8(CombatResultType.COUNTER);
@@ -144,8 +220,7 @@ contract Game {
                 }
             }
 
-            // Pack results and update states
-            if (isPlayer1Turn) {
+            if (state.isPlayer1Turn) {
                 results = abi.encodePacked(
                     results,
                     attackResult,
@@ -156,29 +231,11 @@ contract Game {
                     defenseStaminaCost
                 );
 
-                // Update P1 (attacker)
-                if (p1Stamina > attackStaminaCost) {
-                    p1Stamina -= attackStaminaCost;
-                } else {
-                    p1Stamina = 0;
-                }
-                if (p1Health > defenseDamage) {
-                    p1Health -= defenseDamage;
-                } else {
-                    p1Health = 0;
-                }
+                state.p1Stamina = state.p1Stamina > attackStaminaCost ? state.p1Stamina - attackStaminaCost : 0;
+                state.p1Health = state.p1Health > defenseDamage ? state.p1Health - defenseDamage : 0;
 
-                // Update P2 (defender)
-                if (p2Stamina > defenseStaminaCost) {
-                    p2Stamina -= defenseStaminaCost;
-                } else {
-                    p2Stamina = 0;
-                }
-                if (p2Health > attackDamage) {
-                    p2Health -= attackDamage;
-                } else {
-                    p2Health = 0;
-                }
+                state.p2Stamina = state.p2Stamina > defenseStaminaCost ? state.p2Stamina - defenseStaminaCost : 0;
+                state.p2Health = state.p2Health > attackDamage ? state.p2Health - attackDamage : 0;
             } else {
                 results = abi.encodePacked(
                     results,
@@ -190,37 +247,32 @@ contract Game {
                     attackStaminaCost
                 );
 
-                // Update P2 (attacker)
-                if (p2Stamina > attackStaminaCost) {
-                    p2Stamina -= attackStaminaCost;
-                } else {
-                    p2Stamina = 0;
-                }
-                if (p2Health > defenseDamage) {
-                    p2Health -= defenseDamage;
-                } else {
-                    p2Health = 0;
-                }
+                state.p2Stamina = state.p2Stamina > attackStaminaCost ? state.p2Stamina - attackStaminaCost : 0;
+                state.p2Health = state.p2Health > defenseDamage ? state.p2Health - defenseDamage : 0;
 
-                // Update P1 (defender)
-                if (p1Stamina > defenseStaminaCost) {
-                    p1Stamina -= defenseStaminaCost;
-                } else {
-                    p1Stamina = 0;
-                }
-                if (p1Health > attackDamage) {
-                    p1Health -= attackDamage;
-                } else {
-                    p1Health = 0;
-                }
+                state.p1Stamina = state.p1Stamina > defenseStaminaCost ? state.p1Stamina - defenseStaminaCost : 0;
+                state.p1Health = state.p1Health > attackDamage ? state.p1Health - attackDamage : 0;
             }
 
             roundCount++;
             seed = uint256(keccak256(abi.encodePacked(seed, "next")));
-            isPlayer1Turn = !isPlayer1Turn;
+            state.isPlayer1Turn = !state.isPlayer1Turn;
+
+            if (state.p1Health == 0 || state.p2Health == 0) {
+                state.condition = WinCondition.HEALTH;
+                break;
+            }
         }
 
-        return (results, p1Health >= p2Health ? player1 : player2);
+        if (roundCount >= MAX_ROUNDS) {
+            state.condition = WinCondition.MAX_ROUNDS;
+        }
+
+        // Set winner based on health
+        state.winner = state.p1Health >= state.p2Health ? 1 : 2;
+
+        // Pack winner and condition at start, then combat results
+        return abi.encodePacked(bytes1(state.winner), bytes1(uint8(state.condition)), results);
     }
 
     function createPlayer(uint256 randomSeed) public returns (Player memory) {
@@ -344,17 +396,17 @@ contract Game {
         uint8 agi = uint8(player.agility >= 0 ? uint8(player.agility) : 0);
         uint8 sta = uint8(player.stamina >= 0 ? uint8(player.stamina) : 0);
 
-        // Reduce multipliers to prevent overflow
-        uint8 maxHealth = uint8(50 + (con * 5)); // Changed from 100 + (con * 10)
-        uint8 damage = uint8(5 + (str * 2)); // Changed from 10 + (str * 5)
-        uint8 hitChance = uint8(50 + (agi * 1)); // Changed from 70 + (agi * 2)
-        uint8 blockChance = uint8(10 + (con * 2)); // Changed from 20 + (con * 3)
-        uint8 dodgeChance = uint8(5 + (agi * 2)); // Changed from 10 + (agi * 3)
-        uint8 maxEndurance = uint8(50 + (sta * 5)); // Changed from 100 + (sta * 10)
-        uint8 critChance = uint8(5 + (agi)); // Changed from 5 + (agi * 2)
-        uint8 initiative = uint8((sta + agi) / 2); // Added division to prevent overflow
-        uint8 counterChance = uint8(5 + (agi)); // Changed from 10 + (agi * 2)
-        uint8 critMultiplier = uint8(120 + (str * 2)); // Changed from 150 + (str * 5)
+        // Adjusted formulas to stay within uint8 range (max 255)
+        uint8 maxHealth = uint8(45 + (con * 10)); // Max: 255 health at 21 CON
+        uint8 damage = uint8(2 + (str * 2)); // Max: 44 damage at 21 STR
+        uint8 hitChance = uint8(30 + (agi * 3)); // Max: 93% at 21 AGI
+        uint8 blockChance = uint8(10 + (con * 3)); // Max: 73% at 21 CON
+        uint8 dodgeChance = uint8(5 + (agi * 3)); // Max: 68% at 21 AGI
+        uint8 maxEndurance = uint8(45 + (sta * 10)); // Max: 255 endurance at 21 STA
+        uint8 critChance = uint8(2 + (agi * 2)); // Max: 44% at 21 AGI
+        uint8 initiative = uint8((sta + agi) * 3); // Max: 126 at 21/21
+        uint8 counterChance = uint8(3 + (agi * 2)); // Max: 45% at 21 AGI
+        uint8 critMultiplier = uint8(150 + (str * 5)); // Max: 255% at 21 STR
 
         return CalculatedStats({
             maxHealth: maxHealth,
@@ -375,5 +427,25 @@ contract Game {
         CalculatedStats memory stats = calculateStats(player);
         // Convert to uint256 after calculation to prevent overflow
         return (uint256(stats.maxHealth), uint256(stats.maxEndurance));
+    }
+
+    // Helper function to convert uint to string
+    function toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 }

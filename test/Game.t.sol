@@ -91,76 +91,85 @@ contract GameTest is Test {
     }
 
     function testBasicCombat() public {
-        // Create two players with different builds
         address player1 = address(1);
         address player2 = address(2);
 
-        // Create players
+        // Register players in game state
         vm.prank(player1);
-        Game.Player memory p1 = game.createPlayer(_generateRandomSeed(player1));
+        require(game.createPlayer(_generateRandomSeed(player1)).strength != 0, "P1 creation failed");
 
         vm.prank(player2);
-        Game.Player memory p2 = game.createPlayer(_generateRandomSeed(player2));
+        require(game.createPlayer(_generateRandomSeed(player2)).strength != 0, "P2 creation failed");
 
         // Get initial states
         (uint256 p1InitialHealth, uint256 p1InitialStamina) = game.getPlayerState(player1);
         (uint256 p2InitialHealth, uint256 p2InitialStamina) = game.getPlayerState(player2);
 
-        // Debug logs before combat
-        console2.log("\n=== Pre-Combat State ===");
-        console2.log("Player 1:");
-        console2.log("- STR:", p1.strength);
-        console2.log("- CON:", p1.constitution);
-        console2.log("- AGI:", p1.agility);
-        console2.log("- STA:", p1.stamina);
-        console2.log("- Initial Health/Stamina:", p1InitialHealth, "/", p1InitialStamina);
-
-        console2.log("\nPlayer 2:");
-        console2.log("- STR:", p2.strength);
-        console2.log("- CON:", p2.constitution);
-        console2.log("- AGI:", p2.agility);
-        console2.log("- STA:", p2.stamina);
-        console2.log("- Initial Health/Stamina:", p2InitialHealth, "/", p2InitialStamina);
-
-        // Combat seed debug
         uint256 combatSeed = uint256(keccak256(abi.encodePacked(block.timestamp, "combat")));
-        console2.log("\nCombat Seed:", combatSeed);
+        bytes memory packedResults = game.playGame(player1, player2, combatSeed);
+        console2.log("\nRaw combat results:");
+        console2.logBytes(packedResults);
 
-        vm.recordLogs();
+        (uint8 winner, Game.WinCondition condition, Game.CombatAction[] memory actions) =
+            game.decodeCombatLog(packedResults);
 
-        try game.playGame(player1, player2, combatSeed) returns (bytes memory packedResults, address winner) {
-            console2.log("Combat completed successfully");
-            console2.log("\n=== Combat Log ===");
+        uint256 currentP1Health = p1InitialHealth;
+        uint256 currentP1Stamina = p1InitialStamina;
+        uint256 currentP2Health = p2InitialHealth;
+        uint256 currentP2Stamina = p2InitialStamina;
 
-            // Enhanced action logging
-            for (uint256 i = 0; i < packedResults.length; i += 6) {
-                console2.log("\nRound", (i / 6) + 1);
-                uint8 p1Result = uint8(packedResults[i]);
-                uint8 p1Damage = uint8(packedResults[i + 1]);
-                uint8 p1StaminaLost = uint8(packedResults[i + 2]);
-                uint8 p2Result = uint8(packedResults[i + 3]);
-                uint8 p2Damage = uint8(packedResults[i + 4]);
-                uint8 p2StaminaLost = uint8(packedResults[i + 5]);
+        for (uint256 i = 0; i < actions.length; i++) {
+            Game.CombatAction memory action = actions[i];
 
-                console2.log("Player 1:", _getCombatResultString(Game.CombatResultType(p1Result)));
-                console2.log("- Damage Done:", p1Damage);
-                console2.log("- Stamina Used:", p1StaminaLost);
+            console2.log("\n=== Round %d ===", i + 1);
+            console2.log("Player 1: %s", _getCombatResultString(action.p1Result));
+            console2.log("  Damage: %d", action.p1Damage);
+            console2.log("  Stamina Used: %d", action.p1StaminaLost);
+            console2.log("Player 2: %s", _getCombatResultString(action.p2Result));
+            console2.log("  Damage: %d", action.p2Damage);
+            console2.log("  Stamina Used: %d", action.p2StaminaLost);
 
-                console2.log("Player 2:", _getCombatResultString(Game.CombatResultType(p2Result)));
-                console2.log("- Damage Done:", p2Damage);
-                console2.log("- Stamina Used:", p2StaminaLost);
+            // Update state
+            currentP1Health = action.p2Damage >= currentP1Health ? 0 : currentP1Health - action.p2Damage;
+            currentP2Health = action.p1Damage >= currentP2Health ? 0 : currentP2Health - action.p1Damage;
+            currentP1Stamina = action.p1StaminaLost >= currentP1Stamina ? 0 : currentP1Stamina - action.p1StaminaLost;
+            currentP2Stamina = action.p2StaminaLost >= currentP2Stamina ? 0 : currentP2Stamina - action.p2StaminaLost;
 
-                // Get updated states
-                (uint256 p1Health, uint256 p1Stamina) = game.getPlayerState(player1);
-                (uint256 p2Health, uint256 p2Stamina) = game.getPlayerState(player2);
+            console2.log("After Round %d:", i + 1);
+            console2.log("  P1 Health/Stamina: %d/%d", currentP1Health, currentP1Stamina);
+            console2.log("  P2 Health/Stamina: %d/%d", currentP2Health, currentP2Stamina);
 
-                console2.log("P1 Health/Stamina:", p1Health, "/", p1Stamina);
-                console2.log("P2 Health/Stamina:", p2Health, "/", p2Stamina);
+            // Validate combat results
+            assertTrue(action.p1Damage <= 50, "P1 damage too high");
+            assertTrue(action.p2Damage <= 50, "P2 damage too high");
+            assertTrue(action.p1StaminaLost <= 30, "P1 stamina loss too high");
+            assertTrue(action.p2StaminaLost <= 30, "P2 stamina loss too high");
+
+            if (currentP1Health == 0 || currentP2Health == 0) {
+                if (i < actions.length - 1) {
+                    console2.log("Combat continued after fatal damage");
+                    fail();
+                }
             }
-            console2.log("\nFinal Winner:", winner == player1 ? "Player 1" : "Player 2");
-        } catch Error(string memory reason) {
-            console2.log("Error:", reason);
         }
+
+        console2.log("\n=== Combat Summary ===");
+        console2.log("Winner: Player %d", winner);
+        console2.log(
+            "Win Condition: %s",
+            condition == Game.WinCondition.HEALTH
+                ? "Health Depletion"
+                : condition == Game.WinCondition.EXHAUSTION ? "Stamina Exhaustion" : "Maximum Rounds"
+        );
+    }
+
+    function logRound(Game.CombatAction memory action) internal pure {
+        console2.log("Player 1:", _getCombatResultString(action.p1Result));
+        console2.log("- Damage Done:", action.p1Damage);
+        console2.log("- Stamina Used:", action.p1StaminaLost);
+        console2.log("Player 2:", _getCombatResultString(action.p2Result));
+        console2.log("- Damage Done:", action.p2Damage);
+        console2.log("- Stamina Used:", action.p2StaminaLost);
     }
 
     function _getCombatResultString(Game.CombatResultType resultType) internal pure returns (string memory) {
@@ -174,52 +183,109 @@ contract GameTest is Test {
     }
 
     function testSpecificScenarios() public {
-        // Test specific combat scenarios
-        address player1 = address(1);
-        address player2 = address(2);
+        // Setup
+        address[5] memory players =
+            [makeAddr("player1"), makeAddr("player2"), makeAddr("player3"), makeAddr("player4"), makeAddr("player5")];
 
-        // Create players with specific stats for testing
-        vm.prank(player1);
-        game.createPlayer(_generateRandomSeed(player1));
+        uint256[5] memory seeds = [
+            uint256(keccak256(abi.encodePacked("seed1"))),
+            uint256(keccak256(abi.encodePacked("seed2"))),
+            uint256(keccak256(abi.encodePacked("seed3"))),
+            uint256(keccak256(abi.encodePacked("seed4"))),
+            uint256(keccak256(abi.encodePacked("seed5")))
+        ];
 
-        vm.prank(player2);
-        game.createPlayer(_generateRandomSeed(player2));
-
-        // Test multiple combats with different seeds
+        // Create players
         for (uint256 i = 0; i < 5; i++) {
-            uint256 combatSeed = uint256(keccak256(abi.encodePacked(block.timestamp, i)));
+            vm.prank(players[i]);
+            game.createPlayer(seeds[i]);
+        }
 
-            vm.recordLogs();
-            (bytes memory packedResults, address winner) = game.playGame(player1, player2, combatSeed);
+        for (uint256 i = 0; i < 5; i++) {
+            bytes memory results = game.playGame(players[i], players[(i + 1) % 5], seeds[i]);
+
+            // Track action counts
+            uint256 attackCount = 0;
+            uint256 blockCount = 0;
+            uint256 dodgeCount = 0;
+            uint256 counterCount = 0;
+            uint256 missCount = 0;
+            uint256 hitCount = 0;
+
+            // Calculate total rounds (skip 2 bytes for winner/condition, then 6 bytes per round)
+            uint256 totalRounds = (results.length - 2) / 6;
+
+            // Skip first 2 bytes (winner and condition)
+            for (uint256 j = 2; j < results.length; j += 6) {
+                // First player action
+                uint8 p1Result = uint8(bytes1(results[j]));
+                if (p1Result == uint8(Game.CombatResultType.ATTACK)) attackCount++;
+                if (p1Result == uint8(Game.CombatResultType.BLOCK)) blockCount++;
+                if (p1Result == uint8(Game.CombatResultType.DODGE)) dodgeCount++;
+                if (p1Result == uint8(Game.CombatResultType.COUNTER)) counterCount++;
+                if (p1Result == uint8(Game.CombatResultType.MISS)) missCount++;
+                if (p1Result == uint8(Game.CombatResultType.HIT)) hitCount++;
+
+                // Second player action
+                uint8 p2Result = uint8(bytes1(results[j + 3]));
+                if (p2Result == uint8(Game.CombatResultType.ATTACK)) attackCount++;
+                if (p2Result == uint8(Game.CombatResultType.BLOCK)) blockCount++;
+                if (p2Result == uint8(Game.CombatResultType.DODGE)) dodgeCount++;
+                if (p2Result == uint8(Game.CombatResultType.COUNTER)) counterCount++;
+                if (p2Result == uint8(Game.CombatResultType.MISS)) missCount++;
+                if (p2Result == uint8(Game.CombatResultType.HIT)) hitCount++;
+            }
 
             console2.log("\nCombat", i + 1, "Results:");
-            console2.log("Total Actions:", packedResults.length / 6);
-            console2.log("Winner:", winner == player1 ? "Player 1" : "Player 2");
+            console2.log("  Winner: Player", uint8(bytes1(results[0])));
+            console2.log(
+                "  Win Condition:",
+                uint8(bytes1(results[1])) == 0 ? "Health" : uint8(bytes1(results[1])) == 1 ? "Exhaustion" : "Max Rounds"
+            );
+            console2.log("  Combat Summary:");
+            console2.log("    Total Rounds:", totalRounds);
+            console2.log("    Attacks:", attackCount);
+            console2.log("    Blocks:", blockCount);
+            console2.log("    Dodges:", dodgeCount);
+            console2.log("    Counters:", counterCount);
+            console2.log("    Misses:", missCount);
+            console2.log("    Hits:", hitCount);
+            console2.log("");
         }
     }
 
-    function testCombatMath() public {
-        address player1 = address(1);
-        address player2 = address(2);
+    function processCombatLog(bytes memory results) internal view returns (address expectedWinner) {
+        (uint8 winner,, Game.CombatAction[] memory actions) = game.decodeCombatLog(results);
 
-        vm.prank(player1);
-        game.createPlayer(_generateRandomSeed(player1));
+        // Track state for validation
+        (uint256 currentP1Health, uint256 currentP1Stamina) = game.getPlayerState(address(1));
+        (uint256 currentP2Health, uint256 currentP2Stamina) = game.getPlayerState(address(2));
 
-        vm.prank(player2);
-        game.createPlayer(_generateRandomSeed(player2));
+        for (uint256 i = 0; i < actions.length; i++) {
+            Game.CombatAction memory action = actions[i];
 
-        // Add debug logging for calculated stats
-        (uint256 p1Health, uint256 p1Stamina) = game.getPlayerState(player1);
-        (uint256 p2Health, uint256 p2Stamina) = game.getPlayerState(player2);
+            console2.log("\nRound %d", (i / 6) + 1);
 
-        console2.log("\nPlayer 1 Stats:");
-        console2.log("Health:", p1Health);
-        console2.log("Stamina:", p1Stamina);
+            console2.log("Player 1:", _getCombatResultString(Game.CombatResultType(action.p1Result)));
+            console2.log("- Damage Done:", action.p1Damage);
+            console2.log("- Stamina Used:", action.p1StaminaLost);
 
-        console2.log("\nPlayer 2 Stats:");
-        console2.log("Health:", p2Health);
-        console2.log("Stamina:", p2Stamina);
+            console2.log("Player 2:", _getCombatResultString(Game.CombatResultType(action.p2Result)));
+            console2.log("- Damage Done:", action.p2Damage);
+            console2.log("- Stamina Used:", action.p2StaminaLost);
 
-        // Continue with combat test...
+            console2.log("Current State:");
+            console2.log("P1 Health/Stamina: %d / %d", currentP1Health, currentP1Stamina);
+            console2.log("P2 Health/Stamina: %d / %d", currentP2Health, currentP2Stamina);
+
+            // Update state tracking
+            currentP1Health = action.p2Damage >= currentP1Health ? 0 : currentP1Health - action.p2Damage;
+            currentP2Health = action.p1Damage >= currentP2Health ? 0 : currentP2Health - action.p1Damage;
+            currentP1Stamina = action.p1StaminaLost >= currentP1Stamina ? 0 : currentP1Stamina - action.p1StaminaLost;
+            currentP2Stamina = action.p2StaminaLost >= currentP2Stamina ? 0 : currentP2Stamina - action.p2StaminaLost;
+        }
+
+        // Return winner based on the winner byte
+        return winner == 1 ? address(1) : address(2);
     }
 }
