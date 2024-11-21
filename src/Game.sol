@@ -384,11 +384,6 @@ contract Game {
         return a < b ? a : b;
     }
 
-    function safeUint8(uint256 value) internal pure returns (uint8) {
-        require(value <= type(uint8).max, "Value exceeds uint8");
-        return uint8(value);
-    }
-
     function calculateStats(Player memory player) public pure returns (CalculatedStats memory) {
         // First convert all stats to uint8 and cap them
         uint8 str = uint8(player.strength >= 0 ? uint8(player.strength) : 0);
@@ -427,25 +422,5 @@ contract Game {
         CalculatedStats memory stats = calculateStats(player);
         // Convert to uint256 after calculation to prevent overflow
         return (uint256(stats.maxHealth), uint256(stats.maxEndurance));
-    }
-
-    // Helper function to convert uint to string
-    function toString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
-        }
-        return string(buffer);
     }
 }

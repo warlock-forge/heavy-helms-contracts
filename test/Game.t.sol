@@ -8,15 +8,11 @@ contract GameTest is Test {
     Game public game;
 
     function setUp() public {
-        // For CI environment, use a mock chain
+        // For CI environment, require a live chain connection
         try vm.envString("RPC_URL") returns (string memory rpcUrl) {
             vm.createSelectFork(rpcUrl);
         } catch {
-            // If RPC_URL is not available, use a local mock setup
-            vm.warp(1_000_000);
-            vm.roll(16_000_000);
-            // Mock prevrandao value
-            vm.prevrandao(bytes32(uint256(0x1234567890)));
+            revert("RPC_URL environment variable not set - tests require live blockchain data");
         }
         game = new Game();
     }
@@ -188,11 +184,11 @@ contract GameTest is Test {
             [makeAddr("player1"), makeAddr("player2"), makeAddr("player3"), makeAddr("player4"), makeAddr("player5")];
 
         uint256[5] memory seeds = [
-            uint256(keccak256(abi.encodePacked("seed1"))),
-            uint256(keccak256(abi.encodePacked("seed2"))),
-            uint256(keccak256(abi.encodePacked("seed3"))),
-            uint256(keccak256(abi.encodePacked("seed4"))),
-            uint256(keccak256(abi.encodePacked("seed5")))
+            _generateRandomSeed(players[0]),
+            _generateRandomSeed(players[1]),
+            _generateRandomSeed(players[2]),
+            _generateRandomSeed(players[3]),
+            _generateRandomSeed(players[4])
         ];
 
         // Create players
