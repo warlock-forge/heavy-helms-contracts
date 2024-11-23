@@ -4,7 +4,8 @@ out = "out"
 libs = ["lib"]
 remappings = [
     "forge-std/=lib/forge-std/src/",
-    "ds-test/=lib/forge-std/lib/ds-test/src/"
+    "ds-test/=lib/forge-std/lib/ds-test/src/",
+    "@openzeppelin/=lib/openzeppelin-contracts/"
 ]
 via_ir = true
 
