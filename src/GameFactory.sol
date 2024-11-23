@@ -26,9 +26,7 @@ contract GameFactory is Ownable {
         return gameAddress;
     }
 
-    function upgradeImplementation(
-        address newImplementation
-    ) external onlyOwner {
+    function upgradeImplementation(address newImplementation) external onlyOwner {
         beacon.upgradeTo(newImplementation);
     }
 
