@@ -16,19 +16,21 @@ contract Game {
         COUNTER, // 3
         DODGE, // 4
         HIT // 5
+
     }
 
     enum WinCondition {
         HEALTH, // Won by reducing opponent's health to 0
         EXHAUSTION, // Won because opponent couldn't attack (low stamina)
         MAX_ROUNDS // Won by having more health after max rounds
+
     }
 
     event CombatResult(
-        uint256 indexed player1Id, 
-        uint256 indexed player2Id, 
-        uint256 randomSeed, 
-        bytes packedResults, 
+        uint256 indexed player1Id,
+        uint256 indexed player2Id,
+        uint256 randomSeed,
+        bytes packedResults,
         uint256 winningPlayerId
     );
 

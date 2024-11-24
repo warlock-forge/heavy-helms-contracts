@@ -16,10 +16,10 @@ contract Player is IPlayer {
 
     // Main storage of player stats by ID
     mapping(uint256 => IPlayer.PlayerStats) private _players;
-    
+
     // Mapping of address to array of their player IDs
     mapping(address => uint256[]) private _addressToPlayerIds;
-    
+
     // Optional: Mapping of player ID to owner address for reverse lookup
     mapping(uint256 => address) private _playerOwners;
 
@@ -30,17 +30,17 @@ contract Player is IPlayer {
     function createPlayer(uint256 randomSeed) external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
         // Check if address has already created a player
         if (_hasCreatedPlayer[msg.sender]) revert PLAYER_EXISTS();
-        
+
         // Mark this address as having created a player
         _hasCreatedPlayer[msg.sender] = true;
 
         // Generate new unique ID
         playerId = _nextPlayerId++;
-        
+
         // Generate stats (existing logic)
         uint256 remainingPoints = 36;
         int8[4] memory statArray = [int8(3), int8(3), int8(3), int8(3)];
-        
+
         // Use different bits of randomSeed for ordering
         uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
 
@@ -50,7 +50,7 @@ contract Player is IPlayer {
             order = uint256(keccak256(abi.encodePacked(order)));
 
             uint256 pointsNeededForRemaining = (3 - i) * 3;
-            uint256 availablePoints = 
+            uint256 availablePoints =
                 remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
 
             uint256 maxPoints = min(availablePoints, 18);
@@ -68,9 +68,9 @@ contract Player is IPlayer {
         statArray[0] += int8(uint8(min(remainingPoints, 18)));
 
         stats = IPlayer.PlayerStats({
-            strength: statArray[0], 
-            constitution: statArray[1], 
-            agility: statArray[2], 
+            strength: statArray[0],
+            constitution: statArray[1],
+            agility: statArray[2],
             stamina: statArray[3]
         });
 
@@ -140,14 +140,19 @@ contract Player is IPlayer {
         if (player.agility < 3 || player.agility > 21) return false;
         if (player.stamina < 3 || player.stamina > 21) return false;
 
-        int16 total = 
+        int16 total =
             int16(player.strength) + int16(player.constitution) + int16(player.agility) + int16(player.stamina);
 
         return total == 48;
     }
 
-    function _fixStats(IPlayer.PlayerStats memory player, uint256 randomSeed) private pure returns (IPlayer.PlayerStats memory) {
-        int16 total = int16(player.strength) + int16(player.constitution) + int16(player.agility) + int16(player.stamina);
+    function _fixStats(IPlayer.PlayerStats memory player, uint256 randomSeed)
+        private
+        pure
+        returns (IPlayer.PlayerStats memory)
+    {
+        int16 total =
+            int16(player.strength) + int16(player.constitution) + int16(player.agility) + int16(player.stamina);
 
         // First ensure all stats are within 3-21 range
         int8[4] memory stats = [player.strength, player.constitution, player.agility, player.stamina];
@@ -184,15 +189,10 @@ contract Player is IPlayer {
             }
         }
 
-        return IPlayer.PlayerStats({
-            strength: stats[0],
-            constitution: stats[1],
-            agility: stats[2],
-            stamina: stats[3]
-        });
+        return IPlayer.PlayerStats({strength: stats[0], constitution: stats[1], agility: stats[2], stamina: stats[3]});
     }
 
     function min(uint256 a, uint256 b) private pure returns (uint256) {
         return a < b ? a : b;
     }
-} 
+}

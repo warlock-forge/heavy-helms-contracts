@@ -40,11 +40,7 @@ contract GameTest is Test {
         return uint256(
             keccak256(
                 abi.encodePacked(
-                    block.timestamp, 
-                    block.prevrandao, 
-                    blockhash(block.number - 1), 
-                    playerAddress, 
-                    address(this)
+                    block.timestamp, block.prevrandao, blockhash(block.number - 1), playerAddress, address(this)
                 )
             )
         );
@@ -147,14 +143,15 @@ contract GameTest is Test {
     }
 
     function testSpecificScenarios() public {
-        address[5] memory playerAddresses = 
+        address[5] memory playerAddresses =
             [makeAddr("player1"), makeAddr("player2"), makeAddr("player3"), makeAddr("player4"), makeAddr("player5")];
         uint256[5] memory gamePlayerIds;
 
         // Create players and store their IDs
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(playerAddresses[i]);
-            (uint256 pId, IPlayer.PlayerStats memory pStats) = playerContract.createPlayer(_generateRandomSeed(playerAddresses[i]));
+            (uint256 pId, IPlayer.PlayerStats memory pStats) =
+                playerContract.createPlayer(_generateRandomSeed(playerAddresses[i]));
             require(pStats.strength != 0, "Player creation failed");
             gamePlayerIds[i] = pId;
             playerIds[playerAddresses[i]] = pId;
@@ -162,11 +159,8 @@ contract GameTest is Test {
 
         // Use player IDs for combat
         for (uint256 i = 0; i < 5; i++) {
-            bytes memory results = game.playGame(
-                gamePlayerIds[i], 
-                gamePlayerIds[(i + 1) % 5], 
-                _generateRandomSeed(playerAddresses[i])
-            );
+            bytes memory results =
+                game.playGame(gamePlayerIds[i], gamePlayerIds[(i + 1) % 5], _generateRandomSeed(playerAddresses[i]));
 
             // Track action counts
             uint256 attackCount = 0;

@@ -29,4 +29,4 @@ interface IPlayer {
     function players(uint256 playerId) external view returns (PlayerStats memory);
     function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina);
     function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory);
-} 
+}
