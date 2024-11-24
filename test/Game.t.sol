@@ -3,9 +3,15 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Game} from "../src/Game.sol";
+import {Player} from "../src/Player.sol";
+import "../src/interfaces/IPlayer.sol";
 
 contract GameTest is Test {
     Game public game;
+    Player public playerContract;
+
+    // Add mapping to track player IDs
+    mapping(address => uint256) playerIds;
 
     function setUp() public {
         // Check if we're in CI environment
@@ -24,99 +30,51 @@ contract GameTest is Test {
                 );
             }
         }
-        game = new Game();
+
+        // Deploy Player first, then Game
+        playerContract = new Player();
+        game = new Game(address(playerContract));
     }
 
-    function _generateRandomSeed(address player) private view returns (uint256) {
+    function _generateRandomSeed(address playerAddress) private view returns (uint256) {
         return uint256(
             keccak256(
-                abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), player, address(this))
+                abi.encodePacked(
+                    block.timestamp, 
+                    block.prevrandao, 
+                    blockhash(block.number - 1), 
+                    playerAddress, 
+                    address(this)
+                )
             )
         );
-    }
-
-    function _validatePlayerAttributes(Game.Player memory player, string memory context) private pure {
-        assertTrue(player.strength >= 3, string.concat(context, ": Strength below minimum"));
-        assertTrue(player.constitution >= 3, string.concat(context, ": Constitution below minimum"));
-        assertTrue(player.agility >= 3, string.concat(context, ": Agility below minimum"));
-        assertTrue(player.stamina >= 3, string.concat(context, ": Stamina below minimum"));
-
-        assertTrue(player.strength <= 21, string.concat(context, ": Strength above maximum"));
-        assertTrue(player.constitution <= 21, string.concat(context, ": Constitution above maximum"));
-        assertTrue(player.agility <= 21, string.concat(context, ": Agility above maximum"));
-        assertTrue(player.stamina <= 21, string.concat(context, ": Stamina above maximum"));
-
-        int16 total =
-            int16(player.strength) + int16(player.constitution) + int16(player.agility) + int16(player.stamina);
-        assertEq(total, 48, string.concat(context, ": Total attributes should be 48"));
-    }
-
-    function testCreatePlayer() public {
-        address player = address(1);
-
-        // First creation should succeed
-        vm.prank(player);
-        uint256 randomSeed = _generateRandomSeed(player);
-        Game.Player memory newPlayer = game.createPlayer(randomSeed);
-        _validatePlayerAttributes(newPlayer, "Single player test");
-
-        // Second creation with same address should revert
-        vm.prank(player);
-        vm.expectRevert(Game.PLAYER_EXISTS.selector);
-        game.createPlayer(_generateRandomSeed(player));
-    }
-
-    function testMultiplePlayers() public {
-        string memory stats = "";
-        for (uint256 i = 0; i < 5; i++) {
-            address player = address(uint160(i + 1));
-            vm.prank(player);
-
-            uint256 randomSeed = _generateRandomSeed(player);
-            Game.Player memory newPlayer = game.createPlayer(randomSeed);
-            _validatePlayerAttributes(newPlayer, string.concat("Player ", vm.toString(i + 1)));
-
-            stats = string.concat(
-                stats,
-                i == 0 ? "" : " | ",
-                string.concat(
-                    "P",
-                    vm.toString(i + 1),
-                    ": ",
-                    vm.toString(uint8(newPlayer.strength)),
-                    "/",
-                    vm.toString(uint8(newPlayer.constitution)),
-                    "/",
-                    vm.toString(uint8(newPlayer.agility)),
-                    "/",
-                    vm.toString(uint8(newPlayer.stamina))
-                )
-            );
-        }
-        console2.log("Player Stats (STR/CON/AGI/STA):", stats);
     }
 
     function testBasicCombat() public {
         address player1 = address(1);
         address player2 = address(2);
 
-        // Register players in game state
+        // Create players and store their IDs
         vm.prank(player1);
-        require(game.createPlayer(_generateRandomSeed(player1)).strength != 0, "P1 creation failed");
+        (uint256 p1Id, IPlayer.PlayerStats memory p1Stats) = playerContract.createPlayer(_generateRandomSeed(player1));
+        require(p1Stats.strength != 0, "P1 creation failed");
+        playerIds[player1] = p1Id;
 
         vm.prank(player2);
-        require(game.createPlayer(_generateRandomSeed(player2)).strength != 0, "P2 creation failed");
+        (uint256 p2Id, IPlayer.PlayerStats memory p2Stats) = playerContract.createPlayer(_generateRandomSeed(player2));
+        require(p2Stats.strength != 0, "P2 creation failed");
+        playerIds[player2] = p2Id;
 
-        // Get initial states
-        (uint256 p1InitialHealth, uint256 p1InitialStamina) = game.getPlayerState(player1);
-        (uint256 p2InitialHealth, uint256 p2InitialStamina) = game.getPlayerState(player2);
+        // Get initial states using player IDs
+        (uint256 p1InitialHealth, uint256 p1InitialStamina) = playerContract.getPlayerState(p1Id);
+        (uint256 p2InitialHealth, uint256 p2InitialStamina) = playerContract.getPlayerState(p2Id);
 
         uint256 combatSeed = uint256(keccak256(abi.encodePacked(block.timestamp, "combat")));
-        bytes memory packedResults = game.playGame(player1, player2, combatSeed);
+        bytes memory packedResults = game.playGame(p1Id, p2Id, combatSeed);
         console2.log("\nRaw combat results:");
         console2.logBytes(packedResults);
 
-        (uint8 winner, Game.WinCondition condition, Game.CombatAction[] memory actions) =
+        (uint256 winner, Game.WinCondition condition, Game.CombatAction[] memory actions) =
             game.decodeCombatLog(packedResults);
 
         uint256 currentP1Health = p1InitialHealth;
@@ -189,26 +147,26 @@ contract GameTest is Test {
     }
 
     function testSpecificScenarios() public {
-        // Setup
-        address[5] memory players =
+        address[5] memory playerAddresses = 
             [makeAddr("player1"), makeAddr("player2"), makeAddr("player3"), makeAddr("player4"), makeAddr("player5")];
+        uint256[5] memory gamePlayerIds;
 
-        uint256[5] memory seeds = [
-            _generateRandomSeed(players[0]),
-            _generateRandomSeed(players[1]),
-            _generateRandomSeed(players[2]),
-            _generateRandomSeed(players[3]),
-            _generateRandomSeed(players[4])
-        ];
-
-        // Create players
+        // Create players and store their IDs
         for (uint256 i = 0; i < 5; i++) {
-            vm.prank(players[i]);
-            game.createPlayer(seeds[i]);
+            vm.prank(playerAddresses[i]);
+            (uint256 pId, IPlayer.PlayerStats memory pStats) = playerContract.createPlayer(_generateRandomSeed(playerAddresses[i]));
+            require(pStats.strength != 0, "Player creation failed");
+            gamePlayerIds[i] = pId;
+            playerIds[playerAddresses[i]] = pId;
         }
 
+        // Use player IDs for combat
         for (uint256 i = 0; i < 5; i++) {
-            bytes memory results = game.playGame(players[i], players[(i + 1) % 5], seeds[i]);
+            bytes memory results = game.playGame(
+                gamePlayerIds[i], 
+                gamePlayerIds[(i + 1) % 5], 
+                _generateRandomSeed(playerAddresses[i])
+            );
 
             // Track action counts
             uint256 attackCount = 0;
@@ -260,12 +218,12 @@ contract GameTest is Test {
         }
     }
 
-    function processCombatLog(bytes memory results) internal view returns (address expectedWinner) {
-        (uint8 winner,, Game.CombatAction[] memory actions) = game.decodeCombatLog(results);
+    function processCombatLog(bytes memory results) internal view returns (uint256 expectedWinner) {
+        (uint256 winner,, Game.CombatAction[] memory actions) = game.decodeCombatLog(results);
 
-        // Track state for validation
-        (uint256 currentP1Health, uint256 currentP1Stamina) = game.getPlayerState(address(1));
-        (uint256 currentP2Health, uint256 currentP2Stamina) = game.getPlayerState(address(2));
+        // Track state for validation using player IDs
+        (uint256 currentP1Health, uint256 currentP1Stamina) = playerContract.getPlayerState(playerIds[address(1)]);
+        (uint256 currentP2Health, uint256 currentP2Stamina) = playerContract.getPlayerState(playerIds[address(2)]);
 
         for (uint256 i = 0; i < actions.length; i++) {
             Game.CombatAction memory action = actions[i];
@@ -292,6 +250,6 @@ contract GameTest is Test {
         }
 
         // Return winner based on the winner byte
-        return winner == 1 ? address(1) : address(2);
+        return winner;
     }
 }

@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Script, console} from "forge-std/Script.sol";
+import "forge-std/Script.sol";
 import {Game} from "../src/Game.sol";
+import {Player} from "../src/Player.sol";
 
 contract GameScript is Script {
-    Game public counter;
-
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
-
-        counter = new Game();
-
+        Player playerContract = new Player();
+        Game game = new Game(address(playerContract));
         vm.stopBroadcast();
     }
 }
