@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "solmate/src/auth/Owned.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 
-contract Player is IPlayer {
+contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
 
     // Configuration
     uint256 public maxPlayersPerAddress;
-    address public admin;
 
     // Player state tracking
     mapping(uint256 => IPlayer.PlayerStats) private _players;
@@ -31,9 +31,8 @@ contract Player is IPlayer {
     uint8 private constant MAX_STAT = 21;
     uint16 private constant TOTAL_STATS = 72;
 
-    constructor(uint256 initialMaxPlayers) {
-        maxPlayersPerAddress = initialMaxPlayers;
-        admin = msg.sender;
+    constructor() Owned(msg.sender) {
+        maxPlayersPerAddress = 5; // Default max players per address
     }
 
     // Make sure this matches the interface exactly
@@ -246,5 +245,11 @@ contract Player is IPlayer {
 
     function min(uint256 a, uint256 b) private pure returns (uint256) {
         return a < b ? a : b;
+    }
+
+    // Function to update max players per address, restricted to the owner
+    function setMaxPlayersPerAddress(uint256 newMax) external onlyOwner {
+        maxPlayersPerAddress = newMax;
+        emit MaxPlayersUpdated(newMax);
     }
 }

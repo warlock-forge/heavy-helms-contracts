@@ -10,7 +10,7 @@ contract GameScript is Script {
 
     function run() public {
         vm.startBroadcast();
-        Player playerContract = new Player(5);
+        Player playerContract = new Player();
         Game game = new Game(address(playerContract));
         vm.stopBroadcast();
     }

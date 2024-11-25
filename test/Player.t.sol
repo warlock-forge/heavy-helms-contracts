@@ -21,7 +21,7 @@ contract PlayerTest is Test {
                 revert("RPC_URL environment variable not set");
             }
         }
-        playerContract = new Player(5);
+        playerContract = new Player();
     }
 
     function _validatePlayerAttributes(IPlayer.PlayerStats memory stats, string memory context) private pure {

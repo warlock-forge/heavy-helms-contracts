@@ -26,7 +26,7 @@ contract GameTest is Test {
                 revert("RPC_URL environment variable not set");
             }
         }
-        playerContract = new Player(5);
+        playerContract = new Player();
         game = new Game(address(playerContract));
     }
 
@@ -38,9 +38,8 @@ contract GameTest is Test {
         vm.prank(address(2));
         (uint256 p2Id,) = playerContract.createPlayer();
 
-        // Run combat
-        uint256 combatSeed = uint256(keccak256(abi.encodePacked(block.timestamp, "combat")));
-        bytes memory packedResults = game.playGame(p1Id, p2Id, combatSeed);
+        // Run combat using practiceGame
+        bytes memory packedResults = game.practiceGame(p1Id, p2Id);
         (uint256 winner, Game.WinCondition condition, Game.CombatAction[] memory actions) =
             game.decodeCombatLog(packedResults);
 
@@ -70,8 +69,7 @@ contract GameTest is Test {
 
         // Test different combat scenarios
         for (uint256 i = 0; i < 4; i++) {
-            uint256 combatSeed = uint256(keccak256(abi.encodePacked(block.timestamp, "combat", i)));
-            bytes memory packedResults = game.playGame(combatPlayerIds[i], combatPlayerIds[i + 1], combatSeed);
+            bytes memory packedResults = game.practiceGame(combatPlayerIds[i], combatPlayerIds[i + 1]);
             (uint256 winner, Game.WinCondition condition, Game.CombatAction[] memory actions) =
                 game.decodeCombatLog(packedResults);
 
