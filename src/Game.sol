@@ -172,7 +172,8 @@ contract Game {
         }
     }
 
-    function playGame(uint256 player1Id, uint256 player2Id, uint256 seed) public view returns (bytes memory) {
+    // Private method to handle the game logic
+    function playGameInternal(uint256 player1Id, uint256 player2Id, uint256 seed) private view returns (bytes memory) {
         // Get player stats from Player contract
         IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(player1Id);
         IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(player2Id);
@@ -300,6 +301,30 @@ contract Game {
 
         // Pack winner and condition at start, then combat results
         return abi.encodePacked(bytes1(uint8(state.winner)), bytes1(uint8(state.condition)), results);
+    }
+
+    // Public method for practice games
+    function practiceGame(uint256 player1Id, uint256 player2Id) public view returns (bytes memory) {
+        uint256 pseudoRandomSeed = uint256(keccak256(abi.encodePacked(block.timestamp, player1Id, player2Id)));
+        return playGameInternal(player1Id, player2Id, pseudoRandomSeed);
+    }
+
+    // Public method for official games
+    function officialGame(uint256 player1Id, uint256 player2Id) public payable returns (bytes memory) {
+        //require(msg.value >= entryFee, "Insufficient entry fee");
+
+        // Trigger VRF to get a random seed
+        uint256 vrfSeed = requestRandomSeedFromVRF();
+
+        // This function should be called after receiving the VRF response
+        return playGameInternal(player1Id, player2Id, vrfSeed);
+    }
+
+    // Placeholder for VRF request logic
+    function requestRandomSeedFromVRF() private returns (uint256) {
+        // Implement VRF request logic here
+        // This is a placeholder and should be replaced with actual VRF integration
+        return uint256(keccak256(abi.encodePacked(block.timestamp)));
     }
 
     function min(uint256 a, uint256 b) private pure returns (uint256) {
