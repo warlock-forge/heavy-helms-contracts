@@ -11,68 +11,69 @@ contract PlayerTest is Test {
     function setUp() public {
         // Check if we're in CI environment
         try vm.envString("CI") returns (string memory) {
-            // In CI: use mock data
             vm.warp(1_000_000);
             vm.roll(16_000_000);
             vm.prevrandao(bytes32(uint256(0x1234567890)));
         } catch {
-            // Local dev: require live blockchain data
             try vm.envString("RPC_URL") returns (string memory rpcUrl) {
                 vm.createSelectFork(rpcUrl);
             } catch {
-                revert(
-                    "RPC_URL environment variable not set - tests require live blockchain data for local development"
-                );
+                revert("RPC_URL environment variable not set");
             }
         }
-
         playerContract = new Player(5);
     }
 
     function _validatePlayerAttributes(IPlayer.PlayerStats memory stats, string memory context) private pure {
-        // Check minimum values
-        assertTrue(stats.strength >= 3, string.concat(context, ": Strength below minimum"));
-        assertTrue(stats.constitution >= 3, string.concat(context, ": Constitution below minimum"));
-        assertTrue(stats.size >= 3, string.concat(context, ": Size below minimum"));
-        assertTrue(stats.agility >= 3, string.concat(context, ": Agility below minimum"));
-        assertTrue(stats.stamina >= 3, string.concat(context, ": Stamina below minimum"));
-        assertTrue(stats.luck >= 3, string.concat(context, ": Luck below minimum"));
+        assertTrue(stats.strength >= 3 && stats.strength <= 21);
+        assertTrue(stats.constitution >= 3 && stats.constitution <= 21);
+        assertTrue(stats.size >= 3 && stats.size <= 21);
+        assertTrue(stats.agility >= 3 && stats.agility <= 21);
+        assertTrue(stats.stamina >= 3 && stats.stamina <= 21);
+        assertTrue(stats.luck >= 3 && stats.luck <= 21);
 
-        // Check maximum values
-        assertTrue(stats.strength <= 21, string.concat(context, ": Strength above maximum"));
-        assertTrue(stats.constitution <= 21, string.concat(context, ": Constitution above maximum"));
-        assertTrue(stats.size <= 21, string.concat(context, ": Size above maximum"));
-        assertTrue(stats.agility <= 21, string.concat(context, ": Agility above maximum"));
-        assertTrue(stats.stamina <= 21, string.concat(context, ": Stamina above maximum"));
-        assertTrue(stats.luck <= 21, string.concat(context, ": Luck above maximum"));
-
-        // Calculate total using uint16 to prevent any overflow
         uint16 total = uint16(stats.strength) + uint16(stats.constitution) + uint16(stats.size) + uint16(stats.agility)
             + uint16(stats.stamina) + uint16(stats.luck);
-
         assertEq(total, 72, string.concat(context, ": Total attributes should be 72"));
     }
 
     function testCreatePlayer() public {
         address player = address(0x1);
         vm.prank(player);
-
         (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer();
-
         assertTrue(playerId > 0, "Player ID should be non-zero");
-        assertTrue(newPlayer.strength >= 3, "Strength too low");
         _validatePlayerAttributes(newPlayer, "Single player test");
     }
 
     function testMultiplePlayers() public {
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(address(uint160(i + 1)));
-
             (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer();
-
             assertTrue(playerId > 0, "Player ID should be non-zero");
-            assertTrue(newPlayer.strength >= 3, "Strength too low");
             _validatePlayerAttributes(newPlayer, string.concat("Player ", vm.toString(i + 1)));
         }
+    }
+
+    function testStatRanges() public {
+        (, IPlayer.PlayerStats memory stats1) = playerContract.createPlayer();
+        IPlayer.CalculatedStats memory calc1 = playerContract.calculateStats(stats1);
+        assertStatRanges(stats1, calc1);
+    }
+
+    function assertStatRanges(IPlayer.PlayerStats memory stats, IPlayer.CalculatedStats memory calc) internal pure {
+        // Basic stat bounds
+        assertTrue(stats.strength >= 3 && stats.strength <= 21);
+        assertTrue(stats.constitution >= 3 && stats.constitution <= 21);
+        assertTrue(stats.size >= 3 && stats.size <= 21);
+        assertTrue(stats.agility >= 3 && stats.agility <= 21);
+        assertTrue(stats.stamina >= 3 && stats.stamina <= 21);
+        assertTrue(stats.luck >= 3 && stats.luck <= 21);
+
+        // Calculated stat bounds
+        assertTrue(calc.maxHealth >= 100 && calc.maxHealth <= 300, "Health out of range");
+        assertTrue(calc.damageModifier >= 50 && calc.damageModifier <= 200, "Damage mod out of range");
+        assertTrue(calc.hitChance >= 30 && calc.hitChance <= 100, "Hit chance out of range");
+        assertTrue(calc.critChance <= 50, "Crit chance too high");
+        assertTrue(calc.critMultiplier >= 150 && calc.critMultiplier <= 300, "Crit multiplier out of range");
     }
 }

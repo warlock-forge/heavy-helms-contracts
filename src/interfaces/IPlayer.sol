@@ -13,7 +13,7 @@ interface IPlayer {
 
     struct CalculatedStats {
         uint16 maxHealth;
-        uint16 damage;
+        uint16 damageModifier;
         uint16 hitChance;
         uint16 blockChance;
         uint16 dodgeChance;

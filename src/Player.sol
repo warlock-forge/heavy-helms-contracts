@@ -136,17 +136,42 @@ contract Player is IPlayer {
         uint8 sta = player.stamina;
         uint8 luc = player.luck;
 
+        // Physical Power Modifier Formula
+        // Purpose: Creates a linear scale for damage based on combined strength + size
+        // Formula: y = 4.167x + 25 (scaled by 1000 for integer math)
+        // Where x is (strength + size)
+        // Results in:
+        //   - 50% power at minimum (str+siz = 6)
+        //   - 100% power at average (str+siz = 24)
+        //   - 200% power at maximum (str+siz = 42)
+        // Use uint32 for the intermediate calculation to prevent overflow
+        uint32 combinedStats = uint32(player.strength) + uint32(player.size);
+        uint32 tempPowerMod = 25 + (((combinedStats * 4167) / 1000));
+        // Then safely convert back to uint16
+        uint16 physicalPowerMod = tempPowerMod > type(uint16).max ? type(uint16).max : uint16(tempPowerMod);
+
         return CalculatedStats({
-            maxHealth: uint8(45 + (con * 10)),
-            damage: uint8(2 + (str * 2)),
-            hitChance: uint8(30 + (agi * 3)),
-            blockChance: uint8(10 + (con * 3)),
-            dodgeChance: uint8(5 + (agi * 3)),
-            maxEndurance: uint8(45 + (sta * 10)),
-            critChance: uint8(2 + (agi * 2)),
-            initiative: uint8((sta + agi) * 3),
-            counterChance: uint8(3 + (agi * 2)),
-            critMultiplier: uint8(150 + (str * 5))
+            // Health now factors in size (bigger = more health)
+            maxHealth: uint16(45 + (con * 8) + (siz * 4)),
+            // Instead of direct damage, this is now a percentage modifier
+            // This will be applied to weapon damage ranges
+            damageModifier: physicalPowerMod,
+            // Hit chance now factors in luck
+            hitChance: uint16(30 + (agi * 2) + (luc * 1)),
+            // Block now uses size (bigger = better blocker)
+            blockChance: uint16(10 + (con * 2) + (siz * 1)),
+            // Dodge reduced slightly, smaller characters better at dodging
+            dodgeChance: uint16(5 + (agi * 2) + ((21 - siz) * 1)),
+            // Endurance now factors in size (bigger = more endurance)
+            maxEndurance: uint16(45 + (sta * 8) + (siz * 2)),
+            // Crit chance affected by luck
+            critChance: uint16(2 + (agi * 1) + (luc * 1)),
+            // Initiative penalized by size (bigger = slower)
+            initiative: uint16((sta + agi) * 3) - uint16(siz),
+            // Counter chance affected by luck
+            counterChance: uint16(3 + (agi * 1) + (luc * 1)),
+            // Crit multiplier affected by strength and luck
+            critMultiplier: uint16(150 + (str * 3) + (luc * 2))
         });
     }
 

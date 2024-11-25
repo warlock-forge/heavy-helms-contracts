@@ -34,14 +34,14 @@ contract Game {
         uint256 winningPlayerId
     );
 
-    // Further reduced stamina costs
+    // Stamina costs
     uint8 public constant STAMINA_ATTACK = 10; // Was 15
-    uint8 constant STAMINA_BLOCK = 12; // Was 18
-    uint8 constant STAMINA_DODGE = 8; // Was 12
-    uint8 constant STAMINA_COUNTER = 15; // Was 20
+    uint8 public constant STAMINA_BLOCK = 12; // Was 18
+    uint8 public constant STAMINA_DODGE = 8; // Was 12
+    uint8 public constant STAMINA_COUNTER = 15; // Was 20
 
-    // Add a maximum number of rounds to prevent infinite loops
-    uint8 constant MAX_ROUNDS = 50;
+    // Maximum rounds
+    uint8 public constant MAX_ROUNDS = 50;
 
     struct CombatAction {
         CombatResultType p1Result;
@@ -83,31 +83,93 @@ contract Game {
         for (uint256 i = 0; i < numActions; i++) {
             uint256 base = 2 + (i * 8);
 
-            // Read each byte as a uint8 directly
-            uint8 p1Result = uint8(results[base + 0]);
-            uint8 p1DamageHigh = uint8(results[base + 1]);
-            uint8 p1DamageLow = uint8(results[base + 2]);
-            uint8 p1Stamina = uint8(results[base + 3]);
-            uint8 p2Result = uint8(results[base + 4]);
-            uint8 p2DamageHigh = uint8(results[base + 5]);
-            uint8 p2DamageLow = uint8(results[base + 6]);
-            uint8 p2Stamina = uint8(results[base + 7]);
-
-            // Validate before creating the action
-            require(p1Result <= uint8(CombatResultType.HIT), "Invalid P1 result value");
-            require(p2Result <= uint8(CombatResultType.HIT), "Invalid P2 result value");
+            // First cast to uint16 before shifting to prevent overflow
+            uint16 p1DamageHigh = uint16(uint8(results[base + 1]));
+            uint16 p1DamageLow = uint16(uint8(results[base + 2]));
+            uint16 p2DamageHigh = uint16(uint8(results[base + 5]));
+            uint16 p2DamageLow = uint16(uint8(results[base + 6]));
 
             actions[i] = CombatAction({
-                p1Result: CombatResultType(p1Result),
-                p1Damage: (uint16(p1DamageHigh) << 8) | uint16(p1DamageLow),
-                p1StaminaLost: p1Stamina,
-                p2Result: CombatResultType(p2Result),
-                p2Damage: (uint16(p2DamageHigh) << 8) | uint16(p2DamageLow),
-                p2StaminaLost: p2Stamina
+                p1Result: CombatResultType(uint8(results[base + 0])),
+                p1Damage: (p1DamageHigh << 8) | p1DamageLow,
+                p1StaminaLost: uint8(results[base + 3]),
+                p2Result: CombatResultType(uint8(results[base + 4])),
+                p2Damage: (p2DamageHigh << 8) | p2DamageLow,
+                p2StaminaLost: uint8(results[base + 7])
             });
         }
 
         return (winningPlayerId, condition, actions);
+    }
+
+    function processCombatTurn(
+        IPlayer.CalculatedStats memory attacker,
+        IPlayer.CalculatedStats memory defender,
+        uint256, /* attackerStamina */
+        uint256 defenderStamina,
+        uint256 roll
+    )
+        private
+        pure
+        returns (
+            uint8 attackResult,
+            uint16 attackDamage,
+            uint8 attackStaminaCost,
+            uint8 defenseResult,
+            uint16 defenseDamage,
+            uint8 defenseStaminaCost
+        )
+    {
+        uint8 hitRoll = uint8(roll % 100);
+        uint8 critRoll = uint8((roll >> 24) % 100);
+
+        if (hitRoll < attacker.hitChance) {
+            attackResult = uint8(CombatResultType.ATTACK);
+            attackDamage = calculateDamage(attacker.damageModifier);
+
+            // Apply crit multiplier as a percentage
+            if (critRoll < attacker.critChance) {
+                // critMultiplier is already a percentage (100 = 100%)
+                attackDamage = uint16((uint32(attackDamage) * uint32(attacker.critMultiplier)) / 100);
+            }
+
+            attackStaminaCost = STAMINA_ATTACK;
+
+            (defenseResult, defenseDamage, defenseStaminaCost) =
+                processDefense(defender, defenderStamina, uint8((roll >> 8) % 100));
+        } else {
+            (attackResult, attackDamage, attackStaminaCost) = processMiss();
+            (defenseResult, defenseDamage, defenseStaminaCost) =
+                processCounter(defender, defenderStamina, uint8((roll >> 16) % 100));
+        }
+    }
+
+    function processDefense(IPlayer.CalculatedStats memory defenderStats, uint256 defenderStamina, uint8 defenseRoll)
+        private
+        pure
+        returns (uint8 result, uint16 damage, uint8 staminaCost)
+    {
+        if (defenseRoll < defenderStats.blockChance && defenderStamina >= STAMINA_BLOCK) {
+            return (uint8(CombatResultType.BLOCK), 0, STAMINA_BLOCK);
+        } else {
+            return (uint8(CombatResultType.HIT), 0, 0);
+        }
+    }
+
+    function processMiss() private pure returns (uint8 result, uint16 damage, uint8 staminaCost) {
+        return (uint8(CombatResultType.MISS), 0, STAMINA_ATTACK / 3);
+    }
+
+    function processCounter(IPlayer.CalculatedStats memory defenderStats, uint256 defenderStamina, uint8 counterRoll)
+        private
+        pure
+        returns (uint8 result, uint16 damage, uint8 staminaCost)
+    {
+        if (counterRoll < defenderStats.counterChance && defenderStamina >= STAMINA_COUNTER) {
+            return (uint8(CombatResultType.COUNTER), calculateDamage(defenderStats.damageModifier), STAMINA_COUNTER);
+        } else {
+            return (uint8(CombatResultType.DODGE), 0, 0);
+        }
     }
 
     function playGame(uint256 player1Id, uint256 player2Id, uint256 seed) public view returns (bytes memory) {
@@ -160,97 +222,56 @@ contract Game {
 
             uint256 roll = uint256(keccak256(abi.encodePacked(seed, roundCount)));
 
-            uint8 attackResult;
-            uint16 attackDamage;
-            uint8 attackStaminaCost;
-            uint8 defenseResult;
-            uint16 defenseDamage;
-            uint8 defenseStaminaCost;
+            (
+                uint8 attackResult,
+                uint16 attackDamage,
+                uint8 attackStaminaCost,
+                uint8 defenseResult,
+                uint16 defenseDamage,
+                uint8 defenseStaminaCost
+            ) = processCombatTurn(
+                state.isPlayer1Turn ? p1CalcStats : p2CalcStats,
+                state.isPlayer1Turn ? p2CalcStats : p1CalcStats,
+                state.isPlayer1Turn ? state.p1Stamina : state.p2Stamina,
+                state.isPlayer1Turn ? state.p2Stamina : state.p1Stamina,
+                roll
+            );
 
-            IPlayer.CalculatedStats memory attackerStats;
-            IPlayer.CalculatedStats memory defenderStats;
-            uint256 attackerStamina;
-            uint256 defenderStamina;
-
-            if (state.isPlayer1Turn) {
-                attackerStats = p1CalcStats;
-                defenderStats = p2CalcStats;
-                attackerStamina = state.p1Stamina;
-                defenderStamina = state.p2Stamina;
-            } else {
-                attackerStats = p2CalcStats;
-                defenderStats = p1CalcStats;
-                attackerStamina = state.p2Stamina;
-                defenderStamina = state.p1Stamina;
-            }
-
-            uint8 hitRoll = uint8(roll % 100);
-            if (hitRoll < attackerStats.hitChance) {
-                attackResult = uint8(CombatResultType.ATTACK);
-                attackDamage = attackerStats.damage;
-                attackStaminaCost = STAMINA_ATTACK;
-
-                uint8 defenseRoll = uint8((roll >> 8) % 100);
-                if (defenseRoll < defenderStats.blockChance && defenderStamina >= STAMINA_BLOCK) {
-                    defenseResult = uint8(CombatResultType.BLOCK);
-                    attackDamage = 0;
-                    defenseStaminaCost = STAMINA_BLOCK;
-                } else {
-                    defenseResult = uint8(CombatResultType.HIT);
-                    defenseStaminaCost = 0;
-                }
-            } else {
-                attackResult = uint8(CombatResultType.MISS);
-                attackDamage = 0;
-                attackStaminaCost = STAMINA_ATTACK / 3;
-
-                uint8 counterRoll = uint8((roll >> 16) % 100);
-                if (counterRoll < defenderStats.counterChance && defenderStamina >= STAMINA_COUNTER) {
-                    defenseResult = uint8(CombatResultType.COUNTER);
-                    defenseDamage = defenderStats.damage;
-                    defenseStaminaCost = STAMINA_COUNTER;
-                } else {
-                    defenseResult = uint8(CombatResultType.DODGE);
-                    defenseStaminaCost = 0;
-                }
-            }
-
+            // Pack results and update state
             if (state.isPlayer1Turn) {
                 results = abi.encodePacked(
                     results,
-                    uint8(attackResult),
+                    attackResult,
                     uint8(attackDamage >> 8),
                     uint8(attackDamage),
-                    uint8(attackStaminaCost),
-                    uint8(defenseResult),
+                    attackStaminaCost,
+                    defenseResult,
                     uint8(defenseDamage >> 8),
                     uint8(defenseDamage),
-                    uint8(defenseStaminaCost)
+                    defenseStaminaCost
                 );
 
                 state.p1Stamina = state.p1Stamina > attackStaminaCost ? state.p1Stamina - attackStaminaCost : 0;
-                state.p2Health = state.p2Health > attackDamage ? state.p2Health - attackDamage : 0;
-
+                state.p2Health = applyDamage(state.p2Health, attackDamage);
                 state.p2Stamina = state.p2Stamina > defenseStaminaCost ? state.p2Stamina - defenseStaminaCost : 0;
-                state.p1Health = state.p1Health > defenseDamage ? state.p1Health - defenseDamage : 0;
+                state.p1Health = applyDamage(state.p1Health, defenseDamage);
             } else {
                 results = abi.encodePacked(
                     results,
-                    uint8(defenseResult),
+                    defenseResult,
                     uint8(defenseDamage >> 8),
                     uint8(defenseDamage),
-                    uint8(defenseStaminaCost),
-                    uint8(attackResult),
+                    defenseStaminaCost,
+                    attackResult,
                     uint8(attackDamage >> 8),
                     uint8(attackDamage),
-                    uint8(attackStaminaCost)
+                    attackStaminaCost
                 );
 
                 state.p2Stamina = state.p2Stamina > attackStaminaCost ? state.p2Stamina - attackStaminaCost : 0;
-                state.p2Health = state.p2Health > defenseDamage ? state.p2Health - defenseDamage : 0;
-
+                state.p1Health = applyDamage(state.p1Health, defenseDamage);
                 state.p1Stamina = state.p1Stamina > defenseStaminaCost ? state.p1Stamina - defenseStaminaCost : 0;
-                state.p1Health = state.p1Health > attackDamage ? state.p1Health - attackDamage : 0;
+                state.p2Health = applyDamage(state.p2Health, attackDamage);
             }
 
             roundCount++;
@@ -287,5 +308,17 @@ contract Game {
 
     function applyDamage(uint256 currentHealth, uint16 damage) private pure returns (uint256) {
         return currentHealth > damage ? currentHealth - damage : 0;
+    }
+
+    function calculateDamage(uint16 damageModifier) private pure returns (uint16) {
+        // Base damage range: 10-20
+        uint16 baseDamage = 10;
+
+        // Apply modifier (as percentage)
+        // damageModifier is treated as percentage (100 = 100%)
+        uint32 calculatedDamage = (uint32(baseDamage) * uint32(damageModifier)) / 100;
+
+        // Ensure we don't exceed uint16
+        return calculatedDamage > type(uint16).max ? type(uint16).max : uint16(calculatedDamage);
     }
 }
