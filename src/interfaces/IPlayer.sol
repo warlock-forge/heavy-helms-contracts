@@ -3,10 +3,10 @@ pragma solidity ^0.8.13;
 
 interface IPlayer {
     struct PlayerStats {
-        int8 strength;
-        int8 constitution;
-        int8 agility;
-        int8 stamina;
+        uint8 strength;
+        uint8 constitution;
+        uint8 agility;
+        uint8 stamina;
     }
 
     struct CalculatedStats {

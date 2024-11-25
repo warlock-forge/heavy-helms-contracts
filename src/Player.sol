@@ -4,6 +4,8 @@ pragma solidity ^0.8.13;
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 
+error PlayerDoesNotExist(uint256 playerId);
+
 contract Player is IPlayer {
     using UniformRandomNumber for uint256;
 
@@ -24,6 +26,11 @@ contract Player is IPlayer {
     event PlayerRetired(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
 
+    // Constants
+    uint8 private constant MIN_STAT = 3;
+    uint8 private constant MAX_STAT = 21;
+    uint16 private constant TOTAL_STATS = 48;
+
     constructor(uint256 initialMaxPlayers) {
         maxPlayersPerAddress = initialMaxPlayers;
         admin = msg.sender;
@@ -31,50 +38,47 @@ contract Player is IPlayer {
 
     // Make sure this matches the interface exactly
     function createPlayer() external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
-        // Generate randomSeed using multiple sources of entropy
-        uint256 randomSeed = uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    block.prevrandao, // Beacon chain randomness
-                    msg.sender
-                )
-            )
-        );
-
-        // Generate playerId separately from stats randomness
+        // Generate randomSeed and playerId
+        uint256 randomSeed = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender)));
         playerId = uint256(keccak256(abi.encodePacked("PLAYER_ID", randomSeed, msg.sender)));
 
-        // Generate stats using the randomSeed (existing logic)
-        uint256 remainingPoints = 36;
-        int8[4] memory statArray = [int8(3), int8(3), int8(3), int8(3)];
+        // Initialize base stats array with minimum values
+        uint8[4] memory statArray = [3, 3, 3, 3];
+        uint256 remainingPoints = 36; // 48 total - (4 * 3 minimum)
 
-        // Use different bits of randomSeed for ordering
+        // Distribute remaining points across first 3 stats
         uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
 
-        // First pass: Allow for more variance in initial distribution
-        for (uint256 i = 0; i < 3; i++) {
-            uint256 statIndex = order.uniform(4 - i);
-            order = uint256(keccak256(abi.encodePacked(order)));
+        unchecked {
+            for (uint256 i; i < 3; ++i) {
+                // Select random stat index and update order
+                uint256 statIndex = order.uniform(4 - i);
+                order = uint256(keccak256(abi.encodePacked(order)));
 
-            uint256 pointsNeededForRemaining = (3 - i) * 3;
-            uint256 availablePoints =
-                remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
+                // Calculate available points for this stat
+                uint256 pointsNeededForRemaining = (3 - i) * 3;
+                uint256 availablePoints =
+                    remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
 
-            uint256 maxPoints = min(availablePoints, 18);
-            uint256 pointsToAdd = randomSeed.uniform(maxPoints + 1);
-            randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
+                // Add random points to selected stat
+                uint256 pointsToAdd = randomSeed.uniform(min(availablePoints, 18) + 1);
+                randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
 
-            statArray[statIndex] += int8(uint8(pointsToAdd));
-            remainingPoints -= pointsToAdd;
+                // Update stat and remaining points
+                statArray[statIndex] += uint8(pointsToAdd);
+                remainingPoints -= pointsToAdd;
 
-            int8 temp = statArray[statIndex];
-            statArray[statIndex] = statArray[3 - i];
-            statArray[3 - i] = temp;
+                // Swap with last unassigned stat
+                uint8 temp = statArray[statIndex];
+                statArray[statIndex] = statArray[3 - i];
+                statArray[3 - i] = temp;
+            }
+
+            // Assign remaining points to last stat
+            statArray[0] += uint8(min(remainingPoints, 18));
         }
 
-        statArray[0] += int8(uint8(min(remainingPoints, 18)));
-
+        // Create stats struct
         stats = IPlayer.PlayerStats({
             strength: statArray[0],
             constitution: statArray[1],
@@ -82,11 +86,12 @@ contract Player is IPlayer {
             stamina: statArray[3]
         });
 
+        // Validate and fix if necessary
         if (!_validateStats(stats)) {
             stats = _fixStats(stats, randomSeed);
         }
 
-        // Store the player
+        // Store player data
         _players[playerId] = stats;
         _playerOwners[playerId] = msg.sender;
         _addressToPlayerIds[msg.sender].push(playerId);
@@ -100,32 +105,32 @@ contract Player is IPlayer {
     }
 
     function getPlayer(uint256 playerId) external view returns (IPlayer.PlayerStats memory) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+        if (_players[playerId].strength == 0) revert PlayerDoesNotExist(playerId);
         return _players[playerId];
     }
 
     function getPlayerOwner(uint256 playerId) external view returns (address) {
-        require(_playerOwners[playerId] != address(0), "Player does not exist");
+        if (_playerOwners[playerId] == address(0)) revert PlayerDoesNotExist(playerId);
         return _playerOwners[playerId];
     }
 
     function players(uint256 playerId) external view returns (IPlayer.PlayerStats memory) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+        if (_players[playerId].strength == 0) revert PlayerDoesNotExist(playerId);
         return _players[playerId];
     }
 
     function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina) {
         PlayerStats memory player = _players[playerId];
-        require(player.strength != 0, "Player does not exist");
+        if (player.strength == 0) revert PlayerDoesNotExist(playerId);
         CalculatedStats memory stats = this.calculateStats(player);
         return (uint256(stats.maxHealth), uint256(stats.maxEndurance));
     }
 
     function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory) {
-        uint8 str = uint8(player.strength >= 0 ? uint8(player.strength) : 0);
-        uint8 con = uint8(player.constitution >= 0 ? uint8(player.constitution) : 0);
-        uint8 agi = uint8(player.agility >= 0 ? uint8(player.agility) : 0);
-        uint8 sta = uint8(player.stamina >= 0 ? uint8(player.stamina) : 0);
+        uint8 str = player.strength;
+        uint8 con = player.constitution;
+        uint8 agi = player.agility;
+        uint8 sta = player.stamina;
 
         return CalculatedStats({
             maxHealth: uint8(45 + (con * 10)),
@@ -143,15 +148,17 @@ contract Player is IPlayer {
 
     // Helper functions (can remain private/internal)
     function _validateStats(IPlayer.PlayerStats memory player) private pure returns (bool) {
-        if (player.strength < 3 || player.strength > 21) return false;
-        if (player.constitution < 3 || player.constitution > 21) return false;
-        if (player.agility < 3 || player.agility > 21) return false;
-        if (player.stamina < 3 || player.stamina > 21) return false;
+        // Check stat bounds
+        if (player.strength < MIN_STAT || player.strength > MAX_STAT) return false;
+        if (player.constitution < MIN_STAT || player.constitution > MAX_STAT) return false;
+        if (player.agility < MIN_STAT || player.agility > MAX_STAT) return false;
+        if (player.stamina < MIN_STAT || player.stamina > MAX_STAT) return false;
 
-        int16 total =
-            int16(player.strength) + int16(player.constitution) + int16(player.agility) + int16(player.stamina);
+        // Calculate total using uint16 to prevent any overflow
+        uint16 total =
+            uint16(player.strength) + uint16(player.constitution) + uint16(player.agility) + uint16(player.stamina);
 
-        return total == 48;
+        return total == TOTAL_STATS;
     }
 
     function _fixStats(IPlayer.PlayerStats memory player, uint256 randomSeed)
@@ -159,11 +166,11 @@ contract Player is IPlayer {
         pure
         returns (IPlayer.PlayerStats memory)
     {
-        int16 total =
-            int16(player.strength) + int16(player.constitution) + int16(player.agility) + int16(player.stamina);
+        uint16 total =
+            uint16(player.strength) + uint16(player.constitution) + uint16(player.agility) + uint16(player.stamina);
 
         // First ensure all stats are within 3-21 range
-        int8[4] memory stats = [player.strength, player.constitution, player.agility, player.stamina];
+        uint8[4] memory stats = [player.strength, player.constitution, player.agility, player.stamina];
 
         for (uint256 i = 0; i < 4; i++) {
             if (stats[i] < 3) {

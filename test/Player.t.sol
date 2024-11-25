@@ -30,17 +30,22 @@ contract PlayerTest is Test {
     }
 
     function _validatePlayerAttributes(IPlayer.PlayerStats memory stats, string memory context) private pure {
+        // Check minimum values
         assertTrue(stats.strength >= 3, string.concat(context, ": Strength below minimum"));
         assertTrue(stats.constitution >= 3, string.concat(context, ": Constitution below minimum"));
         assertTrue(stats.agility >= 3, string.concat(context, ": Agility below minimum"));
         assertTrue(stats.stamina >= 3, string.concat(context, ": Stamina below minimum"));
 
+        // Check maximum values
         assertTrue(stats.strength <= 21, string.concat(context, ": Strength above maximum"));
         assertTrue(stats.constitution <= 21, string.concat(context, ": Constitution above maximum"));
         assertTrue(stats.agility <= 21, string.concat(context, ": Agility above maximum"));
         assertTrue(stats.stamina <= 21, string.concat(context, ": Stamina above maximum"));
 
-        int16 total = int16(stats.strength) + int16(stats.constitution) + int16(stats.agility) + int16(stats.stamina);
+        // Calculate total using uint16 to prevent any overflow
+        uint16 total =
+            uint16(stats.strength) + uint16(stats.constitution) + uint16(stats.agility) + uint16(stats.stamina);
+
         assertEq(total, 48, string.concat(context, ": Total attributes should be 48"));
     }
 
