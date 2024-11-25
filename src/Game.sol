@@ -45,10 +45,10 @@ contract Game {
 
     struct CombatAction {
         CombatResultType p1Result;
-        uint8 p1Damage;
+        uint16 p1Damage;
         uint8 p1StaminaLost;
         CombatResultType p2Result;
-        uint8 p2Damage;
+        uint16 p2Damage;
         uint8 p2StaminaLost;
     }
 
@@ -73,23 +73,37 @@ contract Game {
     {
         require(results.length >= 2, "Results too short");
 
-        // Extract winner and condition from first two bytes
-        winningPlayerId = uint256(uint8(results[0]));
+        // Header is simple uint8 values
+        winningPlayerId = uint8(results[0]);
         condition = WinCondition(uint8(results[1]));
 
-        // Decode remaining combat actions
-        uint256 numActions = (results.length - 2) / 6;
+        uint256 numActions = (results.length - 2) / 8;
         actions = new CombatAction[](numActions);
 
         for (uint256 i = 0; i < numActions; i++) {
-            uint256 offset = 2 + (i * 6); // Start after winner/condition
+            uint256 base = 2 + (i * 8);
+
+            // Read each byte as a uint8 directly
+            uint8 p1Result = uint8(results[base + 0]);
+            uint8 p1DamageHigh = uint8(results[base + 1]);
+            uint8 p1DamageLow = uint8(results[base + 2]);
+            uint8 p1Stamina = uint8(results[base + 3]);
+            uint8 p2Result = uint8(results[base + 4]);
+            uint8 p2DamageHigh = uint8(results[base + 5]);
+            uint8 p2DamageLow = uint8(results[base + 6]);
+            uint8 p2Stamina = uint8(results[base + 7]);
+
+            // Validate before creating the action
+            require(p1Result <= uint8(CombatResultType.HIT), "Invalid P1 result value");
+            require(p2Result <= uint8(CombatResultType.HIT), "Invalid P2 result value");
+
             actions[i] = CombatAction({
-                p1Result: CombatResultType(uint8(results[offset])),
-                p1Damage: uint8(results[offset + 1]),
-                p1StaminaLost: uint8(results[offset + 2]),
-                p2Result: CombatResultType(uint8(results[offset + 3])),
-                p2Damage: uint8(results[offset + 4]),
-                p2StaminaLost: uint8(results[offset + 5])
+                p1Result: CombatResultType(p1Result),
+                p1Damage: (uint16(p1DamageHigh) << 8) | uint16(p1DamageLow),
+                p1StaminaLost: p1Stamina,
+                p2Result: CombatResultType(p2Result),
+                p2Damage: (uint16(p2DamageHigh) << 8) | uint16(p2DamageLow),
+                p2StaminaLost: p2Stamina
             });
         }
 
@@ -111,12 +125,13 @@ contract Game {
 
         // Keep existing initiative logic, just store in state
         if (p1CalcStats.initiative != p2CalcStats.initiative) {
-            uint8 initiativeDiff = p1CalcStats.initiative > p2CalcStats.initiative
-                ? p1CalcStats.initiative - p2CalcStats.initiative
-                : p2CalcStats.initiative - p1CalcStats.initiative;
+            uint16 initiativeDiff = uint16(
+                p1CalcStats.initiative > p2CalcStats.initiative
+                    ? p1CalcStats.initiative - p2CalcStats.initiative
+                    : p2CalcStats.initiative - p1CalcStats.initiative
+            );
 
-            uint16 scaledDiff = uint16(initiativeDiff) * 19;
-            uint8 upsetChance = 20 - uint8(scaledDiff / 126);
+            uint8 upsetChance = uint8(min(20, (20 * initiativeDiff) / 255));
 
             bool naturalOrder = p1CalcStats.initiative > p2CalcStats.initiative;
             uint8 randomRoll = uint8(uint256(keccak256(abi.encodePacked(seed, "initiative"))).uniform(100));
@@ -146,10 +161,10 @@ contract Game {
             uint256 roll = uint256(keccak256(abi.encodePacked(seed, roundCount)));
 
             uint8 attackResult;
-            uint8 attackDamage;
+            uint16 attackDamage;
             uint8 attackStaminaCost;
             uint8 defenseResult;
-            uint8 defenseDamage;
+            uint16 defenseDamage;
             uint8 defenseStaminaCost;
 
             IPlayer.CalculatedStats memory attackerStats;
@@ -203,28 +218,32 @@ contract Game {
             if (state.isPlayer1Turn) {
                 results = abi.encodePacked(
                     results,
-                    attackResult,
-                    attackDamage,
-                    attackStaminaCost,
-                    defenseResult,
-                    defenseDamage,
-                    defenseStaminaCost
+                    uint8(attackResult),
+                    uint8(attackDamage >> 8),
+                    uint8(attackDamage),
+                    uint8(attackStaminaCost),
+                    uint8(defenseResult),
+                    uint8(defenseDamage >> 8),
+                    uint8(defenseDamage),
+                    uint8(defenseStaminaCost)
                 );
 
                 state.p1Stamina = state.p1Stamina > attackStaminaCost ? state.p1Stamina - attackStaminaCost : 0;
-                state.p1Health = state.p1Health > defenseDamage ? state.p1Health - defenseDamage : 0;
+                state.p2Health = state.p2Health > attackDamage ? state.p2Health - attackDamage : 0;
 
                 state.p2Stamina = state.p2Stamina > defenseStaminaCost ? state.p2Stamina - defenseStaminaCost : 0;
-                state.p2Health = state.p2Health > attackDamage ? state.p2Health - attackDamage : 0;
+                state.p1Health = state.p1Health > defenseDamage ? state.p1Health - defenseDamage : 0;
             } else {
                 results = abi.encodePacked(
                     results,
-                    defenseResult,
-                    defenseDamage,
-                    defenseStaminaCost,
-                    attackResult,
-                    attackDamage,
-                    attackStaminaCost
+                    uint8(defenseResult),
+                    uint8(defenseDamage >> 8),
+                    uint8(defenseDamage),
+                    uint8(defenseStaminaCost),
+                    uint8(attackResult),
+                    uint8(attackDamage >> 8),
+                    uint8(attackDamage),
+                    uint8(attackStaminaCost)
                 );
 
                 state.p2Stamina = state.p2Stamina > attackStaminaCost ? state.p2Stamina - attackStaminaCost : 0;
@@ -264,5 +283,9 @@ contract Game {
 
     function min(uint256 a, uint256 b) private pure returns (uint256) {
         return a < b ? a : b;
+    }
+
+    function applyDamage(uint256 currentHealth, uint16 damage) private pure returns (uint256) {
+        return currentHealth > damage ? currentHealth - damage : 0;
     }
 }

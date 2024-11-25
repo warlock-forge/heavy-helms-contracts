@@ -5,21 +5,23 @@ interface IPlayer {
     struct PlayerStats {
         uint8 strength;
         uint8 constitution;
+        uint8 size;
         uint8 agility;
         uint8 stamina;
+        uint8 luck;
     }
 
     struct CalculatedStats {
-        uint8 maxHealth;
-        uint8 damage;
-        uint8 hitChance;
-        uint8 blockChance;
-        uint8 dodgeChance;
-        uint8 maxEndurance;
-        uint8 critChance;
-        uint8 initiative;
-        uint8 counterChance;
-        uint8 critMultiplier;
+        uint16 maxHealth;
+        uint16 damage;
+        uint16 hitChance;
+        uint16 blockChance;
+        uint16 dodgeChance;
+        uint16 maxEndurance;
+        uint16 critChance;
+        uint16 initiative;
+        uint16 counterChance;
+        uint16 critMultiplier;
     }
 
     function createPlayer() external returns (uint256 playerId, PlayerStats memory stats);

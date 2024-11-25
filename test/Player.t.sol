@@ -33,20 +33,24 @@ contract PlayerTest is Test {
         // Check minimum values
         assertTrue(stats.strength >= 3, string.concat(context, ": Strength below minimum"));
         assertTrue(stats.constitution >= 3, string.concat(context, ": Constitution below minimum"));
+        assertTrue(stats.size >= 3, string.concat(context, ": Size below minimum"));
         assertTrue(stats.agility >= 3, string.concat(context, ": Agility below minimum"));
         assertTrue(stats.stamina >= 3, string.concat(context, ": Stamina below minimum"));
+        assertTrue(stats.luck >= 3, string.concat(context, ": Luck below minimum"));
 
         // Check maximum values
         assertTrue(stats.strength <= 21, string.concat(context, ": Strength above maximum"));
         assertTrue(stats.constitution <= 21, string.concat(context, ": Constitution above maximum"));
+        assertTrue(stats.size <= 21, string.concat(context, ": Size above maximum"));
         assertTrue(stats.agility <= 21, string.concat(context, ": Agility above maximum"));
         assertTrue(stats.stamina <= 21, string.concat(context, ": Stamina above maximum"));
+        assertTrue(stats.luck <= 21, string.concat(context, ": Luck above maximum"));
 
         // Calculate total using uint16 to prevent any overflow
-        uint16 total =
-            uint16(stats.strength) + uint16(stats.constitution) + uint16(stats.agility) + uint16(stats.stamina);
+        uint16 total = uint16(stats.strength) + uint16(stats.constitution) + uint16(stats.size) + uint16(stats.agility)
+            + uint16(stats.stamina) + uint16(stats.luck);
 
-        assertEq(total, 48, string.concat(context, ": Total attributes should be 48"));
+        assertEq(total, 72, string.concat(context, ": Total attributes should be 72"));
     }
 
     function testCreatePlayer() public {

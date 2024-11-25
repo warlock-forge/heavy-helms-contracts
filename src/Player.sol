@@ -29,7 +29,7 @@ contract Player is IPlayer {
     // Constants
     uint8 private constant MIN_STAT = 3;
     uint8 private constant MAX_STAT = 21;
-    uint16 private constant TOTAL_STATS = 48;
+    uint16 private constant TOTAL_STATS = 72;
 
     constructor(uint256 initialMaxPlayers) {
         maxPlayersPerAddress = initialMaxPlayers;
@@ -43,20 +43,20 @@ contract Player is IPlayer {
         playerId = uint256(keccak256(abi.encodePacked("PLAYER_ID", randomSeed, msg.sender)));
 
         // Initialize base stats array with minimum values
-        uint8[4] memory statArray = [3, 3, 3, 3];
-        uint256 remainingPoints = 36; // 48 total - (4 * 3 minimum)
+        uint8[6] memory statArray = [3, 3, 3, 3, 3, 3];
+        uint256 remainingPoints = 54; // 72 total - (6 * 3 minimum)
 
-        // Distribute remaining points across first 3 stats
+        // Distribute remaining points across first 5 stats
         uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
 
         unchecked {
-            for (uint256 i; i < 3; ++i) {
+            for (uint256 i; i < 5; ++i) {
                 // Select random stat index and update order
-                uint256 statIndex = order.uniform(4 - i);
+                uint256 statIndex = order.uniform(6 - i);
                 order = uint256(keccak256(abi.encodePacked(order)));
 
                 // Calculate available points for this stat
-                uint256 pointsNeededForRemaining = (3 - i) * 3;
+                uint256 pointsNeededForRemaining = (5 - i) * 3;
                 uint256 availablePoints =
                     remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
 
@@ -70,8 +70,8 @@ contract Player is IPlayer {
 
                 // Swap with last unassigned stat
                 uint8 temp = statArray[statIndex];
-                statArray[statIndex] = statArray[3 - i];
-                statArray[3 - i] = temp;
+                statArray[statIndex] = statArray[5 - i];
+                statArray[5 - i] = temp;
             }
 
             // Assign remaining points to last stat
@@ -82,8 +82,10 @@ contract Player is IPlayer {
         stats = IPlayer.PlayerStats({
             strength: statArray[0],
             constitution: statArray[1],
-            agility: statArray[2],
-            stamina: statArray[3]
+            size: statArray[2],
+            agility: statArray[3],
+            stamina: statArray[4],
+            luck: statArray[5]
         });
 
         // Validate and fix if necessary
@@ -129,8 +131,10 @@ contract Player is IPlayer {
     function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory) {
         uint8 str = player.strength;
         uint8 con = player.constitution;
+        uint8 siz = player.size;
         uint8 agi = player.agility;
         uint8 sta = player.stamina;
+        uint8 luc = player.luck;
 
         return CalculatedStats({
             maxHealth: uint8(45 + (con * 10)),
@@ -151,12 +155,14 @@ contract Player is IPlayer {
         // Check stat bounds
         if (player.strength < MIN_STAT || player.strength > MAX_STAT) return false;
         if (player.constitution < MIN_STAT || player.constitution > MAX_STAT) return false;
+        if (player.size < MIN_STAT || player.size > MAX_STAT) return false;
         if (player.agility < MIN_STAT || player.agility > MAX_STAT) return false;
         if (player.stamina < MIN_STAT || player.stamina > MAX_STAT) return false;
+        if (player.luck < MIN_STAT || player.luck > MAX_STAT) return false;
 
         // Calculate total using uint16 to prevent any overflow
-        uint16 total =
-            uint16(player.strength) + uint16(player.constitution) + uint16(player.agility) + uint16(player.stamina);
+        uint16 total = uint16(player.strength) + uint16(player.constitution) + uint16(player.size)
+            + uint16(player.agility) + uint16(player.stamina) + uint16(player.luck);
 
         return total == TOTAL_STATS;
     }
@@ -166,13 +172,14 @@ contract Player is IPlayer {
         pure
         returns (IPlayer.PlayerStats memory)
     {
-        uint16 total =
-            uint16(player.strength) + uint16(player.constitution) + uint16(player.agility) + uint16(player.stamina);
+        uint16 total = uint16(player.strength) + uint16(player.constitution) + uint16(player.size)
+            + uint16(player.agility) + uint16(player.stamina) + uint16(player.luck);
 
         // First ensure all stats are within 3-21 range
-        uint8[4] memory stats = [player.strength, player.constitution, player.agility, player.stamina];
+        uint8[6] memory stats =
+            [player.strength, player.constitution, player.size, player.agility, player.stamina, player.luck];
 
-        for (uint256 i = 0; i < 4; i++) {
+        for (uint256 i = 0; i < 6; i++) {
             if (stats[i] < 3) {
                 total += (3 - stats[i]);
                 stats[i] = 3;
@@ -182,21 +189,19 @@ contract Player is IPlayer {
             }
         }
 
-        // Now adjust total to 48 if needed
-        while (total != 48) {
+        // Now adjust total to 72 if needed
+        while (total != 72) {
             uint256 seed = uint256(keccak256(abi.encodePacked(randomSeed)));
             randomSeed = seed;
 
-            if (total < 48) {
-                // Need to add points
-                uint256 statIndex = seed.uniform(4);
+            if (total < 72) {
+                uint256 statIndex = seed.uniform(6);
                 if (stats[statIndex] < 21) {
                     stats[statIndex] += 1;
                     total += 1;
                 }
             } else {
-                // Need to remove points
-                uint256 statIndex = seed.uniform(4);
+                uint256 statIndex = seed.uniform(6);
                 if (stats[statIndex] > 3) {
                     stats[statIndex] -= 1;
                     total -= 1;
@@ -204,7 +209,14 @@ contract Player is IPlayer {
             }
         }
 
-        return IPlayer.PlayerStats({strength: stats[0], constitution: stats[1], agility: stats[2], stamina: stats[3]});
+        return IPlayer.PlayerStats({
+            strength: stats[0],
+            constitution: stats[1],
+            size: stats[2],
+            agility: stats[3],
+            stamina: stats[4],
+            luck: stats[5]
+        });
     }
 
     function min(uint256 a, uint256 b) private pure returns (uint256) {
