@@ -31,33 +31,23 @@ contract GameTest is Test {
             }
         }
 
-        // Deploy Player first, then Game
-        playerContract = new Player();
+        // Deploy Player with max 5 players per address
+        playerContract = new Player(5);
         game = new Game(address(playerContract));
-    }
-
-    function _generateRandomSeed(address playerAddress) private view returns (uint256) {
-        return uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp, block.prevrandao, blockhash(block.number - 1), playerAddress, address(this)
-                )
-            )
-        );
     }
 
     function testBasicCombat() public {
         address player1 = address(1);
         address player2 = address(2);
 
-        // Create players and store their IDs
+        // Create players without randomSeed
         vm.prank(player1);
-        (uint256 p1Id, IPlayer.PlayerStats memory p1Stats) = playerContract.createPlayer(_generateRandomSeed(player1));
+        (uint256 p1Id, IPlayer.PlayerStats memory p1Stats) = playerContract.createPlayer();
         require(p1Stats.strength != 0, "P1 creation failed");
         playerIds[player1] = p1Id;
 
         vm.prank(player2);
-        (uint256 p2Id, IPlayer.PlayerStats memory p2Stats) = playerContract.createPlayer(_generateRandomSeed(player2));
+        (uint256 p2Id, IPlayer.PlayerStats memory p2Stats) = playerContract.createPlayer();
         require(p2Stats.strength != 0, "P2 creation failed");
         playerIds[player2] = p2Id;
 
@@ -70,8 +60,7 @@ contract GameTest is Test {
         console2.log("\nRaw combat results:");
         console2.logBytes(packedResults);
 
-        (uint256 winner, Game.WinCondition condition, Game.CombatAction[] memory actions) =
-            game.decodeCombatLog(packedResults);
+        (uint256 winner,, Game.CombatAction[] memory actions) = game.decodeCombatLog(packedResults);
 
         uint256 currentP1Health = p1InitialHealth;
         uint256 currentP1Stamina = p1InitialStamina;
@@ -114,13 +103,9 @@ contract GameTest is Test {
         }
 
         console2.log("\n=== Combat Summary ===");
-        console2.log("Winner: Player %d", winner);
-        console2.log(
-            "Win Condition: %s",
-            condition == Game.WinCondition.HEALTH
-                ? "Health Depletion"
-                : condition == Game.WinCondition.EXHAUSTION ? "Stamina Exhaustion" : "Maximum Rounds"
-        );
+        string memory winnerStr = winner == 1 ? "Player 1" : "Player 2";
+        uint256 winnerId = winner == 1 ? p1Id : p2Id;
+        console2.log("      Winner: %s (ID: 0x%x)", winnerStr, winnerId);
     }
 
     function logRound(Game.CombatAction memory action) internal pure {
@@ -147,68 +132,59 @@ contract GameTest is Test {
             [makeAddr("player1"), makeAddr("player2"), makeAddr("player3"), makeAddr("player4"), makeAddr("player5")];
         uint256[5] memory gamePlayerIds;
 
-        // Create players and store their IDs
+        // First create all quinque players with their IDs
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(playerAddresses[i]);
-            (uint256 pId, IPlayer.PlayerStats memory pStats) =
-                playerContract.createPlayer(_generateRandomSeed(playerAddresses[i]));
-            require(pStats.strength != 0, "Player creation failed");
+            (uint256 pId,) = playerContract.createPlayer();
             gamePlayerIds[i] = pId;
             playerIds[playerAddresses[i]] = pId;
+
+            console2.log("\nQuinque Player created:");
+            console2.log("Address: %s", playerAddresses[i]);
+            console2.log("ID: 0x%x", pId);
         }
 
-        // Use player IDs for combat
+        // Combat between pairs
         for (uint256 i = 0; i < 5; i++) {
-            bytes memory results =
-                game.playGame(gamePlayerIds[i], gamePlayerIds[(i + 1) % 5], _generateRandomSeed(playerAddresses[i]));
+            uint256 firstId = gamePlayerIds[i];
+            uint256 secondId = gamePlayerIds[(i + 1) % 5];
 
-            // Track action counts
-            uint256 attackCount = 0;
-            uint256 blockCount = 0;
-            uint256 dodgeCount = 0;
-            uint256 counterCount = 0;
-            uint256 missCount = 0;
-            uint256 hitCount = 0;
+            // Randomly decide which ID goes into Player 1 position
+            bool switchPositions =
+                uint256(keccak256(abi.encodePacked("position", block.timestamp, block.prevrandao, i))) % 2 == 1;
 
-            // Calculate total rounds (skip 2 bytes for winner/condition, then 6 bytes per round)
-            uint256 totalRounds = (results.length - 2) / 6;
+            uint256 combatSeed =
+                uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, playerAddresses[i], i)));
 
-            // Skip first 2 bytes (winner and condition)
-            for (uint256 j = 2; j < results.length; j += 6) {
-                // First player action
-                uint8 p1Result = uint8(bytes1(results[j]));
-                if (p1Result == uint8(Game.CombatResultType.ATTACK)) attackCount++;
-                if (p1Result == uint8(Game.CombatResultType.BLOCK)) blockCount++;
-                if (p1Result == uint8(Game.CombatResultType.DODGE)) dodgeCount++;
-                if (p1Result == uint8(Game.CombatResultType.COUNTER)) counterCount++;
-                if (p1Result == uint8(Game.CombatResultType.MISS)) missCount++;
-                if (p1Result == uint8(Game.CombatResultType.HIT)) hitCount++;
-
-                // Second player action
-                uint8 p2Result = uint8(bytes1(results[j + 3]));
-                if (p2Result == uint8(Game.CombatResultType.ATTACK)) attackCount++;
-                if (p2Result == uint8(Game.CombatResultType.BLOCK)) blockCount++;
-                if (p2Result == uint8(Game.CombatResultType.DODGE)) dodgeCount++;
-                if (p2Result == uint8(Game.CombatResultType.COUNTER)) counterCount++;
-                if (p2Result == uint8(Game.CombatResultType.MISS)) missCount++;
-                if (p2Result == uint8(Game.CombatResultType.HIT)) hitCount++;
+            bytes memory results;
+            if (switchPositions) {
+                results = game.playGame(secondId, firstId, combatSeed);
+            } else {
+                results = game.playGame(firstId, secondId, combatSeed);
             }
 
-            console2.log("\nCombat", i + 1, "Results:");
-            console2.log("  Winner: Player", uint8(bytes1(results[0])));
-            console2.log(
-                "  Win Condition:",
-                uint8(bytes1(results[1])) == 0 ? "Health" : uint8(bytes1(results[1])) == 1 ? "Exhaustion" : "Max Rounds"
-            );
-            console2.log("  Combat Summary:");
-            console2.log("    Total Rounds:", totalRounds);
-            console2.log("    Attacks:", attackCount);
-            console2.log("    Blocks:", blockCount);
-            console2.log("    Dodges:", dodgeCount);
-            console2.log("    Counters:", counterCount);
-            console2.log("    Misses:", missCount);
-            console2.log("    Hits:", hitCount);
-            console2.log("");
+            console2.log("\nCombat %d (Seed: 0x%x):", i + 1, combatSeed);
+            console2.log("Player 1 (Quinque ID: 0x%x)", switchPositions ? secondId : firstId);
+            console2.log("vs");
+            console2.log("Player 2 (Quinque ID: 0x%x)", switchPositions ? firstId : secondId);
+
+            // Get the winner (1 or 2) from combat log
+            (uint256 winnerNum,,) = game.decodeCombatLog(results);
+
+            console2.log("\nDebug - Raw winner number: %d", winnerNum);
+
+            // Store the actual player IDs used in combat
+            uint256 p1Id = switchPositions ? secondId : firstId;
+            uint256 p2Id = switchPositions ? firstId : secondId;
+
+            // Convert winner number to actual player ID and string
+            uint256 winnerId = winnerNum == 1 ? p1Id : p2Id;
+            string memory winnerStr = winnerNum == 1 ? "Player 1" : "Player 2";
+
+            // Add debug info to verify IDs
+            console2.log("Player 1 ID: 0x%x", p1Id);
+            console2.log("Player 2 ID: 0x%x", p2Id);
+            console2.log("\nWinner: %s (Quinque ID: 0x%x)", winnerStr, winnerId);
         }
     }
 

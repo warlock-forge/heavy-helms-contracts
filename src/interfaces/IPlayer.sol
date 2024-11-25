@@ -22,7 +22,7 @@ interface IPlayer {
         uint8 critMultiplier;
     }
 
-    function createPlayer(uint256 randomSeed) external returns (uint256 playerId, PlayerStats memory stats);
+    function createPlayer() external returns (uint256 playerId, PlayerStats memory stats);
     function getPlayerIds(address owner) external view returns (uint256[] memory);
     function getPlayer(uint256 playerId) external view returns (PlayerStats memory);
     function getPlayerOwner(uint256 playerId) external view returns (address);

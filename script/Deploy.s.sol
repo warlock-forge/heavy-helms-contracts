@@ -8,7 +8,7 @@ import {Player} from "../src/Player.sol";
 contract DeployScript is Script {
     function run() public returns (Game) {
         vm.startBroadcast();
-        Player player = new Player();
+        Player player = new Player(5);
         Game implementation = new Game(address(player));
         vm.stopBroadcast();
         return implementation;

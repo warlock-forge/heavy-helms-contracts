@@ -249,7 +249,14 @@ contract Game {
         }
 
         // Set winner based on health
-        state.winner = state.p1Health >= state.p2Health ? player1Id : player2Id;
+        if (state.p1Health == 0) {
+            state.winner = 2; // Player 2 wins by KO
+        } else if (state.p2Health == 0) {
+            state.winner = 1; // Player 1 wins by KO
+        } else {
+            // If no KO, higher health wins
+            state.winner = state.p1Health > state.p2Health ? 1 : 2;
+        }
 
         // Pack winner and condition at start, then combat results
         return abi.encodePacked(bytes1(uint8(state.winner)), bytes1(uint8(state.condition)), results);

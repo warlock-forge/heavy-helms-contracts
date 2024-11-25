@@ -7,37 +7,45 @@ import "./interfaces/IPlayer.sol";
 contract Player is IPlayer {
     using UniformRandomNumber for uint256;
 
-    error ZERO_ADDRESS();
-    error PLAYER_EXISTS();
-    error PLAYER_NOT_FOUND();
+    // Configuration
+    uint256 public maxPlayersPerAddress;
+    address public admin;
 
-    // Counter for generating unique player IDs
-    uint256 private _nextPlayerId = 1;
-
-    // Main storage of player stats by ID
+    // Player state tracking
     mapping(uint256 => IPlayer.PlayerStats) private _players;
+    mapping(uint256 => address) private _playerOwners;
+    mapping(uint256 => bool) private _retiredPlayers; // More gas efficient than deletion
 
-    // Mapping of address to array of their player IDs
+    // Player count tracking per address
+    mapping(address => uint256) private _addressPlayerCount;
     mapping(address => uint256[]) private _addressToPlayerIds;
 
-    // Optional: Mapping of player ID to owner address for reverse lookup
-    mapping(uint256 => address) private _playerOwners;
+    // Events
+    event PlayerRetired(uint256 indexed playerId);
+    event MaxPlayersUpdated(uint256 newMax);
 
-    // Add a mapping to track if an address has created a player
-    mapping(address => bool) private _hasCreatedPlayer;
+    constructor(uint256 initialMaxPlayers) {
+        maxPlayersPerAddress = initialMaxPlayers;
+        admin = msg.sender;
+    }
 
     // Make sure this matches the interface exactly
-    function createPlayer(uint256 randomSeed) external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
-        // Check if address has already created a player
-        if (_hasCreatedPlayer[msg.sender]) revert PLAYER_EXISTS();
+    function createPlayer() external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
+        // Generate randomSeed using multiple sources of entropy
+        uint256 randomSeed = uint256(
+            keccak256(
+                abi.encodePacked(
+                    block.timestamp,
+                    block.prevrandao, // Beacon chain randomness
+                    msg.sender
+                )
+            )
+        );
 
-        // Mark this address as having created a player
-        _hasCreatedPlayer[msg.sender] = true;
+        // Generate playerId separately from stats randomness
+        playerId = uint256(keccak256(abi.encodePacked("PLAYER_ID", randomSeed, msg.sender)));
 
-        // Generate new unique ID
-        playerId = _nextPlayerId++;
-
-        // Generate stats (existing logic)
+        // Generate stats using the randomSeed (existing logic)
         uint256 remainingPoints = 36;
         int8[4] memory statArray = [int8(3), int8(3), int8(3), int8(3)];
 

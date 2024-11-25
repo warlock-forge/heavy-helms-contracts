@@ -26,17 +26,7 @@ contract PlayerTest is Test {
             }
         }
 
-        playerContract = new Player();
-    }
-
-    function _generateRandomSeed(address playerAddress) private view returns (uint256) {
-        return uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp, block.prevrandao, blockhash(block.number - 1), playerAddress, address(this)
-                )
-            )
-        );
+        playerContract = new Player(5);
     }
 
     function _validatePlayerAttributes(IPlayer.PlayerStats memory stats, string memory context) private pure {
@@ -55,28 +45,21 @@ contract PlayerTest is Test {
     }
 
     function testCreatePlayer() public {
-        address player = address(0x1); // Use a specific address
-        vm.prank(player); // First creation with this address
+        address player = address(0x1);
+        vm.prank(player);
 
-        uint256 randomSeed = uint256(keccak256(abi.encodePacked(block.timestamp)));
-        (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer(randomSeed);
+        (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer();
 
         assertTrue(playerId > 0, "Player ID should be non-zero");
         assertTrue(newPlayer.strength >= 3, "Strength too low");
         _validatePlayerAttributes(newPlayer, "Single player test");
-
-        // Try to create another player with same address - should revert
-        vm.prank(player); // Use same address again
-        vm.expectRevert(Player.PLAYER_EXISTS.selector);
-        playerContract.createPlayer(_generateRandomSeed(player));
     }
 
     function testMultiplePlayers() public {
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(address(uint160(i + 1)));
-            uint256 randomSeed = uint256(keccak256(abi.encodePacked(block.timestamp, i)));
 
-            (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer(randomSeed);
+            (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer();
 
             assertTrue(playerId > 0, "Player ID should be non-zero");
             assertTrue(newPlayer.strength >= 3, "Strength too low");
