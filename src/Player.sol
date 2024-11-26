@@ -4,8 +4,11 @@ pragma solidity ^0.8.13;
 import "solmate/src/auth/Owned.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
+import "./PlayerSkinRegistry.sol";
+import "solmate/src/tokens/ERC721.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
+error NotSkinOwner();
 
 contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
@@ -22,6 +25,9 @@ contract Player is IPlayer, Owned {
     mapping(address => uint256) private _addressPlayerCount;
     mapping(address => uint256[]) private _addressToPlayerIds;
 
+    // Reference to the PlayerSkinRegistry contract
+    PlayerSkinRegistry public skinRegistry;
+
     // Events
     event PlayerRetired(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
@@ -31,8 +37,9 @@ contract Player is IPlayer, Owned {
     uint8 private constant MAX_STAT = 21;
     uint16 private constant TOTAL_STATS = 72;
 
-    constructor() Owned(msg.sender) {
+    constructor(address skinRegistryAddress) Owned(msg.sender) {
         maxPlayersPerAddress = 5; // Default max players per address
+        skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
     }
 
     // Make sure this matches the interface exactly
@@ -84,7 +91,9 @@ contract Player is IPlayer, Owned {
             size: statArray[2],
             agility: statArray[3],
             stamina: statArray[4],
-            luck: statArray[5]
+            luck: statArray[5],
+            skinIndex: 1,
+            skinTokenId: 1
         });
 
         // Validate and fix if necessary
@@ -98,6 +107,16 @@ contract Player is IPlayer, Owned {
         _addressToPlayerIds[msg.sender].push(playerId);
 
         return (playerId, stats);
+    }
+
+    // Function to equip a skin
+    function equipSkin(uint256 playerId, uint256 skinIndex, uint256 tokenId) external {
+        if (_playerOwners[playerId] != msg.sender) revert PlayerDoesNotExist(playerId);
+        PlayerSkinRegistry.SkinInfo memory skin = skinRegistry.getSkin(skinIndex);
+        if (ERC721(skin.contractAddress).ownerOf(tokenId) != msg.sender) revert NotSkinOwner();
+
+        _players[playerId].skinIndex = uint32(skinIndex);
+        _players[playerId].skinTokenId = uint16(tokenId);
     }
 
     // Make sure all interface functions are marked as external
@@ -239,7 +258,9 @@ contract Player is IPlayer, Owned {
             size: stats[2],
             agility: stats[3],
             stamina: stats[4],
-            luck: stats[5]
+            luck: stats[5],
+            skinIndex: 1,
+            skinTokenId: 1
         });
     }
 

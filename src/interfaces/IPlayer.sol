@@ -9,6 +9,8 @@ interface IPlayer {
         uint8 agility;
         uint8 stamina;
         uint8 luck;
+        uint32 skinIndex;
+        uint16 skinTokenId;
     }
 
     struct CalculatedStats {
