@@ -9,7 +9,8 @@ interface IPlayerSkinNFT {
         Greatsword,
         Battleaxe,
         Quarterstaff,
-        Spear
+        Spear,
+        RapierAndShield
     }
     enum ArmorType {
         Plate,

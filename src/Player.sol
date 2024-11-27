@@ -146,50 +146,52 @@ contract Player is IPlayer, Owned {
         return (uint256(stats.maxHealth), uint256(stats.maxEndurance));
     }
 
-    function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory) {
-        uint8 str = player.strength;
-        uint8 con = player.constitution;
-        uint8 siz = player.size;
-        uint8 agi = player.agility;
-        uint8 sta = player.stamina;
-        uint8 luc = player.luck;
+    function calculateStats(PlayerStats memory player) public pure returns (CalculatedStats memory) {
+        // Safe health calculation
+        uint16 maxHealth = uint16(75 + (uint32(player.constitution) * 12) + (uint32(player.size) * 6));
 
-        // Physical Power Modifier Formula
-        // Purpose: Creates a linear scale for damage based on combined strength + size
-        // Formula: y = 4.167x + 25 (scaled by 1000 for integer math)
-        // Where x is (strength + size)
-        // Results in:
-        //   - 50% power at minimum (str+siz = 6)
-        //   - 100% power at average (str+siz = 24)
-        //   - 200% power at maximum (str+siz = 42)
-        // Use uint32 for the intermediate calculation to prevent overflow
+        // Safe endurance calculation
+        uint16 maxEndurance = uint16(45 + (uint32(player.stamina) * 8) + (uint32(player.size) * 2));
+
+        // Safe initiative calculation
+        uint16 initiative = uint16(20 + (uint32(player.agility) * 3) + (uint32(player.luck) * 2));
+
+        // Safe defensive stats calculation
+        uint16 dodgeChance =
+            uint16(2 + (uint32(player.agility) * 8 / 10) + (uint32(21 - min(player.size, 21)) * 5 / 10));
+
+        uint16 blockChance = uint16(5 + (uint32(player.constitution) * 8 / 10) + (uint32(player.size) * 5 / 10));
+
+        uint16 parryChance = uint16(3 + (uint32(player.strength) * 6 / 10) + (uint32(player.agility) * 6 / 10));
+
+        // Safe hit chance calculation
+        uint16 hitChance = uint16(30 + (uint32(player.agility) * 2) + (uint32(player.luck)));
+
+        // Safe crit calculations
+        uint16 critChance = uint16(2 + (uint32(player.agility)) + (uint32(player.luck)));
+
+        uint16 critMultiplier = uint16(150 + (uint32(player.strength) * 3) + (uint32(player.luck) * 2));
+
+        // Safe counter chance
+        uint16 counterChance = uint16(3 + (uint32(player.agility)) + (uint32(player.luck)));
+
+        // Physical power calculation
         uint32 combinedStats = uint32(player.strength) + uint32(player.size);
-        uint32 tempPowerMod = 25 + (((combinedStats * 4167) / 1000));
-        // Then safely convert back to uint16
-        uint16 physicalPowerMod = tempPowerMod > type(uint16).max ? type(uint16).max : uint16(tempPowerMod);
+        uint32 tempPowerMod = 25 + ((combinedStats * 4167) / 1000);
+        uint16 physicalPowerMod = uint16(min(tempPowerMod, type(uint16).max));
 
         return CalculatedStats({
-            // Health now factors in size (bigger = more health)
-            maxHealth: uint16(45 + (con * 8) + (siz * 4)),
-            // Instead of direct damage, this is now a percentage modifier
-            // This will be applied to weapon damage ranges
-            damageModifier: physicalPowerMod,
-            // Hit chance now factors in luck
-            hitChance: uint16(30 + (agi * 2) + (luc * 1)),
-            // Block now uses size (bigger = better blocker)
-            blockChance: uint16(10 + (con * 2) + (siz * 1)),
-            // Dodge reduced slightly, smaller characters better at dodging
-            dodgeChance: uint16(5 + (agi * 2) + ((21 - siz) * 1)),
-            // Endurance now factors in size (bigger = more endurance)
-            maxEndurance: uint16(45 + (sta * 8) + (siz * 2)),
-            // Crit chance affected by luck
-            critChance: uint16(2 + (agi * 1) + (luc * 1)),
-            // Initiative penalized by size (bigger = slower)
-            initiative: uint16((sta + agi) * 3) - uint16(siz),
-            // Counter chance affected by luck
-            counterChance: uint16(3 + (agi * 1) + (luc * 1)),
-            // Crit multiplier affected by strength and luck
-            critMultiplier: uint16(150 + (str * 3) + (luc * 2))
+            maxHealth: maxHealth,
+            maxEndurance: maxEndurance,
+            initiative: initiative,
+            hitChance: hitChance,
+            dodgeChance: dodgeChance,
+            blockChance: blockChance,
+            parryChance: parryChance,
+            critChance: critChance,
+            critMultiplier: critMultiplier,
+            counterChance: counterChance,
+            damageModifier: physicalPowerMod
         });
     }
 

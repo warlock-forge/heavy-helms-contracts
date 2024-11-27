@@ -24,6 +24,7 @@ interface IPlayer {
         uint16 initiative;
         uint16 counterChance;
         uint16 critMultiplier;
+        uint16 parryChance;
     }
 
     function createPlayer() external returns (uint256 playerId, PlayerStats memory stats);
