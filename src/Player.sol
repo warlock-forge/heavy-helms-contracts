@@ -212,7 +212,7 @@ contract Player is IPlayer, Owned {
         return total == TOTAL_STATS;
     }
 
-    function _fixStats(IPlayer.PlayerStats memory player, uint256 randomSeed)
+    function _fixStats(IPlayer.PlayerStats memory player, uint256 seed)
         private
         pure
         returns (IPlayer.PlayerStats memory)
@@ -236,8 +236,7 @@ contract Player is IPlayer, Owned {
 
         // Now adjust total to 72 if needed
         while (total != 72) {
-            uint256 seed = uint256(keccak256(abi.encodePacked(randomSeed)));
-            randomSeed = seed;
+            seed = uint256(keccak256(abi.encodePacked(seed)));
 
             if (total < 72) {
                 uint256 statIndex = seed.uniform(6);
@@ -246,6 +245,7 @@ contract Player is IPlayer, Owned {
                     total += 1;
                 }
             } else {
+                seed = uint256(keccak256(abi.encodePacked(seed)));
                 uint256 statIndex = seed.uniform(6);
                 if (stats[statIndex] > 3) {
                     stats[statIndex] -= 1;

@@ -162,10 +162,10 @@ contract GameStats {
             hitChance: 95,
             critChance: 90,
             critMultiplier: 90,
-            blockChance: 125,
-            parryChance: 125,
-            dodgeChance: 115,
-            counterChance: 115,
+            blockChance: 150,
+            parryChance: 150,
+            dodgeChance: 140,
+            counterChance: 140,
             staminaCostModifier: 75
         });
 
@@ -182,14 +182,14 @@ contract GameStats {
         });
 
         stanceStats[IPlayerSkinNFT.FightingStance.Offensive] = StanceMultiplier({
-            damageModifier: 125,
-            hitChance: 110,
-            critChance: 115,
-            critMultiplier: 115,
-            blockChance: 75,
-            parryChance: 75,
-            dodgeChance: 75,
-            counterChance: 75,
+            damageModifier: 115,
+            hitChance: 105,
+            critChance: 110,
+            critMultiplier: 110,
+            blockChance: 85,
+            parryChance: 85,
+            dodgeChance: 85,
+            counterChance: 85,
             staminaCostModifier: 125
         });
     }
