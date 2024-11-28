@@ -1,41 +1,70 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "./interfaces/IPlayerSkinNFT.sol";
+import "./interfaces/IPlayer.sol";
+import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "solmate/src/auth/Owned.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
+import "./interfaces/IDefaultPlayerSkinNFT.sol";
 
-contract DefaultPlayerSkinNFT is ERC721, Owned, IPlayerSkinNFT {
+contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     uint16 private constant _MAX_SUPPLY = 1000;
-    uint16 private _currentTokenId;
+    uint16 private _currentTokenId = 1;
 
-    // Store IPFS CID for each token
     mapping(uint256 => bytes32) private _tokenCIDs;
     mapping(uint256 => SkinAttributes) private _skinAttributes;
+    mapping(uint256 => IPlayer.PlayerStats) private _characterStats;
 
     error InvalidCID();
     error InvalidTokenId();
     error MintingDisabled();
     error MaxSupplyReached();
+    error NotPlayerContract();
 
-    constructor() ERC721("Shape Duels Characters", "SDC") Owned(msg.sender) {}
+    constructor() ERC721("Shape Duels Default Player Skins", "SDPS") Owned(msg.sender) {}
 
-    function mintSkin(address to, WeaponType weapon, ArmorType armor, FightingStance stance)
-        external
-        payable
-        override
-        onlyOwner
-        returns (uint16)
-    {
+    function mintDefaultPlayerSkin(
+        WeaponType weapon,
+        ArmorType armor,
+        FightingStance stance,
+        IPlayer.PlayerStats memory stats,
+        bytes32 ipfsCID
+    ) external override onlyOwner returns (uint16) {
         if (_currentTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
+        if (ipfsCID == bytes32(0)) revert InvalidCID();
 
         uint16 newTokenId = _currentTokenId++;
-        _mint(to, newTokenId);
+        _mint(address(this), newTokenId);
 
         _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
 
-        emit SkinMinted(to, newTokenId, weapon, armor, stance);
+        _characterStats[newTokenId] = stats;
+        _tokenCIDs[newTokenId] = ipfsCID;
+
+        emit DefaultPlayerSkinMinted(newTokenId, stats);
+        emit SkinMinted(address(this), newTokenId, weapon, armor, stance);
+
+        // Get Player contract from registry and initialize the default player
+        PlayerSkinRegistry registry = PlayerSkinRegistry(payable(owner));
+        address playerContractAddress = registry.playerContract();
+        IPlayer(playerContractAddress).initializeDefaultPlayer(uint256(newTokenId), stats);
+
         return newTokenId;
+    }
+
+    function getDefaultPlayerStats(uint256 tokenId) external view override returns (IPlayer.PlayerStats memory) {
+        if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
+        return _characterStats[tokenId];
+    }
+
+    function mintSkin(address _to, WeaponType _weapon, ArmorType _armor, FightingStance _stance)
+        external
+        payable
+        override
+        returns (uint16)
+    {
+        revert MintingDisabled();
     }
 
     function MAX_SUPPLY() external pure override returns (uint16) {
@@ -52,21 +81,19 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IPlayerSkinNFT {
         return _skinAttributes[tokenId];
     }
 
-    function tokenURI(uint256 id) public view virtual override returns (string memory) {
+    function tokenURI(uint256 id) public view override returns (string memory) {
         if (id >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf[id] == address(0)) revert TokenDoesNotExist();
 
         return string(abi.encodePacked("ipfs://", _bytes32ToHexString(_tokenCIDs[id])));
     }
 
-    // Helper function to set IPFS CID for a token
     function setCID(uint256 tokenId, bytes32 ipfsCID) external onlyOwner {
         if (ipfsCID == bytes32(0)) revert InvalidCID();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
         _tokenCIDs[tokenId] = ipfsCID;
     }
 
-    // Helper function to convert bytes32 to hex string
     function _bytes32ToHexString(bytes32 data) internal pure returns (string memory) {
         bytes memory hexChars = "0123456789abcdef";
         bytes memory result = new bytes(64);
@@ -83,7 +110,6 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IPlayerSkinNFT {
         payable(owner).transfer(address(this).balance);
     }
 
-    // Add the new event
     event SkinAttributesUpdated(uint16 indexed tokenId, WeaponType weapon, ArmorType armor, FightingStance stance);
 
     function updateSkinAttributes(uint256 tokenId, WeaponType weapon, ArmorType armor, FightingStance stance)

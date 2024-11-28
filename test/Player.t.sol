@@ -13,6 +13,7 @@ import "./utils/TestBase.sol";
 contract PlayerTest is TestBase {
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
+    GameStats public gameStats;
     DefaultPlayerSkinNFT public defaultSkin;
 
     address public constant PLAYER_ONE = address(0x1);
@@ -24,13 +25,15 @@ contract PlayerTest is TestBase {
         setupRandomness();
 
         // Deploy GameStats first
-        GameStats gameStats = new GameStats();
+        gameStats = new GameStats();
 
         // Deploy skin registry with GameStats address
-        skinRegistry = new PlayerSkinRegistry(address(gameStats));
+        skinRegistry = new PlayerSkinRegistry(address(0)); // Temporary address
+        playerContract = new Player(address(skinRegistry), address(gameStats));
 
-        // Deploy player contract with skin registry address
-        playerContract = new Player(address(skinRegistry));
+        // Update with correct addresses
+        skinRegistry = new PlayerSkinRegistry(address(playerContract));
+        playerContract = new Player(address(skinRegistry), address(gameStats));
 
         // Deploy a default skin contract for testing
         defaultSkin = new DefaultPlayerSkinNFT();
@@ -120,54 +123,39 @@ contract PlayerTest is TestBase {
         (uint256 playerId,) = playerContract.createPlayer();
         vm.stopPrank();
 
-        // Need to register the skin contract first
+        // Register the skin contract and set as default
         vm.deal(address(this), 1 ether);
-        skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        uint32 skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinRegistry.setDefaultSkinRegistryId(skinIndex);
 
-        // Mint skin with beginner-friendly equipment (absolutely no stat requirements)
-        vm.prank(address(this));
-        uint16 tokenId = defaultSkin.mintSkin(
-            PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield, // Basic weapon
-            IPlayerSkinNFT.ArmorType.Cloth, // Changed to Cloth - no requirements
-            IPlayerSkinNFT.FightingStance.Balanced
+        // Mint default skin with beginner-friendly stats
+        IPlayer.PlayerStats memory stats = IPlayer.PlayerStats({
+            strength: 10,
+            constitution: 10,
+            size: 10,
+            agility: 10,
+            stamina: 10,
+            luck: 10,
+            skinIndex: skinIndex,
+            skinTokenId: 1
+        });
+
+        uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Cloth,
+            IPlayerSkinNFT.FightingStance.Balanced,
+            stats,
+            bytes32("Qm...")
         );
-
-        // Set approval for the player contract
-        vm.prank(PLAYER_ONE);
-        defaultSkin.setApprovalForAll(address(playerContract), true);
 
         // Now try to equip as PLAYER_ONE
         vm.prank(PLAYER_ONE);
-        playerContract.equipSkin(playerId, 0, tokenId);
+        playerContract.equipSkin(playerId, skinIndex, tokenId);
 
         // Verify skin is equipped
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.skinIndex, 0, "Skin index should be 0");
-        assertEq(stats.skinTokenId, tokenId, "Skin token ID should match");
-    }
-
-    function testCannotEquipUnownedSkin() public {
-        // Create a player
-        vm.prank(PLAYER_ONE);
-        (uint256 playerId,) = playerContract.createPlayer();
-
-        // Need to register the skin contract first
-        vm.deal(address(this), 1 ether);
-        skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
-
-        // Mint a skin to a different address
-        uint16 tokenId = defaultSkin.mintSkin(
-            address(0x2),
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
-
-        // Try to equip the unowned skin
-        vm.prank(PLAYER_ONE);
-        vm.expectRevert(NotSkinOwner.selector);
-        playerContract.equipSkin(playerId, 1, tokenId);
+        IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(playerId);
+        assertEq(playerStats.skinIndex, skinIndex, "Skin index should match");
+        assertEq(playerStats.skinTokenId, tokenId, "Skin token ID should match");
     }
 
     function testCannotEquipToUnownedPlayer() public {
@@ -175,19 +163,36 @@ contract PlayerTest is TestBase {
         vm.prank(PLAYER_ONE);
         (uint256 playerId,) = playerContract.createPlayer();
 
-        // Mint a skin to address(0x2)
+        // Register the skin contract and set as default
+        vm.deal(address(this), 1 ether);
+        uint32 skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinRegistry.setDefaultSkinRegistryId(skinIndex);
+
+        // Mint default skin to address(0x2)
         address otherPlayer = address(0x2);
-        uint16 tokenId = defaultSkin.mintSkin(
-            otherPlayer,
+        IPlayer.PlayerStats memory stats = IPlayer.PlayerStats({
+            strength: 10,
+            constitution: 10,
+            size: 10,
+            agility: 10,
+            stamina: 10,
+            luck: 10,
+            skinIndex: skinIndex,
+            skinTokenId: 1
+        });
+
+        uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
             IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IPlayerSkinNFT.ArmorType.Cloth,
+            IPlayerSkinNFT.FightingStance.Balanced,
+            stats,
+            bytes32("Qm...")
         );
 
         // Try to equip skin to player owned by address(0x1)
         vm.prank(otherPlayer);
         vm.expectRevert(abi.encodeWithSelector(PlayerDoesNotExist.selector, playerId));
-        playerContract.equipSkin(playerId, 1, tokenId);
+        playerContract.equipSkin(playerId, skinIndex, tokenId);
     }
 
     function testCannotEquipInvalidSkinIndex() public {

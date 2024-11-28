@@ -11,8 +11,23 @@ import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayer.sol";
 import "../src/interfaces/IGameEngine.sol";
 import "./utils/TestBase.sol";
+import "../src/lib/DefaultPlayerLibrary.sol";
+import "../src/interfaces/IPlayerSkinNFT.sol";
+import "../src/interfaces/IPlayer.sol";
 
 contract GameTest is TestBase {
+    struct TestCharacters {
+        uint16 greatswordOffensive;
+        uint16 battleaxeOffensive;
+        uint16 spearBalanced;
+        uint16 swordAndShieldDefensive;
+        uint16 rapierAndShieldDefensive;
+        uint16 quarterstaffDefensive;
+    }
+
+    TestCharacters public chars;
+    uint32 public skinIndex;
+
     Game public game;
     GameEngine public gameEngine;
     GameStats public gameStats;
@@ -27,46 +42,52 @@ contract GameTest is TestBase {
         setupRandomness();
 
         // Deploy contracts in correct order
-        gameStats = new GameStats(); // Deploy GameStats first
-        skinRegistry = new PlayerSkinRegistry(address(gameStats)); // Pass GameStats address
-        playerContract = new Player(address(skinRegistry));
+        gameStats = new GameStats();
+        skinRegistry = new PlayerSkinRegistry(address(0));
+        playerContract = new Player(address(skinRegistry), address(gameStats));
+
+        // Update skinRegistry with correct player contract
+        skinRegistry = new PlayerSkinRegistry(address(playerContract));
+        playerContract = new Player(address(skinRegistry), address(gameStats));
+
         gameEngine = new GameEngine();
         game = new Game(address(gameEngine), address(playerContract), address(gameStats), address(skinRegistry));
 
-        // Deploy default skin contract BEFORE trying to use it
+        // Deploy default skin contract and set up ownership
         defaultSkin = new DefaultPlayerSkinNFT();
 
-        // Set up default skin with registration fee
+        // Register default skin and get collection index
         vm.deal(address(this), 1 ether);
-        skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinRegistry.setDefaultSkinRegistryId(skinIndex);
 
-        // Now we can set approvals
-        defaultSkin.setApprovalForAll(address(playerContract), true);
+        // Important: We need to mint as the owner of DefaultPlayerSkinNFT
+        (
+            IPlayerSkinNFT.WeaponType weapon,
+            IPlayerSkinNFT.ArmorType armor,
+            IPlayerSkinNFT.FightingStance stance,
+            IPlayer.PlayerStats memory stats,
+            bytes32 ipfsCID
+        ) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 1);
 
-        // For each player (1-5), mint TWO skins silently
-        for (uint256 i = 0; i < 5; i++) {
-            address player = address(uint160(i + 1));
+        // Mint as the test contract (which is the owner)
+        chars.greatswordOffensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
 
-            // Mint first skin for when they're player1
-            defaultSkin.mintSkin(
-                player,
-                IPlayerSkinNFT.WeaponType.SwordAndShield,
-                IPlayerSkinNFT.ArmorType.Chain,
-                IPlayerSkinNFT.FightingStance.Balanced
-            );
+        // Continue with other characters
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getBattleaxeUser(skinIndex, 2);
+        chars.battleaxeOffensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
 
-            // Mint second skin for when they're player2
-            defaultSkin.mintSkin(
-                player,
-                IPlayerSkinNFT.WeaponType.SwordAndShield,
-                IPlayerSkinNFT.ArmorType.Chain,
-                IPlayerSkinNFT.FightingStance.Balanced
-            );
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSpearUser(skinIndex, 3);
+        chars.spearBalanced = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
 
-            // Set approval for the player contract
-            vm.prank(player);
-            defaultSkin.setApprovalForAll(address(playerContract), true);
-        }
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 4);
+        chars.swordAndShieldDefensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 5);
+        chars.rapierAndShieldDefensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 6);
+        chars.quarterstaffDefensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
     }
 
     function testBasicCombat() public {
@@ -74,21 +95,13 @@ contract GameTest is TestBase {
             console2.log("Skipping randomness test in CI");
             return;
         }
-        vm.prank(PLAYER_ONE);
-        (uint256 p1Id,) = playerContract.createPlayer();
-        vm.prank(PLAYER_TWO);
-        (uint256 p2Id,) = playerContract.createPlayer();
 
-        IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(p1Id);
-        IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(p2Id);
-
-        console2.log("P1 Stats:", p1Stats.strength, p1Stats.constitution, p1Stats.agility);
-        console2.log("P2 Stats:", p2Stats.strength, p2Stats.constitution, p2Stats.agility);
-
+        // No need to create new players, use the pre-configured ones directly
         IGameEngine.PlayerLoadout memory loadout1 =
-            IGameEngine.PlayerLoadout({playerId: p1Id, skinIndex: 0, skinTokenId: 1});
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+
         IGameEngine.PlayerLoadout memory loadout2 =
-            IGameEngine.PlayerLoadout({playerId: p2Id, skinIndex: 0, skinTokenId: 2});
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.swordAndShieldDefensive});
 
         bytes memory results = game.practiceGame(loadout1, loadout2);
         (uint256 winner,,) = gameEngine.decodeCombatLog(results);
@@ -107,65 +120,48 @@ contract GameTest is TestBase {
             return;
         }
 
-        vm.prank(PLAYER_ONE);
-        (uint256 p1Id,) = playerContract.createPlayer();
-        vm.prank(PLAYER_TWO);
-        (uint256 p2Id,) = playerContract.createPlayer();
-
-        console2.log("\n=== Combat Scenarios ===\n");
-
-        // Scenario 1: Greatsword vs SwordAndShield
-        uint16 p1Skin1 = defaultSkin.mintSkin(
-            PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Offensive
-        );
-
-        uint16 p2Skin1 = defaultSkin.mintSkin(
-            PLAYER_TWO,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
-
+        // Use pre-configured players directly
         IGameEngine.PlayerLoadout memory loadout1A =
-            IGameEngine.PlayerLoadout({playerId: p1Id, skinIndex: 0, skinTokenId: p1Skin1});
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
         IGameEngine.PlayerLoadout memory loadout1B =
-            IGameEngine.PlayerLoadout({playerId: p2Id, skinIndex: 0, skinTokenId: p2Skin1});
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.swordAndShieldDefensive});
 
         vm.warp(block.timestamp + 1);
         bytes memory results = game.practiceGame(loadout1A, loadout1B);
         logScenarioResults(1, results);
 
         // Scenario 2: Battleaxe vs Spear
-        uint16 p1Skin2 = defaultSkin.mintSkin(
-            PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.Battleaxe,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Offensive
-        );
-
-        uint16 p2Skin2 = defaultSkin.mintSkin(
-            PLAYER_TWO,
-            IPlayerSkinNFT.WeaponType.Spear,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Balanced
-        );
-
         IGameEngine.PlayerLoadout memory loadout2A =
-            IGameEngine.PlayerLoadout({playerId: p1Id, skinIndex: 0, skinTokenId: p1Skin2});
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.battleaxeOffensive});
         IGameEngine.PlayerLoadout memory loadout2B =
-            IGameEngine.PlayerLoadout({playerId: p2Id, skinIndex: 0, skinTokenId: p2Skin2});
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
 
         vm.warp(block.timestamp + 1);
         results = game.practiceGame(loadout2A, loadout2B);
         logScenarioResults(2, results);
 
-        // Add scenarios 3 & 4 with different weapon/armor combinations...
+        // Scenario 3: Rapier and Shield vs Quarterstaff
+        IGameEngine.PlayerLoadout memory loadout3A =
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.rapierAndShieldDefensive});
+        IGameEngine.PlayerLoadout memory loadout3B =
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.quarterstaffDefensive});
+
+        vm.warp(block.timestamp + 1);
+        results = game.practiceGame(loadout3A, loadout3B);
+        logScenarioResults(3, results);
+
+        // Scenario 4: Greatsword vs Spear (Offensive vs Balanced)
+        IGameEngine.PlayerLoadout memory loadout4A =
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory loadout4B =
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
+
+        vm.warp(block.timestamp + 1);
+        results = game.practiceGame(loadout4A, loadout4B);
+        logScenarioResults(4, results);
     }
 
-    function logScenarioResults(uint256 scenario, bytes memory results) private view {
+    function logScenarioResults(uint256 scenario, bytes memory results) private pure {
         uint8 winner = uint8(results[0]);
         uint8 condition = uint8(results[1]);
         uint256 rounds = (results.length - 2) / 8;
@@ -211,102 +207,40 @@ contract GameTest is TestBase {
         uint256[] memory defensiveWins = new uint256[](totalScenarios);
         uint256[] memory totalRounds = new uint256[](totalScenarios);
 
-        uint256[] memory offensiveIds = new uint256[](totalScenarios);
-        uint256[] memory defensiveIds = new uint256[](totalScenarios);
+        // Remove createPlayer calls and use pre-configured loadouts directly
+        IGameEngine.PlayerLoadout memory attackerLoadout =
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+
+        IGameEngine.PlayerLoadout memory defenderLoadout =
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.quarterstaffDefensive});
+
+        // Get and log defensive stats for our quarterstaff defensive character
+        IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(chars.quarterstaffDefensive);
+        IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(defenderStats);
+
+        // Test different offensive vs defensive matchups
+        IPlayerSkinNFT.WeaponType[3] memory offensiveWeapons =
+            [IPlayerSkinNFT.WeaponType.Greatsword, IPlayerSkinNFT.WeaponType.Battleaxe, IPlayerSkinNFT.WeaponType.Spear];
+
+        uint16[3] memory offensiveTokenIds = [
+            chars.greatswordOffensive,
+            chars.battleaxeOffensive,
+            chars.spearBalanced // Using balanced spear in offensive scenario
+        ];
 
         for (uint256 scenario = 0; scenario < totalScenarios; scenario++) {
-            // Create multiple characters and pick ones with appropriate stats
-            // Increased attempts, lowered threshold
-            uint256 bestOffensiveScore = 0;
-            uint256 bestOffensiveId = 0;
-            for (uint256 i = 0; i < 15; i++) {
-                vm.prank(PLAYER_ONE);
-                (uint256 tempId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer();
-                uint256 offensiveScore = stats.strength + stats.size;
+            // Log the matchup
+            console2.log("\n=== Scenario %d ===", scenario + 1);
+            console2.log("Offensive: %s vs Defensive: SwordAndShield", getWeaponName(offensiveWeapons[scenario]));
 
-                if (offensiveScore > bestOffensiveScore) {
-                    bestOffensiveScore = offensiveScore;
-                    bestOffensiveId = tempId;
-                }
-
-                if (offensiveScore > 20) {
-                    offensiveIds[scenario] = tempId;
-                    break;
-                }
-            }
-            // Use best found if threshold wasn't met
-            if (offensiveIds[scenario] == 0) {
-                offensiveIds[scenario] = bestOffensiveId;
-            }
-
-            uint256 bestDefensiveScore = 0;
-            uint256 bestDefensiveId = 0;
-            for (uint256 i = 0; i < 15; i++) {
-                vm.prank(PLAYER_TWO);
-                (uint256 tempId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer();
-                uint256 defensiveScore = stats.constitution + stats.stamina;
-
-                if (defensiveScore > bestDefensiveScore) {
-                    bestDefensiveScore = defensiveScore;
-                    bestDefensiveId = tempId;
-                }
-
-                if (defensiveScore > 20) {
-                    defensiveIds[scenario] = tempId;
-                    break;
-                }
-            }
-            // Use best found if threshold wasn't met
-            if (defensiveIds[scenario] == 0) {
-                defensiveIds[scenario] = bestDefensiveId;
-            }
-
-            IPlayerSkinNFT.WeaponType[3] memory offensiveWeapons = [
-                IPlayerSkinNFT.WeaponType.Greatsword,
-                IPlayerSkinNFT.WeaponType.Battleaxe,
-                IPlayerSkinNFT.WeaponType.Spear
-            ];
-
-            IPlayerSkinNFT.ArmorType[3] memory offensiveArmors =
-                [IPlayerSkinNFT.ArmorType.Leather, IPlayerSkinNFT.ArmorType.Chain, IPlayerSkinNFT.ArmorType.Leather];
-
-            // Log the stats we found
-            console2.log("\n=== Scenario %d Stats ===", scenario + 1);
-            console2.log("Offensive Build Score (Str+Size): %d", bestOffensiveScore);
-            console2.log("Defensive Build Score (Con+Stam): %d", bestDefensiveScore);
-
-            // Mint skins and create loadouts
-            uint16 offensiveTokenId = defaultSkin.mintSkin(
-                PLAYER_ONE,
-                offensiveWeapons[scenario],
-                offensiveArmors[scenario],
-                IPlayerSkinNFT.FightingStance.Offensive
-            );
-
-            uint16 defensiveTokenId = defaultSkin.mintSkin(
-                PLAYER_TWO,
-                IPlayerSkinNFT.WeaponType.SwordAndShield,
-                IPlayerSkinNFT.ArmorType.Chain,
-                IPlayerSkinNFT.FightingStance.Defensive
-            );
-
-            IGameEngine.PlayerLoadout memory offensiveLoadout = IGameEngine.PlayerLoadout({
-                playerId: offensiveIds[scenario],
-                skinIndex: 0,
-                skinTokenId: offensiveTokenId
-            });
+            IGameEngine.PlayerLoadout memory offensiveLoadout =
+                IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: offensiveTokenIds[scenario]});
 
             IGameEngine.PlayerLoadout memory defensiveLoadout = IGameEngine.PlayerLoadout({
-                playerId: defensiveIds[scenario],
-                skinIndex: 0,
-                skinTokenId: defensiveTokenId
+                playerId: 2,
+                skinIndex: skinIndex,
+                skinTokenId: chars.swordAndShieldDefensive
             });
-
-            console2.log("\n=== Scenario %d ===", scenario + 1);
-            console2.log(
-                "Offensive: %s + %s", getWeaponName(offensiveWeapons[scenario]), getArmorName(offensiveArmors[scenario])
-            );
-            console2.log("Defensive: SwordAndShield + Chain");
 
             // Run fights
             for (uint256 i = 0; i < totalFights; i++) {
@@ -358,24 +292,13 @@ contract GameTest is TestBase {
             console2.log("Skipping randomness test in CI");
             return;
         }
-        vm.prank(PLAYER_ONE);
-        (uint256 p1Id,) = playerContract.createPlayer();
-        vm.prank(PLAYER_TWO);
-        (uint256 p2Id,) = playerContract.createPlayer();
 
-        // Set up optimal parry conditions
-        uint16 defenderTokenId = defaultSkin.mintSkin(
-            PLAYER_TWO,
-            IPlayerSkinNFT.WeaponType.Quarterstaff,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
-
+        // Use pre-configured players directly
         IGameEngine.PlayerLoadout memory p1Loadout =
-            IGameEngine.PlayerLoadout({playerId: p1Id, skinIndex: 0, skinTokenId: 1});
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
 
         IGameEngine.PlayerLoadout memory p2Loadout =
-            IGameEngine.PlayerLoadout({playerId: p2Id, skinIndex: 0, skinTokenId: defenderTokenId});
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.quarterstaffDefensive});
 
         // Get weapon stats for logging
         (GameStats.WeaponStats memory weapon,,) = gameStats.getFullCharacterStats(
@@ -386,7 +309,12 @@ contract GameTest is TestBase {
 
         console2.log("Weapon Parry:", weapon.parryChance);
 
-        // Run the combat test as before...
+        // Run the combat test
+        bytes memory results = game.practiceGame(p1Loadout, p2Loadout);
+        (uint256 winner,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+
+        console2.log("Winner:", winner);
+        console2.log("Total Actions:", actions.length);
     }
 
     function testDefensiveActions() public {
@@ -394,28 +322,20 @@ contract GameTest is TestBase {
             console2.log("Skipping randomness test in CI");
             return;
         }
-        vm.prank(PLAYER_ONE);
-        (uint256 p1Id,) = playerContract.createPlayer();
-        vm.prank(PLAYER_TWO);
-        (uint256 p2Id,) = playerContract.createPlayer();
 
-        // Set up a defensive player with high parry/block chance
-        uint16 defenderTokenId = defaultSkin.mintSkin(
-            PLAYER_TWO,
-            IPlayerSkinNFT.WeaponType.Quarterstaff,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
+        // Remove createPlayer calls and use pre-configured loadouts directly
+        IGameEngine.PlayerLoadout memory attackerLoadout =
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
 
-        // Get and log defensive stats
-        IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(p2Id);
+        IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
+            playerId: 2,
+            skinIndex: skinIndex,
+            skinTokenId: chars.quarterstaffDefensive // High parry/block defender
+        });
+
+        // Get and log defensive stats for our quarterstaff defensive character
+        IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(chars.quarterstaffDefensive);
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(defenderStats);
-        console2.log(
-            "Defender Stats - Block:%d Parry:%d Dodge:%d",
-            calcStats.blockChance,
-            calcStats.parryChance,
-            calcStats.dodgeChance
-        );
 
         // Get and log stance modifiers
         (,, GameStats.StanceMultiplier memory stance) = gameStats.getFullCharacterStats(
@@ -427,33 +347,23 @@ contract GameTest is TestBase {
             "Stance Mods - Block:%d Parry:%d Dodge:%d", stance.blockChance, stance.parryChance, stance.dodgeChance
         );
 
-        // Rest of the test remains the same...
+        // Run combat and verify results
+        bytes memory results = game.practiceGame(attackerLoadout, defenderLoadout);
+        (uint256 winner,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+
+        console2.log("Winner:", winner);
+        console2.log("Total Actions:", actions.length);
     }
 
-    function testParryChanceCalculation() public {
-        // Create a player with optimal parry setup
-        vm.prank(PLAYER_ONE);
-        (uint256 p1Id,) = playerContract.createPlayer();
-
-        // Use equipment with no stat requirements
-        uint16 tokenId = defaultSkin.mintSkin(
-            PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield, // Basic weapon
-            IPlayerSkinNFT.ArmorType.Cloth, // Changed to Cloth - no requirements
-            IPlayerSkinNFT.FightingStance.Defensive // Keep defensive stance for parry testing
-        );
-
-        vm.prank(PLAYER_ONE);
-        playerContract.equipSkin(p1Id, 0, tokenId);
-
-        // Get the calculated stats
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(p1Id);
+    function testParryChanceCalculation() public view {
+        // Use the pre-configured RapierAndShield character from setUp
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(chars.rapierAndShieldDefensive);
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(stats);
 
         // Get weapon stats
         (GameStats.WeaponStats memory weapon,,) = gameStats.getFullCharacterStats(
-            IPlayerSkinNFT.WeaponType.SwordAndShield, // Match the equipped weapon
-            IPlayerSkinNFT.ArmorType.Cloth, // Changed to match equipped armor
+            IPlayerSkinNFT.WeaponType.RapierAndShield,
+            IPlayerSkinNFT.ArmorType.Leather,
             IPlayerSkinNFT.FightingStance.Defensive
         );
 
@@ -469,31 +379,19 @@ contract GameTest is TestBase {
             console2.log("Skipping randomness test in CI");
             return;
         }
-        vm.prank(PLAYER_ONE);
-        (uint256 p1Id,) = playerContract.createPlayer();
-        vm.prank(PLAYER_TWO);
-        (uint256 p2Id,) = playerContract.createPlayer();
 
-        // Set up optimal parry conditions
-        uint16 defenderTokenId = defaultSkin.mintSkin(
-            PLAYER_TWO,
-            IPlayerSkinNFT.WeaponType.RapierAndShield,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
-
+        // Use pre-configured players directly
         IGameEngine.PlayerLoadout memory attackerLoadout =
-            IGameEngine.PlayerLoadout({playerId: p1Id, skinIndex: 0, skinTokenId: 1});
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
 
         IGameEngine.PlayerLoadout memory defenderLoadout =
-            IGameEngine.PlayerLoadout({playerId: p2Id, skinIndex: 0, skinTokenId: defenderTokenId});
+            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.rapierAndShieldDefensive});
 
         // Run multiple games with different seeds to verify parry mechanics
         for (uint256 seed = 0; seed < 10; seed++) {
             bytes memory results =
                 gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract, gameStats, skinRegistry);
 
-            // Just verify we got results, no debug output
             require(results.length > 2, "Invalid results length");
         }
     }

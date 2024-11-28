@@ -16,8 +16,8 @@ contract GameScript is Script {
 
         // Deploy contracts in correct order
         GameStats gameStats = new GameStats();
-        PlayerSkinRegistry skinRegistry = new PlayerSkinRegistry(address(gameStats));
-        Player playerContract = new Player(address(skinRegistry));
+        PlayerSkinRegistry skinRegistry = new PlayerSkinRegistry(address(0));
+        Player playerContract = new Player(address(skinRegistry), address(gameStats));
         GameEngine gameEngine = new GameEngine();
 
         Game game = new Game(address(gameEngine), address(playerContract), address(gameStats), address(skinRegistry));

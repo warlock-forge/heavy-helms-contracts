@@ -12,6 +12,9 @@ import "./GameStats.sol";
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
 error StatRequirementsNotMet();
+error SkinRegistryDoesNotExist();
+error InvalidSkinAttributes();
+error NotDefaultSkinContract();
 
 contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
@@ -31,18 +34,23 @@ contract Player is IPlayer, Owned {
     // Reference to the PlayerSkinRegistry contract
     PlayerSkinRegistry public skinRegistry;
 
+    // Add GameStats reference
+    GameStats public immutable gameStats;
+
     // Events
     event PlayerRetired(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
+    event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
     uint8 private constant MAX_STAT = 21;
     uint16 private constant TOTAL_STATS = 72;
 
-    constructor(address skinRegistryAddress) Owned(msg.sender) {
-        maxPlayersPerAddress = 5; // Default max players per address
+    constructor(address skinRegistryAddress, address gameStatsAddress) Owned(msg.sender) {
+        maxPlayersPerAddress = 5;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
+        gameStats = GameStats(gameStatsAddress);
     }
 
     // Make sure this matches the interface exactly
@@ -113,24 +121,47 @@ contract Player is IPlayer, Owned {
     }
 
     // Function to equip a skin
-    function equipSkin(uint256 playerId, uint256 skinIndex, uint256 tokenId) external {
+    function equipSkin(uint256 playerId, uint32 skinIndex, uint16 tokenId) external {
+        // Check if player exists and belongs to sender
         if (_playerOwners[playerId] != msg.sender) revert PlayerDoesNotExist(playerId);
 
-        PlayerSkinRegistry.SkinInfo memory skin = skinRegistry.getSkin(skinIndex);
-        if (ERC721(skin.contractAddress).ownerOf(tokenId) != msg.sender) revert NotSkinOwner();
+        // Get skin info from registry
+        PlayerSkinRegistry.SkinInfo memory skin;
+        try skinRegistry.getSkin(skinIndex) returns (PlayerSkinRegistry.SkinInfo memory _skin) {
+            skin = _skin;
+        } catch {
+            revert SkinRegistryDoesNotExist();
+        }
 
-        // Get the skin attributes
-        IPlayerSkinNFT.SkinAttributes memory attrs = IPlayerSkinNFT(skin.contractAddress).getSkinAttributes(tokenId);
+        // Only check ownership if it's not from the default skin collection
+        if (skinIndex != skinRegistry.defaultSkinRegistryId()) {
+            try ERC721(skin.contractAddress).ownerOf(tokenId) returns (address owner) {
+                if (owner != msg.sender) revert NotSkinOwner();
+            } catch {
+                revert NotSkinOwner();
+            }
+        }
 
-        // Check stat requirements
+        // Get and validate skin attributes
+        IPlayerSkinNFT skinContract = IPlayerSkinNFT(skin.contractAddress);
+        IPlayerSkinNFT.SkinAttributes memory attrs;
+        try skinContract.getSkinAttributes(tokenId) returns (IPlayerSkinNFT.SkinAttributes memory _attrs) {
+            attrs = _attrs;
+        } catch {
+            revert InvalidSkinAttributes();
+        }
+
+        // Check stat requirements using GameStats from registry
         (bool meetsWeaponReqs, bool meetsArmorReqs) =
-            skinRegistry.gameStats().checkStatRequirements(attrs.weapon, attrs.armor, _players[playerId]);
+            gameStats.checkStatRequirements(attrs.weapon, attrs.armor, _players[playerId]);
 
         if (!meetsWeaponReqs || !meetsArmorReqs) revert StatRequirementsNotMet();
 
-        // If we get here, requirements are met
-        _players[playerId].skinIndex = uint32(skinIndex);
-        _players[playerId].skinTokenId = uint16(tokenId);
+        // Update player's equipped skin
+        _players[playerId].skinIndex = skinIndex;
+        _players[playerId].skinTokenId = tokenId;
+
+        emit SkinEquipped(playerId, skinIndex, tokenId);
     }
 
     // Make sure all interface functions are marked as external
@@ -288,5 +319,15 @@ contract Player is IPlayer, Owned {
     function setMaxPlayersPerAddress(uint256 newMax) external onlyOwner {
         maxPlayersPerAddress = newMax;
         emit MaxPlayersUpdated(newMax);
+    }
+
+    function initializeDefaultPlayer(uint256 playerId, PlayerStats memory stats) external {
+        // Only allow calls from the default skin contract
+        PlayerSkinRegistry registry = skinRegistry;
+        address defaultSkinContract = registry.getSkin(registry.defaultSkinRegistryId()).contractAddress;
+        if (msg.sender != defaultSkinContract) revert NotDefaultSkinContract();
+
+        _players[playerId] = stats;
+        _playerOwners[playerId] = address(this);
     }
 }
