@@ -26,16 +26,21 @@ contract GameTest is TestBase {
     function setUp() public {
         setupRandomness();
 
-        // Deploy contracts
-        defaultSkin = new DefaultPlayerSkinNFT();
-        skinRegistry = new PlayerSkinRegistry();
+        // Deploy contracts in correct order
+        gameStats = new GameStats(); // Deploy GameStats first
+        skinRegistry = new PlayerSkinRegistry(address(gameStats)); // Pass GameStats address
         playerContract = new Player(address(skinRegistry));
-        gameStats = new GameStats();
         gameEngine = new GameEngine();
         game = new Game(address(gameEngine), address(playerContract), address(gameStats), address(skinRegistry));
 
-        // Set up default skin
-        skinRegistry.registerSkin(address(defaultSkin));
+        // Deploy default skin contract BEFORE trying to use it
+        defaultSkin = new DefaultPlayerSkinNFT();
+
+        // Set up default skin with registration fee
+        vm.deal(address(this), 1 ether);
+        skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+
+        // Now we can set approvals
         defaultSkin.setApprovalForAll(address(playerContract), true);
 
         // For each player (1-5), mint TWO skins silently
@@ -430,11 +435,12 @@ contract GameTest is TestBase {
         vm.prank(PLAYER_ONE);
         (uint256 p1Id,) = playerContract.createPlayer();
 
+        // Use equipment with no stat requirements
         uint16 tokenId = defaultSkin.mintSkin(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.RapierAndShield,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IPlayerSkinNFT.WeaponType.SwordAndShield, // Basic weapon
+            IPlayerSkinNFT.ArmorType.Cloth, // Changed to Cloth - no requirements
+            IPlayerSkinNFT.FightingStance.Defensive // Keep defensive stance for parry testing
         );
 
         vm.prank(PLAYER_ONE);
@@ -446,15 +452,14 @@ contract GameTest is TestBase {
 
         // Get weapon stats
         (GameStats.WeaponStats memory weapon,,) = gameStats.getFullCharacterStats(
-            IPlayerSkinNFT.WeaponType.RapierAndShield,
-            IPlayerSkinNFT.ArmorType.Leather,
+            IPlayerSkinNFT.WeaponType.SwordAndShield, // Match the equipped weapon
+            IPlayerSkinNFT.ArmorType.Cloth, // Changed to match equipped armor
             IPlayerSkinNFT.FightingStance.Defensive
         );
 
         console2.log("Base Parry Chance:", weapon.parryChance);
         console2.log("Calculated Parry Chance:", calcStats.parryChance);
 
-        // Verify parry chance is reasonable
         assertTrue(calcStats.parryChance > 0, "Parry chance should be greater than 0");
         assertTrue(calcStats.parryChance <= 100, "Parry chance should be <= 100");
     }

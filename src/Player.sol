@@ -6,9 +6,12 @@ import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
+import "./interfaces/IPlayerSkinNFT.sol";
+import "./GameStats.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
+error StatRequirementsNotMet();
 
 contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
@@ -112,9 +115,20 @@ contract Player is IPlayer, Owned {
     // Function to equip a skin
     function equipSkin(uint256 playerId, uint256 skinIndex, uint256 tokenId) external {
         if (_playerOwners[playerId] != msg.sender) revert PlayerDoesNotExist(playerId);
+
         PlayerSkinRegistry.SkinInfo memory skin = skinRegistry.getSkin(skinIndex);
         if (ERC721(skin.contractAddress).ownerOf(tokenId) != msg.sender) revert NotSkinOwner();
 
+        // Get the skin attributes
+        IPlayerSkinNFT.SkinAttributes memory attrs = IPlayerSkinNFT(skin.contractAddress).getSkinAttributes(tokenId);
+
+        // Check stat requirements
+        (bool meetsWeaponReqs, bool meetsArmorReqs) =
+            skinRegistry.gameStats().checkStatRequirements(attrs.weapon, attrs.armor, _players[playerId]);
+
+        if (!meetsWeaponReqs || !meetsArmorReqs) revert StatRequirementsNotMet();
+
+        // If we get here, requirements are met
         _players[playerId].skinIndex = uint32(skinIndex);
         _players[playerId].skinTokenId = uint16(tokenId);
     }

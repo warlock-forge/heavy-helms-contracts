@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "solmate/src/auth/Owned.sol";
 import "solmate/src/tokens/ERC20.sol";
+import "./GameStats.sol";
 
 contract PlayerSkinRegistry is Owned {
     struct SkinInfo {
@@ -11,12 +12,15 @@ contract PlayerSkinRegistry is Owned {
 
     SkinInfo[] public skins;
     uint256 public registrationFee = 0.001 ether;
+    GameStats public gameStats;
 
     error InsufficientRegistrationFee();
     error NoTokensToCollect();
     error SkinsArrayLimitReached();
 
-    constructor() Owned(msg.sender) {}
+    constructor(address gameStatsAddress) Owned(msg.sender) {
+        gameStats = GameStats(gameStatsAddress);
+    }
 
     function registerSkin(address contractAddress) external payable returns (uint256) {
         if (msg.sender != owner) {

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "./interfaces/IPlayerSkinNFT.sol";
+import "./interfaces/IPlayer.sol";
 
 contract GameStats {
     enum DamageType {
@@ -41,21 +42,44 @@ contract GameStats {
         uint16 staminaCostModifier; // Add this new field
     }
 
+    struct StatRequirements {
+        uint8 strength;
+        uint8 constitution;
+        uint8 size;
+        uint8 agility;
+        uint8 stamina;
+        uint8 luck;
+    }
+
     mapping(IPlayerSkinNFT.WeaponType => WeaponStats) public weaponStats;
     mapping(IPlayerSkinNFT.ArmorType => ArmorStats) public armorStats;
     mapping(IPlayerSkinNFT.FightingStance => StanceMultiplier) public stanceStats;
+    mapping(IPlayerSkinNFT.WeaponType => StatRequirements) public weaponRequirements;
+    mapping(IPlayerSkinNFT.ArmorType => StatRequirements) public armorRequirements;
 
     constructor() {
-        // Initialize Weapon Stats
+        // =============================================
+        // WEAPON STATS AND REQUIREMENTS
+        // =============================================
+
+        // === One-Handed Weapons (with Shield) ===
         weaponStats[IPlayerSkinNFT.WeaponType.SwordAndShield] = WeaponStats({
             minDamage: 18,
             maxDamage: 26,
             attackSpeed: 100,
-            parryChance: 110, // Good at parrying
+            parryChance: 110,
             riposteChance: 120,
             damageType: DamageType.Slashing,
             isTwoHanded: false,
             hasShield: true
+        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.SwordAndShield] = StatRequirements({
+            strength: 0, // Beginner friendly - no requirements
+            constitution: 0,
+            size: 0,
+            agility: 0,
+            stamina: 0,
+            luck: 0
         });
 
         weaponStats[IPlayerSkinNFT.WeaponType.MaceAndShield] = WeaponStats({
@@ -63,54 +87,18 @@ contract GameStats {
             maxDamage: 34,
             attackSpeed: 80,
             parryChance: 80,
-            riposteChance: 70, // Only this new field should be added
+            riposteChance: 70,
             damageType: DamageType.Blunt,
             isTwoHanded: false,
             hasShield: true
         });
-
-        weaponStats[IPlayerSkinNFT.WeaponType.Greatsword] = WeaponStats({
-            minDamage: 26,
-            maxDamage: 38,
-            attackSpeed: 80,
-            parryChance: 100,
-            riposteChance: 110,
-            damageType: DamageType.Slashing,
-            isTwoHanded: true,
-            hasShield: false
-        });
-
-        weaponStats[IPlayerSkinNFT.WeaponType.Battleaxe] = WeaponStats({
-            minDamage: 35,
-            maxDamage: 46,
-            attackSpeed: 60,
-            parryChance: 60, // Hard to parry with
-            riposteChance: 70,
-            damageType: DamageType.Slashing,
-            isTwoHanded: true,
-            hasShield: false
-        });
-
-        weaponStats[IPlayerSkinNFT.WeaponType.Quarterstaff] = WeaponStats({
-            minDamage: 15,
-            maxDamage: 23,
-            attackSpeed: 120,
-            parryChance: 120, // Best at parrying
-            riposteChance: 130,
-            damageType: DamageType.Blunt,
-            isTwoHanded: true,
-            hasShield: false
-        });
-
-        weaponStats[IPlayerSkinNFT.WeaponType.Spear] = WeaponStats({
-            minDamage: 20,
-            maxDamage: 32,
-            attackSpeed: 90,
-            parryChance: 80,
-            riposteChance: 90,
-            damageType: DamageType.Piercing,
-            isTwoHanded: true,
-            hasShield: false
+        weaponRequirements[IPlayerSkinNFT.WeaponType.MaceAndShield] = StatRequirements({
+            strength: 10, // Needs decent strength to wield effectively
+            constitution: 0,
+            size: 0,
+            agility: 0,
+            stamina: 8,
+            luck: 0
         });
 
         weaponStats[IPlayerSkinNFT.WeaponType.RapierAndShield] = WeaponStats({
@@ -123,33 +111,141 @@ contract GameStats {
             isTwoHanded: false,
             hasShield: true
         });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.RapierAndShield] = StatRequirements({
+            strength: 6, // Emphasizes agility over strength
+            constitution: 0,
+            size: 0,
+            agility: 12,
+            stamina: 0,
+            luck: 0
+        });
 
-        // Initialize Armor Stats with resistances
+        // === Two-Handed Weapons ===
+        weaponStats[IPlayerSkinNFT.WeaponType.Greatsword] = WeaponStats({
+            minDamage: 26,
+            maxDamage: 38,
+            attackSpeed: 80,
+            parryChance: 100,
+            riposteChance: 110,
+            damageType: DamageType.Slashing,
+            isTwoHanded: true,
+            hasShield: false
+        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.Greatsword] = StatRequirements({
+            strength: 12, // Requires good strength and size
+            constitution: 0,
+            size: 10,
+            agility: 8,
+            stamina: 0,
+            luck: 0
+        });
+
+        weaponStats[IPlayerSkinNFT.WeaponType.Battleaxe] = WeaponStats({
+            minDamage: 35,
+            maxDamage: 46,
+            attackSpeed: 60,
+            parryChance: 60,
+            riposteChance: 70,
+            damageType: DamageType.Slashing,
+            isTwoHanded: true,
+            hasShield: false
+        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.Battleaxe] = StatRequirements({
+            strength: 15, // Highest strength requirement
+            constitution: 0,
+            size: 12, // Needs good size to handle
+            agility: 0,
+            stamina: 0,
+            luck: 0
+        });
+
+        weaponStats[IPlayerSkinNFT.WeaponType.Quarterstaff] = WeaponStats({
+            minDamage: 15,
+            maxDamage: 23,
+            attackSpeed: 120,
+            parryChance: 120,
+            riposteChance: 130,
+            damageType: DamageType.Blunt,
+            isTwoHanded: true,
+            hasShield: false
+        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.Quarterstaff] = StatRequirements({
+            strength: 6, // Balanced requirements
+            constitution: 0,
+            size: 0,
+            agility: 10,
+            stamina: 0,
+            luck: 0
+        });
+
+        weaponStats[IPlayerSkinNFT.WeaponType.Spear] = WeaponStats({
+            minDamage: 20,
+            maxDamage: 32,
+            attackSpeed: 90,
+            parryChance: 80,
+            riposteChance: 90,
+            damageType: DamageType.Piercing,
+            isTwoHanded: true,
+            hasShield: false
+        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.Spear] = StatRequirements({
+            strength: 8, // Balanced requirements
+            constitution: 0,
+            size: 8, // Length requires some size
+            agility: 10, // Precise strikes need agility
+            stamina: 0,
+            luck: 0
+        });
+
+        // =============================================
+        // ARMOR STATS AND REQUIREMENTS
+        // =============================================
+
+        // === Light Armor ===
+        armorStats[IPlayerSkinNFT.ArmorType.Cloth] =
+            ArmorStats({defense: 2, weight: 25, slashResist: 70, pierceResist: 70, bluntResist: 80});
+        armorRequirements[IPlayerSkinNFT.ArmorType.Cloth] = StatRequirements({
+            strength: 0, // No requirements - default armor
+            constitution: 0,
+            size: 0,
+            agility: 0,
+            stamina: 0,
+            luck: 0
+        });
+
+        armorStats[IPlayerSkinNFT.ArmorType.Leather] =
+            ArmorStats({defense: 4, weight: 50, slashResist: 90, pierceResist: 85, bluntResist: 90});
+        armorRequirements[IPlayerSkinNFT.ArmorType.Leather] = StatRequirements({
+            strength: 6, // Light requirements
+            constitution: 6,
+            size: 0,
+            agility: 0,
+            stamina: 0,
+            luck: 0
+        });
+
+        // === Medium Armor ===
+        armorStats[IPlayerSkinNFT.ArmorType.Chain] =
+            ArmorStats({defense: 6, weight: 75, slashResist: 110, pierceResist: 70, bluntResist: 100});
+        armorRequirements[IPlayerSkinNFT.ArmorType.Chain] = StatRequirements({
+            strength: 8, // Moderate requirements
+            constitution: 8,
+            size: 0,
+            agility: 0,
+            stamina: 0,
+            luck: 0
+        });
+
+        // === Heavy Armor ===
         armorStats[IPlayerSkinNFT.ArmorType.Plate] =
             ArmorStats({defense: 12, weight: 100, slashResist: 120, pierceResist: 90, bluntResist: 80});
-
-        armorStats[IPlayerSkinNFT.ArmorType.Chain] = ArmorStats({
-            defense: 6,
-            weight: 75,
-            slashResist: 110, // Good vs slashing
-            pierceResist: 70, // Very weak to piercing
-            bluntResist: 100 // Decent vs blunt
-        });
-
-        armorStats[IPlayerSkinNFT.ArmorType.Leather] = ArmorStats({
-            defense: 4,
-            weight: 50,
-            slashResist: 90, // Some protection
-            pierceResist: 85, // Some protection
-            bluntResist: 90 // Some protection
-        });
-
-        armorStats[IPlayerSkinNFT.ArmorType.Cloth] = ArmorStats({
-            defense: 2,
-            weight: 25, // Lowest stamina drain
-            slashResist: 70, // Poor protection
-            pierceResist: 70, // Poor protection
-            bluntResist: 80 // Slightly better vs blunt
+        armorRequirements[IPlayerSkinNFT.ArmorType.Plate] = StatRequirements({
+            strength: 10, // Highest requirements
+            constitution: 10,
+            size: 0,
+            agility: 0,
+            stamina: 0,
+            luck: 0
         });
 
         // Initialize Stance Stats
@@ -205,5 +301,22 @@ contract GameStats {
 
     function getStanceMultiplier(IPlayerSkinNFT.FightingStance stance) public view returns (StanceMultiplier memory) {
         return stanceStats[stance];
+    }
+
+    function checkStatRequirements(
+        IPlayerSkinNFT.WeaponType weapon,
+        IPlayerSkinNFT.ArmorType armor,
+        IPlayer.PlayerStats memory stats
+    ) external view returns (bool meetsWeaponReqs, bool meetsArmorReqs) {
+        StatRequirements memory weaponReqs = weaponRequirements[weapon];
+        StatRequirements memory armorReqs = armorRequirements[armor];
+
+        meetsWeaponReqs = stats.strength >= weaponReqs.strength && stats.constitution >= weaponReqs.constitution
+            && stats.size >= weaponReqs.size && stats.agility >= weaponReqs.agility && stats.stamina >= weaponReqs.stamina
+            && stats.luck >= weaponReqs.luck;
+
+        meetsArmorReqs = stats.strength >= armorReqs.strength && stats.constitution >= armorReqs.constitution
+            && stats.size >= armorReqs.size && stats.agility >= armorReqs.agility && stats.stamina >= armorReqs.stamina
+            && stats.luck >= armorReqs.luck;
     }
 }

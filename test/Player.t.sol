@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {Player, NotSkinOwner, PlayerDoesNotExist} from "../src/Player.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
+import {GameStats} from "../src/GameStats.sol";
 import "../src/interfaces/IPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
@@ -22,8 +23,11 @@ contract PlayerTest is TestBase {
     function setUp() public {
         setupRandomness();
 
-        // Deploy skin registry first
-        skinRegistry = new PlayerSkinRegistry();
+        // Deploy GameStats first
+        GameStats gameStats = new GameStats();
+
+        // Deploy skin registry with GameStats address
+        skinRegistry = new PlayerSkinRegistry(address(gameStats));
 
         // Deploy player contract with skin registry address
         playerContract = new Player(address(skinRegistry));
@@ -120,22 +124,26 @@ contract PlayerTest is TestBase {
         vm.deal(address(this), 1 ether);
         skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
 
-        // Mint skin AS THE OWNER of defaultSkin contract
-        vm.prank(address(this)); // Test contract is the owner
+        // Mint skin with beginner-friendly equipment (absolutely no stat requirements)
+        vm.prank(address(this));
         uint16 tokenId = defaultSkin.mintSkin(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IPlayerSkinNFT.WeaponType.SwordAndShield, // Basic weapon
+            IPlayerSkinNFT.ArmorType.Cloth, // Changed to Cloth - no requirements
+            IPlayerSkinNFT.FightingStance.Balanced
         );
+
+        // Set approval for the player contract
+        vm.prank(PLAYER_ONE);
+        defaultSkin.setApprovalForAll(address(playerContract), true);
 
         // Now try to equip as PLAYER_ONE
         vm.prank(PLAYER_ONE);
-        playerContract.equipSkin(playerId, 1, tokenId);
+        playerContract.equipSkin(playerId, 0, tokenId);
 
         // Verify skin is equipped
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.skinIndex, 1, "Skin index should be 1");
+        assertEq(stats.skinIndex, 0, "Skin index should be 0");
         assertEq(stats.skinTokenId, tokenId, "Skin token ID should match");
     }
 
