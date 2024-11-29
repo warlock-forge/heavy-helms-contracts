@@ -15,6 +15,7 @@ contract PlayerTest is TestBase {
     PlayerSkinRegistry public skinRegistry;
     GameStats public gameStats;
     DefaultPlayerSkinNFT public defaultSkin;
+    uint32 public skinIndex;
 
     address public constant PLAYER_ONE = address(0x1);
     uint256 public constant PLAYER_ONE_ID = 1;
@@ -24,23 +25,18 @@ contract PlayerTest is TestBase {
     function setUp() public {
         setupRandomness();
 
-        // Deploy GameStats first
+        // Deploy contracts in correct order
         gameStats = new GameStats();
-
-        // Deploy skin registry with GameStats address
-        skinRegistry = new PlayerSkinRegistry(address(0)); // Temporary address
+        skinRegistry = new PlayerSkinRegistry();
         playerContract = new Player(address(skinRegistry), address(gameStats));
 
-        // Update with correct addresses
-        skinRegistry = new PlayerSkinRegistry(address(playerContract));
-        playerContract = new Player(address(skinRegistry), address(gameStats));
-
-        // Deploy a default skin contract for testing
+        // Deploy default skin contract
         defaultSkin = new DefaultPlayerSkinNFT();
 
-        // Register the skin contract
+        // Register default skin and get collection index
         vm.deal(address(this), 1 ether);
-        skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinRegistry.setDefaultSkinRegistryId(skinIndex);
     }
 
     function _validatePlayerAttributes(IPlayer.PlayerStats memory stats, string memory context) private pure {
@@ -125,7 +121,7 @@ contract PlayerTest is TestBase {
 
         // Register the skin contract and set as default
         vm.deal(address(this), 1 ether);
-        uint32 skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
 
         // Mint default skin with beginner-friendly stats
@@ -165,7 +161,7 @@ contract PlayerTest is TestBase {
 
         // Register the skin contract and set as default
         vm.deal(address(this), 1 ether);
-        uint32 skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
 
         // Mint default skin to address(0x2)

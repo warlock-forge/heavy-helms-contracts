@@ -14,7 +14,6 @@ contract PlayerSkinRegistry is Owned {
     uint256 public registrationFee = 0.001 ether;
     uint32 public defaultSkinRegistryId;
     uint32 public nextSkinRegistryId;
-    address public immutable playerContract;
 
     // Events
     event SkinRegistered(uint32 indexed registryId, address indexed skinContract);
@@ -29,9 +28,7 @@ contract PlayerSkinRegistry is Owned {
     error InvalidDefaultSkinRegistry();
     error SkinRegistryDoesNotExist();
 
-    constructor(address _playerContract) Owned(msg.sender) {
-        playerContract = _playerContract;
-    }
+    constructor() Owned(msg.sender) {}
 
     function registerSkin(address contractAddress) external payable returns (uint32) {
         // Check registration fee unless owner

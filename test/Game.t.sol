@@ -43,11 +43,7 @@ contract GameTest is TestBase {
 
         // Deploy contracts in correct order
         gameStats = new GameStats();
-        skinRegistry = new PlayerSkinRegistry(address(0));
-        playerContract = new Player(address(skinRegistry), address(gameStats));
-
-        // Update skinRegistry with correct player contract
-        skinRegistry = new PlayerSkinRegistry(address(playerContract));
+        skinRegistry = new PlayerSkinRegistry();
         playerContract = new Player(address(skinRegistry), address(gameStats));
 
         gameEngine = new GameEngine();
@@ -55,6 +51,7 @@ contract GameTest is TestBase {
 
         // Deploy default skin contract and set up ownership
         defaultSkin = new DefaultPlayerSkinNFT();
+        defaultSkin.setPlayerContract(address(playerContract));
 
         // Register default skin and get collection index
         vm.deal(address(this), 1 ether);

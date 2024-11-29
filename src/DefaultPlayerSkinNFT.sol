@@ -24,6 +24,15 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
 
     constructor() ERC721("Shape Duels Default Player Skins", "SDPS") Owned(msg.sender) {}
 
+    // Add player contract address storage
+    address public playerContract;
+
+    // Add setter for player contract
+    function setPlayerContract(address _playerContract) external onlyOwner {
+        require(_playerContract != address(0), "Invalid player contract");
+        playerContract = _playerContract;
+    }
+
     function mintDefaultPlayerSkin(
         WeaponType weapon,
         ArmorType armor,
@@ -45,10 +54,10 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         emit DefaultPlayerSkinMinted(newTokenId, stats);
         emit SkinMinted(address(this), newTokenId, weapon, armor, stance);
 
-        // Get Player contract from registry and initialize the default player
-        PlayerSkinRegistry registry = PlayerSkinRegistry(payable(owner));
-        address playerContractAddress = registry.playerContract();
-        IPlayer(playerContractAddress).initializeDefaultPlayer(uint256(newTokenId), stats);
+        // Initialize the default player if player contract is set
+        if (playerContract != address(0)) {
+            IPlayer(playerContract).initializeDefaultPlayer(uint256(newTokenId), stats);
+        }
 
         return newTokenId;
     }
