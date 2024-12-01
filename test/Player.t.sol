@@ -141,7 +141,7 @@ contract PlayerTest is TestBase {
             IPlayerSkinNFT.ArmorType.Cloth,
             IPlayerSkinNFT.FightingStance.Balanced,
             stats,
-            bytes32("Qm...")
+            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
         );
 
         // Now try to equip as PLAYER_ONE
@@ -182,7 +182,7 @@ contract PlayerTest is TestBase {
             IPlayerSkinNFT.ArmorType.Cloth,
             IPlayerSkinNFT.FightingStance.Balanced,
             stats,
-            bytes32("Qm...")
+            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
         );
 
         // Try to equip skin to player owned by address(0x1)

@@ -33,32 +33,31 @@ contract GameScript is Script {
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
 
         // 3. Mint initial default characters
-        // Greatsword Offensive Character
+        // Balanced Character
         (
             IPlayerSkinNFT.WeaponType weapon,
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
-        ) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 1);
+            string memory ipfsCID
+        ) = DefaultPlayerLibrary.getBalancedWarrior(skinIndex, 1);
 
         defaultSkin.mintDefaultPlayerSkin(
-            weapon,
-            armor,
-            stance,
-            stats,
-            bytes32("QmYourIPFSHashHere1") // Replace with actual IPFS hash
+            weapon, armor, stance, stats, "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
+        );
+
+        // Greatsword Offensive Character
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 2);
+
+        defaultSkin.mintDefaultPlayerSkin(
+            weapon, armor, stance, stats, "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
         );
 
         // Defensive Character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 2);
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 3);
 
         defaultSkin.mintDefaultPlayerSkin(
-            weapon,
-            armor,
-            stance,
-            stats,
-            bytes32("QmYourIPFSHashHere2") // Replace with actual IPFS hash
+            weapon, armor, stance, stats, "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
         );
 
         // Log deployed addresses

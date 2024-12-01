@@ -10,7 +10,7 @@ interface IDefaultPlayerSkinNFT is IPlayerSkinNFT {
         ArmorType armor,
         FightingStance stance,
         IPlayer.PlayerStats calldata stats,
-        bytes32 ipfsCID
+        string calldata ipfsCID
     ) external returns (uint16 tokenId);
 
     function getDefaultPlayerStats(uint256 tokenId) external view returns (IPlayer.PlayerStats memory);

@@ -12,7 +12,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     uint16 private constant _MAX_SUPPLY = 1000;
     uint16 private _currentTokenId = 1;
 
-    mapping(uint256 => bytes32) private _tokenCIDs;
+    mapping(uint256 => string) private _tokenCIDs;
     mapping(uint256 => SkinAttributes) private _skinAttributes;
     mapping(uint256 => IPlayer.PlayerStats) private _characterStats;
 
@@ -24,10 +24,8 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
 
     constructor() ERC721("Shape Duels Default Player Skins", "SDPS") Owned(msg.sender) {}
 
-    // Add player contract address storage
     address public playerContract;
 
-    // Add setter for player contract
     function setPlayerContract(address _playerContract) external onlyOwner {
         require(_playerContract != address(0), "Invalid player contract");
         playerContract = _playerContract;
@@ -38,28 +36,46 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         ArmorType armor,
         FightingStance stance,
         IPlayer.PlayerStats memory stats,
-        bytes32 ipfsCID
+        string calldata ipfsCID
     ) external override onlyOwner returns (uint16) {
         if (_currentTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
-        if (ipfsCID == bytes32(0)) revert InvalidCID();
+        if (bytes(ipfsCID).length == 0) revert InvalidCID();
+
+        require(
+            bytes(ipfsCID).length > 2 && bytes(ipfsCID)[0] == 0x51 && bytes(ipfsCID)[1] == 0x6D, "Invalid CID format"
+        );
 
         uint16 newTokenId = _currentTokenId++;
         _mint(address(this), newTokenId);
 
         _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
-
         _characterStats[newTokenId] = stats;
         _tokenCIDs[newTokenId] = ipfsCID;
 
         emit DefaultPlayerSkinMinted(newTokenId, stats);
         emit SkinMinted(address(this), newTokenId, weapon, armor, stance);
 
-        // Initialize the default player if player contract is set
         if (playerContract != address(0)) {
             IPlayer(playerContract).initializeDefaultPlayer(uint256(newTokenId), stats);
         }
 
         return newTokenId;
+    }
+
+    function setCID(uint256 tokenId, string calldata ipfsCID) external onlyOwner {
+        if (bytes(ipfsCID).length == 0) revert InvalidCID();
+        if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
+        require(
+            bytes(ipfsCID).length > 2 && bytes(ipfsCID)[0] == 0x51 && bytes(ipfsCID)[1] == 0x6D, "Invalid CID format"
+        );
+        _tokenCIDs[tokenId] = ipfsCID;
+    }
+
+    function tokenURI(uint256 id) public view override returns (string memory) {
+        if (id >= type(uint16).max) revert InvalidTokenId();
+        if (_ownerOf[id] == address(0)) revert TokenDoesNotExist();
+
+        return string(abi.encodePacked("ipfs://", _tokenCIDs[id]));
     }
 
     function getDefaultPlayerStats(uint256 tokenId) external view override returns (IPlayer.PlayerStats memory) {
@@ -88,31 +104,6 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         if (tokenId >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
         return _skinAttributes[tokenId];
-    }
-
-    function tokenURI(uint256 id) public view override returns (string memory) {
-        if (id >= type(uint16).max) revert InvalidTokenId();
-        if (_ownerOf[id] == address(0)) revert TokenDoesNotExist();
-
-        return string(abi.encodePacked("ipfs://", _bytes32ToHexString(_tokenCIDs[id])));
-    }
-
-    function setCID(uint256 tokenId, bytes32 ipfsCID) external onlyOwner {
-        if (ipfsCID == bytes32(0)) revert InvalidCID();
-        if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
-        _tokenCIDs[tokenId] = ipfsCID;
-    }
-
-    function _bytes32ToHexString(bytes32 data) internal pure returns (string memory) {
-        bytes memory hexChars = "0123456789abcdef";
-        bytes memory result = new bytes(64);
-
-        for (uint256 i = 0; i < 32; i++) {
-            result[i * 2] = hexChars[uint8(data[i] >> 4)];
-            result[i * 2 + 1] = hexChars[uint8(data[i] & 0x0f)];
-        }
-
-        return string(result);
     }
 
     function withdraw() external onlyOwner {

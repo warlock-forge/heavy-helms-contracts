@@ -13,7 +13,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -30,7 +30,7 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmRRD58kkXKdhRffKbrpSrdBmQ2dgGueV1u2iirkbs631N"
         );
     }
 
@@ -42,7 +42,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -59,7 +59,7 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmP8Lv7kTm4CsiyFPsY8nFLqt1NCzXzSwcsvzCQT3mK7PX"
         );
     }
 
@@ -71,7 +71,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -88,7 +88,7 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmYourGreatswordUserCIDHere"
         );
     }
 
@@ -100,7 +100,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -117,7 +117,7 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmYourGreatswordUserCIDHere"
         );
     }
 
@@ -129,7 +129,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -146,7 +146,7 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmYourGreatswordUserCIDHere"
         );
     }
 
@@ -158,7 +158,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -175,7 +175,7 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmYourGreatswordUserCIDHere"
         );
     }
 
@@ -187,7 +187,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -195,16 +195,16 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType.Leather,
             IPlayerSkinNFT.FightingStance.Offensive,
             IPlayer.PlayerStats({
-                strength: 18, // High strength for offensive
+                strength: 18,
                 constitution: 8,
-                size: 16, // High size for offensive
+                size: 16,
                 agility: 10,
                 stamina: 10,
                 luck: 10,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmYourGreatswordUserCIDHere"
         );
     }
 
@@ -216,7 +216,7 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         )
     {
         return (
@@ -225,15 +225,15 @@ library DefaultPlayerLibrary {
             IPlayerSkinNFT.FightingStance.Defensive,
             IPlayer.PlayerStats({
                 strength: 10,
-                constitution: 16, // High constitution for defensive
+                constitution: 16,
                 size: 10,
                 agility: 10,
-                stamina: 16, // High stamina for defensive
+                stamina: 16,
                 luck: 10,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId
             }),
-            bytes32("Qm...") // Placeholder CID
+            "QmWigxrZjQV8wUEusidWryyeZiyKA7ncS6kTXUZ52Xs8HR"
         );
     }
 }

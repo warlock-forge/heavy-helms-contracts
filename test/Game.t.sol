@@ -64,7 +64,7 @@ contract GameTest is TestBase {
             IPlayerSkinNFT.ArmorType armor,
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
-            bytes32 ipfsCID
+            string memory ipfsCID
         ) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 1);
 
         // Mint as the test contract (which is the owner)
