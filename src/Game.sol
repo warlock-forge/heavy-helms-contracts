@@ -11,7 +11,7 @@ contract Game is Owned {
     uint256 public entryFee;
 
     event GameEngineUpdated(address indexed newEngine);
-    event ContractUpdated(string indexed contractName, address indexed newContract);
+    event PlayerContractUpdated(address indexed newContract);
     event CombatResult(
         uint32 indexed player1Id,
         uint32 indexed player2Id,
@@ -33,7 +33,7 @@ contract Game is Owned {
 
     function setPlayerContract(address _newContract) external onlyOwner {
         playerContract = IPlayer(_newContract);
-        emit ContractUpdated("Player", _newContract);
+        emit PlayerContractUpdated(_newContract);
     }
 
     function setEntryFee(uint256 _entryFee) external onlyOwner {

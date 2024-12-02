@@ -17,6 +17,7 @@ error SkinRegistryDoesNotExist();
 error InvalidSkinAttributes();
 error NotDefaultSkinContract();
 error InvalidDefaultPlayerId();
+error InvalidContractAddress();
 
 contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
@@ -40,12 +41,15 @@ contract Player is IPlayer, Owned {
     PlayerNameRegistry public nameRegistry;
 
     // Add GameStats reference
-    PlayerEquipmentStats public immutable equipmentStats;
+    PlayerEquipmentStats public equipmentStats;
 
     // Events
     event PlayerRetired(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
     event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
+    event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
+    event SkinRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+    event NameRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
@@ -374,5 +378,45 @@ contract Player is IPlayer, Owned {
 
         _players[playerId] = stats;
         _playerOwners[playerId] = address(this);
+    }
+
+    function setEquipmentStats(address newEquipmentStats) external onlyOwner {
+        if (newEquipmentStats == address(0)) revert InvalidContractAddress();
+
+        // Store old address for event
+        address oldStats = address(equipmentStats);
+
+        // Validate interface by trying to call a view function
+        PlayerEquipmentStats newStats = PlayerEquipmentStats(newEquipmentStats);
+        newStats.getStanceMultiplier(IPlayerSkinNFT.FightingStance.Balanced); // Will revert if invalid
+
+        equipmentStats = newStats;
+        emit EquipmentStatsUpdated(oldStats, newEquipmentStats);
+    }
+
+    function setSkinRegistry(address newSkinRegistry) external onlyOwner {
+        if (newSkinRegistry == address(0)) revert InvalidContractAddress();
+
+        address oldRegistry = address(skinRegistry);
+
+        // Validate interface
+        PlayerSkinRegistry newRegistry = PlayerSkinRegistry(payable(newSkinRegistry));
+        newRegistry.defaultSkinRegistryId(); // Will revert if invalid
+
+        skinRegistry = newRegistry;
+        emit SkinRegistryUpdated(oldRegistry, newSkinRegistry);
+    }
+
+    function setNameRegistry(address newNameRegistry) external onlyOwner {
+        if (newNameRegistry == address(0)) revert InvalidContractAddress();
+
+        address oldRegistry = address(nameRegistry);
+
+        // Validate interface
+        PlayerNameRegistry newRegistry = PlayerNameRegistry(newNameRegistry);
+        newRegistry.getNameSetALength(); // Will revert if invalid
+
+        nameRegistry = newRegistry;
+        emit NameRegistryUpdated(oldRegistry, newNameRegistry);
     }
 }
