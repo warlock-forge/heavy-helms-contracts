@@ -14,6 +14,7 @@ import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayer.sol";
+import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
 contract GameTest is TestBase {
     struct TestCharacters {
@@ -34,6 +35,7 @@ contract GameTest is TestBase {
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
     DefaultPlayerSkinNFT public defaultSkin;
+    PlayerNameRegistry public nameRegistry;
 
     address constant PLAYER_ONE = address(0x1);
     address constant PLAYER_TWO = address(0x2);
@@ -44,7 +46,8 @@ contract GameTest is TestBase {
         // Deploy contracts in correct order
         gameStats = new GameStats();
         skinRegistry = new PlayerSkinRegistry();
-        playerContract = new Player(address(skinRegistry), address(gameStats));
+        nameRegistry = new PlayerNameRegistry();
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(gameStats));
 
         gameEngine = new GameEngine();
         game = new Game(address(gameEngine), address(playerContract), address(gameStats), address(skinRegistry));

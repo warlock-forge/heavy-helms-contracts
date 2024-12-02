@@ -11,6 +11,8 @@ interface IPlayer {
         uint8 luck;
         uint32 skinIndex;
         uint16 skinTokenId;
+        uint16 firstNameIndex;
+        uint16 surnameIndex;
     }
 
     struct CalculatedStats {
@@ -27,7 +29,7 @@ interface IPlayer {
         uint16 parryChance;
     }
 
-    function createPlayer() external returns (uint256 playerId, PlayerStats memory stats);
+    function createPlayer(bool useNameSetB) external returns (uint256 playerId, PlayerStats memory stats);
     function getPlayerIds(address owner) external view returns (uint256[] memory);
     function getPlayer(uint256 playerId) external view returns (PlayerStats memory);
     function getPlayerOwner(uint256 playerId) external view returns (address);

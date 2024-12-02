@@ -8,6 +8,7 @@ import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./GameStats.sol";
+import "./PlayerNameRegistry.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
@@ -35,6 +36,9 @@ contract Player is IPlayer, Owned {
     // Reference to the PlayerSkinRegistry contract
     PlayerSkinRegistry public skinRegistry;
 
+    // Reference to the PlayerNameRegistry contract
+    PlayerNameRegistry public nameRegistry;
+
     // Add GameStats reference
     GameStats public immutable gameStats;
 
@@ -50,17 +54,18 @@ contract Player is IPlayer, Owned {
 
     uint32 private nextPlayerId = 1000;
 
-    constructor(address skinRegistryAddress, address gameStatsAddress) Owned(msg.sender) {
+    constructor(address skinRegistryAddress, address nameRegistryAddress, address gameStatsAddress) Owned(msg.sender) {
         maxPlayersPerAddress = 5;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
+        nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         gameStats = GameStats(gameStatsAddress);
     }
 
     // Make sure this matches the interface exactly
-    function createPlayer() external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
+    function createPlayer(bool useNameSetB) external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
         require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
 
-        // Generate randomSeed for stats only
+        // Generate randomSeed for stats and name
         uint256 randomSeed = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender)));
 
         // Use incremental playerId instead of random
@@ -102,6 +107,19 @@ contract Player is IPlayer, Owned {
             statArray[0] += uint8(min(remainingPoints, 18));
         }
 
+        // Generate name indices based on player preference
+        uint16 firstNameIndex;
+        if (useNameSetB) {
+            firstNameIndex =
+                uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetBLength());
+        } else {
+            firstNameIndex = nameRegistry.SET_A_START()
+                + uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetALength());
+        }
+
+        uint16 surnameIndex =
+            uint16(uint256(keccak256(abi.encodePacked(randomSeed, "surname"))) % nameRegistry.getSurnamesLength());
+
         // Create stats struct
         stats = IPlayer.PlayerStats({
             strength: statArray[0],
@@ -111,7 +129,9 @@ contract Player is IPlayer, Owned {
             stamina: statArray[4],
             luck: statArray[5],
             skinIndex: 1,
-            skinTokenId: 1
+            skinTokenId: 1,
+            firstNameIndex: firstNameIndex,
+            surnameIndex: surnameIndex
         });
 
         // Validate and fix if necessary
@@ -123,6 +143,7 @@ contract Player is IPlayer, Owned {
         _players[playerId] = stats;
         _playerOwners[playerId] = msg.sender;
         _addressToPlayerIds[msg.sender].push(playerId);
+        _addressPlayerCount[msg.sender]++;
 
         return (playerId, stats);
     }
@@ -314,7 +335,9 @@ contract Player is IPlayer, Owned {
             stamina: stats[4],
             luck: stats[5],
             skinIndex: 1,
-            skinTokenId: 1
+            skinTokenId: 1,
+            firstNameIndex: player.firstNameIndex,
+            surnameIndex: player.surnameIndex
         });
     }
 

@@ -11,6 +11,7 @@ import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayer.sol";
+import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
 contract GameScript is Script {
     function setUp() public {}
@@ -21,7 +22,8 @@ contract GameScript is Script {
         // 1. Deploy core contracts in correct order
         GameStats gameStats = new GameStats();
         PlayerSkinRegistry skinRegistry = new PlayerSkinRegistry();
-        Player playerContract = new Player(address(skinRegistry), address(gameStats));
+        PlayerNameRegistry nameRegistry = new PlayerNameRegistry();
+        Player playerContract = new Player(address(skinRegistry), address(nameRegistry), address(gameStats));
         GameEngine gameEngine = new GameEngine();
         Game game = new Game(address(gameEngine), address(playerContract), address(gameStats), address(skinRegistry));
 
@@ -40,30 +42,25 @@ contract GameScript is Script {
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
-        ) = DefaultPlayerLibrary.getBalancedWarrior(skinIndex, 1);
+        ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
 
-        defaultSkin.mintDefaultPlayerSkin(
-            weapon, armor, stance, stats, "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
-        );
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
 
         // Greatsword Offensive Character
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 2);
 
-        defaultSkin.mintDefaultPlayerSkin(
-            weapon, armor, stance, stats, "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
-        );
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
 
         // Defensive Character
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 3);
 
-        defaultSkin.mintDefaultPlayerSkin(
-            weapon, armor, stance, stats, "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
-        );
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
 
         // Log deployed addresses
         console2.log("Deployed Addresses:");
         console2.log("GameStats:", address(gameStats));
         console2.log("PlayerSkinRegistry:", address(skinRegistry));
+        console2.log("PlayerNameRegistry:", address(nameRegistry));
         console2.log("Player:", address(playerContract));
         console2.log("GameEngine:", address(gameEngine));
         console2.log("Game:", address(game));

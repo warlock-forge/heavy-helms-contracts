@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {Player, NotSkinOwner, PlayerDoesNotExist} from "../src/Player.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
+import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {GameStats} from "../src/GameStats.sol";
 import "../src/interfaces/IPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
@@ -13,6 +14,7 @@ import "./utils/TestBase.sol";
 contract PlayerTest is TestBase {
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
+    PlayerNameRegistry public nameRegistry;
     GameStats public gameStats;
     DefaultPlayerSkinNFT public defaultSkin;
     uint32 public skinIndex;
@@ -28,7 +30,8 @@ contract PlayerTest is TestBase {
         // Deploy contracts in correct order
         gameStats = new GameStats();
         skinRegistry = new PlayerSkinRegistry();
-        playerContract = new Player(address(skinRegistry), address(gameStats));
+        nameRegistry = new PlayerNameRegistry();
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(gameStats));
 
         // Deploy default skin contract
         defaultSkin = new DefaultPlayerSkinNFT();
@@ -59,7 +62,7 @@ contract PlayerTest is TestBase {
         }
         address player = address(0x1);
         vm.prank(player);
-        (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer();
+        (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer(true);
         assertTrue(playerId > 0, "Player ID should be non-zero");
         _validatePlayerAttributes(newPlayer, "Single player test");
     }
@@ -71,7 +74,7 @@ contract PlayerTest is TestBase {
         }
         for (uint256 i = 0; i < 10; i++) {
             vm.prank(address(uint160(i + 1)));
-            (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer();
+            (uint256 playerId, IPlayer.PlayerStats memory newPlayer) = playerContract.createPlayer(i % 2 == 0);
             assertTrue(playerId > 0, "Player ID should be non-zero");
             _validatePlayerAttributes(newPlayer, string.concat("Player ", vm.toString(i + 1)));
         }
@@ -83,7 +86,7 @@ contract PlayerTest is TestBase {
             return;
         }
         vm.prank(PLAYER_ONE);
-        (uint256 playerId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer();
+        (uint256 playerId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer(true);
         IPlayer.CalculatedStats memory calculated = playerContract.calculateStats(stats);
 
         // Update expected ranges for new health calculation
@@ -116,7 +119,7 @@ contract PlayerTest is TestBase {
     function testEquipSkin() public {
         // Create a player
         vm.startPrank(PLAYER_ONE);
-        (uint256 playerId,) = playerContract.createPlayer();
+        (uint256 playerId,) = playerContract.createPlayer(true);
         vm.stopPrank();
 
         // Register the skin contract and set as default
@@ -133,7 +136,9 @@ contract PlayerTest is TestBase {
             stamina: 10,
             luck: 10,
             skinIndex: skinIndex,
-            skinTokenId: 1
+            skinTokenId: 1,
+            firstNameIndex: 1,
+            surnameIndex: 1
         });
 
         uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
@@ -157,7 +162,7 @@ contract PlayerTest is TestBase {
     function testCannotEquipToUnownedPlayer() public {
         // Create a player owned by address(0x1)
         vm.prank(PLAYER_ONE);
-        (uint256 playerId,) = playerContract.createPlayer();
+        (uint256 playerId,) = playerContract.createPlayer(true);
 
         // Register the skin contract and set as default
         vm.deal(address(this), 1 ether);
@@ -174,7 +179,9 @@ contract PlayerTest is TestBase {
             stamina: 10,
             luck: 10,
             skinIndex: skinIndex,
-            skinTokenId: 1
+            skinTokenId: 1,
+            firstNameIndex: 1,
+            surnameIndex: 1
         });
 
         uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
@@ -194,11 +201,76 @@ contract PlayerTest is TestBase {
     function testCannotEquipInvalidSkinIndex() public {
         // Create a player
         vm.prank(PLAYER_ONE);
-        (uint256 playerId,) = playerContract.createPlayer();
+        (uint256 playerId,) = playerContract.createPlayer(true);
 
         // Try to equip non-existent skin collection
         vm.prank(PLAYER_ONE);
         vm.expectRevert(); // Should revert when trying to access invalid skin index
         playerContract.equipSkin(playerId, 999, 1);
+    }
+
+    function testDefaultNameCombination() public {
+        // Test Set B default name (index 0)
+        (string memory firstName, string memory surname) = nameRegistry.getFullName(0, 0);
+        assertEq(firstName, "Alex", "First default feminine name should be Alex");
+        assertEq(surname, "the Novice", "First surname should be 'the Novice'");
+
+        // Test Set A default name (index 1000)
+        (firstName, surname) = nameRegistry.getFullName(1000, 0);
+        assertEq(firstName, "Alex", "First default masculine name should be Alex");
+        assertEq(surname, "the Novice", "First surname should be 'the Novice'");
+
+        // Both should result in "Alex the Novice"
+    }
+
+    function testNameRandomness() public {
+        if (vm.envOr("CI", false)) {
+            console2.log("Skipping randomness test in CI");
+            return;
+        }
+
+        // Create multiple players and track name frequencies
+        uint256 numPlayers = 50;
+        uint256[] memory firstNameCounts = new uint256[](2000); // Large enough for both sets
+        uint256[] memory surnameCounts = new uint256[](100); // Large enough for surnames
+
+        for (uint256 i = 0; i < numPlayers; i++) {
+            // Create player alternating between Set A and Set B
+            vm.prank(address(uint160(i + 1)));
+            (uint256 playerId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer(i % 2 == 0);
+
+            firstNameCounts[stats.firstNameIndex]++;
+            surnameCounts[stats.surnameIndex]++;
+        }
+
+        // Verify we got some variety in names
+        uint256 uniqueFirstNames = 0;
+        uint256 uniqueSurnames = 0;
+
+        // Count unique first names
+        for (uint16 i = 0; i < nameRegistry.getNameSetBLength(); i++) {
+            if (firstNameCounts[i] > 0) uniqueFirstNames++;
+        }
+        for (
+            uint16 i = nameRegistry.SET_A_START();
+            i < nameRegistry.SET_A_START() + nameRegistry.getNameSetALength();
+            i++
+        ) {
+            if (firstNameCounts[i] > 0) uniqueFirstNames++;
+        }
+
+        // Count unique surnames
+        for (uint16 i = 0; i < nameRegistry.getSurnamesLength(); i++) {
+            if (surnameCounts[i] > 0) uniqueSurnames++;
+        }
+
+        // We should have a good distribution of names
+        assertTrue(uniqueFirstNames > 5, "Should have multiple different first names");
+        assertTrue(uniqueSurnames > 5, "Should have multiple different surnames");
+
+        // Make sure we're not always getting the default names
+        assertTrue(firstNameCounts[0] < numPlayers / 2, "Too many default Set B names");
+        assertTrue(firstNameCounts[nameRegistry.SET_A_START()] < numPlayers / 2, "Too many default Set A names");
+        assertTrue(surnameCounts[0] < numPlayers / 2, "Too many default surnames");
     }
 }

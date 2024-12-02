@@ -5,7 +5,7 @@ import "../interfaces/IPlayer.sol";
 import "../interfaces/IPlayerSkinNFT.sol";
 
 library DefaultPlayerLibrary {
-    function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
+    function getDefaultWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
         returns (
@@ -16,22 +16,22 @@ library DefaultPlayerLibrary {
             string memory ipfsCID
         )
     {
-        return (
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Balanced,
-            IPlayer.PlayerStats({
-                strength: 12,
-                constitution: 12,
-                size: 12,
-                agility: 12,
-                stamina: 12,
-                luck: 12,
-                skinIndex: skinIndex,
-                skinTokenId: tokenId
-            }),
-            "QmRRD58kkXKdhRffKbrpSrdBmQ2dgGueV1u2iirkbs631N"
-        );
+        weapon = IPlayerSkinNFT.WeaponType.Quarterstaff;
+        armor = IPlayerSkinNFT.ArmorType.Cloth;
+        stance = IPlayerSkinNFT.FightingStance.Balanced;
+        stats = IPlayer.PlayerStats({
+            strength: 12,
+            constitution: 12,
+            size: 12,
+            agility: 12,
+            stamina: 12,
+            luck: 12,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId,
+            firstNameIndex: 1,
+            surnameIndex: 1
+        });
+        ipfsCID = "";
     }
 
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
@@ -57,7 +57,9 @@ library DefaultPlayerLibrary {
                 stamina: 10,
                 luck: 10,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmP8Lv7kTm4CsiyFPsY8nFLqt1NCzXzSwcsvzCQT3mK7PX"
         );
@@ -86,7 +88,9 @@ library DefaultPlayerLibrary {
                 stamina: 10,
                 luck: 10,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmYourGreatswordUserCIDHere"
         );
@@ -115,7 +119,9 @@ library DefaultPlayerLibrary {
                 stamina: 12,
                 luck: 10,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmYourGreatswordUserCIDHere"
         );
@@ -144,7 +150,9 @@ library DefaultPlayerLibrary {
                 stamina: 14,
                 luck: 10,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmYourGreatswordUserCIDHere"
         );
@@ -173,7 +181,9 @@ library DefaultPlayerLibrary {
                 stamina: 12,
                 luck: 12,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmYourGreatswordUserCIDHere"
         );
@@ -202,7 +212,9 @@ library DefaultPlayerLibrary {
                 stamina: 10,
                 luck: 10,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmYourGreatswordUserCIDHere"
         );
@@ -231,7 +243,9 @@ library DefaultPlayerLibrary {
                 stamina: 16,
                 luck: 10,
                 skinIndex: skinIndex,
-                skinTokenId: tokenId
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
             }),
             "QmWigxrZjQV8wUEusidWryyeZiyKA7ncS6kTXUZ52Xs8HR"
         );
