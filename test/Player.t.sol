@@ -124,7 +124,7 @@ contract PlayerTest is TestBase {
         skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
 
-        // Mint default skin with beginner-friendly stats
+        // Mint default skin with basic equipment (no stat requirements)
         IPlayer.PlayerStats memory stats = IPlayer.PlayerStats({
             strength: 10,
             constitution: 10,
@@ -137,7 +137,7 @@ contract PlayerTest is TestBase {
         });
 
         uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.WeaponType.Quarterstaff,
             IPlayerSkinNFT.ArmorType.Cloth,
             IPlayerSkinNFT.FightingStance.Balanced,
             stats,

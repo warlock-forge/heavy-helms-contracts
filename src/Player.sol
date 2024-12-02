@@ -15,6 +15,7 @@ error StatRequirementsNotMet();
 error SkinRegistryDoesNotExist();
 error InvalidSkinAttributes();
 error NotDefaultSkinContract();
+error InvalidDefaultPlayerId();
 
 contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
@@ -47,6 +48,8 @@ contract Player is IPlayer, Owned {
     uint8 private constant MAX_STAT = 21;
     uint16 private constant TOTAL_STATS = 72;
 
+    uint32 private nextPlayerId = 1000;
+
     constructor(address skinRegistryAddress, address gameStatsAddress) Owned(msg.sender) {
         maxPlayersPerAddress = 5;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
@@ -55,9 +58,13 @@ contract Player is IPlayer, Owned {
 
     // Make sure this matches the interface exactly
     function createPlayer() external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
-        // Generate randomSeed and playerId
+        require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
+
+        // Generate randomSeed for stats only
         uint256 randomSeed = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender)));
-        playerId = uint256(keccak256(abi.encodePacked("PLAYER_ID", randomSeed, msg.sender)));
+
+        // Use incremental playerId instead of random
+        playerId = nextPlayerId++;
 
         // Initialize base stats array with minimum values
         uint8[6] memory statArray = [3, 3, 3, 3, 3, 3];
@@ -321,11 +328,24 @@ contract Player is IPlayer, Owned {
         emit MaxPlayersUpdated(newMax);
     }
 
-    function initializeDefaultPlayer(uint256 playerId, PlayerStats memory stats) external {
+    function initializeDefaultPlayer(uint32 playerId, PlayerStats memory stats) external {
         // Only allow calls from the default skin contract
         PlayerSkinRegistry registry = skinRegistry;
         address defaultSkinContract = registry.getSkin(registry.defaultSkinRegistryId()).contractAddress;
         if (msg.sender != defaultSkinContract) revert NotDefaultSkinContract();
+
+        _players[playerId] = stats;
+        _playerOwners[playerId] = address(this);
+    }
+
+    function createDefaultPlayer(uint32 playerId, PlayerStats memory stats, bool overwrite) external onlyOwner {
+        // Ensure ID is in valid range for default players (1-999)
+        if (playerId >= 1000 || playerId == 0) revert InvalidDefaultPlayerId();
+
+        // If player exists and overwrite is false, revert
+        if (!overwrite && _players[playerId].strength != 0) {
+            revert("Player ID already exists");
+        }
 
         _players[playerId] = stats;
         _playerOwners[playerId] = address(this);

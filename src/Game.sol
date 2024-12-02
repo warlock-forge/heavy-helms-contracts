@@ -17,11 +17,11 @@ contract Game is Owned {
     event GameEngineUpdated(address indexed newEngine);
     event ContractUpdated(string indexed contractName, address indexed newContract);
     event CombatResult(
-        uint256 indexed player1Id,
-        uint256 indexed player2Id,
+        uint32 indexed player1Id,
+        uint32 indexed player2Id,
         uint256 randomSeed,
         bytes packedResults,
-        uint256 winningPlayerId
+        uint32 winningPlayerId
     );
 
     constructor(address _gameEngine, address _playerContract, address _gameStats, address _skinRegistry)
@@ -90,7 +90,11 @@ contract Game is Owned {
         uint256 vrfSeed = requestRandomSeedFromVRF();
         bytes memory results =
             gameEngine.processGame(player1, player2, vrfSeed, playerContract, gameStats, skinRegistry);
-        emit CombatResult(player1.playerId, player2.playerId, vrfSeed, results, uint8(results[0]));
+
+        // Map winner (1 or 2) to actual player ID
+        uint32 winningPlayerId = uint8(results[0]) == 1 ? player1.playerId : player2.playerId;
+
+        emit CombatResult(player1.playerId, player2.playerId, vrfSeed, results, winningPlayerId);
         return results;
     }
 

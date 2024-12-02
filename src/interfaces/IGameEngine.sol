@@ -8,9 +8,9 @@ import "../PlayerSkinRegistry.sol";
 
 interface IGameEngine {
     struct PlayerLoadout {
-        uint256 playerId;
-        uint32 skinIndex; // Registry collection ID
-        uint16 skinTokenId; // NFT token ID within that collection
+        uint32 playerId;
+        uint32 skinIndex;
+        uint16 skinTokenId;
     }
 
     function processGame(

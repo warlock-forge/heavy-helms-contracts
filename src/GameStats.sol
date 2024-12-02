@@ -73,14 +73,8 @@ contract GameStats {
             isTwoHanded: false,
             hasShield: true
         });
-        weaponRequirements[IPlayerSkinNFT.WeaponType.SwordAndShield] = StatRequirements({
-            strength: 0, // Beginner friendly - no requirements
-            constitution: 0,
-            size: 0,
-            agility: 0,
-            stamina: 0,
-            luck: 0
-        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.SwordAndShield] =
+            StatRequirements({strength: 10, constitution: 0, size: 0, agility: 6, stamina: 0, luck: 0});
 
         weaponStats[IPlayerSkinNFT.WeaponType.MaceAndShield] = WeaponStats({
             minDamage: 22,
@@ -93,7 +87,7 @@ contract GameStats {
             hasShield: true
         });
         weaponRequirements[IPlayerSkinNFT.WeaponType.MaceAndShield] = StatRequirements({
-            strength: 10, // Needs decent strength to wield effectively
+            strength: 12, // Needs decent strength to wield effectively
             constitution: 0,
             size: 0,
             agility: 0,
@@ -169,14 +163,8 @@ contract GameStats {
             isTwoHanded: true,
             hasShield: false
         });
-        weaponRequirements[IPlayerSkinNFT.WeaponType.Quarterstaff] = StatRequirements({
-            strength: 6, // Balanced requirements
-            constitution: 0,
-            size: 0,
-            agility: 10,
-            stamina: 0,
-            luck: 0
-        });
+        weaponRequirements[IPlayerSkinNFT.WeaponType.Quarterstaff] =
+            StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
 
         weaponStats[IPlayerSkinNFT.WeaponType.Spear] = WeaponStats({
             minDamage: 20,

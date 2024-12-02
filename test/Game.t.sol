@@ -94,11 +94,17 @@ contract GameTest is TestBase {
         }
 
         // No need to create new players, use the pre-configured ones directly
-        IGameEngine.PlayerLoadout memory loadout1 =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory loadout1 = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
 
-        IGameEngine.PlayerLoadout memory loadout2 =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.swordAndShieldDefensive});
+        IGameEngine.PlayerLoadout memory loadout2 = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.swordAndShieldDefensive
+        });
 
         bytes memory results = game.practiceGame(loadout1, loadout2);
         (uint256 winner,,) = gameEngine.decodeCombatLog(results);
@@ -107,7 +113,7 @@ contract GameTest is TestBase {
         assertTrue(winner == 1 || winner == 2, "Invalid winner");
     }
 
-    function createTestLoadout(uint256 playerId) internal pure returns (IGameEngine.PlayerLoadout memory) {
+    function createTestLoadout(uint32 playerId) internal pure returns (IGameEngine.PlayerLoadout memory) {
         return IGameEngine.PlayerLoadout({playerId: playerId, skinIndex: 0, skinTokenId: 1});
     }
 
@@ -118,40 +124,58 @@ contract GameTest is TestBase {
         }
 
         // Use pre-configured players directly
-        IGameEngine.PlayerLoadout memory loadout1A =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
-        IGameEngine.PlayerLoadout memory loadout1B =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.swordAndShieldDefensive});
+        IGameEngine.PlayerLoadout memory loadout1A = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
+        IGameEngine.PlayerLoadout memory loadout1B = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.swordAndShieldDefensive
+        });
 
         vm.warp(block.timestamp + 1);
         bytes memory results = game.practiceGame(loadout1A, loadout1B);
         logScenarioResults(1, results);
 
         // Scenario 2: Battleaxe vs Spear
-        IGameEngine.PlayerLoadout memory loadout2A =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.battleaxeOffensive});
+        IGameEngine.PlayerLoadout memory loadout2A = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.battleaxeOffensive
+        });
         IGameEngine.PlayerLoadout memory loadout2B =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
+            IGameEngine.PlayerLoadout({playerId: uint32(2), skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
 
         vm.warp(block.timestamp + 1);
         results = game.practiceGame(loadout2A, loadout2B);
         logScenarioResults(2, results);
 
         // Scenario 3: Rapier and Shield vs Quarterstaff
-        IGameEngine.PlayerLoadout memory loadout3A =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.rapierAndShieldDefensive});
-        IGameEngine.PlayerLoadout memory loadout3B =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.quarterstaffDefensive});
+        IGameEngine.PlayerLoadout memory loadout3A = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.rapierAndShieldDefensive
+        });
+        IGameEngine.PlayerLoadout memory loadout3B = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.quarterstaffDefensive
+        });
 
         vm.warp(block.timestamp + 1);
         results = game.practiceGame(loadout3A, loadout3B);
         logScenarioResults(3, results);
 
         // Scenario 4: Greatsword vs Spear (Offensive vs Balanced)
-        IGameEngine.PlayerLoadout memory loadout4A =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory loadout4A = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
         IGameEngine.PlayerLoadout memory loadout4B =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
+            IGameEngine.PlayerLoadout({playerId: uint32(2), skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
 
         vm.warp(block.timestamp + 1);
         results = game.practiceGame(loadout4A, loadout4B);
@@ -205,11 +229,17 @@ contract GameTest is TestBase {
         uint256[] memory totalRounds = new uint256[](totalScenarios);
 
         // Remove createPlayer calls and use pre-configured loadouts directly
-        IGameEngine.PlayerLoadout memory attackerLoadout =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
 
-        IGameEngine.PlayerLoadout memory defenderLoadout =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.quarterstaffDefensive});
+        IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.quarterstaffDefensive
+        });
 
         // Get and log defensive stats for our quarterstaff defensive character
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(chars.quarterstaffDefensive);
@@ -230,11 +260,14 @@ contract GameTest is TestBase {
             console2.log("\n=== Scenario %d ===", scenario + 1);
             console2.log("Offensive: %s vs Defensive: SwordAndShield", getWeaponName(offensiveWeapons[scenario]));
 
-            IGameEngine.PlayerLoadout memory offensiveLoadout =
-                IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: offensiveTokenIds[scenario]});
+            IGameEngine.PlayerLoadout memory offensiveLoadout = IGameEngine.PlayerLoadout({
+                playerId: uint32(1),
+                skinIndex: skinIndex,
+                skinTokenId: offensiveTokenIds[scenario]
+            });
 
             IGameEngine.PlayerLoadout memory defensiveLoadout = IGameEngine.PlayerLoadout({
-                playerId: 2,
+                playerId: uint32(2),
                 skinIndex: skinIndex,
                 skinTokenId: chars.swordAndShieldDefensive
             });
@@ -291,11 +324,17 @@ contract GameTest is TestBase {
         }
 
         // Use pre-configured players directly
-        IGameEngine.PlayerLoadout memory p1Loadout =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
 
-        IGameEngine.PlayerLoadout memory p2Loadout =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.quarterstaffDefensive});
+        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.quarterstaffDefensive
+        });
 
         // Get weapon stats for logging
         (GameStats.WeaponStats memory weapon,,) = gameStats.getFullCharacterStats(
@@ -321,11 +360,14 @@ contract GameTest is TestBase {
         }
 
         // Remove createPlayer calls and use pre-configured loadouts directly
-        IGameEngine.PlayerLoadout memory attackerLoadout =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
 
         IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
-            playerId: 2,
+            playerId: uint32(2),
             skinIndex: skinIndex,
             skinTokenId: chars.quarterstaffDefensive // High parry/block defender
         });
@@ -378,11 +420,17 @@ contract GameTest is TestBase {
         }
 
         // Use pre-configured players directly
-        IGameEngine.PlayerLoadout memory attackerLoadout =
-            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: skinIndex, skinTokenId: chars.greatswordOffensive});
+        IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
 
-        IGameEngine.PlayerLoadout memory defenderLoadout =
-            IGameEngine.PlayerLoadout({playerId: 2, skinIndex: skinIndex, skinTokenId: chars.rapierAndShieldDefensive});
+        IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.rapierAndShieldDefensive
+        });
 
         // Run multiple games with different seeds to verify parry mechanics
         for (uint256 seed = 0; seed < 10; seed++) {

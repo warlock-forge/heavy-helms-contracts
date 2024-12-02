@@ -36,7 +36,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         ArmorType armor,
         FightingStance stance,
         IPlayer.PlayerStats memory stats,
-        string calldata ipfsCID
+        string memory ipfsCID
     ) external override onlyOwner returns (uint16) {
         if (_currentTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
         if (bytes(ipfsCID).length == 0) revert InvalidCID();
@@ -56,7 +56,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         emit SkinMinted(address(this), newTokenId, weapon, armor, stance);
 
         if (playerContract != address(0)) {
-            IPlayer(playerContract).initializeDefaultPlayer(uint256(newTokenId), stats);
+            IPlayer(playerContract).initializeDefaultPlayer(uint32(newTokenId), stats);
         }
 
         return newTokenId;
