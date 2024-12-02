@@ -7,6 +7,9 @@ import "solmate/src/tokens/ERC20.sol";
 contract PlayerSkinRegistry is Owned {
     struct SkinInfo {
         address contractAddress;
+        bool isVerified;
+        bool isDefaultCollection;
+        address requiredNFTAddress;
     }
 
     // State Variables
@@ -20,6 +23,9 @@ contract PlayerSkinRegistry is Owned {
     event DefaultSkinRegistrySet(uint32 indexed registryId);
     event RegistrationFeeUpdated(uint256 newFee);
     event TokensCollected(address indexed token, uint256 amount);
+    event SkinVerificationUpdated(uint32 indexed registryId, bool isVerified);
+    event RequiredNFTUpdated(uint32 indexed registryId, address requiredNFTAddress);
+    event DefaultCollectionUpdated(uint32 indexed registryId, bool isDefault);
 
     // Errors
     error InsufficientRegistrationFee();
@@ -27,6 +33,7 @@ contract PlayerSkinRegistry is Owned {
     error SkinsArrayLimitReached();
     error InvalidDefaultSkinRegistry();
     error SkinRegistryDoesNotExist();
+    error RequiredNFTNotOwned(address nftAddress);
 
     constructor() Owned(msg.sender) {}
 
@@ -39,8 +46,8 @@ contract PlayerSkinRegistry is Owned {
         // Check array limits
         if (nextSkinRegistryId >= type(uint32).max) revert SkinsArrayLimitReached();
 
-        // Register the skin
-        skins.push(SkinInfo(contractAddress));
+        // Register the skin (unverified by default, not default collection)
+        skins.push(SkinInfo(contractAddress, false, false, address(0)));
         uint32 registryId = nextSkinRegistryId++;
 
         emit SkinRegistered(registryId, contractAddress);
@@ -77,6 +84,60 @@ contract PlayerSkinRegistry is Owned {
             token.transfer(owner, balance);
             emit TokensCollected(tokenAddress, balance);
         }
+    }
+
+    function setSkinVerification(uint32 registryId, bool isVerified) external onlyOwner {
+        if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        skins[registryId].isVerified = isVerified;
+        emit SkinVerificationUpdated(registryId, isVerified);
+    }
+
+    function setRequiredNFT(uint32 registryId, address requiredNFTAddress) external onlyOwner {
+        if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        skins[registryId].requiredNFTAddress = requiredNFTAddress;
+        emit RequiredNFTUpdated(registryId, requiredNFTAddress);
+    }
+
+    function getVerifiedSkins() external view returns (SkinInfo[] memory) {
+        // First, count verified skins
+        uint256 verifiedCount = 0;
+        for (uint256 i = 0; i < skins.length; i++) {
+            if (skins[i].isVerified) {
+                verifiedCount++;
+            }
+        }
+
+        // Create and populate array of verified skins
+        SkinInfo[] memory verifiedSkins = new SkinInfo[](verifiedCount);
+        uint256 currentIndex = 0;
+        for (uint256 i = 0; i < skins.length; i++) {
+            if (skins[i].isVerified) {
+                verifiedSkins[currentIndex] = skins[i];
+                currentIndex++;
+            }
+        }
+
+        return verifiedSkins;
+    }
+
+    // Helper function to check NFT ownership
+    function _checkRequiredNFT(address player, address nftAddress) internal view returns (bool) {
+        // If no NFT is required (address(0)), return true
+        if (nftAddress == address(0)) return true;
+
+        // Basic ERC721 balance check
+        (bool success, bytes memory data) = nftAddress.staticcall(abi.encodeWithSignature("balanceOf(address)", player));
+
+        if (!success) return false;
+
+        uint256 balance = abi.decode(data, (uint256));
+        return balance > 0;
+    }
+
+    function setDefaultCollection(uint32 registryId, bool isDefault) external onlyOwner {
+        if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        skins[registryId].isDefaultCollection = isDefault;
+        emit DefaultCollectionUpdated(registryId, isDefault);
     }
 
     receive() external payable {}

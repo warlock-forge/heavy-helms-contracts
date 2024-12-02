@@ -42,6 +42,7 @@ interface IPlayerSkinNFT {
     function MAX_SUPPLY() external view returns (uint16);
     function CURRENT_TOKEN_ID() external view returns (uint16);
     function getSkinAttributes(uint256 tokenId) external view returns (SkinAttributes memory);
+    function ownerOf(uint256 tokenId) external view returns (address owner);
 
     event SkinMinted(
         address indexed to, uint16 indexed tokenId, WeaponType weapon, ArmorType armor, FightingStance stance

@@ -88,4 +88,9 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
     function withdraw() external onlyOwner {
         payable(owner).transfer(address(this).balance);
     }
+
+    // Override ownerOf to match both ERC721 and interface
+    function ownerOf(uint256 id) public view virtual override(ERC721, IPlayerSkinNFT) returns (address owner) {
+        return super.ownerOf(id);
+    }
 }

@@ -123,4 +123,8 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
 
         emit SkinAttributesUpdated(uint16(tokenId), weapon, armor, stance);
     }
+
+    function ownerOf(uint256 id) public view virtual override(ERC721, IPlayerSkinNFT) returns (address owner) {
+        return super.ownerOf(id);
+    }
 }

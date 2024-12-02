@@ -10,6 +10,8 @@ import "../src/interfaces/IPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
 import "./utils/TestBase.sol";
+import "./mocks/UnlockNFT.sol";
+import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 
 // Add events from Player contract
 event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
@@ -124,17 +126,24 @@ contract PlayerTest is TestBase {
     }
 
     function testEquipSkin() public {
+        console2.log("\n=== Test Setup ===");
         // Create a player
         vm.startPrank(PLAYER_ONE);
         (uint256 playerId,) = playerContract.createPlayer(true);
+        console2.log("Created player with ID:", playerId);
         vm.stopPrank();
 
         // Register the skin contract and set as default
         vm.deal(address(this), 1 ether);
         skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
-        skinRegistry.setDefaultSkinRegistryId(skinIndex);
+        console2.log("Registered skin index:", skinIndex);
 
-        // Mint default skin with basic equipment (no stat requirements)
+        // Set this as a default collection (anyone can use)
+        skinRegistry.setDefaultCollection(skinIndex, true);
+        skinRegistry.setDefaultSkinRegistryId(skinIndex);
+        console2.log("Set as default skin registry ID");
+
+        // Basic stats for minting
         IPlayer.PlayerStats memory stats = IPlayer.PlayerStats({
             strength: 10,
             constitution: 10,
@@ -148,6 +157,12 @@ contract PlayerTest is TestBase {
             surnameIndex: 1
         });
 
+        console2.log("\n=== Minting Setup ===");
+        console2.log("DefaultSkin contract address:", address(defaultSkin));
+        console2.log("DefaultSkin owner:", defaultSkin.owner());
+        console2.log("Attempting to mint default skin");
+
+        // Mint as the owner (test contract) - NFT will be owned by the contract itself
         uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
             IPlayerSkinNFT.WeaponType.Quarterstaff,
             IPlayerSkinNFT.ArmorType.Cloth,
@@ -155,8 +170,10 @@ contract PlayerTest is TestBase {
             stats,
             "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
         );
+        console2.log("Mint successful! TokenId:", tokenId);
+        console2.log("Token owner (should be contract):", defaultSkin.ownerOf(tokenId));
 
-        // Now try to equip as PLAYER_ONE
+        // Now try to equip as PLAYER_ONE - should work because it's a default skin
         vm.prank(PLAYER_ONE);
         playerContract.equipSkin(playerId, skinIndex, tokenId);
 
@@ -360,5 +377,126 @@ contract PlayerTest is TestBase {
         assertEq(
             address(playerContract.equipmentStats()), originalEquipmentStats, "Equipment stats should not have changed"
         );
+    }
+
+    function testEquipUnlockableCollection() public {
+        console2.log("\n=== Setup ===");
+        // Deploy unlock NFT
+        UnlockNFT unlockNFT = new UnlockNFT();
+        console2.log("Unlock NFT deployed at:", address(unlockNFT));
+
+        // Create player
+        vm.startPrank(PLAYER_ONE);
+        (uint256 playerId,) = playerContract.createPlayer(true);
+        vm.stopPrank();
+        console2.log("Created player with ID:", playerId);
+
+        // Register the skin contract that requires unlock
+        vm.deal(address(this), 1 ether);
+        uint32 unlockableSkinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        console2.log("Registered skin with index:", unlockableSkinIndex);
+
+        // Set this collection to require the unlock NFT
+        skinRegistry.setRequiredNFT(unlockableSkinIndex, address(unlockNFT));
+        console2.log("Set required unlock NFT:", address(unlockNFT));
+
+        // Set this as a default collection (anyone can use once unlocked)
+        skinRegistry.setDefaultCollection(unlockableSkinIndex, true);
+        console2.log("Set as default collection");
+
+        // Mint a default skin token
+        IPlayer.PlayerStats memory stats = IPlayer.PlayerStats({
+            strength: 10,
+            constitution: 10,
+            size: 10,
+            agility: 10,
+            stamina: 10,
+            luck: 10,
+            skinIndex: unlockableSkinIndex,
+            skinTokenId: 1,
+            firstNameIndex: 1,
+            surnameIndex: 1
+        });
+
+        uint16 tokenId = defaultSkin.mintDefaultPlayerSkin(
+            IPlayerSkinNFT.WeaponType.Quarterstaff,
+            IPlayerSkinNFT.ArmorType.Cloth,
+            IPlayerSkinNFT.FightingStance.Balanced,
+            stats,
+            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
+        );
+        console2.log("Minted default skin with token ID:", tokenId);
+
+        console2.log("\n=== Test: Attempt to equip without unlock NFT ===");
+        // Verify PLAYER_ONE doesn't have the unlock NFT
+        assertEq(unlockNFT.balanceOf(PLAYER_ONE), 0, "Player should not have unlock NFT yet");
+
+        // Try to equip without having unlock NFT (should fail)
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(abi.encodeWithSelector(PlayerSkinRegistry.RequiredNFTNotOwned.selector, address(unlockNFT)));
+        playerContract.equipSkin(playerId, unlockableSkinIndex, tokenId);
+        vm.stopPrank();
+        console2.log("Successfully failed to equip without unlock NFT");
+
+        console2.log("\n=== Test: Equip with unlock NFT ===");
+        // Mint unlock NFT to PLAYER_ONE
+        unlockNFT.mint(PLAYER_ONE);
+        assertEq(unlockNFT.balanceOf(PLAYER_ONE), 1, "Player should now have unlock NFT");
+        console2.log("Minted unlock NFT to player");
+
+        // Now should be able to equip
+        vm.startPrank(PLAYER_ONE);
+        playerContract.equipSkin(playerId, unlockableSkinIndex, tokenId);
+        vm.stopPrank();
+        console2.log("Successfully equipped skin with unlock NFT");
+
+        // Verify skin is equipped
+        IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(playerId);
+        assertEq(playerStats.skinIndex, unlockableSkinIndex);
+        assertEq(playerStats.skinTokenId, tokenId);
+    }
+
+    function testEquipOwnedSkin() public {
+        // Deploy regular NFT skin contract
+        PlayerSkinNFT ownedSkinNFT = new PlayerSkinNFT("Test Skin", "TEST", 0.01 ether);
+
+        // Create player
+        vm.startPrank(PLAYER_ONE);
+        (uint256 playerId,) = playerContract.createPlayer(true);
+        vm.stopPrank();
+
+        // Register the skin contract
+        vm.deal(address(this), 1 ether);
+        uint32 ownedSkinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(ownedSkinNFT));
+
+        // Enable minting
+        ownedSkinNFT.setMintingEnabled(true);
+
+        // Try to equip without owning (should fail)
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert("ERC721: invalid token ID"); // Match exact error message
+        playerContract.equipSkin(playerId, ownedSkinIndex, 0);
+        vm.stopPrank();
+
+        // Mint NFT to PLAYER_ONE
+        vm.deal(PLAYER_ONE, 1 ether);
+        vm.startPrank(PLAYER_ONE);
+        ownedSkinNFT.mintSkin{value: 0.01 ether}(
+            PLAYER_ONE,
+            IPlayerSkinNFT.WeaponType.Quarterstaff,
+            IPlayerSkinNFT.ArmorType.Cloth,
+            IPlayerSkinNFT.FightingStance.Balanced
+        );
+        vm.stopPrank();
+
+        // Now should be able to equip
+        vm.startPrank(PLAYER_ONE);
+        playerContract.equipSkin(playerId, ownedSkinIndex, 0);
+        vm.stopPrank();
+
+        // Verify skin is equipped
+        IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(playerId);
+        assertEq(playerStats.skinIndex, ownedSkinIndex);
+        assertEq(playerStats.skinTokenId, 0);
     }
 }

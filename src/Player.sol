@@ -18,6 +18,7 @@ error InvalidSkinAttributes();
 error NotDefaultSkinContract();
 error InvalidDefaultPlayerId();
 error InvalidContractAddress();
+error RequiredNFTNotOwned(address nftAddress);
 
 contract Player is IPlayer, Owned {
     using UniformRandomNumber for uint256;
@@ -50,6 +51,7 @@ contract Player is IPlayer, Owned {
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event SkinRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event NameRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+    event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
@@ -65,6 +67,15 @@ contract Player is IPlayer, Owned {
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
+    }
+
+    // Add these helper functions at the top with the other internal functions
+    function _exists(uint256 playerId) internal view returns (bool) {
+        return _players[playerId].strength != 0;
+    }
+
+    function _ownerOf(uint256 playerId) internal view returns (address) {
+        return _playerOwners[playerId];
     }
 
     // Make sure this matches the interface exactly
@@ -155,47 +166,65 @@ contract Player is IPlayer, Owned {
     }
 
     // Function to equip a skin
-    function equipSkin(uint256 playerId, uint32 skinIndex, uint16 tokenId) external {
-        // Check if player exists and belongs to sender
-        if (_playerOwners[playerId] != msg.sender) revert PlayerDoesNotExist(playerId);
-
-        // Get skin info from registry
-        PlayerSkinRegistry.SkinInfo memory skin;
-        try skinRegistry.getSkin(skinIndex) returns (PlayerSkinRegistry.SkinInfo memory _skin) {
-            skin = _skin;
-        } catch {
-            revert SkinRegistryDoesNotExist();
+    function equipSkin(uint256 playerId, uint32 skinIndex, uint16 skinTokenId) external {
+        // Verify player exists and is owned by sender
+        if (!_exists(playerId) || _ownerOf(playerId) != msg.sender) {
+            revert PlayerDoesNotExist(playerId);
         }
 
-        // Only check ownership if it's not from the default skin collection
-        if (skinIndex != skinRegistry.defaultSkinRegistryId()) {
-            try ERC721(skin.contractAddress).ownerOf(tokenId) returns (address owner) {
-                if (owner != msg.sender) revert NotSkinOwner();
-            } catch {
-                revert NotSkinOwner();
+        // Get skin info from registry
+        PlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndex);
+
+        // Check required NFT first if it exists
+        if (skinInfo.requiredNFTAddress != address(0)) {
+            if (!_checkCollectionOwnership(msg.sender, skinInfo.requiredNFTAddress)) {
+                revert PlayerSkinRegistry.RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
             }
         }
 
-        // Get and validate skin attributes
-        IPlayerSkinNFT skinContract = IPlayerSkinNFT(skin.contractAddress);
-        IPlayerSkinNFT.SkinAttributes memory attrs;
-        try skinContract.getSkinAttributes(tokenId) returns (IPlayerSkinNFT.SkinAttributes memory _attrs) {
-            attrs = _attrs;
-        } catch {
-            revert InvalidSkinAttributes();
+        // Case 1: Default collection - anyone can equip
+        if (skinInfo.isDefaultCollection) {
+            // Allow equip
+        }
+        // Case 2 & 3: Non-default collections
+        else {
+            // Check if player owns the specific skin NFT
+            IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinInfo.contractAddress);
+            bool ownsSpecificNFT = false;
+            try skinContract.ownerOf(skinTokenId) returns (address owner) {
+                ownsSpecificNFT = (owner == msg.sender);
+            } catch {
+                revert("ERC721: invalid token ID");
+            }
+
+            // If they don't own this specific NFT, they must be using a verified collection
+            if (!ownsSpecificNFT) {
+                if (!skinInfo.isVerified) {
+                    revert NotSkinOwner();
+                }
+
+                // For verified collections, they must own at least one NFT from the collection
+                if (!_checkCollectionOwnership(msg.sender, skinInfo.contractAddress)) {
+                    revert NotSkinOwner();
+                }
+            }
         }
 
-        // Check stat requirements using GameStats from registry
-        (bool meetsWeaponReqs, bool meetsArmorReqs) =
-            equipmentStats.checkStatRequirements(attrs.weapon, attrs.armor, _players[playerId]);
-
-        if (!meetsWeaponReqs || !meetsArmorReqs) revert StatRequirementsNotMet();
-
-        // Update player's equipped skin
+        // Update player's skin
         _players[playerId].skinIndex = skinIndex;
-        _players[playerId].skinTokenId = tokenId;
+        _players[playerId].skinTokenId = skinTokenId;
 
-        emit SkinEquipped(playerId, skinIndex, tokenId);
+        emit PlayerSkinEquipped(playerId, skinIndex, skinTokenId);
+    }
+
+    // Helper function to check if an address owns any NFT from a collection
+    function _checkCollectionOwnership(address owner, address nftContract) internal view returns (bool) {
+        (bool success, bytes memory data) = nftContract.staticcall(abi.encodeWithSignature("balanceOf(address)", owner));
+
+        if (!success) return false;
+
+        uint256 balance = abi.decode(data, (uint256));
+        return balance > 0;
     }
 
     // Make sure all interface functions are marked as external
