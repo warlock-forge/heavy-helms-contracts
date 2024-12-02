@@ -3,15 +3,11 @@ pragma solidity ^0.8.13;
 
 import "./interfaces/IGameEngine.sol";
 import "./interfaces/IPlayer.sol";
-import "./GameStats.sol";
-import "./PlayerSkinRegistry.sol";
 import "solmate/src/auth/Owned.sol";
 
 contract Game is Owned {
     IGameEngine public gameEngine;
     IPlayer public playerContract;
-    GameStats public gameStats;
-    PlayerSkinRegistry public skinRegistry;
     uint256 public entryFee;
 
     event GameEngineUpdated(address indexed newEngine);
@@ -24,13 +20,9 @@ contract Game is Owned {
         uint32 winningPlayerId
     );
 
-    constructor(address _gameEngine, address _playerContract, address _gameStats, address _skinRegistry)
-        Owned(msg.sender)
-    {
+    constructor(address _gameEngine, address _playerContract) Owned(msg.sender) {
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);
-        gameStats = GameStats(_gameStats);
-        skinRegistry = PlayerSkinRegistry(payable(_skinRegistry));
         entryFee = 0.001 ether;
     }
 
@@ -42,16 +34,6 @@ contract Game is Owned {
     function setPlayerContract(address _newContract) external onlyOwner {
         playerContract = IPlayer(_newContract);
         emit ContractUpdated("Player", _newContract);
-    }
-
-    function setGameStats(address _newContract) external onlyOwner {
-        gameStats = GameStats(_newContract);
-        emit ContractUpdated("GameStats", _newContract);
-    }
-
-    function setSkinRegistry(address _newContract) external onlyOwner {
-        skinRegistry = PlayerSkinRegistry(payable(_newContract));
-        emit ContractUpdated("SkinRegistry", _newContract);
     }
 
     function setEntryFee(uint256 _entryFee) external onlyOwner {
@@ -74,7 +56,7 @@ contract Game is Owned {
         returns (bytes memory)
     {
         uint256 pseudoRandomSeed = _generatePseudoRandomSeed(player1.playerId, player2.playerId);
-        return gameEngine.processGame(player1, player2, pseudoRandomSeed, playerContract, gameStats, skinRegistry);
+        return gameEngine.processGame(player1, player2, pseudoRandomSeed, playerContract);
     }
 
     function requestRandomSeedFromVRF() private view returns (uint256) {
@@ -88,8 +70,7 @@ contract Game is Owned {
     {
         require(msg.value >= entryFee, "Insufficient entry fee");
         uint256 vrfSeed = requestRandomSeedFromVRF();
-        bytes memory results =
-            gameEngine.processGame(player1, player2, vrfSeed, playerContract, gameStats, skinRegistry);
+        bytes memory results = gameEngine.processGame(player1, player2, vrfSeed, playerContract);
 
         // Map winner (1 or 2) to actual player ID
         uint32 winningPlayerId = uint8(results[0]) == 1 ? player1.playerId : player2.playerId;
@@ -104,6 +85,6 @@ contract Game is Owned {
         view
         returns (bytes memory)
     {
-        return gameEngine.processGame(player1, player2, seed, playerContract, gameStats, skinRegistry);
+        return gameEngine.processGame(player1, player2, seed, playerContract);
     }
 }

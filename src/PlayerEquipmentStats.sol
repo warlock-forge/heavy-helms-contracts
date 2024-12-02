@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./interfaces/IPlayer.sol";
 
-contract GameStats {
+contract PlayerEquipmentStats {
     enum DamageType {
         Slashing,
         Piercing,

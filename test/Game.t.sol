@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/console2.sol";
 import {Game} from "../src/Game.sol";
 import {Player} from "../src/Player.sol";
-import {GameStats} from "../src/GameStats.sol";
+import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {GameEngine} from "../src/GameEngine.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
@@ -31,7 +31,7 @@ contract GameTest is TestBase {
 
     Game public game;
     GameEngine public gameEngine;
-    GameStats public gameStats;
+    PlayerEquipmentStats public equipmentStats;
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
     DefaultPlayerSkinNFT public defaultSkin;
@@ -44,13 +44,13 @@ contract GameTest is TestBase {
         setupRandomness();
 
         // Deploy contracts in correct order
-        gameStats = new GameStats();
+        equipmentStats = new PlayerEquipmentStats();
         skinRegistry = new PlayerSkinRegistry();
         nameRegistry = new PlayerNameRegistry();
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(gameStats));
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats));
 
         gameEngine = new GameEngine();
-        game = new Game(address(gameEngine), address(playerContract), address(gameStats), address(skinRegistry));
+        game = new Game(address(gameEngine), address(playerContract));
 
         // Deploy default skin contract and set up ownership
         defaultSkin = new DefaultPlayerSkinNFT();
@@ -340,7 +340,7 @@ contract GameTest is TestBase {
         });
 
         // Get weapon stats for logging
-        (GameStats.WeaponStats memory weapon,,) = gameStats.getFullCharacterStats(
+        (PlayerEquipmentStats.WeaponStats memory weapon,,) = playerContract.equipmentStats().getFullCharacterStats(
             IPlayerSkinNFT.WeaponType.Quarterstaff,
             IPlayerSkinNFT.ArmorType.Chain,
             IPlayerSkinNFT.FightingStance.Defensive
@@ -380,7 +380,7 @@ contract GameTest is TestBase {
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(defenderStats);
 
         // Get and log stance modifiers
-        (,, GameStats.StanceMultiplier memory stance) = gameStats.getFullCharacterStats(
+        (,, PlayerEquipmentStats.StanceMultiplier memory stance) = playerContract.equipmentStats().getFullCharacterStats(
             IPlayerSkinNFT.WeaponType.Quarterstaff,
             IPlayerSkinNFT.ArmorType.Chain,
             IPlayerSkinNFT.FightingStance.Defensive
@@ -403,7 +403,7 @@ contract GameTest is TestBase {
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(stats);
 
         // Get weapon stats
-        (GameStats.WeaponStats memory weapon,,) = gameStats.getFullCharacterStats(
+        (PlayerEquipmentStats.WeaponStats memory weapon,,) = playerContract.equipmentStats().getFullCharacterStats(
             IPlayerSkinNFT.WeaponType.RapierAndShield,
             IPlayerSkinNFT.ArmorType.Leather,
             IPlayerSkinNFT.FightingStance.Defensive
@@ -437,8 +437,7 @@ contract GameTest is TestBase {
 
         // Run multiple games with different seeds to verify parry mechanics
         for (uint256 seed = 0; seed < 10; seed++) {
-            bytes memory results =
-                gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract, gameStats, skinRegistry);
+            bytes memory results = gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract);
 
             require(results.length > 2, "Invalid results length");
         }

@@ -5,7 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {Player, NotSkinOwner, PlayerDoesNotExist} from "../src/Player.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import {GameStats} from "../src/GameStats.sol";
+import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import "../src/interfaces/IPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
@@ -15,7 +15,7 @@ contract PlayerTest is TestBase {
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
-    GameStats public gameStats;
+    PlayerEquipmentStats public equipmentStats;
     DefaultPlayerSkinNFT public defaultSkin;
     uint32 public skinIndex;
 
@@ -28,10 +28,10 @@ contract PlayerTest is TestBase {
         setupRandomness();
 
         // Deploy contracts in correct order
-        gameStats = new GameStats();
+        equipmentStats = new PlayerEquipmentStats();
         skinRegistry = new PlayerSkinRegistry();
         nameRegistry = new PlayerNameRegistry();
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(gameStats));
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats));
 
         // Deploy default skin contract
         defaultSkin = new DefaultPlayerSkinNFT();

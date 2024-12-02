@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "../PlayerEquipmentStats.sol";
+import "../PlayerSkinRegistry.sol";
+
 interface IPlayer {
     struct PlayerStats {
         uint8 strength;
@@ -29,6 +32,8 @@ interface IPlayer {
         uint16 parryChance;
     }
 
+    function equipmentStats() external view returns (PlayerEquipmentStats);
+    function skinRegistry() external view returns (PlayerSkinRegistry);
     function createPlayer(bool useNameSetB) external returns (uint256 playerId, PlayerStats memory stats);
     function getPlayerIds(address owner) external view returns (uint256[] memory);
     function getPlayer(uint256 playerId) external view returns (PlayerStats memory);

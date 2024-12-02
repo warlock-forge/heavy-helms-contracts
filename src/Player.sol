@@ -7,7 +7,7 @@ import "./interfaces/IPlayer.sol";
 import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
-import "./GameStats.sol";
+import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
@@ -40,7 +40,7 @@ contract Player is IPlayer, Owned {
     PlayerNameRegistry public nameRegistry;
 
     // Add GameStats reference
-    GameStats public immutable gameStats;
+    PlayerEquipmentStats public immutable equipmentStats;
 
     // Events
     event PlayerRetired(uint256 indexed playerId);
@@ -54,11 +54,13 @@ contract Player is IPlayer, Owned {
 
     uint32 private nextPlayerId = 1000;
 
-    constructor(address skinRegistryAddress, address nameRegistryAddress, address gameStatsAddress) Owned(msg.sender) {
+    constructor(address skinRegistryAddress, address nameRegistryAddress, address equipmentStatsAddress)
+        Owned(msg.sender)
+    {
         maxPlayersPerAddress = 5;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
-        gameStats = GameStats(gameStatsAddress);
+        equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
     }
 
     // Make sure this matches the interface exactly
@@ -181,7 +183,7 @@ contract Player is IPlayer, Owned {
 
         // Check stat requirements using GameStats from registry
         (bool meetsWeaponReqs, bool meetsArmorReqs) =
-            gameStats.checkStatRequirements(attrs.weapon, attrs.armor, _players[playerId]);
+            equipmentStats.checkStatRequirements(attrs.weapon, attrs.armor, _players[playerId]);
 
         if (!meetsWeaponReqs || !meetsArmorReqs) revert StatRequirementsNotMet();
 
