@@ -36,7 +36,9 @@ contract GameScript is Script {
         skinRegistry.setDefaultCollection(skinIndex, true); // Mark as default collection
 
         // 3. Mint initial default characters
-        // Balanced Character
+        console2.log("\n=== Minting Default Characters ===");
+
+        // Balanced Warrior (ID 1)
         (
             IPlayerSkinNFT.WeaponType weapon,
             IPlayerSkinNFT.ArmorType armor,
@@ -47,15 +49,15 @@ contract GameScript is Script {
 
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
 
-        // Greatsword Offensive Character
+        // Greatsword User (ID 2)
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 2);
 
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
 
-        // Defensive Character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 3);
+        // Sword and Shield User (ID 3)
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 3);
 
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
 
         // Log deployed addresses
         console2.log("Deployed Addresses:");
