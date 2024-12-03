@@ -179,8 +179,8 @@ contract GameTest is TestBase {
         bytes memory result = game.practiceGame(player1, player2);
         (uint256 winner,,) = gameEngine.decodeCombatLog(result);
 
-        console2.log("Winner:", winner);
-        assertTrue(winner == 1 || winner == 2, "Invalid winner");
+        console2.log("Winner: Player #", winner);
+        assertTrue(winner == player1.playerId || winner == player2.playerId, "Invalid winner");
     }
 
     function createTestLoadout(uint32 playerId) internal pure returns (IGameEngine.PlayerLoadout memory) {
@@ -253,9 +253,12 @@ contract GameTest is TestBase {
     }
 
     function logScenarioResults(uint256 scenario, bytes memory results) private pure {
-        uint8 winner = uint8(results[0]);
-        uint8 condition = uint8(results[1]);
-        uint256 rounds = (results.length - 2) / 8;
+        // Decode winner ID from first 4 bytes
+        uint32 winner = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
+            | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
+
+        uint8 condition = uint8(results[4]);
+        uint256 rounds = (results.length - 5) / 8;
 
         string memory winType;
         if (condition == 0) winType = "KO";
@@ -263,7 +266,7 @@ contract GameTest is TestBase {
         else winType = "Max Rounds";
 
         console2.log("Scenario ", scenario);
-        console2.log("Winner: Player ", winner);
+        console2.log("Winner: Player #", winner);
         console2.log("Win Type: ", winType);
         console2.log("Rounds: ", rounds);
         console2.log(""); // Empty line for spacing
@@ -361,10 +364,16 @@ contract GameTest is TestBase {
 
             console2.log("Scenario %d Results:", scenario + 1);
             console2.log(
-                "Offensive Wins: %d (%d%%)", offensiveWins[scenario], (offensiveWins[scenario] * 100) / totalFights
+                "Offensive Player #%d Wins: %d (%d%%)",
+                offensiveLoadout.playerId,
+                offensiveWins[scenario],
+                (offensiveWins[scenario] * 100) / totalFights
             );
             console2.log(
-                "Defensive Wins: %d (%d%%)", defensiveWins[scenario], (defensiveWins[scenario] * 100) / totalFights
+                "Defensive Player #%d Wins: %d (%d%%)",
+                defensiveLoadout.playerId,
+                defensiveWins[scenario],
+                (defensiveWins[scenario] * 100) / totalFights
             );
             console2.log("Average Rounds: %d", totalRounds[scenario] / totalFights);
         }

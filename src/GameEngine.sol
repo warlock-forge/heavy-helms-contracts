@@ -60,7 +60,9 @@ contract GameEngine is IGameEngine {
         uint256 p1Stamina;
         uint256 p2Stamina;
         bool isPlayer1Turn;
-        uint256 winner;
+        uint32 winningPlayerId;
+        uint32 p1Id;
+        uint32 p2Id;
         WinCondition condition;
     }
 
@@ -74,35 +76,29 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint256 winningPlayerId, WinCondition condition, CombatAction[] memory actions)
     {
-        require(results.length >= 2, "Results too short");
+        require(results.length >= 5, "Results too short");
 
-        // Header is simple uint8 values
-        winningPlayerId = uint8(results[0]);
-        condition = WinCondition(uint8(results[1]));
+        // Properly decode uint32 from 4 bytes
+        winningPlayerId = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
+            | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
 
-        uint256 numActions = (results.length - 2) / 8;
+        condition = WinCondition(uint8(results[4]));
+
+        uint256 numActions = (results.length - 5) / 8;
         actions = new CombatAction[](numActions);
 
         for (uint256 i = 0; i < numActions; i++) {
-            uint256 base = 2 + (i * 8);
-
-            // First cast to uint16 before shifting to prevent overflow
-            uint16 p1DamageHigh = uint16(uint8(results[base + 1]));
-            uint16 p1DamageLow = uint16(uint8(results[base + 2]));
-            uint16 p2DamageHigh = uint16(uint8(results[base + 5]));
-            uint16 p2DamageLow = uint16(uint8(results[base + 6]));
+            uint256 base = 5 + (i * 8);
 
             actions[i] = CombatAction({
                 p1Result: CombatResultType(uint8(results[base + 0])),
-                p1Damage: (p1DamageHigh << 8) | p1DamageLow,
+                p1Damage: uint16((uint8(results[base + 1]) << 8) | uint8(results[base + 2])),
                 p1StaminaLost: uint8(results[base + 3]),
                 p2Result: CombatResultType(uint8(results[base + 4])),
-                p2Damage: (p2DamageHigh << 8) | p2DamageLow,
+                p2Damage: uint16((uint8(results[base + 5]) << 8) | uint8(results[base + 6])),
                 p2StaminaLost: uint8(results[base + 7])
             });
         }
-
-        return (winningPlayerId, condition, actions);
     }
 
     function processGame(
@@ -197,7 +193,7 @@ contract GameEngine is IGameEngine {
 
         if (roundCount >= MAX_ROUNDS) {
             state.condition = WinCondition.MAX_ROUNDS;
-            state.winner = state.p1Health >= state.p2Health ? 1 : 2;
+            state.winningPlayerId = state.p1Health >= state.p2Health ? state.p1Id : state.p2Id;
         }
 
         return encodeCombatResults(state, results);
@@ -217,6 +213,10 @@ contract GameEngine is IGameEngine {
     ) private view returns (CombatState memory state) {
         (state.p1Health, state.p1Stamina) = playerContract.getPlayerState(player1.playerId);
         (state.p2Health, state.p2Stamina) = playerContract.getPlayerState(player2.playerId);
+
+        // Store the player IDs
+        state.p1Id = uint32(player1.playerId);
+        state.p2Id = uint32(player2.playerId);
 
         // Calculate effective initiative (90% equipment, 10% stats)
         uint32 p1EquipmentInit = (p1WeaponStats.attackSpeed * 100) / p1ArmorStats.weight;
@@ -250,9 +250,9 @@ contract GameEngine is IGameEngine {
             state.condition = WinCondition.EXHAUSTION;
             if (state.p1Stamina < p1MinCost && state.p2Stamina < p2MinCost) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                state.winner = seed.uniform(2) == 0 ? 1 : 2;
+                state.winningPlayerId = seed.uniform(2) == 0 ? state.p2Id : state.p1Id;
             } else {
-                state.winner = state.p1Stamina < p1MinCost ? 2 : 1;
+                state.winningPlayerId = state.p1Stamina < p1MinCost ? state.p2Id : state.p1Id;
             }
             return true;
         }
@@ -532,17 +532,17 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint16 damage, uint256 nextSeed)
     {
-        // SAFER: First ensure the weapon range calculation is safe
-        uint32 damageRange = weapon.maxDamage >= weapon.minDamage ? weapon.maxDamage - weapon.minDamage : 0;
+        // Use uint64 for all intermediate calculations to prevent overflow
+        uint64 damageRange = weapon.maxDamage >= weapon.minDamage ? weapon.maxDamage - weapon.minDamage : 0;
+        uint64 baseDamage = uint64(weapon.minDamage) + uint64(seed % (damageRange + 1));
 
-        // SAFER: Calculate base damage with overflow protection
-        uint32 baseDamage = uint32(weapon.minDamage) + uint32(seed % (damageRange + 1));
+        // Scale up for precision, using uint64 to prevent overflow
+        uint64 scaledBase = baseDamage * 100;
+        uint64 modifiedDamage = (scaledBase * uint64(damageModifier)) / 10000;
 
-        // SAFER: Scale up early to maintain precision
-        uint32 scaledBase = baseDamage * 100;
-        uint32 modifiedDamage = (scaledBase * uint32(damageModifier)) / 10000;
+        seed = uint256(keccak256(abi.encodePacked(seed)));
 
-        seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before return
+        // Safe downcast to uint16
         return (modifiedDamage > type(uint16).max ? type(uint16).max : uint16(modifiedDamage), seed);
     }
 
@@ -627,7 +627,7 @@ contract GameEngine is IGameEngine {
             ) {
                 state.p2Health = applyDamage(state.p2Health, attackDamage);
                 if (state.p2Health == 0) {
-                    state.winner = 1;
+                    state.winningPlayerId = state.p1Id;
                     state.condition = WinCondition.HEALTH;
                 }
             }
@@ -636,8 +636,7 @@ contract GameEngine is IGameEngine {
             if (defenseDamage > 0) {
                 state.p1Health = applyDamage(state.p1Health, defenseDamage);
                 if (state.p1Health == 0) {
-                    // Add this check
-                    state.winner = 2;
+                    state.winningPlayerId = state.p2Id;
                     state.condition = WinCondition.HEALTH;
                 }
             }
@@ -652,7 +651,7 @@ contract GameEngine is IGameEngine {
             ) {
                 state.p1Health = applyDamage(state.p1Health, attackDamage);
                 if (state.p1Health == 0) {
-                    state.winner = 2;
+                    state.winningPlayerId = state.p2Id;
                     state.condition = WinCondition.HEALTH;
                 }
             }
@@ -660,8 +659,7 @@ contract GameEngine is IGameEngine {
             if (defenseDamage > 0) {
                 state.p2Health = applyDamage(state.p2Health, defenseDamage);
                 if (state.p2Health == 0) {
-                    // Add this check
-                    state.winner = 1;
+                    state.winningPlayerId = state.p1Id;
                     state.condition = WinCondition.HEALTH;
                 }
             }
@@ -678,7 +676,7 @@ contract GameEngine is IGameEngine {
         uint8 defenseStaminaCost
     ) private pure returns (bytes memory) {
         if (results.length == 0) {
-            results = new bytes(2); // Reserve space for winner and condition
+            results = new bytes(5); // Reserve space for uint32 winner + condition
         }
 
         bytes memory actionData = new bytes(8);
@@ -695,10 +693,17 @@ contract GameEngine is IGameEngine {
     }
 
     function encodeCombatResults(CombatState memory state, bytes memory results) private pure returns (bytes memory) {
-        require(results.length >= 2, "Invalid results length");
-        // Write winner and condition to first two bytes
-        results[0] = bytes1(uint8(state.winner));
-        results[1] = bytes1(uint8(state.condition));
+        require(results.length >= 5, "Invalid results length");
+
+        // Write uint32 winner ID as 4 separate bytes
+        results[0] = bytes1(uint8(state.winningPlayerId >> 24));
+        results[1] = bytes1(uint8(state.winningPlayerId >> 16));
+        results[2] = bytes1(uint8(state.winningPlayerId >> 8));
+        results[3] = bytes1(uint8(state.winningPlayerId));
+
+        // Write condition
+        results[4] = bytes1(uint8(state.condition));
+
         return results;
     }
 
