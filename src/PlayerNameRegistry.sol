@@ -34,6 +34,7 @@ contract PlayerNameRegistry is Owned {
         nameSetA.push("Sam");
         nameSetA.push("Joe");
         nameSetA.push("Bill");
+        nameSetA.push("Gary");
 
         // Add initial Set B names (feminine)
         nameSetB.push("Alex");
@@ -66,6 +67,7 @@ contract PlayerNameRegistry is Owned {
         surnames.push("Grimheart");
         surnames.push("the Mighty");
         surnames.push("Frostborn");
+        surnames.push("the Greatsword");
 
         // Emit events for initial names
         for (uint256 i = 0; i < nameSetA.length; i++) {

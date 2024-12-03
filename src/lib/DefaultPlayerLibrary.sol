@@ -28,10 +28,39 @@ library DefaultPlayerLibrary {
             luck: 12,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
-            firstNameIndex: 1,
-            surnameIndex: 1
+            firstNameIndex: 0,
+            surnameIndex: 0
         });
-        ipfsCID = "";
+        ipfsCID = "QmX4D7jykz4d1VRzoL9p6bB3Fuc85Agjo67yavaoujAMKS";
+    }
+
+    function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (
+            IPlayerSkinNFT.WeaponType weapon,
+            IPlayerSkinNFT.ArmorType armor,
+            IPlayerSkinNFT.FightingStance stance,
+            IPlayer.PlayerStats memory stats,
+            string memory ipfsCID
+        )
+    {
+        weapon = IPlayerSkinNFT.WeaponType.SwordAndShield;
+        armor = IPlayerSkinNFT.ArmorType.Chain;
+        stance = IPlayerSkinNFT.FightingStance.Balanced;
+        stats = IPlayer.PlayerStats({
+            strength: 12,
+            constitution: 12,
+            size: 12,
+            agility: 12,
+            stamina: 12,
+            luck: 12,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId,
+            firstNameIndex: 1,
+            surnameIndex: 3
+        });
+        ipfsCID = "QmR5bGFXMpXZKqDSYjzP1LU1PLBRmgVmfhqNx7Lhm3n1rn";
     }
 
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
@@ -58,8 +87,8 @@ library DefaultPlayerLibrary {
                 luck: 10,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
-                firstNameIndex: 1,
-                surnameIndex: 1
+                firstNameIndex: 10,
+                surnameIndex: 18
             }),
             "QmP8Lv7kTm4CsiyFPsY8nFLqt1NCzXzSwcsvzCQT3mK7PX"
         );
@@ -92,7 +121,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 1,
                 surnameIndex: 1
             }),
-            "QmYourGreatswordUserCIDHere"
+            "QmSwordAndShieldUserCIDHere"
         );
     }
 
@@ -123,7 +152,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 1,
                 surnameIndex: 1
             }),
-            "QmYourGreatswordUserCIDHere"
+            "QmSwordAndShieldUserCIDHere"
         );
     }
 
@@ -154,7 +183,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 1,
                 surnameIndex: 1
             }),
-            "QmYourGreatswordUserCIDHere"
+            "QmSwordAndShieldUserCIDHere"
         );
     }
 
@@ -185,7 +214,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 1,
                 surnameIndex: 1
             }),
-            "QmYourGreatswordUserCIDHere"
+            "QmSwordAndShieldUserCIDHere"
         );
     }
 
@@ -216,7 +245,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 1,
                 surnameIndex: 1
             }),
-            "QmYourGreatswordUserCIDHere"
+            "QmSwordAndShieldUserCIDHere"
         );
     }
 
@@ -247,7 +276,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 1,
                 surnameIndex: 1
             }),
-            "QmWigxrZjQV8wUEusidWryyeZiyKA7ncS6kTXUZ52Xs8HR"
+            "QmSwordAndShieldUserCIDHere"
         );
     }
 
