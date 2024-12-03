@@ -17,7 +17,8 @@ contract GameScript is Script {
     function setUp() public {}
 
     function run() public {
-        vm.startBroadcast();
+        uint256 deployerPrivateKey = vm.envUint("PK");
+        vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy core contracts in correct order
         PlayerEquipmentStats equipmentStats = new PlayerEquipmentStats();
