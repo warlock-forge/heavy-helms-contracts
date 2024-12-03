@@ -120,20 +120,6 @@ contract PlayerSkinRegistry is Owned {
         return verifiedSkins;
     }
 
-    // Helper function to check NFT ownership
-    function _checkRequiredNFT(address player, address nftAddress) internal view returns (bool) {
-        // If no NFT is required (address(0)), return true
-        if (nftAddress == address(0)) return true;
-
-        // Basic ERC721 balance check
-        (bool success, bytes memory data) = nftAddress.staticcall(abi.encodeWithSignature("balanceOf(address)", player));
-
-        if (!success) return false;
-
-        uint256 balance = abi.decode(data, (uint256));
-        return balance > 0;
-    }
-
     function setDefaultCollection(uint32 registryId, bool isDefault) external onlyOwner {
         if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
         skins[registryId].isDefaultCollection = isDefault;

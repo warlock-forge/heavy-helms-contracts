@@ -52,16 +52,71 @@ contract GameTest is TestBase {
         gameEngine = new GameEngine();
         game = new Game(address(gameEngine), address(playerContract));
 
-        // Deploy default skin contract and set up ownership
+        // Deploy default skin contract
         defaultSkin = new DefaultPlayerSkinNFT();
-        defaultSkin.setPlayerContract(address(playerContract));
 
-        // Register default skin and get collection index
-        vm.deal(address(this), 1 ether);
-        skinIndex = skinRegistry.registerSkin{value: 0.001 ether}(address(defaultSkin));
+        // Register default skin contract and verify setup
+        skinIndex = skinRegistry.registerSkin(address(defaultSkin));
+        console2.log("\n=== Registry Setup ===");
+        console2.log("Default skin registered at index:", skinIndex);
+        console2.log("Default skin contract:", address(defaultSkin));
+
+        // Set as default registry and collection
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
+        skinRegistry.setDefaultCollection(skinIndex, true);
 
-        // Important: We need to mint as the owner of DefaultPlayerSkinNFT
+        console2.log("\n=== Minting Default Characters ===");
+        // First mint the default characters
+        mintDefaultCharacters();
+
+        // Store the IDs for use in tests
+        chars = TestCharacters({
+            greatswordOffensive: 1,
+            battleaxeOffensive: 2,
+            spearBalanced: 3,
+            swordAndShieldDefensive: 4,
+            rapierAndShieldDefensive: 5,
+            quarterstaffDefensive: 6
+        });
+
+        console2.log("\n=== Creating Players for PLAYER_ONE ===");
+        // Now create players and equip skins for PLAYER_ONE
+        vm.startPrank(PLAYER_ONE);
+        for (uint256 i = 1; i <= 6; i++) {
+            console2.log("Creating player", i);
+            (uint256 playerId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer(true);
+            console2.log("Created player with ID:", playerId);
+
+            console2.log("Equipping skin", i, "to player", playerId);
+            try playerContract.equipSkin(uint32(playerId), skinIndex, uint16(i)) {
+                console2.log("Successfully equipped skin");
+            } catch Error(string memory reason) {
+                console2.log("Failed to equip skin:", reason);
+            }
+        }
+        vm.stopPrank();
+
+        console2.log("\n=== Creating Players for PLAYER_TWO ===");
+        // Create players and equip skins for PLAYER_TWO
+        vm.startPrank(PLAYER_TWO);
+        for (uint256 i = 7; i <= 12; i++) {
+            console2.log("Creating player", i);
+            (uint256 playerId, IPlayer.PlayerStats memory stats) = playerContract.createPlayer(true);
+            console2.log("Created player with ID:", playerId);
+
+            console2.log("Equipping skin", i - 6, "to player", playerId);
+            try playerContract.equipSkin(uint32(playerId), skinIndex, uint16(i - 6)) {
+                console2.log("Successfully equipped skin");
+            } catch Error(string memory reason) {
+                console2.log("Failed to equip skin:", reason);
+            }
+        }
+        vm.stopPrank();
+    }
+
+    // Create a separate function for minting default characters to improve readability
+    function mintDefaultCharacters() private {
+        // Mint Greatsword User
         (
             IPlayerSkinNFT.WeaponType weapon,
             IPlayerSkinNFT.ArmorType armor,
@@ -69,48 +124,60 @@ contract GameTest is TestBase {
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         ) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 1);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
 
-        // Mint as the test contract (which is the owner)
-        chars.greatswordOffensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
-
-        // Continue with other characters
+        // Mint other characters
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getBattleaxeUser(skinIndex, 2);
-        chars.battleaxeOffensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
 
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSpearUser(skinIndex, 3);
-        chars.spearBalanced = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
 
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 4);
-        chars.swordAndShieldDefensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 4);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
 
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 5);
-        chars.rapierAndShieldDefensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 5);
 
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 6);
-        chars.quarterstaffDefensive = defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 6);
     }
 
     function testBasicCombat() public {
-        if (vm.envOr("CI", false)) {
-            console2.log("Skipping randomness test in CI");
-            return;
+        // First verify we can get the player stats directly
+        console2.log("\nDebug Player Setup:");
+
+        // Get initial state
+        (uint256 health, uint256 stamina) = playerContract.getPlayerState(1);
+        console2.log("Initial State:");
+        console2.log("  - Health:", health);
+        console2.log("  - Stamina:", stamina);
+
+        // Get the player stats
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(1);
+        console2.log("Player Stats:");
+        console2.log("  - Strength:", stats.strength);
+        console2.log("  - SkinIndex:", stats.skinIndex);
+
+        // Now set up the game loadouts
+        uint32 defaultSkinIndex = skinRegistry.defaultSkinRegistryId();
+        IGameEngine.PlayerLoadout memory player1 =
+            IGameEngine.PlayerLoadout({playerId: 1, skinIndex: defaultSkinIndex, skinTokenId: 1});
+
+        IGameEngine.PlayerLoadout memory player2 =
+            IGameEngine.PlayerLoadout({playerId: 4, skinIndex: defaultSkinIndex, skinTokenId: 4});
+
+        // Try to get the loadout stats before the game
+        try playerContract.getPlayer(player1.playerId) returns (IPlayer.PlayerStats memory p1Stats) {
+            console2.log("Pre-Game Player 1 Stats:");
+            console2.log("  - Strength:", p1Stats.strength);
+            console2.log("  - SkinIndex:", p1Stats.skinIndex);
+        } catch Error(string memory reason) {
+            console2.log("Failed to get player 1 stats:", reason);
         }
 
-        // No need to create new players, use the pre-configured ones directly
-        IGameEngine.PlayerLoadout memory loadout1 = IGameEngine.PlayerLoadout({
-            playerId: uint32(1),
-            skinIndex: skinIndex,
-            skinTokenId: chars.greatswordOffensive
-        });
-
-        IGameEngine.PlayerLoadout memory loadout2 = IGameEngine.PlayerLoadout({
-            playerId: uint32(2),
-            skinIndex: skinIndex,
-            skinTokenId: chars.swordAndShieldDefensive
-        });
-
-        bytes memory results = game.practiceGame(loadout1, loadout2);
-        (uint256 winner,,) = gameEngine.decodeCombatLog(results);
+        bytes memory result = game.practiceGame(player1, player2);
+        (uint256 winner,,) = gameEngine.decodeCombatLog(result);
 
         console2.log("Winner:", winner);
         assertTrue(winner == 1 || winner == 2, "Invalid winner");

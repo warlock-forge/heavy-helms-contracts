@@ -168,7 +168,8 @@ contract PlayerTest is TestBase {
             IPlayerSkinNFT.ArmorType.Cloth,
             IPlayerSkinNFT.FightingStance.Balanced,
             stats,
-            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
+            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5",
+            7
         );
         console2.log("Mint successful! TokenId:", tokenId);
         console2.log("Token owner (should be contract):", defaultSkin.ownerOf(tokenId));
@@ -213,7 +214,8 @@ contract PlayerTest is TestBase {
             IPlayerSkinNFT.ArmorType.Cloth,
             IPlayerSkinNFT.FightingStance.Balanced,
             stats,
-            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
+            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5",
+            7
         );
 
         // Try to equip skin to player owned by address(0x1)
@@ -423,7 +425,8 @@ contract PlayerTest is TestBase {
             IPlayerSkinNFT.ArmorType.Cloth,
             IPlayerSkinNFT.FightingStance.Balanced,
             stats,
-            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5"
+            "QmRLKFYsTAk4d39KeNTpzXPt1iFwux4YkMsVuopfszhMT5",
+            7
         );
         console2.log("Minted default skin with token ID:", tokenId);
 

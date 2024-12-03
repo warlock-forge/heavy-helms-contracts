@@ -15,6 +15,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     mapping(uint256 => string) private _tokenCIDs;
     mapping(uint256 => SkinAttributes) private _skinAttributes;
     mapping(uint256 => IPlayer.PlayerStats) private _characterStats;
+    mapping(uint256 => uint256) private _defaultPlayerToToken;
 
     error InvalidCID();
     error InvalidTokenId();
@@ -22,44 +23,41 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     error MaxSupplyReached();
     error NotPlayerContract();
 
+    event SkinAttributesUpdated(uint16 indexed tokenId, WeaponType weapon, ArmorType armor, FightingStance stance);
+
     constructor() ERC721("Shape Duels Default Player Skins", "SDPS") Owned(msg.sender) {}
-
-    address public playerContract;
-
-    function setPlayerContract(address _playerContract) external onlyOwner {
-        require(_playerContract != address(0), "Invalid player contract");
-        playerContract = _playerContract;
-    }
 
     function mintDefaultPlayerSkin(
         WeaponType weapon,
         ArmorType armor,
         FightingStance stance,
         IPlayer.PlayerStats memory stats,
-        string memory ipfsCID
+        string memory ipfsCID,
+        uint16 desiredTokenId
     ) external override onlyOwner returns (uint16) {
-        if (_currentTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
+        if (desiredTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
         if (bytes(ipfsCID).length == 0) revert InvalidCID();
+        if (_ownerOf[desiredTokenId] != address(0)) revert("Token ID already exists");
 
         require(
             bytes(ipfsCID).length > 2 && bytes(ipfsCID)[0] == 0x51 && bytes(ipfsCID)[1] == 0x6D, "Invalid CID format"
         );
 
-        uint16 newTokenId = _currentTokenId++;
-        _mint(address(this), newTokenId);
+        _mint(address(this), desiredTokenId);
 
-        _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
-        _characterStats[newTokenId] = stats;
-        _tokenCIDs[newTokenId] = ipfsCID;
+        _skinAttributes[desiredTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
+        _characterStats[desiredTokenId] = stats;
+        _tokenCIDs[desiredTokenId] = ipfsCID;
+        _defaultPlayerToToken[desiredTokenId] = desiredTokenId;
 
-        emit DefaultPlayerSkinMinted(newTokenId, stats);
-        emit SkinMinted(address(this), newTokenId, weapon, armor, stance);
-
-        if (playerContract != address(0)) {
-            IPlayer(playerContract).initializeDefaultPlayer(uint32(newTokenId), stats);
+        if (desiredTokenId >= _currentTokenId) {
+            _currentTokenId = desiredTokenId + 1;
         }
 
-        return newTokenId;
+        emit DefaultPlayerSkinMinted(desiredTokenId, stats);
+        emit SkinMinted(address(this), desiredTokenId, weapon, armor, stance);
+
+        return desiredTokenId;
     }
 
     function setCID(uint256 tokenId, string calldata ipfsCID) external onlyOwner {
@@ -78,7 +76,8 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         return string(abi.encodePacked("ipfs://", _tokenCIDs[id]));
     }
 
-    function getDefaultPlayerStats(uint256 tokenId) external view override returns (IPlayer.PlayerStats memory) {
+    function getDefaultPlayerStats(uint256 playerId) external view override returns (IPlayer.PlayerStats memory) {
+        uint256 tokenId = _defaultPlayerToToken[playerId];
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
         return _characterStats[tokenId];
     }
@@ -109,8 +108,6 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     function withdraw() external onlyOwner {
         payable(owner).transfer(address(this).balance);
     }
-
-    event SkinAttributesUpdated(uint16 indexed tokenId, WeaponType weapon, ArmorType armor, FightingStance stance);
 
     function updateSkinAttributes(uint256 tokenId, WeaponType weapon, ArmorType armor, FightingStance stance)
         external

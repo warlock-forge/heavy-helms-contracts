@@ -5,16 +5,13 @@ import "solmate/src/auth/Owned.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 import "./PlayerSkinRegistry.sol";
-import "solmate/src/tokens/ERC721.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
+import "./interfaces/IDefaultPlayerSkinNFT.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
-error StatRequirementsNotMet();
-error SkinRegistryDoesNotExist();
-error InvalidSkinAttributes();
 error NotDefaultSkinContract();
 error InvalidDefaultPlayerId();
 error InvalidContractAddress();
@@ -63,7 +60,7 @@ contract Player is IPlayer, Owned {
     constructor(address skinRegistryAddress, address nameRegistryAddress, address equipmentStatsAddress)
         Owned(msg.sender)
     {
-        maxPlayersPerAddress = 5;
+        maxPlayersPerAddress = 6;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
@@ -232,8 +229,30 @@ contract Player is IPlayer, Owned {
         return _addressToPlayerIds[owner];
     }
 
-    function getPlayer(uint256 playerId) external view returns (IPlayer.PlayerStats memory) {
-        if (_players[playerId].strength == 0) revert PlayerDoesNotExist(playerId);
+    function getPlayer(uint256 playerId) public view returns (PlayerStats memory) {
+        // If it's a default character (1-999)
+        if (playerId < 1000) {
+            // Get default skin registry
+            uint32 defaultSkinIndex = skinRegistry.defaultSkinRegistryId();
+            PlayerSkinRegistry.SkinInfo memory defaultSkinInfo = skinRegistry.getSkin(defaultSkinIndex);
+
+            try IDefaultPlayerSkinNFT(defaultSkinInfo.contractAddress).getDefaultPlayerStats(playerId) returns (
+                PlayerStats memory stats
+            ) {
+                // Set the skin information for default characters
+                stats.skinIndex = defaultSkinIndex;
+                stats.skinTokenId = uint16(playerId);
+                return stats;
+            } catch {
+                revert PlayerDoesNotExist(playerId);
+            }
+        }
+
+        // For user characters, check existence
+        if (_playerOwners[playerId] == address(0)) {
+            revert PlayerDoesNotExist(playerId);
+        }
+
         return _players[playerId];
     }
 
@@ -248,8 +267,7 @@ contract Player is IPlayer, Owned {
     }
 
     function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina) {
-        PlayerStats memory player = _players[playerId];
-        if (player.strength == 0) revert PlayerDoesNotExist(playerId);
+        PlayerStats memory player = this.getPlayer(playerId);
         CalculatedStats memory stats = this.calculateStats(player);
         return (uint256(stats.maxHealth), uint256(stats.maxEndurance));
     }
@@ -384,29 +402,6 @@ contract Player is IPlayer, Owned {
     function setMaxPlayersPerAddress(uint256 newMax) external onlyOwner {
         maxPlayersPerAddress = newMax;
         emit MaxPlayersUpdated(newMax);
-    }
-
-    function initializeDefaultPlayer(uint32 playerId, PlayerStats memory stats) external {
-        // Only allow calls from the default skin contract
-        PlayerSkinRegistry registry = skinRegistry;
-        address defaultSkinContract = registry.getSkin(registry.defaultSkinRegistryId()).contractAddress;
-        if (msg.sender != defaultSkinContract) revert NotDefaultSkinContract();
-
-        _players[playerId] = stats;
-        _playerOwners[playerId] = address(this);
-    }
-
-    function createDefaultPlayer(uint32 playerId, PlayerStats memory stats, bool overwrite) external onlyOwner {
-        // Ensure ID is in valid range for default players (1-999)
-        if (playerId >= 1000 || playerId == 0) revert InvalidDefaultPlayerId();
-
-        // If player exists and overwrite is false, revert
-        if (!overwrite && _players[playerId].strength != 0) {
-            revert("Player ID already exists");
-        }
-
-        _players[playerId] = stats;
-        _playerOwners[playerId] = address(this);
     }
 
     function setEquipmentStats(address newEquipmentStats) external onlyOwner {

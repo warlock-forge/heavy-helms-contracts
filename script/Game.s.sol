@@ -30,9 +30,10 @@ contract GameScript is Script {
         // 2. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
 
-        // Register default skin collection
+        // Register default skin collection and set it as default
         uint32 skinIndex = skinRegistry.registerSkin(address(defaultSkin));
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
+        skinRegistry.setDefaultCollection(skinIndex, true); // Mark as default collection
 
         // 3. Mint initial default characters
         // Balanced Character
@@ -44,17 +45,17 @@ contract GameScript is Script {
             string memory ipfsCID
         ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
 
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
 
         // Greatsword Offensive Character
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 2);
 
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
 
         // Defensive Character
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefensiveTestWarrior(skinIndex, 3);
 
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
 
         // Log deployed addresses
         console2.log("Deployed Addresses:");

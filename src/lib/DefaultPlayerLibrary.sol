@@ -250,4 +250,35 @@ library DefaultPlayerLibrary {
             "QmWigxrZjQV8wUEusidWryyeZiyKA7ncS6kTXUZ52Xs8HR"
         );
     }
+
+    function getSwordAndShieldUser(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (
+            IPlayerSkinNFT.WeaponType weapon,
+            IPlayerSkinNFT.ArmorType armor,
+            IPlayerSkinNFT.FightingStance stance,
+            IPlayer.PlayerStats memory stats,
+            string memory ipfsCID
+        )
+    {
+        return (
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Chain,
+            IPlayerSkinNFT.FightingStance.Defensive,
+            IPlayer.PlayerStats({
+                strength: 12,
+                constitution: 14,
+                size: 12,
+                agility: 12,
+                stamina: 12,
+                luck: 10,
+                skinIndex: skinIndex,
+                skinTokenId: tokenId,
+                firstNameIndex: 1,
+                surnameIndex: 1
+            }),
+            "QmSwordAndShieldUserCIDHere"
+        );
+    }
 }
