@@ -31,7 +31,7 @@ library DefaultPlayerLibrary {
             firstNameIndex: 0,
             surnameIndex: 0
         });
-        ipfsCID = "QmX4D7jykz4d1VRzoL9p6bB3Fuc85Agjo67yavaoujAMKS";
+        ipfsCID = "QmZdXdKfHi9MqbdhXMoujfmyGy8EMZ1sVkHD7e1ynLSqJU";
     }
 
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
