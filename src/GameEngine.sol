@@ -158,7 +158,7 @@ contract GameEngine is IGameEngine {
             playerContract
         );
 
-        bytes memory results;
+        bytes memory results = new bytes(5);
         uint8 roundCount = 0;
         uint256 currentSeed = randomSeed;
 
@@ -675,10 +675,6 @@ contract GameEngine is IGameEngine {
         uint16 defenseDamage,
         uint8 defenseStaminaCost
     ) private pure returns (bytes memory) {
-        if (results.length == 0) {
-            results = new bytes(5); // Reserve space for uint32 winner + condition
-        }
-
         bytes memory actionData = new bytes(8);
         actionData[0] = bytes1(attackResult);
         actionData[1] = bytes1(uint8(attackDamage >> 8));

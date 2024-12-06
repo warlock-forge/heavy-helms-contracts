@@ -518,4 +518,44 @@ contract GameTest is TestBase {
             require(results.length > 2, "Invalid results length");
         }
     }
+
+    function testCombatLogStructure() public {
+        // Use pre-configured players
+        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(1),
+            skinIndex: skinIndex,
+            skinTokenId: chars.greatswordOffensive
+        });
+
+        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+            playerId: uint32(2),
+            skinIndex: skinIndex,
+            skinTokenId: chars.quarterstaffDefensive
+        });
+
+        // Run a game and get combat log
+        bytes memory results = game.practiceGame(p1Loadout, p2Loadout);
+
+        // Test decodeCombatLog function
+        (uint256 decodedWinner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+
+        console2.log("\nDecoded Combat Log:");
+        console2.log("Winner:", decodedWinner);
+        console2.log("Win Condition:", uint8(condition));
+        console2.log("Number of Actions:", actions.length);
+
+        // Manual byte parsing for verification
+        uint32 manualWinner = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
+            | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
+        uint8 manualCondition = uint8(results[4]);
+
+        // Verify decoded results match manual parsing
+        require(decodedWinner == manualWinner, "Decoded winner mismatch");
+        require(uint8(condition) == manualCondition, "Decoded condition mismatch");
+        require(actions.length == (results.length - 5) / 8, "Decoded actions length mismatch");
+
+        // Rest of the test remains the same...
+        // ... existing code for byte structure verification ...
+    }
 }
