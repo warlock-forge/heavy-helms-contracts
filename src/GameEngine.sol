@@ -301,7 +301,14 @@ contract GameEngine is IGameEngine {
 
         // Append results to combat log
         results = appendCombatAction(
-            results, attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost
+            results,
+            attackResult,
+            attackDamage,
+            attackStaminaCost,
+            defenseResult,
+            defenseDamage,
+            defenseStaminaCost,
+            state.isPlayer1Turn
         );
 
         return (currentSeed, results);
@@ -368,7 +375,7 @@ contract GameEngine is IGameEngine {
             uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, playerContract);
             attackStaminaCost = uint8(modifiedStaminaCost);
 
-            seed = uint256(keccak256(abi.encodePacked(seed))); // Need to add this!
+            seed = uint256(keccak256(abi.encodePacked(seed)));
             (defenseResult, defenseDamage, defenseStaminaCost, seed) = processDefense(
                 defender,
                 defenderStamina,
@@ -380,10 +387,20 @@ contract GameEngine is IGameEngine {
                 defenderStance,
                 playerContract
             );
+
+            // Clear attack damage if defense was successful
+            if (
+                defenseResult == uint8(CombatResultType.DODGE) || defenseResult == uint8(CombatResultType.BLOCK)
+                    || defenseResult == uint8(CombatResultType.PARRY)
+            ) {
+                attackDamage = 0;
+            }
         } else {
-            // Just handle the miss, no counter opportunity
-            (attackResult, attackDamage, attackStaminaCost) = processMiss(attackerStance, playerContract);
-            defenseResult = 0;
+            // Changed: Always show ATTACK for attacker (with 0 damage) and MISS for defender
+            attackResult = uint8(CombatResultType.ATTACK);
+            attackDamage = 0;
+            attackStaminaCost = uint8(calculateStaminaCost(STAMINA_ATTACK / 3, attackerStance, playerContract));
+            defenseResult = uint8(CombatResultType.MISS);
             defenseDamage = 0;
             defenseStaminaCost = 0;
         }
@@ -673,17 +690,32 @@ contract GameEngine is IGameEngine {
         uint8 attackStaminaCost,
         uint8 defenseResult,
         uint16 defenseDamage,
-        uint8 defenseStaminaCost
+        uint8 defenseStaminaCost,
+        bool isPlayer1Turn
     ) private pure returns (bytes memory) {
         bytes memory actionData = new bytes(8);
-        actionData[0] = bytes1(attackResult);
-        actionData[1] = bytes1(uint8(attackDamage >> 8));
-        actionData[2] = bytes1(uint8(attackDamage));
-        actionData[3] = bytes1(attackStaminaCost);
-        actionData[4] = bytes1(defenseResult);
-        actionData[5] = bytes1(uint8(defenseDamage >> 8));
-        actionData[6] = bytes1(uint8(defenseDamage));
-        actionData[7] = bytes1(defenseStaminaCost);
+
+        if (isPlayer1Turn) {
+            // P1 attacking, P2 defending
+            actionData[0] = bytes1(attackResult);
+            actionData[1] = bytes1(uint8(attackDamage >> 8));
+            actionData[2] = bytes1(uint8(attackDamage));
+            actionData[3] = bytes1(attackStaminaCost);
+            actionData[4] = bytes1(defenseResult);
+            actionData[5] = bytes1(uint8(defenseDamage >> 8));
+            actionData[6] = bytes1(uint8(defenseDamage));
+            actionData[7] = bytes1(defenseStaminaCost);
+        } else {
+            // P2 attacking, P1 defending
+            actionData[0] = bytes1(defenseResult);
+            actionData[1] = bytes1(uint8(defenseDamage >> 8));
+            actionData[2] = bytes1(uint8(defenseDamage));
+            actionData[3] = bytes1(defenseStaminaCost);
+            actionData[4] = bytes1(attackResult);
+            actionData[5] = bytes1(uint8(attackDamage >> 8));
+            actionData[6] = bytes1(uint8(attackDamage));
+            actionData[7] = bytes1(attackStaminaCost);
+        }
 
         return bytes.concat(results, actionData);
     }

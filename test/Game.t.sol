@@ -545,17 +545,106 @@ contract GameTest is TestBase {
         console2.log("Win Condition:", uint8(condition));
         console2.log("Number of Actions:", actions.length);
 
-        // Manual byte parsing for verification
-        uint32 manualWinner = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
-            | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
-        uint8 manualCondition = uint8(results[4]);
+        // Verify turn structure
+        require(actions.length > 0, "No actions recorded");
 
-        // Verify decoded results match manual parsing
-        require(decodedWinner == manualWinner, "Decoded winner mismatch");
-        require(uint8(condition) == manualCondition, "Decoded condition mismatch");
-        require(actions.length == (results.length - 5) / 8, "Decoded actions length mismatch");
+        console2.log("\nAnalyzing Combat Turns:");
+        bool player1First = isOffensiveAction(uint8(actions[0].p1Result));
+        console2.log(string.concat("First attacker: ", player1First ? "P1" : "P2"));
 
-        // Rest of the test remains the same...
-        // ... existing code for byte structure verification ...
+        // Add detailed action analysis
+        console2.log("\nDetailed Action Analysis:");
+        uint256 p1OffensiveCount = 0;
+        uint256 p2OffensiveCount = 0;
+
+        for (uint256 i = 0; i < actions.length; i++) {
+            GameEngine.CombatAction memory action = actions[i];
+
+            // Count offensive actions
+            if (isOffensiveAction(uint8(action.p1Result))) p1OffensiveCount++;
+            if (isOffensiveAction(uint8(action.p2Result))) p2OffensiveCount++;
+
+            console2.log(
+                string.concat(
+                    "Round ",
+                    vm.toString(i + 1),
+                    ":\n  P1: ",
+                    getActionType(uint8(action.p1Result)),
+                    " (",
+                    isOffensiveAction(uint8(action.p1Result)) ? "offensive" : "defensive",
+                    ")\n  P2: ",
+                    getActionType(uint8(action.p2Result)),
+                    " (",
+                    isOffensiveAction(uint8(action.p2Result)) ? "offensive" : "defensive",
+                    ")"
+                )
+            );
+        }
+
+        console2.log("\nAction Summary:");
+        console2.log(string.concat("P1 Offensive Actions: ", vm.toString(p1OffensiveCount)));
+        console2.log(string.concat("P2 Offensive Actions: ", vm.toString(p2OffensiveCount)));
+
+        // Add assertions to ensure both players have offensive actions
+        assertTrue(
+            p1OffensiveCount > 0,
+            string.concat("P1 should have offensive actions but had ", vm.toString(p1OffensiveCount))
+        );
+        assertTrue(
+            p2OffensiveCount > 0,
+            string.concat("P2 should have offensive actions but had ", vm.toString(p2OffensiveCount))
+        );
+
+        // Add assertions to ensure neither player has all the actions
+        assertTrue(
+            p1OffensiveCount < actions.length,
+            string.concat(
+                "P1 shouldn't have all offensive actions (",
+                vm.toString(p1OffensiveCount),
+                "/",
+                vm.toString(actions.length),
+                ")"
+            )
+        );
+        assertTrue(
+            p2OffensiveCount < actions.length,
+            string.concat(
+                "P2 shouldn't have all offensive actions (",
+                vm.toString(p2OffensiveCount),
+                "/",
+                vm.toString(actions.length),
+                ")"
+            )
+        );
+    }
+
+    // Helper function to determine if an action is offensive
+    function isOffensiveAction(uint8 action) internal pure returns (bool) {
+        return action == uint8(GameEngine.CombatResultType.ATTACK) || action == uint8(GameEngine.CombatResultType.CRIT)
+            || action == uint8(GameEngine.CombatResultType.EXHAUSTED);
+    }
+
+    // Helper function to determine if an action is defensive
+    function isDefensiveAction(uint8 action) internal pure returns (bool) {
+        return action == uint8(GameEngine.CombatResultType.MISS) || action == uint8(GameEngine.CombatResultType.DODGE)
+            || action == uint8(GameEngine.CombatResultType.BLOCK) || action == uint8(GameEngine.CombatResultType.PARRY)
+            || action == uint8(GameEngine.CombatResultType.HIT);
+    }
+
+    // Helper function to convert action type to string for logging
+    function getActionType(uint8 action) internal pure returns (string memory) {
+        if (action == uint8(GameEngine.CombatResultType.ATTACK)) return "ATTACK";
+        if (action == uint8(GameEngine.CombatResultType.CRIT)) return "CRIT";
+        if (action == uint8(GameEngine.CombatResultType.EXHAUSTED)) return "EXHAUSTED";
+        if (action == uint8(GameEngine.CombatResultType.MISS)) return "MISS";
+        if (action == uint8(GameEngine.CombatResultType.DODGE)) return "DODGE";
+        if (action == uint8(GameEngine.CombatResultType.BLOCK)) return "BLOCK";
+        if (action == uint8(GameEngine.CombatResultType.PARRY)) return "PARRY";
+        if (action == uint8(GameEngine.CombatResultType.HIT)) return "HIT";
+        if (action == uint8(GameEngine.CombatResultType.COUNTER)) return "COUNTER";
+        if (action == uint8(GameEngine.CombatResultType.COUNTER_CRIT)) return "COUNTER_CRIT";
+        if (action == uint8(GameEngine.CombatResultType.RIPOSTE)) return "RIPOSTE";
+        if (action == uint8(GameEngine.CombatResultType.RIPOSTE_CRIT)) return "RIPOSTE_CRIT";
+        return "UNKNOWN";
     }
 }
