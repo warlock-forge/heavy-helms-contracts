@@ -344,13 +344,21 @@ contract GameEngine is IGameEngine {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0);
         }
 
-        // SAFER: Adjust hit chance calculation
-        uint32 baseHitChance = uint32(defender.hitChance);
-        uint32 weaponSpeedMod = uint32(defenderWeapon.attackSpeed);
-        uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod) / 100;
+        // Use attacker's hit chance and weapon speed
+        uint32 baseHitChance = uint32(attacker.hitChance);
+        uint32 weaponSpeedMod = uint32(attackerWeapon.attackSpeed);
 
-        // Ensure we don't overflow uint8 for the hit roll comparison
-        uint8 finalHitChance = uint8(min(adjustedHitChance, type(uint8).max));
+        // Get attacker's stance modifiers
+        PlayerEquipmentStats.StanceMultiplier memory attackerStanceMods =
+            playerContract.equipmentStats().getStanceMultiplier(attackerStance);
+
+        // Calculate final hit chance using attacker's stats
+        uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attackerStanceMods.hitChance) / 10000;
+
+        // Use min/max to keep within bounds (70-95%)
+        uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
+        uint32 withBothBounds = withMin > 95 ? 95 : withMin;
+        uint8 finalHitChance = uint8(withBothBounds);
 
         seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed for hit check
         uint8 hitRoll = uint8(seed % 100);
@@ -396,7 +404,7 @@ contract GameEngine is IGameEngine {
                 attackDamage = 0;
             }
         } else {
-            // Changed: Always show ATTACK for attacker (with 0 damage) and MISS for defender
+            // Miss case
             attackResult = uint8(CombatResultType.ATTACK);
             attackDamage = 0;
             attackStaminaCost = uint8(calculateStaminaCost(STAMINA_ATTACK / 3, attackerStance, playerContract));
@@ -433,10 +441,12 @@ contract GameEngine is IGameEngine {
         );
         uint16 effectiveDodgeChance = uint16((uint32(defender.dodgeChance) * uint32(stanceMods.dodgeChance)) / 100);
 
-        // Block check
+        // Block check - only allow if defender has a shield-type weapon
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 blockRoll = uint8(seed % 100);
-        if (blockRoll < effectiveBlockChance && defenderStamina >= blockStaminaCost) {
+
+        if (blockRoll < effectiveBlockChance && defenderStamina >= blockStaminaCost && defenderWeapon.hasShield) {
+            // Using hasShield from WeaponStats
             seed = uint256(keccak256(abi.encodePacked(seed)));
             uint8 counterRoll = uint8(seed % 100);
 
@@ -444,10 +454,10 @@ contract GameEngine is IGameEngine {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 (result, damage, staminaCost, seed) =
                     processCounterAttack(defender, defenderWeapon, seed, CounterType.COUNTER);
-                seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before return
+                seed = uint256(keccak256(abi.encodePacked(seed)));
                 return (result, damage, staminaCost, seed);
             }
-            seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before return
+            seed = uint256(keccak256(abi.encodePacked(seed)));
             return (uint8(CombatResultType.BLOCK), 0, uint8(blockStaminaCost), seed);
         }
 
@@ -637,10 +647,14 @@ contract GameEngine is IGameEngine {
             state.p1Stamina = state.p1Stamina > attackStaminaCost ? state.p1Stamina - attackStaminaCost : 0;
             state.p2Stamina = state.p2Stamina > defenseStaminaCost ? state.p2Stamina - defenseStaminaCost : 0;
 
-            // Apply attack damage if defense wasn't successful
+            // Apply attack damage ONLY if defense wasn't successful
+            // Added all defensive actions that should block damage
             if (
                 defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
-                    && defenseResult != uint8(CombatResultType.DODGE)
+                    && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
+                    && defenseResult != uint8(CombatResultType.COUNTER_CRIT)
+                    && defenseResult != uint8(CombatResultType.RIPOSTE)
+                    && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
             ) {
                 state.p2Health = applyDamage(state.p2Health, attackDamage);
                 if (state.p2Health == 0) {
@@ -664,7 +678,10 @@ contract GameEngine is IGameEngine {
 
             if (
                 defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
-                    && defenseResult != uint8(CombatResultType.DODGE)
+                    && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
+                    && defenseResult != uint8(CombatResultType.COUNTER_CRIT)
+                    && defenseResult != uint8(CombatResultType.RIPOSTE)
+                    && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
             ) {
                 state.p1Health = applyDamage(state.p1Health, attackDamage);
                 if (state.p1Health == 0) {
