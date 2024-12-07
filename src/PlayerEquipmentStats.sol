@@ -116,8 +116,8 @@ contract PlayerEquipmentStats {
 
         // === Two-Handed Weapons ===
         weaponStats[IPlayerSkinNFT.WeaponType.Greatsword] = WeaponStats({
-            minDamage: 26,
-            maxDamage: 38,
+            minDamage: 34,
+            maxDamage: 48,
             attackSpeed: 80,
             parryChance: 100,
             riposteChance: 110,
@@ -135,8 +135,8 @@ contract PlayerEquipmentStats {
         });
 
         weaponStats[IPlayerSkinNFT.WeaponType.Battleaxe] = WeaponStats({
-            minDamage: 35,
-            maxDamage: 46,
+            minDamage: 38,
+            maxDamage: 52,
             attackSpeed: 60,
             parryChance: 60,
             riposteChance: 70,
@@ -154,8 +154,8 @@ contract PlayerEquipmentStats {
         });
 
         weaponStats[IPlayerSkinNFT.WeaponType.Quarterstaff] = WeaponStats({
-            minDamage: 15,
-            maxDamage: 23,
+            minDamage: 22,
+            maxDamage: 37,
             attackSpeed: 120,
             parryChance: 120,
             riposteChance: 130,
@@ -167,8 +167,8 @@ contract PlayerEquipmentStats {
             StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
 
         weaponStats[IPlayerSkinNFT.WeaponType.Spear] = WeaponStats({
-            minDamage: 20,
-            maxDamage: 32,
+            minDamage: 28,
+            maxDamage: 40,
             attackSpeed: 90,
             parryChance: 80,
             riposteChance: 90,

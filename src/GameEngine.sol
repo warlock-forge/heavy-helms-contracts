@@ -407,7 +407,7 @@ contract GameEngine is IGameEngine {
             // Miss case
             attackResult = uint8(CombatResultType.ATTACK);
             attackDamage = 0;
-            attackStaminaCost = uint8(calculateStaminaCost(STAMINA_ATTACK / 3, attackerStance, playerContract));
+            attackStaminaCost = uint8(calculateStaminaCost(STAMINA_ATTACK, attackerStance, playerContract));
             defenseResult = uint8(CombatResultType.MISS);
             defenseDamage = 0;
             defenseStaminaCost = 0;
