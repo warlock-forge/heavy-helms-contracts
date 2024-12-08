@@ -317,6 +317,14 @@ contract GameEngine is IGameEngine {
             state, attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost
         );
 
+        // When processing a miss, we should set:
+        // - attackResult = ATTACK (not MISS)
+        // - defenseResult = MISS
+        if (attackResult == uint8(CombatResultType.MISS)) {
+            attackResult = uint8(CombatResultType.ATTACK);
+            defenseResult = uint8(CombatResultType.MISS);
+        }
+
         // Append results to combat log
         results = appendCombatAction(
             results,
