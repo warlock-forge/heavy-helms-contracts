@@ -55,15 +55,15 @@ contract GameEngine is IGameEngine {
     }
 
     struct CombatState {
-        uint256 p1Health;
-        uint256 p2Health;
-        uint256 p1Stamina;
-        uint256 p2Stamina;
-        bool isPlayer1Turn;
-        uint32 winningPlayerId;
         uint32 p1Id;
         uint32 p2Id;
+        uint32 winningPlayerId;
+        bool isPlayer1Turn;
         WinCondition condition;
+        uint96 p1Health;
+        uint96 p2Health;
+        uint32 p1Stamina;
+        uint32 p2Stamina;
     }
 
     enum CounterType {
@@ -102,8 +102,8 @@ contract GameEngine is IGameEngine {
     }
 
     function processGame(
-        PlayerLoadout memory player1,
-        PlayerLoadout memory player2,
+        PlayerLoadout calldata player1,
+        PlayerLoadout calldata player2,
         uint256 randomSeed,
         IPlayer playerContract
     ) external view returns (bytes memory) {
@@ -164,7 +164,17 @@ contract GameEngine is IGameEngine {
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
             // Check exhaustion first
-            if (checkExhaustion(state, currentSeed, p1Stance, p2Stance, playerContract)) {
+            if (
+                checkExhaustion(
+                    state,
+                    currentSeed,
+                    p1Stance,
+                    p2Stance,
+                    p1WeaponStats, // Pass weapon stats
+                    p2WeaponStats, // Pass weapon stats
+                    playerContract
+                )
+            ) {
                 break;
             }
 
@@ -211,8 +221,14 @@ contract GameEngine is IGameEngine {
         PlayerEquipmentStats.ArmorStats memory p2ArmorStats,
         IPlayer playerContract
     ) private view returns (CombatState memory state) {
-        (state.p1Health, state.p1Stamina) = playerContract.getPlayerState(player1.playerId);
-        (state.p2Health, state.p2Stamina) = playerContract.getPlayerState(player2.playerId);
+        (uint256 p1Health, uint256 p1Stamina) = playerContract.getPlayerState(player1.playerId);
+        (uint256 p2Health, uint256 p2Stamina) = playerContract.getPlayerState(player2.playerId);
+
+        // Safe downcasting
+        state.p1Health = uint96(p1Health);
+        state.p2Health = uint96(p2Health);
+        state.p1Stamina = uint32(p1Stamina);
+        state.p2Stamina = uint32(p2Stamina);
 
         // Store the player IDs
         state.p1Id = uint32(player1.playerId);
@@ -241,18 +257,20 @@ contract GameEngine is IGameEngine {
         uint256 seed,
         IPlayerSkinNFT.FightingStance p1Stance,
         IPlayerSkinNFT.FightingStance p2Stance,
+        PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
+        PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
         IPlayer playerContract
     ) private view returns (bool) {
-        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Stance, playerContract);
-        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Stance, playerContract);
+        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Stance, p1WeaponStats, playerContract);
+        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Stance, p2WeaponStats, playerContract);
 
-        if ((state.p1Stamina < p1MinCost) || (state.p2Stamina < p2MinCost)) {
+        if ((state.p1Stamina < uint32(p1MinCost)) || (state.p2Stamina < uint32(p2MinCost))) {
             state.condition = WinCondition.EXHAUSTION;
-            if (state.p1Stamina < p1MinCost && state.p2Stamina < p2MinCost) {
+            if (state.p1Stamina < uint32(p1MinCost) && state.p2Stamina < uint32(p2MinCost)) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 state.winningPlayerId = seed.uniform(2) == 0 ? state.p2Id : state.p1Id;
             } else {
-                state.winningPlayerId = state.p1Stamina < p1MinCost ? state.p2Id : state.p1Id;
+                state.winningPlayerId = state.p1Stamina < uint32(p1MinCost) ? state.p2Id : state.p1Id;
             }
             return true;
         }
@@ -339,7 +357,7 @@ contract GameEngine is IGameEngine {
         )
     {
         // Check stamina first
-        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, playerContract);
+        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
         if (attackerStamina < attackCost) {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0);
         }
@@ -380,7 +398,8 @@ contract GameEngine is IGameEngine {
             }
 
             attackDamage = damage;
-            uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, playerContract);
+            uint256 modifiedStaminaCost =
+                calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
             attackStaminaCost = uint8(modifiedStaminaCost);
 
             seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -405,9 +424,8 @@ contract GameEngine is IGameEngine {
             }
         } else {
             // Miss case
-            attackResult = uint8(CombatResultType.ATTACK);
-            attackDamage = 0;
-            attackStaminaCost = uint8(calculateStaminaCost(STAMINA_ATTACK, attackerStance, playerContract));
+            (attackResult, attackDamage, attackStaminaCost) =
+                processMiss(attackerStance, attackerWeapon, playerContract);
             defenseResult = uint8(CombatResultType.MISS);
             defenseDamage = 0;
             defenseStaminaCost = 0;
@@ -430,9 +448,9 @@ contract GameEngine is IGameEngine {
             playerContract.equipmentStats().getStanceMultiplier(stance);
 
         // Calculate all stamina costs with stance modifiers
-        uint256 blockStaminaCost = (STAMINA_BLOCK * stanceMods.staminaCostModifier) / 100;
-        uint256 parryStaminaCost = (STAMINA_PARRY * stanceMods.staminaCostModifier) / 100;
-        uint256 dodgeStaminaCost = (STAMINA_DODGE * stanceMods.staminaCostModifier) / 100;
+        uint256 blockStaminaCost = calculateStaminaCost(STAMINA_BLOCK, stance, defenderWeapon, playerContract);
+        uint256 parryStaminaCost = calculateStaminaCost(STAMINA_PARRY, stance, defenderWeapon, playerContract);
+        uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, stance, defenderWeapon, playerContract);
 
         // Calculate all effective defensive chances with stance modifiers
         uint16 effectiveBlockChance = uint16((uint32(defender.blockChance) * uint32(stanceMods.blockChance)) / 100);
@@ -453,7 +471,7 @@ contract GameEngine is IGameEngine {
             if (counterRoll < defender.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 (result, damage, staminaCost, seed) =
-                    processCounterAttack(defender, defenderWeapon, seed, CounterType.COUNTER);
+                    processCounterAttack(defender, defenderWeapon, seed, CounterType.COUNTER, stance, playerContract);
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 return (result, damage, staminaCost, seed);
             }
@@ -470,7 +488,7 @@ contract GameEngine is IGameEngine {
 
             if (riposteRoll < defender.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                return processCounterAttack(defender, defenderWeapon, seed, CounterType.PARRY);
+                return processCounterAttack(defender, defenderWeapon, seed, CounterType.PARRY, stance, playerContract);
             }
             return (uint8(CombatResultType.PARRY), 0, uint8(parryStaminaCost), seed);
         }
@@ -492,9 +510,10 @@ contract GameEngine is IGameEngine {
         IPlayer.CalculatedStats memory defenderStats,
         PlayerEquipmentStats.WeaponStats memory defenderWeapon,
         uint256 seed,
-        CounterType counterType
-    ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
-        // Just handle damage calculation and crits
+        CounterType counterType,
+        IPlayerSkinNFT.FightingStance stance,
+        IPlayer playerContract
+    ) private view returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         uint16 counterDamage;
         (counterDamage, seed) = calculateDamage(defenderStats.damageModifier, defenderWeapon, seed);
 
@@ -502,31 +521,40 @@ contract GameEngine is IGameEngine {
         bool isCritical = (seed % 100) < defenderStats.critChance;
 
         if (isCritical) {
-            counterDamage = uint16((uint32(counterDamage) * uint32(defenderStats.critMultiplier)) / 100);
-            seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before return
+            uint32 totalMultiplier =
+                (uint32(defenderStats.critMultiplier) * uint32(defenderWeapon.critMultiplier)) / 100;
+            counterDamage = uint16((uint32(counterDamage) * totalMultiplier) / 100);
+
+            uint256 staminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
+            uint256 modifiedStaminaCost = calculateStaminaCost(staminaCostBase, stance, defenderWeapon, playerContract);
+
+            seed = uint256(keccak256(abi.encodePacked(seed)));
             return (
                 uint8(counterType == CounterType.PARRY ? CombatResultType.RIPOSTE_CRIT : CombatResultType.COUNTER_CRIT),
                 counterDamage,
-                counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_BLOCK,
+                uint8(modifiedStaminaCost),
                 seed
             );
         }
 
-        seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before return
+        uint256 staminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
+        uint256 modifiedStaminaCost = calculateStaminaCost(staminaCostBase, stance, defenderWeapon, playerContract);
+
+        seed = uint256(keccak256(abi.encodePacked(seed)));
         return (
             uint8(counterType == CounterType.PARRY ? CombatResultType.RIPOSTE : CombatResultType.COUNTER),
             counterDamage,
-            counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_BLOCK,
+            uint8(modifiedStaminaCost),
             seed
         );
     }
 
-    function processMiss(IPlayerSkinNFT.FightingStance stance, IPlayer playerContract)
-        private
-        view
-        returns (uint8 result, uint16 damage, uint8 staminaCost)
-    {
-        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK / 3, stance, playerContract);
+    function processMiss(
+        IPlayerSkinNFT.FightingStance stance,
+        PlayerEquipmentStats.WeaponStats memory weapon,
+        IPlayer playerContract
+    ) private view returns (uint8 result, uint16 damage, uint8 staminaCost) {
+        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, stance, weapon, playerContract);
         return (uint8(CombatResultType.MISS), 0, uint8(modifiedStaminaCost));
     }
 
@@ -549,9 +577,10 @@ contract GameEngine is IGameEngine {
         return a < b ? a : b;
     }
 
-    function applyDamage(uint256 currentHealth, uint16 damage) private pure returns (uint256) {
-        // No need for overflow check since currentHealth is uint256
-        return currentHealth > damage ? currentHealth - damage : 0;
+    function applyDamage(uint96 currentHealth, uint16 damage) private pure returns (uint96) {
+        unchecked {
+            return currentHealth > damage ? currentHealth - damage : 0;
+        }
     }
 
     function calculateDamage(uint16 damageModifier, PlayerEquipmentStats.WeaponStats memory weapon, uint256 seed)
@@ -752,12 +781,14 @@ contract GameEngine is IGameEngine {
         return results;
     }
 
-    function calculateStaminaCost(uint256 baseCost, IPlayerSkinNFT.FightingStance stance, IPlayer playerContract)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 staminaModifier = playerContract.equipmentStats().getStanceMultiplier(stance).staminaCostModifier;
-        return (baseCost * staminaModifier) / 100;
+    function calculateStaminaCost(
+        uint256 baseCost,
+        IPlayerSkinNFT.FightingStance stance,
+        PlayerEquipmentStats.WeaponStats memory weapon,
+        IPlayer playerContract
+    ) internal view returns (uint256) {
+        uint256 stanceModifier = playerContract.equipmentStats().getStanceMultiplier(stance).staminaCostModifier;
+        // Apply both weapon and stance modifiers
+        return (baseCost * stanceModifier * weapon.staminaMultiplier) / 10000;
     }
 }

@@ -17,6 +17,8 @@ contract PlayerEquipmentStats {
         uint16 attackSpeed; // Base 100, higher is faster
         uint16 parryChance; // Base 100, chance to parry
         uint16 riposteChance; // Add this new stat
+        uint16 critMultiplier; // Reduce the gap in crit damage
+        uint16 staminaMultiplier; // NEW: Base 100, higher means more stamina drain
         DamageType damageType; // Primary damage type
         bool isTwoHanded;
         bool hasShield;
@@ -69,6 +71,8 @@ contract PlayerEquipmentStats {
             attackSpeed: 100,
             parryChance: 110,
             riposteChance: 120,
+            critMultiplier: 220,
+            staminaMultiplier: 100,
             damageType: DamageType.Slashing,
             isTwoHanded: false,
             hasShield: true
@@ -82,6 +86,8 @@ contract PlayerEquipmentStats {
             attackSpeed: 80,
             parryChance: 80,
             riposteChance: 70,
+            critMultiplier: 240,
+            staminaMultiplier: 120,
             damageType: DamageType.Blunt,
             isTwoHanded: false,
             hasShield: true
@@ -101,6 +107,8 @@ contract PlayerEquipmentStats {
             attackSpeed: 110,
             parryChance: 120,
             riposteChance: 130,
+            critMultiplier: 200,
+            staminaMultiplier: 100,
             damageType: DamageType.Piercing,
             isTwoHanded: false,
             hasShield: true
@@ -116,11 +124,13 @@ contract PlayerEquipmentStats {
 
         // === Two-Handed Weapons ===
         weaponStats[IPlayerSkinNFT.WeaponType.Greatsword] = WeaponStats({
-            minDamage: 34,
-            maxDamage: 48,
+            minDamage: 28,
+            maxDamage: 46,
             attackSpeed: 80,
             parryChance: 100,
             riposteChance: 110,
+            critMultiplier: 280,
+            staminaMultiplier: 180,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
             hasShield: false
@@ -135,11 +145,13 @@ contract PlayerEquipmentStats {
         });
 
         weaponStats[IPlayerSkinNFT.WeaponType.Battleaxe] = WeaponStats({
-            minDamage: 38,
-            maxDamage: 52,
+            minDamage: 32,
+            maxDamage: 48,
             attackSpeed: 60,
             parryChance: 60,
             riposteChance: 70,
+            critMultiplier: 300,
+            staminaMultiplier: 200,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
             hasShield: false
@@ -159,6 +171,8 @@ contract PlayerEquipmentStats {
             attackSpeed: 120,
             parryChance: 120,
             riposteChance: 130,
+            critMultiplier: 200,
+            staminaMultiplier: 100,
             damageType: DamageType.Blunt,
             isTwoHanded: true,
             hasShield: false
@@ -167,11 +181,13 @@ contract PlayerEquipmentStats {
             StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
 
         weaponStats[IPlayerSkinNFT.WeaponType.Spear] = WeaponStats({
-            minDamage: 28,
+            minDamage: 30,
             maxDamage: 40,
             attackSpeed: 90,
             parryChance: 80,
             riposteChance: 90,
+            critMultiplier: 260,
+            staminaMultiplier: 140,
             damageType: DamageType.Piercing,
             isTwoHanded: true,
             hasShield: false
@@ -266,10 +282,10 @@ contract PlayerEquipmentStats {
         });
 
         stanceStats[IPlayerSkinNFT.FightingStance.Offensive] = StanceMultiplier({
-            damageModifier: 125,
-            hitChance: 110,
-            critChance: 120,
-            critMultiplier: 120,
+            damageModifier: 135,
+            hitChance: 115,
+            critChance: 125,
+            critMultiplier: 125,
             blockChance: 85,
             parryChance: 85,
             dodgeChance: 85,
