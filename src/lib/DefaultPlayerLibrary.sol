@@ -31,7 +31,7 @@ library DefaultPlayerLibrary {
             firstNameIndex: 0,
             surnameIndex: 0
         });
-        ipfsCID = "QmZdXdKfHi9MqbdhXMoujfmyGy8EMZ1sVkHD7e1ynLSqJU";
+        ipfsCID = "QmTZzCarXPyWK483Eve4NsQLwiJbCuWhAbnPx2sVRyfKqC";
     }
 
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
@@ -60,7 +60,7 @@ library DefaultPlayerLibrary {
             firstNameIndex: 1,
             surnameIndex: 3
         });
-        ipfsCID = "QmR5bGFXMpXZKqDSYjzP1LU1PLBRmgVmfhqNx7Lhm3n1rn";
+        ipfsCID = "QmbH4DC4rvXGmz3xv6HTKsG6zYsmDeo1TKvR3b59vxbjVo";
     }
 
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
@@ -90,7 +90,7 @@ library DefaultPlayerLibrary {
                 firstNameIndex: 10,
                 surnameIndex: 18
             }),
-            "QmP8Lv7kTm4CsiyFPsY8nFLqt1NCzXzSwcsvzCQT3mK7PX"
+            "QmdFJmG9WCbRixqhpWcdsfQHp7JdT9GBM8D3rTSxaL2oU7"
         );
     }
 
