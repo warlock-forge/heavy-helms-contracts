@@ -317,14 +317,6 @@ contract GameEngine is IGameEngine {
             state, attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost
         );
 
-        // When processing a miss, we should set:
-        // - attackResult = ATTACK (not MISS)
-        // - defenseResult = MISS
-        if (attackResult == uint8(CombatResultType.MISS)) {
-            attackResult = uint8(CombatResultType.ATTACK);
-            defenseResult = uint8(CombatResultType.MISS);
-        }
-
         // Append results to combat log
         results = appendCombatAction(
             results,
@@ -431,12 +423,17 @@ contract GameEngine is IGameEngine {
                 attackDamage = 0;
             }
         } else {
-            // Miss case
-            (attackResult, attackDamage, attackStaminaCost) =
-                processMiss(attackerStance, attackerWeapon, playerContract);
-            defenseResult = uint8(CombatResultType.MISS);
-            defenseDamage = 0;
-            defenseStaminaCost = 0;
+            // Miss case - Changed to return ATTACK for attacker and MISS for defender
+            uint256 modifiedStaminaCost =
+                calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
+            return (
+                uint8(CombatResultType.ATTACK), // Changed from MISS to ATTACK
+                0, // No damage
+                uint8(modifiedStaminaCost),
+                uint8(CombatResultType.MISS), // Defender gets MISS
+                0, // No counter damage
+                0 // No stamina cost for defender
+            );
         }
     }
 
