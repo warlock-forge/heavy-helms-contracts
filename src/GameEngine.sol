@@ -34,14 +34,14 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 public constant STAMINA_ATTACK = 8;
-    uint8 public constant STAMINA_BLOCK = 5;
-    uint8 public constant STAMINA_DODGE = 4;
-    uint8 public constant STAMINA_COUNTER = 6;
-    uint8 public constant MAX_ROUNDS = 50;
-    uint8 public constant MINIMUM_ACTION_COST = 3;
-    uint8 public constant PARRY_DAMAGE_REDUCTION = 50;
-    uint8 public constant STAMINA_PARRY = 5;
+    uint8 private immutable STAMINA_ATTACK = 8;
+    uint8 private immutable STAMINA_BLOCK = 5;
+    uint8 private immutable STAMINA_DODGE = 4;
+    uint8 private immutable STAMINA_COUNTER = 6;
+    uint8 private immutable MAX_ROUNDS = 50;
+    uint8 private immutable MINIMUM_ACTION_COST = 3;
+    uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
+    uint8 private immutable STAMINA_PARRY = 5;
 
     uint32 private constant MAX_UINT16 = type(uint16).max;
 
@@ -525,26 +525,28 @@ contract GameEngine is IGameEngine {
                 (uint32(defenderStats.critMultiplier) * uint32(defenderWeapon.critMultiplier)) / 100;
             counterDamage = uint16((uint32(counterDamage) * totalMultiplier) / 100);
 
-            uint256 staminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-            uint256 modifiedStaminaCost = calculateStaminaCost(staminaCostBase, stance, defenderWeapon, playerContract);
+            uint256 critStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
+            uint256 critModifiedStaminaCost =
+                calculateStaminaCost(critStaminaCostBase, stance, defenderWeapon, playerContract);
 
             seed = uint256(keccak256(abi.encodePacked(seed)));
             return (
                 uint8(counterType == CounterType.PARRY ? CombatResultType.RIPOSTE_CRIT : CombatResultType.COUNTER_CRIT),
                 counterDamage,
-                uint8(modifiedStaminaCost),
+                uint8(critModifiedStaminaCost),
                 seed
             );
         }
 
-        uint256 staminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-        uint256 modifiedStaminaCost = calculateStaminaCost(staminaCostBase, stance, defenderWeapon, playerContract);
+        uint256 normalStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
+        uint256 normalModifiedStaminaCost =
+            calculateStaminaCost(normalStaminaCostBase, stance, defenderWeapon, playerContract);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         return (
             uint8(counterType == CounterType.PARRY ? CombatResultType.RIPOSTE : CombatResultType.COUNTER),
             counterDamage,
-            uint8(modifiedStaminaCost),
+            uint8(normalModifiedStaminaCost),
             seed
         );
     }

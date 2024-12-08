@@ -16,10 +16,6 @@ import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 // Add events from Player contract
 event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
 
-event SkinRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
-
-event NameRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
-
 contract PlayerTest is TestBase {
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
@@ -300,65 +296,37 @@ contract PlayerTest is TestBase {
         assertTrue(surnameCounts[0] < numPlayers / 2, "Too many default surnames");
     }
 
-    function testSwapRegistries() public {
-        // Deploy new registry contracts
+    function testSwapEquipmentStats() public {
+        // Deploy new equipment stats contract
         PlayerEquipmentStats newEquipmentStats = new PlayerEquipmentStats();
-        PlayerSkinRegistry newSkinRegistry = new PlayerSkinRegistry();
-        PlayerNameRegistry newNameRegistry = new PlayerNameRegistry();
 
-        // Store old addresses for comparison
+        // Store old address for comparison
         address oldEquipmentStats = address(equipmentStats);
-        address oldSkinRegistry = address(skinRegistry);
-        address oldNameRegistry = address(nameRegistry);
 
         // Test equipment stats swap
         vm.expectEmit(true, true, false, false);
         emit EquipmentStatsUpdated(oldEquipmentStats, address(newEquipmentStats));
         playerContract.setEquipmentStats(address(newEquipmentStats));
         assertEq(address(playerContract.equipmentStats()), address(newEquipmentStats));
-
-        // Test skin registry swap
-        vm.expectEmit(true, true, false, false);
-        emit SkinRegistryUpdated(oldSkinRegistry, address(newSkinRegistry));
-        playerContract.setSkinRegistry(address(newSkinRegistry));
-        assertEq(address(playerContract.skinRegistry()), address(newSkinRegistry));
-
-        // Test name registry swap
-        vm.expectEmit(true, true, false, false);
-        emit NameRegistryUpdated(oldNameRegistry, address(newNameRegistry));
-        playerContract.setNameRegistry(address(newNameRegistry));
-        assertEq(address(playerContract.nameRegistry()), address(newNameRegistry));
     }
 
     function testCannotSwapToZeroAddress() public {
         vm.expectRevert(InvalidContractAddress.selector);
         playerContract.setEquipmentStats(address(0));
-
-        vm.expectRevert(InvalidContractAddress.selector);
-        playerContract.setSkinRegistry(address(0));
-
-        vm.expectRevert(InvalidContractAddress.selector);
-        playerContract.setNameRegistry(address(0));
     }
 
-    function testOwnerCanSwapRegistries() public {
+    function testOwnerCanSwapEquipmentStats() public {
         // We are the owner (test contract) so this should work
         PlayerEquipmentStats newEquipmentStats = new PlayerEquipmentStats();
-        PlayerSkinRegistry newSkinRegistry = new PlayerSkinRegistry();
-        PlayerNameRegistry newNameRegistry = new PlayerNameRegistry();
 
-        // These should all succeed
+        // This should succeed
         playerContract.setEquipmentStats(address(newEquipmentStats));
-        playerContract.setSkinRegistry(address(newSkinRegistry));
-        playerContract.setNameRegistry(address(newNameRegistry));
 
-        // Verify the changes took effect
+        // Verify the change took effect
         assertEq(address(playerContract.equipmentStats()), address(newEquipmentStats));
-        assertEq(address(playerContract.skinRegistry()), address(newSkinRegistry));
-        assertEq(address(playerContract.nameRegistry()), address(newNameRegistry));
     }
 
-    function testOnlyOwnerCanSwapRegistries() public {
+    function testOnlyOwnerCanSwapEquipmentStats() public {
         // Create a non-owner address
         address nonOwner = makeAddr("nonOwner");
 
