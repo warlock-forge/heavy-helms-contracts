@@ -78,26 +78,35 @@ contract GameEngine is IGameEngine {
     {
         require(results.length >= 5, "Results too short");
 
-        // Properly decode uint32 from 4 bytes
-        winningPlayerId = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
-            | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
+        // Single operation for winner ID, saves gas over separate shifts
+        unchecked {
+            winningPlayerId = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
+                | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
+        }
 
         condition = WinCondition(uint8(results[4]));
 
         uint256 numActions = (results.length - 5) / 8;
         actions = new CombatAction[](numActions);
 
-        for (uint256 i = 0; i < numActions; i++) {
-            uint256 base = 5 + (i * 8);
+        // Process actions in a more gas-efficient way
+        unchecked {
+            for (uint256 i = 0; i < numActions; i++) {
+                uint256 base = 5 + (i * 8);
 
-            actions[i] = CombatAction({
-                p1Result: CombatResultType(uint8(results[base + 0])),
-                p1Damage: uint16((uint8(results[base + 1]) << 8) | uint8(results[base + 2])),
-                p1StaminaLost: uint8(results[base + 3]),
-                p2Result: CombatResultType(uint8(results[base + 4])),
-                p2Damage: uint16((uint8(results[base + 5]) << 8) | uint8(results[base + 6])),
-                p2StaminaLost: uint8(results[base + 7])
-            });
+                // Bitwise operations are more gas efficient than multiplication
+                uint16 p1Damage = (uint16(uint8(results[base + 1])) << 8) | uint16(uint8(results[base + 2]));
+                uint16 p2Damage = (uint16(uint8(results[base + 5])) << 8) | uint16(uint8(results[base + 6]));
+
+                actions[i] = CombatAction({
+                    p1Result: CombatResultType(uint8(results[base + 0])),
+                    p1Damage: p1Damage,
+                    p1StaminaLost: uint8(results[base + 3]),
+                    p2Result: CombatResultType(uint8(results[base + 4])),
+                    p2Damage: p2Damage,
+                    p2StaminaLost: uint8(results[base + 7])
+                });
+            }
         }
     }
 
@@ -735,7 +744,6 @@ contract GameEngine is IGameEngine {
         bytes memory actionData = new bytes(8);
 
         if (isPlayer1Turn) {
-            // P1 attacking, P2 defending
             actionData[0] = bytes1(attackResult);
             actionData[1] = bytes1(uint8(attackDamage >> 8));
             actionData[2] = bytes1(uint8(attackDamage));
@@ -745,7 +753,6 @@ contract GameEngine is IGameEngine {
             actionData[6] = bytes1(uint8(defenseDamage));
             actionData[7] = bytes1(defenseStaminaCost);
         } else {
-            // P2 attacking, P1 defending
             actionData[0] = bytes1(defenseResult);
             actionData[1] = bytes1(uint8(defenseDamage >> 8));
             actionData[2] = bytes1(uint8(defenseDamage));

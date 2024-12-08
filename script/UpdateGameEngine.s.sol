@@ -17,7 +17,7 @@ contract UpdateGameEngineScript is Script {
         console2.log("New GameEngine deployed at:", address(newGameEngine));
 
         // Address of your deployed Game contract
-        address gameAddress = 0x5F5482B6DDF239D9EFd0fC79a56817323ab3751D; // Replace with your Game contract address
+        address gameAddress = 0xfb6B0f32d557053D36D8dBC7cb5DfEBDC807E311; // Replace with your Game contract address
         Game game = Game(gameAddress);
 
         // Update Game contract to use new GameEngine

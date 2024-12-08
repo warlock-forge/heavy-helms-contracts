@@ -647,4 +647,79 @@ contract GameTest is TestBase {
         if (action == uint8(GameEngine.CombatResultType.RIPOSTE_CRIT)) return "RIPOSTE_CRIT";
         return "UNKNOWN";
     }
+
+    function testHighDamageEncoding() public {
+        // Test several high damage values
+        uint16[] memory testDamages = new uint16[](4);
+        testDamages[0] = 256; // Just over uint8 max
+        testDamages[1] = 300; // Random mid-range value
+        testDamages[2] = 1000; // High value
+        testDamages[3] = 65535; // uint16 max
+
+        for (uint256 i = 0; i < testDamages.length; i++) {
+            uint16 testDamage = testDamages[i];
+
+            // Create a test combat action with high damage
+            bytes memory actionData = new bytes(8);
+
+            // Pack the damage
+            actionData[0] = bytes1(uint8(GameEngine.CombatResultType.ATTACK));
+
+            // Debug output before encoding
+            uint8 highByte = uint8(testDamage >> 8);
+            uint8 lowByte = uint8(testDamage);
+            console2.log("=== Encoding Process ===");
+            console2.log(string.concat("Original damage value: ", vm.toString(testDamage)));
+            console2.log(string.concat("High byte: ", vm.toString(highByte)));
+            console2.log(string.concat("Low byte: ", vm.toString(lowByte)));
+
+            actionData[1] = bytes1(highByte); // High byte
+            actionData[2] = bytes1(lowByte); // Low byte
+            actionData[3] = bytes1(uint8(10)); // Stamina cost
+            actionData[4] = bytes1(uint8(GameEngine.CombatResultType.HIT));
+            actionData[5] = bytes1(0); // No defense damage
+            actionData[6] = bytes1(0);
+            actionData[7] = bytes1(0);
+
+            // Debug output raw bytes
+            console2.log("Raw bytes in actionData:");
+            for (uint256 j = 0; j < 8; j++) {
+                console2.log(string.concat("Byte ", vm.toString(j), ": ", vm.toString(uint8(actionData[j]))));
+            }
+
+            // Create minimal valid combat log - JUST the header
+            bytes memory testLog = new bytes(5); // Only 5 bytes for header
+            testLog[0] = bytes1(uint8(0));
+            testLog[1] = bytes1(uint8(0));
+            testLog[2] = bytes1(uint8(0));
+            testLog[3] = bytes1(uint8(1)); // Winner ID 1
+            testLog[4] = bytes1(uint8(GameEngine.WinCondition.HEALTH));
+
+            // Concatenate the action data to make a 13 byte log
+            testLog = bytes.concat(testLog, actionData);
+
+            // Concatenate the test log with action data
+            testLog = bytes.concat(testLog, actionData);
+
+            // Debug output before decoding
+            console2.log("=== Decoding Process ===");
+            (,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(testLog);
+
+            // Debug decoded values
+            console2.log(
+                string.concat(
+                    "Decoded damage: ", vm.toString(actions[0].p1Damage), " (Expected: ", vm.toString(testDamage), ")"
+                )
+            );
+
+            // Assertion
+            assertEq(
+                actions[0].p1Damage,
+                testDamage,
+                string.concat("Damage encoding failed for value: ", vm.toString(testDamage))
+            );
+
+            console2.log("-------------------");
+        }
+    }
 }
