@@ -362,79 +362,74 @@ contract GameEngine is IGameEngine {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0);
         }
 
-        // Use attacker's hit chance and weapon speed
+        // Calculate hit chance
         uint32 baseHitChance = uint32(attacker.hitChance);
         uint32 weaponSpeedMod = uint32(attackerWeapon.attackSpeed);
-
-        // Get attacker's stance modifiers
         PlayerEquipmentStats.StanceMultiplier memory attackerStanceMods =
             playerContract.equipmentStats().getStanceMultiplier(attackerStance);
-
-        // Calculate final hit chance using attacker's stats
         uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attackerStanceMods.hitChance) / 10000;
-
-        // Use min/max to keep within bounds (70-95%)
         uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
         uint32 withBothBounds = withMin > 95 ? 95 : withMin;
         uint8 finalHitChance = uint8(withBothBounds);
 
-        seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed for hit check
+        seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 hitRoll = uint8(seed % 100);
 
-        if (hitRoll < finalHitChance) {
-            // Calculate base damage first
-            seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before damage calc
-            uint16 damage;
-            (damage, seed) = calculateDamage(attacker.damageModifier, attackerWeapon, seed);
+        uint256 modifiedStaminaCost =
+            calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
 
-            uint8 critRoll = uint8(seed % 100);
-            bool isCritical = critRoll < attacker.critChance;
-
-            if (isCritical) {
-                damage = uint16((uint32(damage) * uint32(attacker.critMultiplier)) / 100);
-                attackResult = uint8(CombatResultType.CRIT);
-            } else {
-                attackResult = uint8(CombatResultType.ATTACK);
-            }
-
-            attackDamage = damage;
-            uint256 modifiedStaminaCost =
-                calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
-            attackStaminaCost = uint8(modifiedStaminaCost);
-
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-            (defenseResult, defenseDamage, defenseStaminaCost, seed) = processDefense(
-                defender,
-                defenderStamina,
-                defenderWeapon,
-                defenderArmor,
-                attackDamage,
-                attackerWeapon.damageType,
-                seed,
-                defenderStance,
-                playerContract
-            );
-
-            // Clear attack damage if defense was successful
-            if (
-                defenseResult == uint8(CombatResultType.DODGE) || defenseResult == uint8(CombatResultType.BLOCK)
-                    || defenseResult == uint8(CombatResultType.PARRY)
-            ) {
-                attackDamage = 0;
-            }
-        } else {
-            // Miss case - Changed to return ATTACK for attacker and MISS for defender
-            uint256 modifiedStaminaCost =
-                calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
+        if (hitRoll >= finalHitChance) {
+            // Miss case - MUST return ATTACK for attacker and MISS for defender
             return (
-                uint8(CombatResultType.ATTACK), // Changed from MISS to ATTACK
+                uint8(CombatResultType.ATTACK), // Attacker ALWAYS gets ATTACK
                 0, // No damage
-                uint8(modifiedStaminaCost),
+                uint8(modifiedStaminaCost), // Still costs stamina
                 uint8(CombatResultType.MISS), // Defender gets MISS
                 0, // No counter damage
-                0 // No stamina cost for defender
+                0 // No defender stamina cost
             );
         }
+
+        // Calculate base damage first
+        seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before damage calc
+        uint16 damage;
+        (damage, seed) = calculateDamage(attacker.damageModifier, attackerWeapon, seed);
+
+        uint8 critRoll = uint8(seed % 100);
+        bool isCritical = critRoll < attacker.critChance;
+
+        if (isCritical) {
+            damage = uint16((uint32(damage) * uint32(attacker.critMultiplier)) / 100);
+            attackResult = uint8(CombatResultType.CRIT);
+        } else {
+            attackResult = uint8(CombatResultType.ATTACK);
+        }
+
+        attackDamage = damage;
+        attackStaminaCost = uint8(modifiedStaminaCost);
+
+        seed = uint256(keccak256(abi.encodePacked(seed)));
+        (defenseResult, defenseDamage, defenseStaminaCost, seed) = processDefense(
+            defender,
+            defenderStamina,
+            defenderWeapon,
+            defenderArmor,
+            attackDamage,
+            attackerWeapon.damageType,
+            seed,
+            defenderStance,
+            playerContract
+        );
+
+        // Clear attack damage if defense was successful
+        if (
+            defenseResult == uint8(CombatResultType.DODGE) || defenseResult == uint8(CombatResultType.BLOCK)
+                || defenseResult == uint8(CombatResultType.PARRY)
+        ) {
+            attackDamage = 0;
+        }
+
+        return (attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost);
     }
 
     function processDefense(
@@ -554,15 +549,6 @@ contract GameEngine is IGameEngine {
             uint8(normalModifiedStaminaCost),
             seed
         );
-    }
-
-    function processMiss(
-        IPlayerSkinNFT.FightingStance stance,
-        PlayerEquipmentStats.WeaponStats memory weapon,
-        IPlayer playerContract
-    ) private view returns (uint8 result, uint16 damage, uint8 staminaCost) {
-        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, stance, weapon, playerContract);
-        return (uint8(CombatResultType.MISS), 0, uint8(modifiedStaminaCost));
     }
 
     function getSkinAttributes(uint32 skinIndex, uint16 skinTokenId, IPlayer playerContract)
