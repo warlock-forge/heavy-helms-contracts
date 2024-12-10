@@ -47,6 +47,7 @@ contract PlayerNameRegistry is Owned {
         nameSetB.push("Gwen");
         nameSetB.push("Hope");
         nameSetB.push("Iris");
+        nameSetB.push("Mary");
 
         // Add initial surnames/titles
         surnames.push("the Novice");

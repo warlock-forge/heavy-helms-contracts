@@ -57,7 +57,7 @@ library DefaultPlayerLibrary {
             luck: 12,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
-            firstNameIndex: 1,
+            firstNameIndex: 1001,
             surnameIndex: 3
         });
         ipfsCID = "QmbH4DC4rvXGmz3xv6HTKsG6zYsmDeo1TKvR3b59vxbjVo";
@@ -87,7 +87,7 @@ library DefaultPlayerLibrary {
                 luck: 10,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
-                firstNameIndex: 10,
+                firstNameIndex: 1010,
                 surnameIndex: 18
             }),
             "QmdFJmG9WCbRixqhpWcdsfQHp7JdT9GBM8D3rTSxaL2oU7"
