@@ -7,3 +7,6 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/transmissions11/solmate
+[submodule "lib/vrf-contracts"]
+	path = lib/vrf-contracts
+	url = https://github.com/gelatodigital/vrf-contracts
