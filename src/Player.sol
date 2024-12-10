@@ -9,6 +9,7 @@ import "./interfaces/IPlayerSkinNFT.sol";
 import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
+import "@gelatonetwork/gelato-vrf/contracts/GelatoVRFConsumerBase.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
@@ -17,7 +18,7 @@ error InvalidDefaultPlayerId();
 error InvalidContractAddress();
 error RequiredNFTNotOwned(address nftAddress);
 
-contract Player is IPlayer, Owned {
+contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
 
     // Configuration
@@ -47,6 +48,8 @@ contract Player is IPlayer, Owned {
     event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
+    event PlayerCreationRequested(uint64 indexed requestId, address indexed requester);
+    event PlayerCreationFulfilled(uint64 indexed requestId, uint256 indexed playerId, address indexed owner);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
@@ -54,6 +57,17 @@ contract Player is IPlayer, Owned {
     uint16 private constant TOTAL_STATS = 72;
 
     uint32 private nextPlayerId = 1000;
+
+    struct PendingPlayer {
+        address owner;
+        bool useNameSetB;
+        bool fulfilled; // Add this to prevent double-fulfillment
+    }
+
+    mapping(uint64 => PendingPlayer) private _pendingPlayers;
+
+    // Optional: mapping to help users track their pending requests
+    mapping(address => uint64[]) private _userPendingRequests;
 
     constructor(address skinRegistryAddress, address nameRegistryAddress, address equipmentStatsAddress)
         Owned(msg.sender)
@@ -409,5 +423,64 @@ contract Player is IPlayer, Owned {
         newStats.getStanceMultiplier(IPlayerSkinNFT.FightingStance.Balanced); // Will revert if invalid
         equipmentStats = newStats;
         emit EquipmentStatsUpdated(oldStats, newEquipmentStats);
+    }
+
+    function requestCreatePlayer(bool useNameSetB) external returns (uint64 requestId) {
+        require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
+
+        // Request randomness from Gelato VRF
+        requestId = _requestRandomness("");
+
+        // Store pending player data
+        _pendingPlayers[requestId] = PendingPlayer({owner: msg.sender, useNameSetB: useNameSetB, fulfilled: false});
+
+        // Optional: Track this request for the user
+        _userPendingRequests[msg.sender].push(requestId);
+
+        emit PlayerCreationRequested(requestId, msg.sender);
+        return requestId;
+    }
+
+    function _fulfillRandomness(bytes32 randomness, uint64 requestId, bytes memory) internal override {
+        PendingPlayer storage pending = _pendingPlayers[requestId];
+        require(pending.owner != address(0), "Invalid request ID");
+        require(!pending.fulfilled, "Request already fulfilled");
+
+        // Mark as fulfilled first to prevent reentrancy
+        pending.fulfilled = true;
+
+        // Create the player
+        (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, uint256(randomness));
+
+        emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
+
+        // Cleanup
+        delete _pendingPlayers[requestId];
+
+        // Optional: Remove from user's pending requests
+        _removeFromPendingRequests(pending.owner, requestId);
+    }
+
+    // Optional: Helper function to remove fulfilled request from user's pending list
+    function _removeFromPendingRequests(address user, uint64 requestId) internal {
+        uint64[] storage requests = _userPendingRequests[user];
+        for (uint256 i = 0; i < requests.length; i++) {
+            if (requests[i] == requestId) {
+                requests[i] = requests[requests.length - 1];
+                requests.pop();
+                break;
+            }
+        }
+    }
+
+    // Optional: View function to check pending requests
+    function getPendingRequests(address user) external view returns (uint64[] memory) {
+        return _userPendingRequests[user];
+    }
+
+    // Optional: View function to check request status
+    function getRequestStatus(uint64 requestId) external view returns (bool exists, bool fulfilled, address owner) {
+        PendingPlayer memory pending = _pendingPlayers[requestId];
+        return (pending.owner != address(0), pending.fulfilled, pending.owner);
     }
 }
