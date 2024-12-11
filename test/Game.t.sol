@@ -53,14 +53,9 @@ contract GameTest is TestBase {
         defaultSkin = new DefaultPlayerSkinNFT();
         nameRegistry = new PlayerNameRegistry();
         equipmentStats = new PlayerEquipmentStats();
-        
+
         // Deploy Player contract with dependencies
-        playerContract = new Player(
-            address(skinRegistry),
-            address(nameRegistry),
-            address(equipmentStats),
-            operator
-        );
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
 
         // Deploy Game contracts
         gameEngine = new GameEngine();
