@@ -51,20 +51,19 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
         override
         returns (uint16)
     {
-        // Owner can mint for free, others must pay
-        if (msg.sender != owner) {
-            if (!mintingEnabled) revert MintingDisabled();
-            if (msg.value != mintPrice) revert InvalidMintPrice();
-        }
-
+        if (!mintingEnabled) revert MintingDisabled();
+        if (msg.value < mintPrice) revert InvalidMintPrice();
         if (_currentTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
 
         uint16 newTokenId = _currentTokenId++;
         _mint(to, newTokenId);
 
-        _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
+        _skinAttributes[newTokenId] = SkinAttributes({
+            weapon: weapon,
+            armor: armor,
+            stance: stance
+        });
 
-        emit SkinMinted(to, newTokenId, weapon, armor, stance);
         return newTokenId;
     }
 

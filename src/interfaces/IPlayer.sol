@@ -34,11 +34,13 @@ interface IPlayer {
 
     function equipmentStats() external view returns (PlayerEquipmentStats);
     function skinRegistry() external view returns (PlayerSkinRegistry);
-    function createPlayer(bool useNameSetB) external returns (uint256 playerId, PlayerStats memory stats);
     function getPlayerIds(address owner) external view returns (uint256[] memory);
     function getPlayer(uint256 playerId) external view returns (PlayerStats memory);
     function getPlayerOwner(uint256 playerId) external view returns (address);
     function players(uint256 playerId) external view returns (PlayerStats memory);
     function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina);
     function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory);
+    function requestCreatePlayer(bool useNameSetB) external returns (uint256 requestId);
+    function getPendingRequests(address user) external view returns (uint256[] memory);
+    function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner);
 }

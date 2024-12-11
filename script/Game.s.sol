@@ -24,7 +24,15 @@ contract GameScript is Script {
         PlayerEquipmentStats equipmentStats = new PlayerEquipmentStats();
         PlayerSkinRegistry skinRegistry = new PlayerSkinRegistry();
         PlayerNameRegistry nameRegistry = new PlayerNameRegistry();
-        Player playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats));
+        
+        // Deploy Player contract with Gelato VRF operator
+        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
+        Player playerContract = new Player(
+            address(skinRegistry), 
+            address(nameRegistry), 
+            address(equipmentStats),
+            operator
+        );
         GameEngine gameEngine = new GameEngine();
         Game game = new Game(address(gameEngine), address(playerContract));
 

@@ -9,7 +9,7 @@ import "./interfaces/IPlayerSkinNFT.sol";
 import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
-import "@gelatonetwork/gelato-vrf/contracts/GelatoVRFConsumerBase.sol";
+import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
@@ -48,8 +48,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
-    event PlayerCreationRequested(uint64 indexed requestId, address indexed requester);
-    event PlayerCreationFulfilled(uint64 indexed requestId, uint256 indexed playerId, address indexed owner);
+    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
+    event PlayerCreationFulfilled(uint256 indexed requestId, uint256 indexed playerId, address indexed owner);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
@@ -61,21 +61,31 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     struct PendingPlayer {
         address owner;
         bool useNameSetB;
-        bool fulfilled; // Add this to prevent double-fulfillment
+        bool fulfilled;
     }
 
-    mapping(uint64 => PendingPlayer) private _pendingPlayers;
+    mapping(uint256 => PendingPlayer) private _pendingPlayers;
+    mapping(address => uint256[]) private _userPendingRequests;
 
-    // Optional: mapping to help users track their pending requests
-    mapping(address => uint64[]) private _userPendingRequests;
+    // Add operator as a state variable
+    address private immutable _operatorAddress;
 
-    constructor(address skinRegistryAddress, address nameRegistryAddress, address equipmentStatsAddress)
-        Owned(msg.sender)
-    {
+    constructor(
+        address skinRegistryAddress,
+        address nameRegistryAddress,
+        address equipmentStatsAddress,
+        address operator
+    ) Owned(msg.sender) {
         maxPlayersPerAddress = 6;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
+        _operatorAddress = operator;
+    }
+
+    // Override _operator to use the operator address
+    function _operator() internal view override returns (address) {
+        return _operatorAddress;
     }
 
     // Add these helper functions at the top with the other internal functions
@@ -85,93 +95,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     function _ownerOf(uint256 playerId) internal view returns (address) {
         return _playerOwners[playerId];
-    }
-
-    // Make sure this matches the interface exactly
-    function createPlayer(bool useNameSetB) external returns (uint256 playerId, IPlayer.PlayerStats memory stats) {
-        require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
-
-        // Generate randomSeed for stats and name
-        uint256 randomSeed = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender)));
-
-        // Use incremental playerId instead of random
-        playerId = nextPlayerId++;
-
-        // Initialize base stats array with minimum values
-        uint8[6] memory statArray = [3, 3, 3, 3, 3, 3];
-        uint256 remainingPoints = 54; // 72 total - (6 * 3 minimum)
-
-        // Distribute remaining points across first 5 stats
-        uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
-
-        unchecked {
-            for (uint256 i; i < 5; ++i) {
-                // Select random stat index and update order
-                uint256 statIndex = order.uniform(6 - i);
-                order = uint256(keccak256(abi.encodePacked(order)));
-
-                // Calculate available points for this stat
-                uint256 pointsNeededForRemaining = (5 - i) * 3;
-                uint256 availablePoints =
-                    remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
-
-                // Add random points to selected stat
-                uint256 pointsToAdd = randomSeed.uniform(min(availablePoints, 18) + 1);
-                randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
-
-                // Update stat and remaining points
-                statArray[statIndex] += uint8(pointsToAdd);
-                remainingPoints -= pointsToAdd;
-
-                // Swap with last unassigned stat
-                uint8 temp = statArray[statIndex];
-                statArray[statIndex] = statArray[5 - i];
-                statArray[5 - i] = temp;
-            }
-
-            // Assign remaining points to last stat
-            statArray[0] += uint8(min(remainingPoints, 18));
-        }
-
-        // Generate name indices based on player preference
-        uint16 firstNameIndex;
-        if (useNameSetB) {
-            firstNameIndex =
-                uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetBLength());
-        } else {
-            firstNameIndex = nameRegistry.SET_A_START()
-                + uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetALength());
-        }
-
-        uint16 surnameIndex =
-            uint16(uint256(keccak256(abi.encodePacked(randomSeed, "surname"))) % nameRegistry.getSurnamesLength());
-
-        // Create stats struct
-        stats = IPlayer.PlayerStats({
-            strength: statArray[0],
-            constitution: statArray[1],
-            size: statArray[2],
-            agility: statArray[3],
-            stamina: statArray[4],
-            luck: statArray[5],
-            skinIndex: 1,
-            skinTokenId: 1,
-            firstNameIndex: firstNameIndex,
-            surnameIndex: surnameIndex
-        });
-
-        // Validate and fix if necessary
-        if (!_validateStats(stats)) {
-            stats = _fixStats(stats, randomSeed);
-        }
-
-        // Store player data
-        _players[playerId] = stats;
-        _playerOwners[playerId] = msg.sender;
-        _addressToPlayerIds[msg.sender].push(playerId);
-        _addressPlayerCount[msg.sender]++;
-
-        return (playerId, stats);
     }
 
     // Function to equip a skin
@@ -343,10 +266,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         if (player.stamina < MIN_STAT || player.stamina > MAX_STAT) return false;
         if (player.luck < MIN_STAT || player.luck > MAX_STAT) return false;
 
-        // Calculate total using uint16 to prevent any overflow
-        uint16 total = uint16(player.strength) + uint16(player.constitution) + uint16(player.size)
-            + uint16(player.agility) + uint16(player.stamina) + uint16(player.luck);
+        // Calculate total stat points
+        uint256 total = uint256(player.strength) + uint256(player.constitution) + uint256(player.size) +
+            uint256(player.agility) + uint256(player.stamina) + uint256(player.luck);
 
+        // Total should be exactly 72 (6 stats * 3 minimum = 18, plus 54 points to distribute)
         return total == TOTAL_STATS;
     }
 
@@ -425,8 +349,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         emit EquipmentStatsUpdated(oldStats, newEquipmentStats);
     }
 
-    function requestCreatePlayer(bool useNameSetB) external returns (uint64 requestId) {
+    function requestCreatePlayer(bool useNameSetB) external returns (uint256 requestId) {
         require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
+        require(_userPendingRequests[msg.sender].length == 0, "Pending request exists");
 
         // Request randomness from Gelato VRF
         requestId = _requestRandomness("");
@@ -434,14 +359,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         // Store pending player data
         _pendingPlayers[requestId] = PendingPlayer({owner: msg.sender, useNameSetB: useNameSetB, fulfilled: false});
 
-        // Optional: Track this request for the user
+        // Track this request for the user
         _userPendingRequests[msg.sender].push(requestId);
 
         emit PlayerCreationRequested(requestId, msg.sender);
         return requestId;
     }
 
-    function _fulfillRandomness(bytes32 randomness, uint64 requestId, bytes memory) internal override {
+    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData) internal override {
         PendingPlayer storage pending = _pendingPlayers[requestId];
         require(pending.owner != address(0), "Invalid request ID");
         require(!pending.fulfilled, "Request already fulfilled");
@@ -450,20 +375,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         pending.fulfilled = true;
 
         // Create the player
-        (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, uint256(randomness));
+        (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, randomness);
 
         emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
 
+        // Remove from user's pending requests
+        _removeFromPendingRequests(pending.owner, requestId);
+
         // Cleanup
         delete _pendingPlayers[requestId];
-
-        // Optional: Remove from user's pending requests
-        _removeFromPendingRequests(pending.owner, requestId);
     }
 
-    // Optional: Helper function to remove fulfilled request from user's pending list
-    function _removeFromPendingRequests(address user, uint64 requestId) internal {
-        uint64[] storage requests = _userPendingRequests[user];
+    function _removeFromPendingRequests(address user, uint256 requestId) internal {
+        uint256[] storage requests = _userPendingRequests[user];
         for (uint256 i = 0; i < requests.length; i++) {
             if (requests[i] == requestId) {
                 requests[i] = requests[requests.length - 1];
@@ -473,14 +397,94 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         }
     }
 
-    // Optional: View function to check pending requests
-    function getPendingRequests(address user) external view returns (uint64[] memory) {
+    function getPendingRequests(address user) external view returns (uint256[] memory) {
         return _userPendingRequests[user];
     }
 
-    // Optional: View function to check request status
-    function getRequestStatus(uint64 requestId) external view returns (bool exists, bool fulfilled, address owner) {
+    function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner) {
         PendingPlayer memory pending = _pendingPlayers[requestId];
         return (pending.owner != address(0), pending.fulfilled, pending.owner);
+    }
+
+    // Make the original createPlayer logic private and rename it
+    function _createPlayerWithRandomness(address owner, bool useNameSetB, uint256 randomSeed)
+        internal
+        returns (uint256 playerId, IPlayer.PlayerStats memory stats)
+    {
+        require(_addressPlayerCount[owner] < maxPlayersPerAddress, "Too many players");
+
+        // Use incremental playerId
+        playerId = nextPlayerId++;
+
+        // Initialize base stats array with minimum values
+        uint8[6] memory statArray = [3, 3, 3, 3, 3, 3];
+        uint256 remainingPoints = 54; // 72 total - (6 stats * 3 minimum)
+
+        // Distribute remaining points across first 5 stats
+        uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
+
+        for (uint256 i; i < 5; ++i) {
+            // Select random stat index and update order
+            uint256 statIndex = order % (6 - i);
+            order = uint256(keccak256(abi.encodePacked(order)));
+
+            // Calculate available points for this stat
+            uint256 pointsNeededForRemaining = (5 - i) * 3;
+            uint256 availablePoints = 0;
+            if (remainingPoints > pointsNeededForRemaining) {
+                availablePoints = remainingPoints - pointsNeededForRemaining;
+                if (availablePoints > 18) availablePoints = 18;
+            }
+
+            // Add random points to selected stat
+            uint256 pointsToAdd = (randomSeed % (availablePoints + 1));
+            randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
+
+            statArray[statIndex] += uint8(pointsToAdd);
+            remainingPoints = remainingPoints >= pointsToAdd ? remainingPoints - pointsToAdd : 0;
+
+            // Swap with last unassigned stat
+            uint8 temp = statArray[statIndex];
+            statArray[statIndex] = statArray[5 - i];
+            statArray[5 - i] = temp;
+        }
+
+        // Assign remaining points to last stat, capped at 18
+        uint256 lastStatPoints = remainingPoints > 18 ? 18 : remainingPoints;
+        statArray[0] += uint8(lastStatPoints);
+
+        // Generate name indices based on player preference
+        uint16 firstNameIndex;
+        if (useNameSetB) {
+            firstNameIndex = uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetBLength());
+        } else {
+            firstNameIndex = nameRegistry.SET_A_START() + uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetALength());
+        }
+
+        uint16 surnameIndex = uint16(uint256(keccak256(abi.encodePacked(randomSeed, "surname"))) % nameRegistry.getSurnamesLength());
+
+        // Create stats struct
+        stats = IPlayer.PlayerStats({
+            strength: statArray[0],
+            constitution: statArray[1],
+            size: statArray[2],
+            agility: statArray[3],
+            stamina: statArray[4],
+            luck: statArray[5],
+            skinIndex: 1,
+            skinTokenId: 1,
+            firstNameIndex: firstNameIndex,
+            surnameIndex: surnameIndex
+        });
+
+        require(_validateStats(stats), "Invalid stats");
+
+        // Store player data
+        _players[playerId] = stats;
+        _playerOwners[playerId] = owner;
+        _addressPlayerCount[owner]++;
+        _addressToPlayerIds[owner].push(playerId);
+
+        return (playerId, stats);
     }
 }
