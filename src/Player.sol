@@ -10,6 +10,7 @@ import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import "./PlayerEquipmentStats.sol"; // Import PlayerEquipmentStats types
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
@@ -55,6 +56,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     uint8 private constant MIN_STAT = 3;
     uint8 private constant MAX_STAT = 21;
     uint16 private constant TOTAL_STATS = 72;
+    uint256 private constant ROUND_ID = 1;
 
     uint32 private nextPlayerId = 1000;
 
@@ -95,6 +97,76 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     function _ownerOf(uint256 playerId) internal view returns (address) {
         return _playerOwners[playerId];
+    }
+
+    function min(uint256 a, uint256 b) private pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function _fixStats(IPlayer.PlayerStats memory player, uint256 seed)
+        private
+        pure
+        returns (IPlayer.PlayerStats memory)
+    {
+        uint16 total = uint16(player.strength) + uint16(player.constitution) + uint16(player.size)
+            + uint16(player.agility) + uint16(player.stamina) + uint16(player.luck);
+
+        // First ensure all stats are within 3-21 range
+        uint8[6] memory stats =
+            [player.strength, player.constitution, player.size, player.agility, player.stamina, player.luck];
+
+        for (uint256 i = 0; i < 6; i++) {
+            if (stats[i] < 3) {
+                total += (3 - stats[i]);
+                stats[i] = 3;
+            } else if (stats[i] > 21) {
+                total -= (stats[i] - 21);
+                stats[i] = 21;
+            }
+        }
+
+        // Now adjust total to 72 if needed
+        while (total != 72) {
+            seed = uint256(keccak256(abi.encodePacked(seed)));
+
+            if (total < 72) {
+                uint256 statIndex = seed.uniform(6);
+                if (stats[statIndex] < 21) {
+                    stats[statIndex] += 1;
+                    total += 1;
+                }
+            } else {
+                seed = uint256(keccak256(abi.encodePacked(seed)));
+                uint256 statIndex = seed.uniform(6);
+                if (stats[statIndex] > 3) {
+                    stats[statIndex] -= 1;
+                    total -= 1;
+                }
+            }
+        }
+
+        return IPlayer.PlayerStats({
+            strength: stats[0],
+            constitution: stats[1],
+            size: stats[2],
+            agility: stats[3],
+            stamina: stats[4],
+            luck: stats[5],
+            skinIndex: player.skinIndex,
+            skinTokenId: player.skinTokenId,
+            firstNameIndex: player.firstNameIndex,
+            surnameIndex: player.surnameIndex
+        });
+    }
+
+    // Helper function to check if an address owns any NFT from a collection
+    function _checkCollectionOwnership(address owner, address nftContract) internal view returns (bool) {
+        (bool success, bytes memory data) = nftContract.staticcall(abi.encodeWithSignature("balanceOf(address)", owner));
+
+        if (!success) return false;
+
+        uint256 balance = abi.decode(data, (uint256));
+        return balance > 0;
     }
 
     // Function to equip a skin
@@ -149,16 +221,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         emit PlayerSkinEquipped(playerId, skinIndex, skinTokenId);
     }
 
-    // Helper function to check if an address owns any NFT from a collection
-    function _checkCollectionOwnership(address owner, address nftContract) internal view returns (bool) {
-        (bool success, bytes memory data) = nftContract.staticcall(abi.encodeWithSignature("balanceOf(address)", owner));
-
-        if (!success) return false;
-
-        uint256 balance = abi.decode(data, (uint256));
-        return balance > 0;
-    }
-
     // Make sure all interface functions are marked as external
     function getPlayerIds(address owner) external view returns (uint256[] memory) {
         return _addressToPlayerIds[owner];
@@ -208,33 +270,39 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     }
 
     function calculateStats(PlayerStats memory player) public pure returns (CalculatedStats memory) {
-        // Safe health calculation
-        uint16 maxHealth = uint16(75 + (uint32(player.constitution) * 12) + (uint32(player.size) * 6));
+        // Safe health calculation using uint32 for intermediate values
+        uint32 healthBase = 75;
+        uint32 healthFromCon = uint32(player.constitution) * 12;
+        uint32 healthFromSize = uint32(player.size) * 6;
+        uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize);
 
         // Safe endurance calculation
-        uint16 maxEndurance = uint16(45 + (uint32(player.stamina) * 8) + (uint32(player.size) * 2));
+        uint32 enduranceBase = 45;
+        uint32 enduranceFromStamina = uint32(player.stamina) * 8;
+        uint32 enduranceFromSize = uint32(player.size) * 2;
+        uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize);
 
         // Safe initiative calculation
-        uint16 initiative = uint16(20 + (uint32(player.agility) * 3) + (uint32(player.luck) * 2));
+        uint32 initiativeBase = 20;
+        uint32 initiativeFromAgility = uint32(player.agility) * 3;
+        uint32 initiativeFromLuck = uint32(player.luck) * 2;
+        uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
 
         // Safe defensive stats calculation
         uint16 dodgeChance =
             uint16(2 + (uint32(player.agility) * 8 / 10) + (uint32(21 - min(player.size, 21)) * 5 / 10));
-
         uint16 blockChance = uint16(5 + (uint32(player.constitution) * 8 / 10) + (uint32(player.size) * 5 / 10));
-
         uint16 parryChance = uint16(3 + (uint32(player.strength) * 6 / 10) + (uint32(player.agility) * 6 / 10));
 
         // Safe hit chance calculation
-        uint16 hitChance = uint16(30 + (uint32(player.agility) * 2) + (uint32(player.luck)));
+        uint16 hitChance = uint16(30 + (uint32(player.agility) * 2) + uint32(player.luck));
 
         // Safe crit calculations
-        uint16 critChance = uint16(2 + (uint32(player.agility)) + (uint32(player.luck)));
-
+        uint16 critChance = uint16(2 + uint32(player.agility) + uint32(player.luck));
         uint16 critMultiplier = uint16(150 + (uint32(player.strength) * 3) + (uint32(player.luck) * 2));
 
         // Safe counter chance
-        uint16 counterChance = uint16(3 + (uint32(player.agility)) + (uint32(player.luck)));
+        uint16 counterChance = uint16(3 + uint32(player.agility) + uint32(player.luck));
 
         // Physical power calculation
         uint32 combinedStats = uint32(player.strength) + uint32(player.size);
@@ -267,71 +335,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         if (player.luck < MIN_STAT || player.luck > MAX_STAT) return false;
 
         // Calculate total stat points
-        uint256 total = uint256(player.strength) + uint256(player.constitution) + uint256(player.size) +
-            uint256(player.agility) + uint256(player.stamina) + uint256(player.luck);
+        uint256 total = uint256(player.strength) + uint256(player.constitution) + uint256(player.size)
+            + uint256(player.agility) + uint256(player.stamina) + uint256(player.luck);
 
         // Total should be exactly 72 (6 stats * 3 minimum = 18, plus 54 points to distribute)
         return total == TOTAL_STATS;
-    }
-
-    function _fixStats(IPlayer.PlayerStats memory player, uint256 seed)
-        private
-        pure
-        returns (IPlayer.PlayerStats memory)
-    {
-        uint16 total = uint16(player.strength) + uint16(player.constitution) + uint16(player.size)
-            + uint16(player.agility) + uint16(player.stamina) + uint16(player.luck);
-
-        // First ensure all stats are within 3-21 range
-        uint8[6] memory stats =
-            [player.strength, player.constitution, player.size, player.agility, player.stamina, player.luck];
-
-        for (uint256 i = 0; i < 6; i++) {
-            if (stats[i] < 3) {
-                total += (3 - stats[i]);
-                stats[i] = 3;
-            } else if (stats[i] > 21) {
-                total -= (stats[i] - 21);
-                stats[i] = 21;
-            }
-        }
-
-        // Now adjust total to 72 if needed
-        while (total != 72) {
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-
-            if (total < 72) {
-                uint256 statIndex = seed.uniform(6);
-                if (stats[statIndex] < 21) {
-                    stats[statIndex] += 1;
-                    total += 1;
-                }
-            } else {
-                seed = uint256(keccak256(abi.encodePacked(seed)));
-                uint256 statIndex = seed.uniform(6);
-                if (stats[statIndex] > 3) {
-                    stats[statIndex] -= 1;
-                    total -= 1;
-                }
-            }
-        }
-
-        return IPlayer.PlayerStats({
-            strength: stats[0],
-            constitution: stats[1],
-            size: stats[2],
-            agility: stats[3],
-            stamina: stats[4],
-            luck: stats[5],
-            skinIndex: 1,
-            skinTokenId: 1,
-            firstNameIndex: player.firstNameIndex,
-            surnameIndex: player.surnameIndex
-        });
-    }
-
-    function min(uint256 a, uint256 b) private pure returns (uint256) {
-        return a < b ? a : b;
     }
 
     // Function to update max players per address, restricted to the owner
@@ -342,9 +350,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     function setEquipmentStats(address newEquipmentStats) external onlyOwner {
         if (newEquipmentStats == address(0)) revert InvalidContractAddress();
+
+        // Store old address for event
         address oldStats = address(equipmentStats);
+
+        // Validate interface by trying to call a view function
         PlayerEquipmentStats newStats = PlayerEquipmentStats(newEquipmentStats);
         newStats.getStanceMultiplier(IPlayerSkinNFT.FightingStance.Balanced); // Will revert if invalid
+
         equipmentStats = newStats;
         emit EquipmentStatsUpdated(oldStats, newEquipmentStats);
     }
@@ -367,15 +380,22 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     }
 
     function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData) internal override {
-        PendingPlayer storage pending = _pendingPlayers[requestId];
-        require(pending.owner != address(0), "Invalid request ID");
+        // Check if request ID exists first
+        PendingPlayer memory pending = _pendingPlayers[requestId];
+        if (pending.owner == address(0)) {
+            revert("Invalid request ID");
+        }
+
         require(!pending.fulfilled, "Request already fulfilled");
 
         // Mark as fulfilled first to prevent reentrancy
-        pending.fulfilled = true;
+        _pendingPlayers[requestId].fulfilled = true;
 
-        // Create the player
-        (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, randomness);
+        // Create a new random seed by combining VRF randomness with request data
+        uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
+
+        // Create the player with the combined seed
+        (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
 
         emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
 
@@ -384,6 +404,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
         // Cleanup
         delete _pendingPlayers[requestId];
+    }
+
+    function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner) {
+        PendingPlayer memory pending = _pendingPlayers[requestId];
+        exists = pending.owner != address(0);
+        fulfilled = pending.fulfilled;
+        owner = pending.owner;
+        return (exists, fulfilled, owner);
     }
 
     function _removeFromPendingRequests(address user, uint256 requestId) internal {
@@ -401,11 +429,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return _userPendingRequests[user];
     }
 
-    function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner) {
-        PendingPlayer memory pending = _pendingPlayers[requestId];
-        return (pending.owner != address(0), pending.fulfilled, pending.owner);
-    }
-
     // Make the original createPlayer logic private and rename it
     function _createPlayerWithRandomness(address owner, bool useNameSetB, uint256 randomSeed)
         internal
@@ -418,50 +441,54 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
         // Initialize base stats array with minimum values
         uint8[6] memory statArray = [3, 3, 3, 3, 3, 3];
-        uint256 remainingPoints = 54; // 72 total - (6 stats * 3 minimum)
+        uint256 remainingPoints = 54; // 72 total - (6 * 3 minimum)
 
-        // Distribute remaining points across first 5 stats
+        // Distribute remaining points across stats
         uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
 
-        for (uint256 i; i < 5; ++i) {
-            // Select random stat index and update order
-            uint256 statIndex = order % (6 - i);
-            order = uint256(keccak256(abi.encodePacked(order)));
+        unchecked {
+            for (uint256 i; i < 5; ++i) {
+                // Select random stat index and update order
+                uint256 statIndex = order.uniform(6 - i);
+                order = uint256(keccak256(abi.encodePacked(order)));
 
-            // Calculate available points for this stat
-            uint256 pointsNeededForRemaining = (5 - i) * 3;
-            uint256 availablePoints = 0;
-            if (remainingPoints > pointsNeededForRemaining) {
-                availablePoints = remainingPoints - pointsNeededForRemaining;
-                if (availablePoints > 18) availablePoints = 18;
+                // Calculate available points for this stat
+                uint256 pointsNeededForRemaining = (5 - i) * 3; // Ensure minimum 3 points for each remaining stat
+                uint256 availablePoints =
+                    remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
+
+                // Add random points to selected stat
+                uint256 pointsToAdd = randomSeed.uniform(min(availablePoints, 18) + 1);
+                randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
+
+                // Update stat and remaining points
+                statArray[statIndex] += uint8(pointsToAdd);
+                remainingPoints -= pointsToAdd;
+
+                // Swap with last unprocessed stat to avoid reselecting
+                if (statIndex != 5 - i) {
+                    uint8 temp = statArray[statIndex];
+                    statArray[statIndex] = statArray[5 - i];
+                    statArray[5 - i] = temp;
+                }
             }
 
-            // Add random points to selected stat
-            uint256 pointsToAdd = (randomSeed % (availablePoints + 1));
-            randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
-
-            statArray[statIndex] += uint8(pointsToAdd);
-            remainingPoints = remainingPoints >= pointsToAdd ? remainingPoints - pointsToAdd : 0;
-
-            // Swap with last unassigned stat
-            uint8 temp = statArray[statIndex];
-            statArray[statIndex] = statArray[5 - i];
-            statArray[5 - i] = temp;
+            // Assign all remaining points to the last stat
+            statArray[0] += uint8(remainingPoints);
         }
-
-        // Assign remaining points to last stat, capped at 18
-        uint256 lastStatPoints = remainingPoints > 18 ? 18 : remainingPoints;
-        statArray[0] += uint8(lastStatPoints);
 
         // Generate name indices based on player preference
         uint16 firstNameIndex;
         if (useNameSetB) {
-            firstNameIndex = uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetBLength());
+            firstNameIndex =
+                uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetBLength());
         } else {
-            firstNameIndex = nameRegistry.SET_A_START() + uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetALength());
+            firstNameIndex = nameRegistry.SET_A_START()
+                + uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetALength());
         }
 
-        uint16 surnameIndex = uint16(uint256(keccak256(abi.encodePacked(randomSeed, "surname"))) % nameRegistry.getSurnamesLength());
+        uint16 surnameIndex =
+            uint16(uint256(keccak256(abi.encodePacked(randomSeed, "surname"))) % nameRegistry.getSurnamesLength());
 
         // Create stats struct
         stats = IPlayer.PlayerStats({
@@ -477,13 +504,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             surnameIndex: surnameIndex
         });
 
-        require(_validateStats(stats), "Invalid stats");
+        // Validate and fix if necessary
+        if (!_validateStats(stats)) {
+            stats = _fixStats(stats, randomSeed);
+        }
 
         // Store player data
         _players[playerId] = stats;
         _playerOwners[playerId] = owner;
-        _addressPlayerCount[owner]++;
         _addressToPlayerIds[owner].push(playerId);
+        _addressPlayerCount[owner]++;
 
         return (playerId, stats);
     }
