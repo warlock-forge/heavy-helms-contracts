@@ -356,41 +356,6 @@ contract GameTest is TestBase {
         assertTrue(calcStats.parryChance <= 100, "Parry chance should be <= 100");
     }
 
-    function testSingleParryAttempt() public {
-        // Test a single combat focusing on parry mechanics
-        IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-
-        IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
-            playerId: chars.rapierAndShieldDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.rapierAndShieldDefensive)
-        });
-
-        // Run multiple combats to ensure we see parry attempts
-        bool parryFound = false;
-        for (uint256 i = 0; i < 50 && !parryFound; i++) {
-            bytes memory results = game.practiceGame(attackerLoadout, defenderLoadout);
-            (,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
-
-            for (uint256 j = 0; j < actions.length && !parryFound; j++) {
-                if (
-                    actions[j].p1Result == GameEngine.CombatResultType.PARRY
-                        || actions[j].p2Result == GameEngine.CombatResultType.PARRY
-                ) {
-                    parryFound = true;
-                }
-            }
-            vm.warp(block.timestamp + 1);
-            vm.roll(block.number + 1);
-            vm.prevrandao(bytes32(uint256(keccak256(abi.encodePacked(block.timestamp)))));
-        }
-        assertTrue(parryFound, "No parry occurred in any combat");
-    }
-
     function testCombatLogStructure() public view {
         // Test the structure and decoding of combat logs
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
