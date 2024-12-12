@@ -99,12 +99,9 @@ contract GameTest is TestBase {
 
     function testBasicCombat() public view {
         // Test basic combat functionality with pseudo-random seed
-        uint256 seed = uint256(keccak256(abi.encodePacked(
-            block.timestamp,
-            block.prevrandao,
-            blockhash(block.number - 1),
-            msg.sender
-        )));
+        uint256 seed = uint256(
+            keccak256(abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), msg.sender))
+        );
 
         IGameEngine.PlayerLoadout memory player1 = IGameEngine.PlayerLoadout({
             playerId: chars.greatswordOffensive,
@@ -120,7 +117,8 @@ contract GameTest is TestBase {
 
         // Run the game with seed and verify the result format
         bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
         // Basic validation
         assertTrue(winner == player1.playerId || winner == player2.playerId, "Invalid winner");
@@ -130,12 +128,9 @@ contract GameTest is TestBase {
 
     function testCombatMechanics() public view {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
-        uint256 seed = uint256(keccak256(abi.encodePacked(
-            block.timestamp,
-            block.prevrandao,
-            blockhash(block.number - 1),
-            msg.sender
-        )));
+        uint256 seed = uint256(
+            keccak256(abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), msg.sender))
+        );
 
         IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
             playerId: chars.greatswordOffensive,
@@ -151,7 +146,8 @@ contract GameTest is TestBase {
 
         // Run combat with seed and verify mechanics
         bytes memory results = gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
         // Verify basic mechanics
         assertTrue(winner == attackerLoadout.playerId || winner == defenderLoadout.playerId, "Invalid winner");
@@ -188,7 +184,8 @@ contract GameTest is TestBase {
 
         // Run game with fuzzed seed
         bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
         // Verify game invariants hold with any seed
         assertTrue(winner == player1.playerId || winner == player2.playerId, "Invalid winner");
@@ -210,47 +207,38 @@ contract GameTest is TestBase {
     }
 
     function isOffensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
-        return action.p1Result == GameEngine.CombatResultType.ATTACK ||
-            action.p1Result == GameEngine.CombatResultType.CRIT ||
-            action.p1Result == GameEngine.CombatResultType.COUNTER ||
-            action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT ||
-            action.p1Result == GameEngine.CombatResultType.RIPOSTE ||
-            action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT ||
-            action.p2Result == GameEngine.CombatResultType.ATTACK ||
-            action.p2Result == GameEngine.CombatResultType.CRIT ||
-            action.p2Result == GameEngine.CombatResultType.COUNTER ||
-            action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT ||
-            action.p2Result == GameEngine.CombatResultType.RIPOSTE ||
-            action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
+        return action.p1Result == GameEngine.CombatResultType.ATTACK
+            || action.p1Result == GameEngine.CombatResultType.CRIT || action.p1Result == GameEngine.CombatResultType.COUNTER
+            || action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT
+            || action.p1Result == GameEngine.CombatResultType.RIPOSTE
+            || action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT
+            || action.p2Result == GameEngine.CombatResultType.ATTACK || action.p2Result == GameEngine.CombatResultType.CRIT
+            || action.p2Result == GameEngine.CombatResultType.COUNTER
+            || action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT
+            || action.p2Result == GameEngine.CombatResultType.RIPOSTE
+            || action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
     }
 
     function isDefensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
-        return action.p1Result == GameEngine.CombatResultType.BLOCK ||
-            action.p1Result == GameEngine.CombatResultType.DODGE ||
-            action.p1Result == GameEngine.CombatResultType.PARRY ||
-            action.p1Result == GameEngine.CombatResultType.HIT ||
-            action.p1Result == GameEngine.CombatResultType.MISS ||
-            action.p1Result == GameEngine.CombatResultType.COUNTER ||
-            action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT ||
-            action.p1Result == GameEngine.CombatResultType.RIPOSTE ||
-            action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT ||
-            action.p2Result == GameEngine.CombatResultType.BLOCK ||
-            action.p2Result == GameEngine.CombatResultType.DODGE ||
-            action.p2Result == GameEngine.CombatResultType.PARRY ||
-            action.p2Result == GameEngine.CombatResultType.HIT ||
-            action.p2Result == GameEngine.CombatResultType.MISS ||
-            action.p2Result == GameEngine.CombatResultType.COUNTER ||
-            action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT ||
-            action.p2Result == GameEngine.CombatResultType.RIPOSTE ||
-            action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
+        return action.p1Result == GameEngine.CombatResultType.BLOCK
+            || action.p1Result == GameEngine.CombatResultType.DODGE || action.p1Result == GameEngine.CombatResultType.PARRY
+            || action.p1Result == GameEngine.CombatResultType.HIT || action.p1Result == GameEngine.CombatResultType.MISS
+            || action.p1Result == GameEngine.CombatResultType.COUNTER
+            || action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT
+            || action.p1Result == GameEngine.CombatResultType.RIPOSTE
+            || action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT
+            || action.p2Result == GameEngine.CombatResultType.BLOCK || action.p2Result == GameEngine.CombatResultType.DODGE
+            || action.p2Result == GameEngine.CombatResultType.PARRY || action.p2Result == GameEngine.CombatResultType.HIT
+            || action.p2Result == GameEngine.CombatResultType.MISS || action.p2Result == GameEngine.CombatResultType.COUNTER
+            || action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT
+            || action.p2Result == GameEngine.CombatResultType.RIPOSTE
+            || action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
     }
 
     function isDefensiveResult(GameEngine.CombatResultType result) internal pure returns (bool) {
-        return result == GameEngine.CombatResultType.PARRY ||
-            result == GameEngine.CombatResultType.BLOCK ||
-            result == GameEngine.CombatResultType.DODGE ||
-            result == GameEngine.CombatResultType.MISS ||
-            result == GameEngine.CombatResultType.HIT;
+        return result == GameEngine.CombatResultType.PARRY || result == GameEngine.CombatResultType.BLOCK
+            || result == GameEngine.CombatResultType.DODGE || result == GameEngine.CombatResultType.MISS
+            || result == GameEngine.CombatResultType.HIT;
     }
 
     function testSpecificScenarios() public {
@@ -384,13 +372,15 @@ contract GameTest is TestBase {
 
         // Run multiple combats to ensure we see parry attempts
         bool parryFound = false;
-        for (uint256 i = 0; i < 50 && !parryFound; i++) {  
+        for (uint256 i = 0; i < 50 && !parryFound; i++) {
             bytes memory results = game.practiceGame(attackerLoadout, defenderLoadout);
-            (, , GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+            (,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
             for (uint256 j = 0; j < actions.length && !parryFound; j++) {
-                if (actions[j].p1Result == GameEngine.CombatResultType.PARRY || 
-                    actions[j].p2Result == GameEngine.CombatResultType.PARRY) {
+                if (
+                    actions[j].p1Result == GameEngine.CombatResultType.PARRY
+                        || actions[j].p2Result == GameEngine.CombatResultType.PARRY
+                ) {
                     parryFound = true;
                 }
             }
@@ -416,7 +406,8 @@ contract GameTest is TestBase {
         });
 
         bytes memory results = game.practiceGame(p1Loadout, p2Loadout);
-        (uint256 winner, GameEngine.WinCondition winCondition, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+        (uint256 winner, GameEngine.WinCondition winCondition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
         // Verify combat log structure
         assertTrue(winner == p1Loadout.playerId || winner == p2Loadout.playerId, "Invalid winner ID");
@@ -444,7 +435,9 @@ contract GameTest is TestBase {
             IPlayerSkinNFT.ArmorType.Chain,
             IPlayerSkinNFT.FightingStance.Defensive
         );
-        console2.log("Stance Mods - Block:%d Parry:%d Dodge:%d", stance.blockChance, stance.parryChance, stance.dodgeChance);
+        console2.log(
+            "Stance Mods - Block:%d Parry:%d Dodge:%d", stance.blockChance, stance.parryChance, stance.dodgeChance
+        );
 
         // Test scenarios with different weapon matchups
         console2.log("\n=== Scenario 1 ===");
@@ -469,17 +462,11 @@ contract GameTest is TestBase {
     }
 
     function runStanceScenario(uint32 player1Id, uint32 player2Id, uint256 rounds) internal {
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
-            playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(player1Id)
-        });
+        IGameEngine.PlayerLoadout memory p1Loadout =
+            IGameEngine.PlayerLoadout({playerId: player1Id, skinIndex: skinIndex, skinTokenId: uint16(player1Id)});
 
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
-            playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(player2Id)
-        });
+        IGameEngine.PlayerLoadout memory p2Loadout =
+            IGameEngine.PlayerLoadout({playerId: player2Id, skinIndex: skinIndex, skinTokenId: uint16(player2Id)});
 
         uint256 p1Wins = 0;
         uint256 p2Wins = 0;
@@ -487,14 +474,14 @@ contract GameTest is TestBase {
 
         for (uint256 i = 0; i < rounds; i++) {
             // Get entropy from the forked chain
-            uint256 seed = uint256(keccak256(abi.encodePacked(
-                block.timestamp + i,
-                block.prevrandao,
-                blockhash(block.number - (i % 256)),
-                msg.sender,
-                i
-            )));
-            
+            uint256 seed = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        block.timestamp + i, block.prevrandao, blockhash(block.number - (i % 256)), msg.sender, i
+                    )
+                )
+            );
+
             // Move time and blocks forward for new entropy
             vm.roll(block.number + 1);
             vm.warp(block.timestamp + 12); // ~12 second blocks
@@ -523,15 +510,15 @@ contract GameTest is TestBase {
     function testHighDamageEncoding() public pure {
         // Test several high damage values
         uint16[] memory testDamages = new uint16[](4);
-        testDamages[0] = 256;  // Just over uint8 max
-        testDamages[1] = 300;  // Mid-range value
+        testDamages[0] = 256; // Just over uint8 max
+        testDamages[1] = 300; // Mid-range value
         testDamages[2] = 1000; // High value
         testDamages[3] = 65535; // Max uint16 value
 
         // Test encoding and decoding of each damage value
         for (uint256 i = 0; i < testDamages.length; i++) {
             uint16 originalDamage = testDamages[i];
-            
+
             // Create action data with the damage value
             bytes memory actionData = new bytes(8);
             actionData[0] = bytes1(uint8(1)); // Action type
@@ -540,7 +527,7 @@ contract GameTest is TestBase {
 
             // Decode the damage value
             uint16 decodedDamage = uint16(uint8(actionData[1])) << 8 | uint16(uint8(actionData[2]));
-            
+
             // Verify the decoded value matches the original
             assertEq(decodedDamage, originalDamage, "Damage encoding/decoding mismatch");
         }
