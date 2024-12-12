@@ -37,7 +37,6 @@ contract GameTest is TestBase {
 
     function setUp() public override {
         super.setUp();
-        setupRandomness(); // Set up proper randomness from forked chain or mock
 
         // Deploy contracts in correct order
         skinRegistry = new PlayerSkinRegistry();

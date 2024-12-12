@@ -40,7 +40,7 @@ interface IPlayer {
     function players(uint256 playerId) external view returns (PlayerStats memory);
     function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina);
     function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory);
-    function requestCreatePlayer(bool useNameSetB) external returns (uint256 requestId);
+    function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId);
     function getPendingRequests(address user) external view returns (uint256[] memory);
     function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner);
 }

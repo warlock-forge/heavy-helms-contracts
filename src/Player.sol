@@ -24,6 +24,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     // Configuration
     uint256 public maxPlayersPerAddress;
+    uint256 public createPlayerFeeAmount;
 
     // Player state tracking
     mapping(uint256 => IPlayer.PlayerStats) private _players;
@@ -79,6 +80,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         address operator
     ) Owned(msg.sender) {
         maxPlayersPerAddress = 6;
+        createPlayerFeeAmount = 0.001 ether;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
@@ -362,9 +364,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         emit EquipmentStatsUpdated(oldStats, newEquipmentStats);
     }
 
-    function requestCreatePlayer(bool useNameSetB) external returns (uint256 requestId) {
+    function setCreatePlayerFeeAmount(uint256 newFeeAmount) external onlyOwner {
+        createPlayerFeeAmount = newFeeAmount;
+    }
+
+    function withdrawFees() external onlyOwner {
+        (bool success,) = payable(owner).call{value: address(this).balance}("");
+        require(success, "Fee withdrawal failed");
+    }
+
+    function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId) {
         require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
         require(_userPendingRequests[msg.sender].length == 0, "Pending request exists");
+        require(msg.value >= createPlayerFeeAmount, "Insufficient fee amount");
 
         // Request randomness from Gelato VRF
         requestId = _requestRandomness("");
@@ -498,8 +510,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             agility: statArray[3],
             stamina: statArray[4],
             luck: statArray[5],
-            skinIndex: 1,
-            skinTokenId: 1,
+            skinIndex: 0, // Updated to use index 0 for default skin
+            skinTokenId: 1, // Keep this as 1 since NFT token IDs start at 1
             firstNameIndex: firstNameIndex,
             surnameIndex: surnameIndex
         });

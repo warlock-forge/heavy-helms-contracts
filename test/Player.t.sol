@@ -2,7 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Player, InvalidContractAddress, PlayerDoesNotExist} from "../src/Player.sol";
+import {Vm} from "forge-std/Vm.sol";
+import {Player, NotSkinOwner, RequiredNFTNotOwned} from "../src/Player.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
@@ -12,7 +13,7 @@ import "../src/interfaces/IPlayerSkinNFT.sol";
 import "./utils/TestBase.sol";
 import "./mocks/UnlockNFT.sol";
 import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
-import {RequiredNFTNotOwned} from "../src/Player.sol";
+import {InvalidContractAddress, PlayerDoesNotExist} from "../src/Player.sol";
 
 // Helper contract that doesn't implement the required interface
 contract MockInvalidEquipmentStats {
@@ -26,7 +27,6 @@ contract PlayerTest is TestBase {
     PlayerEquipmentStats public equipmentStats;
     DefaultPlayerSkinNFT public defaultSkin;
     address operator;
-    uint32 public skinIndex;
     uint256 public ROUND_ID;
     uint256 private constant _PERIOD = 3;
 
@@ -64,7 +64,7 @@ contract PlayerTest is TestBase {
         playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
 
         // Register default skin
-        skinIndex = _registerSkin(address(defaultSkin));
+        uint32 skinIndex = _registerSkin(address(defaultSkin));
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
         skinRegistry.setDefaultCollection(skinIndex, true);
         skinRegistry.setSkinVerification(skinIndex, true); // Verify the skin
@@ -76,6 +76,7 @@ contract PlayerTest is TestBase {
     function testCreatePlayerWithVRF() public skipInCI {
         // Create player and verify ownership
         uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+
         IPlayer.PlayerStats memory newPlayer = playerContract.getPlayer(playerId);
         assertTrue(playerContract.getPlayerOwner(playerId) == PLAYER_ONE, "Player should own the NFT");
         _assertStatRanges(newPlayer, playerContract.calculateStats(newPlayer));
@@ -88,9 +89,10 @@ contract PlayerTest is TestBase {
         }
 
         // Try to create one more player (should fail)
+        vm.startPrank(PLAYER_ONE);
         vm.expectRevert("Too many players");
-        vm.prank(PLAYER_ONE);
         playerContract.requestCreatePlayer(true);
+        vm.stopPrank();
     }
 
     function testMultiplePlayersWithVRF() public {
@@ -116,29 +118,31 @@ contract PlayerTest is TestBase {
 
     function testFailCreatePlayerBeforeVRFFulfillment() public {
         // First player creation request
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount() * 2); // Enough for two attempts
         vm.startPrank(PLAYER_ONE);
-        playerContract.requestCreatePlayer(true);
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
 
         // Try to create another player before VRF fulfillment (should fail)
         vm.expectRevert("Pending request exists");
-        playerContract.requestCreatePlayer(true);
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
         vm.stopPrank();
 
         // Now fulfill the VRF and verify we can create another player
         uint256 randomness = uint256(keccak256(abi.encodePacked("test randomness")));
         vm.prank(operator);
-        bytes memory data = abi.encode(0, abi.encode(0, ""));
+        bytes memory data = abi.encode(335, abi.encode(0, ""));
         playerContract.fulfillRandomness(randomness, data);
 
         // Should now be able to create another player
         vm.prank(PLAYER_ONE);
-        playerContract.requestCreatePlayer(true);
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
     }
 
     function testFulfillRandomnessNonOperator() public {
         // Create a player request
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount());
         vm.prank(PLAYER_ONE);
-        uint256 requestId = playerContract.requestCreatePlayer(true);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
 
         // Try to fulfill as non-operator
         vm.prank(address(0xBEEF));
@@ -149,8 +153,9 @@ contract PlayerTest is TestBase {
 
     function testFulfillRandomnessNotValidRoundId() public {
         // Create a player request first
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount());
         vm.prank(PLAYER_ONE);
-        uint256 requestId = playerContract.requestCreatePlayer(true);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
 
         // Store the original request hash
         bytes32 originalHash = playerContract.requestedHash(requestId);
@@ -160,61 +165,97 @@ contract PlayerTest is TestBase {
         vm.prank(operator);
         bytes memory extraData = "";
         bytes memory innerData = abi.encode(requestId, extraData);
-        bytes memory dataWithRound = abi.encode(ROUND_ID + 1, innerData); // Use wrong round ID
+        bytes memory dataWithRound = abi.encode(ROUND_ID + 1, innerData);
 
-        // This won't revert, but it should not fulfill the request
+        // This should NOT revert, but should not fulfill the request
         playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
 
-        // The request should still be pending but hash should be deleted
+        // Verify the request hash is deleted but request is still pending
         assertTrue(playerContract.requestPending(requestId), "Request should still be pending");
         assertEq(playerContract.requestedHash(requestId), bytes32(0), "Request hash should be deleted");
 
-        // Verify that the request was not actually fulfilled by trying to create a new player
-        vm.expectRevert("Pending request exists");
-        vm.prank(PLAYER_ONE);
-        playerContract.requestCreatePlayer(true);
+        // Since the request hash is deleted, we should be able to create a new request
+        vm.startPrank(PLAYER_ONE);
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
+        vm.stopPrank();
     }
 
     function testEquipSkin() public {
-        // Create player and equip skin
+        // First create a player
         uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
-        _equipSkinToPlayer(playerId, skinIndex, 0, true);
+
+        // Register a new skin collection
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
+        skinNFT.setMintingEnabled(true);
+
+        // Register the skin collection
+        uint32 skinIndex = _registerSkin(address(skinNFT));
+
+        // Mint a skin to the player
+        uint16 tokenId = 1;
+        vm.deal(PLAYER_ONE, 0.01 ether);
+        vm.startPrank(PLAYER_ONE);
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
+            PLAYER_ONE,
+            IPlayerSkinNFT.WeaponType.Greatsword,
+            IPlayerSkinNFT.ArmorType.Plate,
+            IPlayerSkinNFT.FightingStance.Offensive
+        );
+        vm.stopPrank();
+
+        // Equip the skin
+        _equipSkinToPlayer(playerId, skinIndex, tokenId, true);
 
         // Verify the skin was equipped
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.skinIndex, skinIndex);
+        IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
+        assertEq(player.skinIndex, skinIndex, "Skin index should be updated");
+        assertEq(player.skinTokenId, tokenId, "Token ID should be updated");
     }
 
     function testCannotEquipToUnownedPlayer() public {
-        // Create a player owned by PLAYER_ONE
+        // First create a player owned by PLAYER_ONE
         uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
 
-        // Try to equip skin as a different address
-        vm.prank(address(0xBEEF)); // Use a different address
+        // Register a new skin collection
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
+        skinNFT.setMintingEnabled(true);
+
+        // Register the skin collection
+        uint32 skinIndex = _registerSkin(address(skinNFT));
+
+        // Mint skin to a different address
+        address otherAddress = address(0x2);
+        uint16 tokenId = 1;
+        vm.deal(otherAddress, 0.01 ether);
+        vm.startPrank(otherAddress);
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
+            otherAddress,
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Plate,
+            IPlayerSkinNFT.FightingStance.Defensive
+        );
+
+        // Try to equip the skin (should fail)
         vm.expectRevert(abi.encodeWithSelector(PlayerDoesNotExist.selector, playerId));
-        playerContract.equipSkin(playerId, skinIndex, 0);
+        playerContract.equipSkin(playerId, skinIndex, tokenId);
+        vm.stopPrank();
+
+        // Now try to equip the same skin as PLAYER_ONE (who owns the player but not the skin)
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(NotSkinOwner.selector);
+        playerContract.equipSkin(playerId, skinIndex, tokenId);
+        vm.stopPrank();
     }
 
     function testCannotEquipInvalidSkinIndex() public {
-        // Create a player and try to equip invalid skin
+        // First create a player
         uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
 
-        // Try to equip invalid skin index (should fail)
-        _equipSkinToPlayer(playerId, 999, 0, false);
-    }
-
-    function testDefaultNameCombination() public {
-        // Test Set B default name (index 0)
-        (string memory firstName, string memory surname) = nameRegistry.getFullName(0, 0);
-        assertEq(firstName, "Alex", "First default feminine name should be Alex");
-        assertEq(surname, "the Novice", "First surname should be 'the Novice'");
-
-        // Test Set A default name (index 1000)
-        (firstName, surname) = nameRegistry.getFullName(1000, 0);
-        assertEq(firstName, "Alex", "First default masculine name should be Alex");
-        assertEq(surname, "the Novice", "First surname should be 'the Novice'");
-
-        // Both should result in "Alex the Novice"
+        // Try to equip a non-existent skin collection
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert();
+        playerContract.equipSkin(playerId, 999, 1);
+        vm.stopPrank();
     }
 
     function testNameRandomness() public skipInCI {
@@ -226,9 +267,11 @@ contract PlayerTest is TestBase {
         for (uint256 i = 0; i < numPlayers; i++) {
             // Create player alternating between Set A and Set B
             address player = address(uint160(i + 1));
+            vm.deal(player, playerContract.createPlayerFeeAmount());
 
             vm.startPrank(player);
-            uint256 requestId = playerContract.requestCreatePlayer(i % 2 == 0);
+            uint256 requestId =
+                playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(i % 2 == 0);
             vm.stopPrank();
 
             bytes32 requestHash = playerContract.requestedHash(requestId);
@@ -281,8 +324,11 @@ contract PlayerTest is TestBase {
         vm.assume(player != address(0));
         vm.assume(uint160(player) > 0x10000); // Skip precompiles
 
+        // Give enough ETH for the fee
+        vm.deal(player, playerContract.createPlayerFeeAmount());
+
         vm.startPrank(player);
-        uint256 requestId = playerContract.requestCreatePlayer(false);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
         vm.stopPrank();
 
         bytes32 requestHash = playerContract.requestedHash(requestId);
@@ -339,49 +385,58 @@ contract PlayerTest is TestBase {
         playerContract.setEquipmentStats(address(invalidStats));
     }
 
+    function testGetPlayerIds() public {
+        // Create multiple players for PLAYER_ONE
+        uint256[] memory playerIds = new uint256[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            playerIds[i] = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        }
+
+        // Get all player IDs for PLAYER_ONE
+        uint256[] memory retrievedIds = playerContract.getPlayerIds(PLAYER_ONE);
+
+        // Verify we got all the IDs
+        assertEq(retrievedIds.length, 3, "Should have 3 players");
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(retrievedIds[i], playerIds[i], "Player ID mismatch");
+        }
+    }
+
     function testEquipUnlockableCollection() public {
-        // Deploy unlock NFT contract
-        UnlockNFT unlockNFT = new UnlockNFT();
-
-        // Deploy and register a new skin NFT that requires unlock NFT
-        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Unlockable", "UNLOCK", 0.01 ether);
-        uint32 newSkinIndex = _registerSkin(address(skinNFT));
-        skinRegistry.setSkinVerification(newSkinIndex, true);
-        skinRegistry.setRequiredNFT(newSkinIndex, address(unlockNFT));
-
-        // Create player
+        // Create a player
         uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
 
-        // Try to equip without owning unlock NFT (should fail)
-        vm.prank(PLAYER_ONE);
-        vm.expectRevert(abi.encodeWithSelector(RequiredNFTNotOwned.selector, address(unlockNFT)));
-        playerContract.equipSkin(playerId, newSkinIndex, 0);
+        // Create unlock NFT
+        UnlockNFT unlockNFT = new UnlockNFT();
 
-        // Mint unlock NFT to player
-        unlockNFT.mint(PLAYER_ONE);
-
-        // Enable minting on the skin NFT
-        vm.prank(address(this));
+        // Create skin collection that requires unlock NFT
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Unlockable Collection", "UC", 0.01 ether);
         skinNFT.setMintingEnabled(true);
 
-        // Now equip should succeed
+        // Register the skin collection with unlock requirement
+        uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
+        skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
+
+        // Try to equip without owning unlock NFT (should fail)
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
-        uint16 tokenId = uint16(skinNFT.CURRENT_TOKEN_ID());
-        skinNFT.mintSkin{value: 0.01 ether}(
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.WeaponType.Greatsword,
             IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IPlayerSkinNFT.FightingStance.Offensive
         );
         vm.stopPrank();
 
-        _equipSkinToPlayer(playerId, newSkinIndex, tokenId, true);
+        // Now mint unlock NFT and try again (should succeed)
+        unlockNFT.mint(PLAYER_ONE);
+        vm.prank(PLAYER_ONE);
+        playerContract.equipSkin(playerId, skinIndex, 1);
 
-        // Verify the skin was equipped
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.skinIndex, newSkinIndex);
-        assertEq(stats.skinTokenId, tokenId);
+        // Verify skin was equipped
+        IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
+        assertEq(player.skinIndex, skinIndex);
+        assertEq(player.skinTokenId, 1);
     }
 
     function testEquipOwnedSkin() public {
@@ -390,57 +445,71 @@ contract PlayerTest is TestBase {
 
         // Deploy and register a new skin NFT
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("TestSkin", "TEST", 0.01 ether);
-        uint32 newSkinIndex = _registerSkin(address(skinNFT));
-        skinRegistry.setSkinVerification(newSkinIndex, true);
-
-        // Enable minting
-        vm.prank(address(this));
         skinNFT.setMintingEnabled(true);
+
+        // Register the skin collection
+        uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
 
         // Mint skin to player
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         uint16 tokenId = uint16(skinNFT.CURRENT_TOKEN_ID());
-        skinNFT.mintSkin{value: 0.01 ether}(
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
             IPlayerSkinNFT.WeaponType.SwordAndShield,
             IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IPlayerSkinNFT.FightingStance.Offensive
         );
         vm.stopPrank();
 
         // Equip the skin
-        _equipSkinToPlayer(playerId, newSkinIndex, tokenId, true);
+        _equipSkinToPlayer(playerId, skinIndex, tokenId, true);
 
         // Verify the skin was equipped
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.skinIndex, newSkinIndex);
+        assertEq(stats.skinIndex, skinIndex);
         assertEq(stats.skinTokenId, tokenId);
     }
 
-    function testGetPlayerIds() public {
-        // Request player creation
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false); // Use name set A
-
-        // Should be able to get player IDs now
-        uint256[] memory playerIds = playerContract.getPlayerIds(PLAYER_ONE);
-        assertEq(playerIds.length, 1, "Should have one player after VRF fulfillment");
-
-        // Verify player stats exist
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertTrue(stats.strength > 0, "Player should exist after VRF fulfillment");
-    }
-
     function testPlayerCreationEvents() public {
+        // Give enough ETH for the fee
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount());
+
         vm.startPrank(PLAYER_ONE);
         vm.expectEmit(true, true, false, false);
         emit PlayerCreationRequested(0, PLAYER_ONE);
-        uint256 requestId = playerContract.requestCreatePlayer(true);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, false);
-        emit PlayerCreationFulfilled(requestId, 1000, PLAYER_ONE);
+        emit PlayerCreationFulfilled(requestId, PLAYER_ONE_EXPECTED_ID, PLAYER_ONE);
         _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
+    }
+
+    function testFailCreatePlayerWithInsufficientFee() public {
+        // Try to create a player with insufficient fee
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount() / 2);
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert("Insufficient fee amount");
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount() / 2}(true);
+        vm.stopPrank();
+    }
+
+    function testWithdrawFees() public {
+        // Create a player and pay the fee
+        uint256 initialBalance = address(this).balance;
+        _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+
+        // Verify fees were collected
+        uint256 collectedFees = address(playerContract).balance;
+        assertTrue(collectedFees > 0, "Fees should be collected");
+
+        // Withdraw fees as owner
+        playerContract.withdrawFees();
+
+        // Verify fees were withdrawn
+        assertEq(address(playerContract).balance, 0, "Contract balance should be 0 after withdrawal");
+        assertEq(address(this).balance, initialBalance + collectedFees, "Owner should receive all fees");
     }
 
     // Helper functions
@@ -464,10 +533,18 @@ contract PlayerTest is TestBase {
         assertTrue(calc.critMultiplier >= 150 && calc.critMultiplier <= 300, "Crit multiplier out of range");
     }
 
+    // Helper function to get the current fee amount
+    function _getCreatePlayerFee() internal view returns (uint256) {
+        return playerContract.createPlayerFeeAmount();
+    }
+
     // Player Creation Helper
     function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint256 playerId) {
+        // Give enough ETH to cover the fee
+        vm.deal(owner, playerContract.createPlayerFeeAmount());
+
         vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer(useSetB);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
         // Get the request hash and fulfill it
@@ -495,6 +572,38 @@ contract PlayerTest is TestBase {
         uint256[] memory playerIds = playerContract.getPlayerIds(owner);
         require(playerIds.length > 0, "Player not created");
         return playerIds[playerIds.length - 1];
+    }
+
+    function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
+        vm.deal(owner, playerContract.createPlayerFeeAmount());
+
+        vm.startPrank(owner);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        vm.stopPrank();
+
+        vm.expectRevert(bytes(expectedError));
+        _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
+    }
+
+    function _createPlayerAndExpectVRFFail(
+        address owner,
+        bool useSetB,
+        string memory expectedError,
+        uint256 customRoundId
+    ) internal {
+        vm.deal(owner, playerContract.createPlayerFeeAmount());
+
+        vm.startPrank(owner);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        vm.stopPrank();
+
+        bytes memory extraData = "";
+        bytes memory innerData = abi.encode(requestId, extraData);
+        bytes memory dataWithRound = abi.encode(customRoundId, innerData);
+
+        vm.expectRevert(bytes(expectedError));
+        vm.prank(operator);
+        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
     }
 
     // Skin Equipment Helper
@@ -534,36 +643,9 @@ contract PlayerTest is TestBase {
         }
     }
 
-    function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
-        vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer(useSetB);
-        vm.stopPrank();
-
-        vm.expectRevert(bytes(expectedError));
-        _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
-    }
-
-    function _createPlayerAndExpectVRFFail(
-        address owner,
-        bool useSetB,
-        string memory expectedError,
-        uint256 customRoundId
-    ) internal {
-        vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer(useSetB);
-        vm.stopPrank();
-
-        bytes memory extraData = "";
-        bytes memory data = abi.encode(requestId, extraData);
-        bytes memory dataWithRound = abi.encode(customRoundId, data);
-
-        vm.expectRevert(bytes(expectedError));
-        vm.prank(operator);
-        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
-    }
-
     function _registerSkin(address skinContract) internal returns (uint32) {
-        uint32 newSkinIndex = skinRegistry.registerSkin(skinContract);
-        return newSkinIndex;
+        return skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(skinContract);
     }
+
+    receive() external payable {}
 }

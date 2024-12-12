@@ -7,7 +7,7 @@ import "../interfaces/IPlayerSkinNFT.sol";
 
 contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
     uint16 private constant _MAX_SUPPLY = 10000;
-    uint16 private _currentTokenId;
+    uint16 private _currentTokenId = 1;
 
     bool public mintingEnabled;
     uint256 public mintPrice;
@@ -51,8 +51,12 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
         override
         returns (uint16)
     {
-        if (!mintingEnabled) revert MintingDisabled();
-        if (msg.value < mintPrice) revert InvalidMintPrice();
+        // Owner can mint for free, others must pay
+        if (msg.sender != owner) {
+            if (!mintingEnabled) revert MintingDisabled();
+            if (msg.value != mintPrice) revert InvalidMintPrice();
+        }
+
         if (_currentTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
 
         uint16 newTokenId = _currentTokenId++;
@@ -60,6 +64,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
 
         _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
 
+        emit SkinMinted(to, newTokenId, weapon, armor, stance);
         return newTokenId;
     }
 
