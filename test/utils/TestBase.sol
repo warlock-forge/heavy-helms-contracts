@@ -7,6 +7,10 @@ abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
     uint256 private constant DEFAULT_FORK_BLOCK = 19_000_000;
 
+    function setUp() public virtual {
+        setupRandomness();
+    }
+
     function setupRandomness() internal {
         // Check if we're in CI environment
         try vm.envString("CI") returns (string memory) {

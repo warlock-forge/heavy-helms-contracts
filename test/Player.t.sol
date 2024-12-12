@@ -45,7 +45,9 @@ contract PlayerTest is TestBase {
         }
     }
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
+
         // Set operator address
         operator = address(1);
 
