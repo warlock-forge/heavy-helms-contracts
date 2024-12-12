@@ -3,21 +3,29 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Game} from "../src/Game.sol";
+import {GameEngine} from "../src/GameEngine.sol";
 import {Player} from "../src/Player.sol";
 import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
-import {GameEngine} from "../src/GameEngine.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
+import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import "../src/lib/DefaultPlayerLibrary.sol";
+import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
+import {DefaultPlayerLibrary} from "../src/lib/DefaultPlayerLibrary.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayer.sol";
-import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
 contract GameScript is Script {
     function setUp() public {}
 
     function run() public {
+        // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
+        string memory rpcUrl = vm.envString("RPC_URL");
+        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
+
+        // Set the RPC URL
+        vm.createSelectFork(rpcUrl);
+        
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy core contracts in correct order
@@ -26,7 +34,6 @@ contract GameScript is Script {
         PlayerNameRegistry nameRegistry = new PlayerNameRegistry();
 
         // Deploy Player contract with Gelato VRF operator
-        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
         Player playerContract =
             new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
         GameEngine gameEngine = new GameEngine();

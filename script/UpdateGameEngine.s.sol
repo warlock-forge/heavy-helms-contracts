@@ -8,21 +8,26 @@ import {GameEngine} from "../src/GameEngine.sol";
 contract UpdateGameEngineScript is Script {
     function setUp() public {}
 
-    function run() public {
+    function run(address gameContractAddr) public {
+        // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
+        string memory rpcUrl = vm.envString("RPC_URL");
+        
+        // Set the RPC URL
+        vm.createSelectFork(rpcUrl);
+        
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy new GameEngine
         GameEngine newGameEngine = new GameEngine();
         console2.log("New GameEngine deployed at:", address(newGameEngine));
 
-        // Address of your deployed Game contract
-        address gameAddress = 0xfb6B0f32d557053D36D8dBC7cb5DfEBDC807E311; // Replace with your Game contract address
-        Game game = Game(gameAddress);
-
-        // Update Game contract to use new GameEngine
+        // Get the Game contract
+        Game game = Game(gameContractAddr);
+        
+        // Update the GameEngine
         game.setGameEngine(address(newGameEngine));
-        console2.log("Game contract updated to use new GameEngine");
+        console2.log("Game contract updated with new engine");
 
         vm.stopBroadcast();
     }

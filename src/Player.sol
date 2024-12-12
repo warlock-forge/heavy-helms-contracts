@@ -373,6 +373,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         require(success, "Fee withdrawal failed");
     }
 
+    function clearPendingRequestsForAddress(address user) external onlyOwner {
+        // Clear all pending requests for this user
+        uint256[] memory requests = _userPendingRequests[user];
+        for (uint256 i = 0; i < requests.length; i++) {
+            uint256 requestId = requests[i];
+            delete _pendingPlayers[requestId];
+        }
+        delete _userPendingRequests[user];
+    }
+
     function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId) {
         require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
         require(_userPendingRequests[msg.sender].length == 0, "Pending request exists");
