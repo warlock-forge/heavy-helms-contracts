@@ -25,7 +25,7 @@ contract GameScript is Script {
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy core contracts in correct order

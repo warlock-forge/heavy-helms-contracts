@@ -13,17 +13,17 @@ contract EquipSkinScript is Script {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-        
+
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
         vm.startBroadcast(deployerPrivateKey);
 
         // Get the deployed Player contract
         Player player = Player(playerContractAddr);
-        
+
         // Get the skin registry
         // PlayerSkinRegistry skinRegistry = PlayerSkinRegistry(payable(player.skinRegistry()));
-        
+
         // Equip the skin
         player.equipSkin(playerId, skinIndex, tokenId);
         console2.log("Equipped skin to player", playerId);

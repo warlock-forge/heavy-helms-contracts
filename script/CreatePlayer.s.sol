@@ -13,14 +13,14 @@ contract CreatePlayerScript is Script {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-        
+
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
         vm.startBroadcast(deployerPrivateKey);
 
         // Get the deployed Player contract
         Player player = Player(playerContractAddr);
-        
+
         // Request player creation with 0.001 ETH fee
         uint256 requestId = player.requestCreatePlayer{value: 0.001 ether}(isFemale);
         console2.log("Player creation requested with ID:", requestId);
@@ -47,8 +47,8 @@ contract CreatePlayerScript is Script {
             console2.log("Luck:", stats.luck);
 
             // Get and display player name
-            (string memory firstName, string memory surname) = PlayerNameRegistry(player.nameRegistry())
-                .getFullName(stats.firstNameIndex, stats.surnameIndex);
+            (string memory firstName, string memory surname) =
+                PlayerNameRegistry(player.nameRegistry()).getFullName(stats.firstNameIndex, stats.surnameIndex);
             console2.log("\nPlayer Name:", firstName, surname);
         }
 

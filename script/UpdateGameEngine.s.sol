@@ -12,10 +12,10 @@ contract UpdateGameEngineScript is Script {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-        
+
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy new GameEngine
@@ -24,7 +24,7 @@ contract UpdateGameEngineScript is Script {
 
         // Get the Game contract
         Game game = Game(gameContractAddr);
-        
+
         // Update the GameEngine
         game.setGameEngine(address(newGameEngine));
         console2.log("Game contract updated with new engine");
