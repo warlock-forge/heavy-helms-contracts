@@ -66,7 +66,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     uint32 private nextPlayerId = 1000;
 
-        modifier onlyTrustedGame() {
+    modifier onlyTrustedGame() {
         require(trustedGameContracts[msg.sender], "Not a trusted game contract");
         _;
     }

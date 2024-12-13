@@ -357,11 +357,17 @@ contract GameTest is TestBase {
 
     function testCombatLogStructure() public view {
         // Test the structure and decoding of combat logs
-        IGameEngine.PlayerLoadout memory p1Loadout =
-            IGameEngine.PlayerLoadout({playerId: chars.greatswordOffensive, skinIndex: skinIndex, skinTokenId: uint16(chars.greatswordOffensive)});
+        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+            playerId: chars.greatswordOffensive,
+            skinIndex: skinIndex,
+            skinTokenId: uint16(chars.greatswordOffensive)
+        });
 
-        IGameEngine.PlayerLoadout memory p2Loadout =
-            IGameEngine.PlayerLoadout({playerId: chars.quarterstaffDefensive, skinIndex: skinIndex, skinTokenId: uint16(chars.quarterstaffDefensive)});
+        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+            playerId: chars.quarterstaffDefensive,
+            skinIndex: skinIndex,
+            skinTokenId: uint16(chars.quarterstaffDefensive)
+        });
 
         bytes memory results = game.play(p1Loadout, p2Loadout);
         (uint256 winner, GameEngine.WinCondition winCondition, GameEngine.CombatAction[] memory actions) =

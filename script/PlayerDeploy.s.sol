@@ -31,12 +31,8 @@ contract PlayerDeployScript is Script {
         PlayerNameRegistry nameRegistry = new PlayerNameRegistry();
 
         // Deploy Player contract with Gelato VRF operator
-        Player playerContract = new Player(
-            address(skinRegistry),
-            address(nameRegistry),
-            address(equipmentStats),
-            operator
-        );
+        Player playerContract =
+            new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
 
         // 2. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();

@@ -23,10 +23,7 @@ contract PracticeGameDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy PracticeGame
-        PracticeGame practiceGame = new PracticeGame(
-            gameEngineAddr,
-            playerAddr
-        );
+        PracticeGame practiceGame = new PracticeGame(gameEngineAddr, playerAddr);
 
         console2.log("Deployed Addresses:");
         console2.log("PracticeGame:", address(practiceGame));
