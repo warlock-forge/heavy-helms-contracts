@@ -48,7 +48,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     mapping(address => bool) public trustedGameContracts;
 
     // Events
-    event PlayerRetired(uint256 indexed playerId, bool retired);
+    event PlayerRetired(uint256 indexed playerId, address indexed caller, bool retired);
     event PlayerResurrected(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
     event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
@@ -563,7 +563,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     function setPlayerRetired(uint256 playerId, bool retired) external onlyTrustedGame {
         require(_playerOwners[playerId] != address(0), "Player does not exist");
         _retiredPlayers[playerId] = retired;
-        emit PlayerRetired(playerId, retired);
+        emit PlayerRetired(playerId, msg.sender, retired);
     }
 
     function isPlayerRetired(uint256 playerId) external view returns (bool) {
@@ -586,5 +586,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         require(_players[playerId].strength != 0, "Player does not exist");
         PlayerStats storage stats = _players[playerId];
         stats.kills++;
+    }
+
+    function retireOwnPlayer(uint32 playerId) external {
+        // Check player exists and caller owns it
+        require(_players[playerId].strength != 0, "Player does not exist");
+        require(_ownerOf(uint256(playerId)) == msg.sender, "Not player owner");
+
+        // Mark as retired
+        _retiredPlayers[playerId] = true;
+
+        emit PlayerRetired(uint256(playerId), msg.sender, true);
     }
 }

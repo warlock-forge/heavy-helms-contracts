@@ -53,4 +53,5 @@ interface IPlayer {
     function incrementWins(uint32 playerId) external;
     function incrementLosses(uint32 playerId) external;
     function incrementKills(uint32 playerId) external;
+    function retireOwnPlayer(uint32 playerId) external;
 }

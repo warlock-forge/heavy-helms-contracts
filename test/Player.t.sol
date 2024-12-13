@@ -357,6 +357,33 @@ contract PlayerTest is TestBase {
         assertTrue(totalPoints >= 18 && totalPoints <= 126, "Total points out of range");
     }
 
+    function testRetireOwnPlayer() public {
+        // Create a player
+        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+
+        // Retire the player
+        vm.startPrank(PLAYER_ONE);
+        playerContract.retireOwnPlayer(uint32(playerId));
+        vm.stopPrank();
+
+        // Verify player is retired
+        assertTrue(playerContract.isPlayerRetired(playerId), "Player should be retired");
+    }
+
+    function testCannotRetireOtherPlayerCharacter() public {
+        // Create a player owned by address(1)
+        vm.prank(address(1));
+        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+
+        // Try to retire it from address(2)
+        vm.prank(address(2));
+        vm.expectRevert("Not player owner");
+        playerContract.retireOwnPlayer(uint32(playerId));
+
+        // Verify player is not retired
+        assertFalse(playerContract.isPlayerRetired(playerId), "Player should not be retired");
+    }
+
     function testEquipmentStatsOwnership() public {
         // Store original equipment stats address
         address originalEquipmentStats = address(equipmentStats);
