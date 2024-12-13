@@ -29,7 +29,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     // Player state tracking
     mapping(uint256 => IPlayer.PlayerStats) private _players;
     mapping(uint256 => address) private _playerOwners;
-    mapping(uint256 => bool) private _retiredPlayers; // More gas efficient than deletion
+    mapping(uint256 => bool) private _retiredPlayers; // Track retirement status
 
     // Player count tracking per address
     mapping(address => uint256) private _addressPlayerCount;
@@ -44,14 +44,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     // Add GameStats reference
     PlayerEquipmentStats public equipmentStats;
 
+    // Whitelist for trusted game contracts
+    mapping(address => bool) public trustedGameContracts;
+
     // Events
-    event PlayerRetired(uint256 indexed playerId);
+    event PlayerRetired(uint256 indexed playerId, bool retired);
+    event PlayerResurrected(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
     event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
     event PlayerCreationFulfilled(uint256 indexed requestId, uint256 indexed playerId, address indexed owner);
+    event GameContractTrustUpdated(address indexed gameContract, bool trusted);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
@@ -60,6 +65,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     uint256 private constant ROUND_ID = 1;
 
     uint32 private nextPlayerId = 1000;
+
+        modifier onlyTrustedGame() {
+        require(trustedGameContracts[msg.sender], "Not a trusted game contract");
+        _;
+    }
 
     struct PendingPlayer {
         address owner;
@@ -451,7 +461,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return _userPendingRequests[user];
     }
 
-    // Make the original createPlayer logic private and rename it
     function _createPlayerWithRandomness(address owner, bool useNameSetB, uint256 randomSeed)
         internal
         returns (uint256 playerId, IPlayer.PlayerStats memory stats)
@@ -538,5 +547,20 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         _addressPlayerCount[owner]++;
 
         return (playerId, stats);
+    }
+
+    function setGameContractTrust(address gameContract, bool trusted) external onlyOwner {
+        trustedGameContracts[gameContract] = trusted;
+        emit GameContractTrustUpdated(gameContract, trusted);
+    }
+
+    function setPlayerRetired(uint256 playerId, bool retired) external onlyTrustedGame {
+        require(_playerOwners[playerId] != address(0), "Player does not exist");
+        _retiredPlayers[playerId] = retired;
+        emit PlayerRetired(playerId, retired);
+    }
+
+    function isPlayerRetired(uint256 playerId) external view returns (bool) {
+        return _retiredPlayers[playerId];
     }
 }

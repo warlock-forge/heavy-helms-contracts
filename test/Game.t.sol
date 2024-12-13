@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {Game} from "../src/Game.sol";
+import {PracticeGame} from "../src/PracticeGame.sol";
 import {Player} from "../src/Player.sol";
 import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {GameEngine} from "../src/GameEngine.sol";
@@ -25,7 +25,7 @@ contract GameTest is TestBase {
         uint16 quarterstaffDefensive;
     }
 
-    Game public game;
+    PracticeGame public game;
     GameEngine public gameEngine;
     PlayerEquipmentStats public equipmentStats;
     Player public playerContract;
@@ -49,7 +49,7 @@ contract GameTest is TestBase {
 
         // Deploy Game contracts
         gameEngine = new GameEngine();
-        game = new Game(address(gameEngine), address(playerContract));
+        game = new PracticeGame(address(gameEngine), address(playerContract));
 
         // Register default skin and set up registry
         skinIndex = skinRegistry.registerSkin(address(defaultSkin));
@@ -256,7 +256,7 @@ contract GameTest is TestBase {
             skinTokenId: uint16(chars.swordAndShieldDefensive)
         });
 
-        results = game.practiceGame(loadout1A, loadout1B);
+        results = game.play(loadout1A, loadout1B);
         (uint256 winner1,, GameEngine.CombatAction[] memory actions1) = gameEngine.decodeCombatLog(results);
         assertTrue(winner1 == loadout1A.playerId || winner1 == loadout1B.playerId, "Invalid winner in scenario 1");
 
@@ -273,7 +273,7 @@ contract GameTest is TestBase {
         });
 
         vm.warp(block.timestamp + 1);
-        results = game.practiceGame(loadout2A, loadout2B);
+        results = game.play(loadout2A, loadout2B);
         (uint256 winner2,, GameEngine.CombatAction[] memory actions2) = gameEngine.decodeCombatLog(results);
         assertTrue(winner2 == loadout2A.playerId || winner2 == loadout2B.playerId, "Invalid winner in scenario 2");
 
@@ -290,7 +290,7 @@ contract GameTest is TestBase {
         });
 
         vm.warp(block.timestamp + 1);
-        results = game.practiceGame(loadout3A, loadout3B);
+        results = game.play(loadout3A, loadout3B);
         (uint256 winner3,, GameEngine.CombatAction[] memory actions3) = gameEngine.decodeCombatLog(results);
         assertTrue(winner3 == loadout3A.playerId || winner3 == loadout3B.playerId, "Invalid winner in scenario 3");
 
@@ -307,7 +307,7 @@ contract GameTest is TestBase {
         });
 
         vm.warp(block.timestamp + 1);
-        results = game.practiceGame(loadout4A, loadout4B);
+        results = game.play(loadout4A, loadout4B);
         (uint256 winner4,, GameEngine.CombatAction[] memory actions4) = gameEngine.decodeCombatLog(results);
         assertTrue(winner4 == loadout4A.playerId || winner4 == loadout4B.playerId, "Invalid winner in scenario 4");
     }
@@ -331,7 +331,7 @@ contract GameTest is TestBase {
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(defenderStats);
 
         // Run combat and analyze defensive actions
-        bytes memory results = game.practiceGame(attackerLoadout, defenderLoadout);
+        bytes memory results = game.play(attackerLoadout, defenderLoadout);
         (uint256 winner,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
         // Verify defensive actions occurred
@@ -357,19 +357,13 @@ contract GameTest is TestBase {
 
     function testCombatLogStructure() public view {
         // Test the structure and decoding of combat logs
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
+        IGameEngine.PlayerLoadout memory p1Loadout =
+            IGameEngine.PlayerLoadout({playerId: chars.greatswordOffensive, skinIndex: skinIndex, skinTokenId: uint16(chars.greatswordOffensive)});
 
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
-            playerId: chars.quarterstaffDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.quarterstaffDefensive)
-        });
+        IGameEngine.PlayerLoadout memory p2Loadout =
+            IGameEngine.PlayerLoadout({playerId: chars.quarterstaffDefensive, skinIndex: skinIndex, skinTokenId: uint16(chars.quarterstaffDefensive)});
 
-        bytes memory results = game.practiceGame(p1Loadout, p2Loadout);
+        bytes memory results = game.play(p1Loadout, p2Loadout);
         (uint256 winner, GameEngine.WinCondition winCondition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 

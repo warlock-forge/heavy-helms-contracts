@@ -43,4 +43,8 @@ interface IPlayer {
     function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId);
     function getPendingRequests(address user) external view returns (uint256[] memory);
     function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner);
+    function isPlayerRetired(uint256 playerId) external view returns (bool);
+    function setPlayerRetired(uint256 playerId, bool retired) external;
+    function trustedGameContracts(address gameContract) external view returns (bool);
+    function setGameContractTrust(address gameContract, bool trusted) external;
 }

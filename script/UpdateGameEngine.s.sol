@@ -2,13 +2,15 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Game} from "../src/Game.sol";
-import {GameEngine} from "../src/GameEngine.sol";
+import {BaseGame} from "../src/BaseGame.sol";
 
 contract UpdateGameEngineScript is Script {
     function setUp() public {}
 
-    function run(address gameContractAddr) public {
+    function run(address newGameEngineAddr, address gameContractAddr) public {
+        require(newGameEngineAddr != address(0), "GameEngine address cannot be zero");
+        require(gameContractAddr != address(0), "Game contract address cannot be zero");
+
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -18,16 +20,12 @@ contract UpdateGameEngineScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy new GameEngine
-        GameEngine newGameEngine = new GameEngine();
-        console2.log("New GameEngine deployed at:", address(newGameEngine));
-
-        // Get the Game contract
-        Game game = Game(gameContractAddr);
+        // Cast the address to BaseGame since all game contracts inherit from it
+        BaseGame game = BaseGame(gameContractAddr);
 
         // Update the GameEngine
-        game.setGameEngine(address(newGameEngine));
-        console2.log("Game contract updated with new engine");
+        game.setGameEngine(newGameEngineAddr);
+        console2.log("Game contract at", gameContractAddr, "updated to use GameEngine at:", newGameEngineAddr);
 
         vm.stopBroadcast();
     }

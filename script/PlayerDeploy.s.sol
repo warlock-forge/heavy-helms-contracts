@@ -2,19 +2,16 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Game} from "../src/Game.sol";
-import {GameEngine} from "../src/GameEngine.sol";
 import {Player} from "../src/Player.sol";
 import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerLibrary} from "../src/lib/DefaultPlayerLibrary.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayer.sol";
 
-contract GameScript is Script {
+contract PlayerDeployScript is Script {
     function setUp() public {}
 
     function run() public {
@@ -34,10 +31,12 @@ contract GameScript is Script {
         PlayerNameRegistry nameRegistry = new PlayerNameRegistry();
 
         // Deploy Player contract with Gelato VRF operator
-        Player playerContract =
-            new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
-        GameEngine gameEngine = new GameEngine();
-        Game game = new Game(address(gameEngine), address(playerContract));
+        Player playerContract = new Player(
+            address(skinRegistry),
+            address(nameRegistry),
+            address(equipmentStats),
+            operator
+        );
 
         // 2. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
@@ -77,8 +76,6 @@ contract GameScript is Script {
         console2.log("PlayerSkinRegistry:", address(skinRegistry));
         console2.log("PlayerNameRegistry:", address(nameRegistry));
         console2.log("Player:", address(playerContract));
-        console2.log("GameEngine:", address(gameEngine));
-        console2.log("Game:", address(game));
         console2.log("DefaultPlayerSkinNFT:", address(defaultSkin));
         console2.log("Default Skin Registry Index:", skinIndex);
 
