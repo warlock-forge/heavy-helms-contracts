@@ -16,6 +16,9 @@ interface IPlayer {
         uint16 skinTokenId;
         uint16 firstNameIndex;
         uint16 surnameIndex;
+        uint16 wins;
+        uint16 losses;
+        uint16 kills;
     }
 
     struct CalculatedStats {
@@ -47,4 +50,7 @@ interface IPlayer {
     function setPlayerRetired(uint256 playerId, bool retired) external;
     function trustedGameContracts(address gameContract) external view returns (bool);
     function setGameContractTrust(address gameContract, bool trusted) external;
+    function incrementWins(uint32 playerId) external;
+    function incrementLosses(uint32 playerId) external;
+    function incrementKills(uint32 playerId) external;
 }

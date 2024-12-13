@@ -167,7 +167,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             skinIndex: player.skinIndex,
             skinTokenId: player.skinTokenId,
             firstNameIndex: player.firstNameIndex,
-            surnameIndex: player.surnameIndex
+            surnameIndex: player.surnameIndex,
+            wins: player.wins,
+            losses: player.losses,
+            kills: player.kills
         });
     }
 
@@ -532,7 +535,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             skinIndex: 0, // Updated to use index 0 for default skin
             skinTokenId: 1, // Keep this as 1 since NFT token IDs start at 1
             firstNameIndex: firstNameIndex,
-            surnameIndex: surnameIndex
+            surnameIndex: surnameIndex,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
 
         // Validate and fix if necessary
@@ -562,5 +568,23 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     function isPlayerRetired(uint256 playerId) external view returns (bool) {
         return _retiredPlayers[playerId];
+    }
+
+    function incrementWins(uint32 playerId) external onlyTrustedGame {
+        require(_players[playerId].strength != 0, "Player does not exist");
+        PlayerStats storage stats = _players[playerId];
+        stats.wins++;
+    }
+
+    function incrementLosses(uint32 playerId) external onlyTrustedGame {
+        require(_players[playerId].strength != 0, "Player does not exist");
+        PlayerStats storage stats = _players[playerId];
+        stats.losses++;
+    }
+
+    function incrementKills(uint32 playerId) external onlyTrustedGame {
+        require(_players[playerId].strength != 0, "Player does not exist");
+        PlayerStats storage stats = _players[playerId];
+        stats.kills++;
     }
 }

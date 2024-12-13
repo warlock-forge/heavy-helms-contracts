@@ -15,7 +15,7 @@ import "../src/lib/DefaultPlayerLibrary.sol";
 import "../src/interfaces/IPlayerSkinNFT.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
-contract GameTest is TestBase {
+contract PracticeGameTest is TestBase {
     struct TestCharacters {
         uint16 greatswordOffensive;
         uint16 battleaxeOffensive;

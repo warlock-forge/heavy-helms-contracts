@@ -29,7 +29,10 @@ library DefaultPlayerLibrary {
             skinIndex: skinIndex,
             skinTokenId: tokenId,
             firstNameIndex: 0,
-            surnameIndex: 0
+            surnameIndex: 0,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "QmTZzCarXPyWK483Eve4NsQLwiJbCuWhAbnPx2sVRyfKqC";
     }
@@ -58,7 +61,10 @@ library DefaultPlayerLibrary {
             skinIndex: skinIndex,
             skinTokenId: tokenId,
             firstNameIndex: 1001,
-            surnameIndex: 3
+            surnameIndex: 3,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "QmbH4DC4rvXGmz3xv6HTKsG6zYsmDeo1TKvR3b59vxbjVo";
     }
@@ -88,7 +94,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1010,
-                surnameIndex: 18
+                surnameIndex: 18,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmdFJmG9WCbRixqhpWcdsfQHp7JdT9GBM8D3rTSxaL2oU7"
         );
@@ -119,7 +128,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
@@ -150,7 +162,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
@@ -181,7 +196,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
@@ -212,7 +230,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
@@ -243,7 +264,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
@@ -274,7 +298,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
@@ -305,7 +332,10 @@ library DefaultPlayerLibrary {
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
                 firstNameIndex: 1,
-                surnameIndex: 1
+                surnameIndex: 1,
+                wins: 0,
+                losses: 0,
+                kills: 0
             }),
             "QmSwordAndShieldUserCIDHere"
         );
