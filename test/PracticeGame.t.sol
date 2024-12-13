@@ -29,7 +29,6 @@ contract PracticeGameTest is TestBase {
     GameEngine public gameEngine;
     PlayerEquipmentStats public equipmentStats;
     Player public playerContract;
-    PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
     TestCharacters public chars;
 
@@ -37,7 +36,6 @@ contract PracticeGameTest is TestBase {
         super.setUp();
 
         // Deploy registries
-        skinRegistry = new PlayerSkinRegistry();
         nameRegistry = new PlayerNameRegistry();
         equipmentStats = new PlayerEquipmentStats();
 
@@ -66,50 +64,40 @@ contract PracticeGameTest is TestBase {
             IPlayerSkinNFT.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
-        ) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 1);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
-        chars.greatswordOffensive = 1;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
+        ) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
-        chars.battleaxeOffensive = 2;
+        chars.greatswordOffensive = 2;
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 3);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
+        chars.battleaxeOffensive = 3;
 
         // Create balanced character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 3);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
-        chars.spearBalanced = 3;
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 4);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
+        chars.spearBalanced = 4;
 
         // Create defensive characters
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 4);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
-        chars.swordAndShieldDefensive = 4;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 5);
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 5);
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 5);
-        chars.rapierAndShieldDefensive = 5;
+        chars.swordAndShieldDefensive = 5;
 
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 6);
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 6);
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 6);
-        chars.quarterstaffDefensive = 6;
+        chars.rapierAndShieldDefensive = 6;
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 7);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 7);
+        chars.quarterstaffDefensive = 7;
     }
 
     function testBasicCombat() public view {
         // Test basic combat functionality with pseudo-random seed
-        uint256 seed = uint256(
-            keccak256(abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), msg.sender))
-        );
+        uint256 seed = _generateGameSeed();
 
-        IGameEngine.PlayerLoadout memory player1 = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinRegistry.defaultSkinRegistryId(),
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-
-        IGameEngine.PlayerLoadout memory player2 = IGameEngine.PlayerLoadout({
-            playerId: chars.swordAndShieldDefensive,
-            skinIndex: skinRegistry.defaultSkinRegistryId(),
-            skinTokenId: uint16(chars.swordAndShieldDefensive)
-        });
+        GameEngine.PlayerLoadout memory player1 = _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory player2 =
+            _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
 
         // Run the game with seed and verify the result format
         bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
@@ -117,28 +105,17 @@ contract PracticeGameTest is TestBase {
             gameEngine.decodeCombatLog(results);
 
         // Basic validation
-        assertTrue(winner == player1.playerId || winner == player2.playerId, "Invalid winner");
-        assertTrue(actions.length > 0, "No actions recorded");
-        assertTrue(uint8(condition) <= uint8(type(GameEngine.WinCondition).max), "Invalid win condition");
+        super._assertValidCombatResult(winner, condition, actions, player1.playerId, player2.playerId);
     }
 
     function testCombatMechanics() public view {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
-        uint256 seed = uint256(
-            keccak256(abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), msg.sender))
-        );
+        uint256 seed = _generateGameSeed();
 
-        IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-
-        IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
-            playerId: chars.quarterstaffDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.quarterstaffDefensive)
-        });
+        GameEngine.PlayerLoadout memory attackerLoadout =
+            _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory defenderLoadout =
+            _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
         // Run combat with seed and verify mechanics
         bytes memory results = gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract);
@@ -146,17 +123,15 @@ contract PracticeGameTest is TestBase {
             gameEngine.decodeCombatLog(results);
 
         // Verify basic mechanics
-        assertTrue(winner == attackerLoadout.playerId || winner == defenderLoadout.playerId, "Invalid winner");
-        assertTrue(actions.length > 0, "No actions recorded");
-        assertTrue(uint8(condition) <= uint8(type(GameEngine.WinCondition).max), "Invalid win condition");
+        super._assertValidCombatResult(winner, condition, actions, attackerLoadout.playerId, defenderLoadout.playerId);
 
         // Verify combat actions
         bool hasOffensiveAction = false;
         bool hasDefensiveAction = false;
 
         for (uint256 i = 0; i < actions.length; i++) {
-            if (isOffensiveAction(actions[i])) hasOffensiveAction = true;
-            if (isDefensiveAction(actions[i])) hasDefensiveAction = true;
+            if (_isOffensiveAction(actions[i])) hasOffensiveAction = true;
+            if (_isDefensiveAction(actions[i])) hasDefensiveAction = true;
             if (hasOffensiveAction && hasDefensiveAction) break;
         }
 
@@ -166,17 +141,9 @@ contract PracticeGameTest is TestBase {
 
     function testFuzzCombat(uint256 seed) public view {
         // Create loadouts for fuzz testing
-        IGameEngine.PlayerLoadout memory player1 = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinRegistry.defaultSkinRegistryId(),
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-
-        IGameEngine.PlayerLoadout memory player2 = IGameEngine.PlayerLoadout({
-            playerId: chars.swordAndShieldDefensive,
-            skinIndex: skinRegistry.defaultSkinRegistryId(),
-            skinTokenId: uint16(chars.swordAndShieldDefensive)
-        });
+        GameEngine.PlayerLoadout memory player1 = _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory player2 =
+            _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
 
         // Run game with fuzzed seed
         bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
@@ -193,8 +160,8 @@ contract PracticeGameTest is TestBase {
         bool player2Action = false;
 
         for (uint256 i = 0; i < actions.length; i++) {
-            if (actions[i].p1Damage > 0 || isDefensiveResult(actions[i].p1Result)) player1Action = true;
-            if (actions[i].p2Damage > 0 || isDefensiveResult(actions[i].p2Result)) player2Action = true;
+            if (actions[i].p1Damage > 0 || _isDefensiveResult(actions[i].p1Result)) player1Action = true;
+            if (actions[i].p2Damage > 0 || _isDefensiveResult(actions[i].p2Result)) player2Action = true;
             if (player1Action && player2Action) break;
         }
 
@@ -202,126 +169,53 @@ contract PracticeGameTest is TestBase {
         assertTrue(player2Action, "Player 2 never acted");
     }
 
-    function isOffensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
-        return action.p1Result == GameEngine.CombatResultType.ATTACK
-            || action.p1Result == GameEngine.CombatResultType.CRIT || action.p1Result == GameEngine.CombatResultType.COUNTER
-            || action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT
-            || action.p2Result == GameEngine.CombatResultType.ATTACK || action.p2Result == GameEngine.CombatResultType.CRIT
-            || action.p2Result == GameEngine.CombatResultType.COUNTER
-            || action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
-    }
-
-    function isDefensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
-        return action.p1Result == GameEngine.CombatResultType.BLOCK
-            || action.p1Result == GameEngine.CombatResultType.DODGE || action.p1Result == GameEngine.CombatResultType.PARRY
-            || action.p1Result == GameEngine.CombatResultType.HIT || action.p1Result == GameEngine.CombatResultType.MISS
-            || action.p1Result == GameEngine.CombatResultType.COUNTER
-            || action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT
-            || action.p2Result == GameEngine.CombatResultType.BLOCK || action.p2Result == GameEngine.CombatResultType.DODGE
-            || action.p2Result == GameEngine.CombatResultType.PARRY || action.p2Result == GameEngine.CombatResultType.HIT
-            || action.p2Result == GameEngine.CombatResultType.MISS || action.p2Result == GameEngine.CombatResultType.COUNTER
-            || action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
-    }
-
-    function isDefensiveResult(GameEngine.CombatResultType result) internal pure returns (bool) {
-        return result == GameEngine.CombatResultType.PARRY || result == GameEngine.CombatResultType.BLOCK
-            || result == GameEngine.CombatResultType.DODGE || result == GameEngine.CombatResultType.MISS
-            || result == GameEngine.CombatResultType.HIT;
-    }
-
     function testSpecificScenarios() public {
         // Test specific combat scenarios with different character combinations
         bytes memory results;
 
         // Scenario 1: Greatsword vs Sword and Shield (Offensive vs Defensive)
-        IGameEngine.PlayerLoadout memory loadout1A = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-        IGameEngine.PlayerLoadout memory loadout1B = IGameEngine.PlayerLoadout({
-            playerId: chars.swordAndShieldDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.swordAndShieldDefensive)
-        });
-
+        GameEngine.PlayerLoadout memory loadout1A =
+            _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory loadout1B =
+            _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
         results = game.play(loadout1A, loadout1B);
-        (uint256 winner1,, GameEngine.CombatAction[] memory actions1) = gameEngine.decodeCombatLog(results);
-        assertTrue(winner1 == loadout1A.playerId || winner1 == loadout1B.playerId, "Invalid winner in scenario 1");
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, loadout1A.playerId, loadout1B.playerId);
 
-        // Scenario 2: Battleaxe vs Spear (Offensive vs Balanced)
-        IGameEngine.PlayerLoadout memory loadout2A = IGameEngine.PlayerLoadout({
-            playerId: chars.battleaxeOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.battleaxeOffensive)
-        });
-        IGameEngine.PlayerLoadout memory loadout2B = IGameEngine.PlayerLoadout({
-            playerId: chars.spearBalanced,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.spearBalanced)
-        });
-
-        vm.warp(block.timestamp + 1);
+        // Scenario 2: Battleaxe vs Rapier and Shield (Offensive vs Defensive)
+        GameEngine.PlayerLoadout memory loadout2A =
+            _createLoadout(chars.battleaxeOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory loadout2B =
+            _createLoadout(chars.rapierAndShieldDefensive, true, false, playerContract);
         results = game.play(loadout2A, loadout2B);
-        (uint256 winner2,, GameEngine.CombatAction[] memory actions2) = gameEngine.decodeCombatLog(results);
-        assertTrue(winner2 == loadout2A.playerId || winner2 == loadout2B.playerId, "Invalid winner in scenario 2");
+        (winner, condition, actions) = gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, loadout2A.playerId, loadout2B.playerId);
 
-        // Scenario 3: Rapier and Shield vs Quarterstaff (Defensive vs Defensive)
-        IGameEngine.PlayerLoadout memory loadout3A = IGameEngine.PlayerLoadout({
-            playerId: chars.rapierAndShieldDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.rapierAndShieldDefensive)
-        });
-        IGameEngine.PlayerLoadout memory loadout3B = IGameEngine.PlayerLoadout({
-            playerId: chars.quarterstaffDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.quarterstaffDefensive)
-        });
-
-        vm.warp(block.timestamp + 1);
+        // Scenario 3: Spear vs Quarterstaff (Balanced vs Defensive)
+        GameEngine.PlayerLoadout memory loadout3A = _createLoadout(chars.spearBalanced, true, false, playerContract);
+        GameEngine.PlayerLoadout memory loadout3B =
+            _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
         results = game.play(loadout3A, loadout3B);
-        (uint256 winner3,, GameEngine.CombatAction[] memory actions3) = gameEngine.decodeCombatLog(results);
-        assertTrue(winner3 == loadout3A.playerId || winner3 == loadout3B.playerId, "Invalid winner in scenario 3");
+        (winner, condition, actions) = gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, loadout3A.playerId, loadout3B.playerId);
 
-        // Scenario 4: Greatsword vs Spear (Offensive vs Balanced)
-        IGameEngine.PlayerLoadout memory loadout4A = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-        IGameEngine.PlayerLoadout memory loadout4B = IGameEngine.PlayerLoadout({
-            playerId: chars.spearBalanced,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.spearBalanced)
-        });
-
-        vm.warp(block.timestamp + 1);
+        // Scenario 4: Greatsword vs Rapier and Shield (Offensive vs Defensive)
+        GameEngine.PlayerLoadout memory loadout4A =
+            _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory loadout4B =
+            _createLoadout(chars.rapierAndShieldDefensive, true, false, playerContract);
         results = game.play(loadout4A, loadout4B);
-        (uint256 winner4,, GameEngine.CombatAction[] memory actions4) = gameEngine.decodeCombatLog(results);
-        assertTrue(winner4 == loadout4A.playerId || winner4 == loadout4B.playerId, "Invalid winner in scenario 4");
+        (winner, condition, actions) = gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, loadout4A.playerId, loadout4B.playerId);
     }
 
     function testDefensiveActions() public view {
         // Test defensive mechanics with specific character loadouts
-        IGameEngine.PlayerLoadout memory attackerLoadout = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-
-        IGameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
-            playerId: chars.quarterstaffDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.quarterstaffDefensive)
-        });
+        GameEngine.PlayerLoadout memory attackerLoadout =
+            _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory defenderLoadout =
+            _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
         // Get defender's stats to verify defensive capabilities
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(defenderLoadout.playerId);
@@ -334,7 +228,7 @@ contract PracticeGameTest is TestBase {
         // Verify defensive actions occurred
         bool hasDefensiveAction = false;
         for (uint256 i = 0; i < actions.length; i++) {
-            if (isDefensiveAction(actions[i])) {
+            if (_isDefensiveAction(actions[i])) {
                 hasDefensiveAction = true;
                 break;
             }
@@ -354,26 +248,17 @@ contract PracticeGameTest is TestBase {
 
     function testCombatLogStructure() public view {
         // Test the structure and decoding of combat logs
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
-            playerId: chars.greatswordOffensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.greatswordOffensive)
-        });
-
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
-            playerId: chars.quarterstaffDefensive,
-            skinIndex: skinIndex,
-            skinTokenId: uint16(chars.quarterstaffDefensive)
-        });
+        GameEngine.PlayerLoadout memory p1Loadout =
+            _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory p2Loadout =
+            _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
         bytes memory results = game.play(p1Loadout, p2Loadout);
-        (uint256 winner, GameEngine.WinCondition winCondition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
         // Verify combat log structure
-        assertTrue(winner == p1Loadout.playerId || winner == p2Loadout.playerId, "Invalid winner ID");
-        assertTrue(uint8(winCondition) <= uint8(type(GameEngine.WinCondition).max), "Invalid win condition");
-        assertTrue(actions.length > 0, "Combat log should contain actions");
+        super._assertValidCombatResult(winner, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
 
         // Verify action structure
         for (uint256 i = 0; i < actions.length; i++) {
@@ -389,16 +274,6 @@ contract PracticeGameTest is TestBase {
             console2.log("Skipping randomness test in CI");
             return;
         }
-
-        // Get stance modifiers for logging
-        (,, PlayerEquipmentStats.StanceMultiplier memory stance) = playerContract.equipmentStats().getFullCharacterStats(
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
-        console2.log(
-            "Stance Mods - Block:%d Parry:%d Dodge:%d", stance.blockChance, stance.parryChance, stance.dodgeChance
-        );
 
         // Test scenarios with different weapon matchups
         console2.log("\n=== Scenario 1 ===");
@@ -423,11 +298,8 @@ contract PracticeGameTest is TestBase {
     }
 
     function runStanceScenario(uint32 player1Id, uint32 player2Id, uint256 rounds) internal {
-        IGameEngine.PlayerLoadout memory p1Loadout =
-            IGameEngine.PlayerLoadout({playerId: player1Id, skinIndex: skinIndex, skinTokenId: uint16(player1Id)});
-
-        IGameEngine.PlayerLoadout memory p2Loadout =
-            IGameEngine.PlayerLoadout({playerId: player2Id, skinIndex: skinIndex, skinTokenId: uint16(player2Id)});
+        GameEngine.PlayerLoadout memory p1Loadout = _createLoadout(player1Id, true, false, playerContract);
+        GameEngine.PlayerLoadout memory p2Loadout = _createLoadout(player2Id, true, false, playerContract);
 
         uint256 p1Wins = 0;
         uint256 p2Wins = 0;
@@ -509,5 +381,17 @@ contract PracticeGameTest is TestBase {
         if (armor == IPlayerSkinNFT.ArmorType.Chain) return "Chain";
         if (armor == IPlayerSkinNFT.ArmorType.Plate) return "Plate";
         return "Unknown";
+    }
+
+    function isOffensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
+        return _isOffensiveAction(action);
+    }
+
+    function isDefensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
+        return _isDefensiveAction(action);
+    }
+
+    function isDefensiveResult(GameEngine.CombatResultType result) internal pure returns (bool) {
+        return _isDefensiveResult(result);
     }
 }

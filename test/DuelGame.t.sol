@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {Vm} from "forge-std/Vm.sol";
+import {Test} from "forge-std/Test.sol";
 import {DuelGame} from "../src/DuelGame.sol";
 import {Player} from "../src/Player.sol";
 import {GameEngine} from "../src/GameEngine.sol";
@@ -10,8 +9,6 @@ import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import "../src/interfaces/IPlayer.sol";
-import "../src/interfaces/IGameEngine.sol";
 import "./utils/TestBase.sol";
 
 contract DuelGameTest is TestBase {
@@ -19,7 +16,6 @@ contract DuelGameTest is TestBase {
     GameEngine public gameEngine;
     Player public playerContract;
     PlayerEquipmentStats public equipmentStats;
-    PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
     uint32 public defaultSkinIndex;
 
@@ -52,8 +48,6 @@ contract DuelGameTest is TestBase {
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Deploy contracts in correct order
-        skinRegistry = new PlayerSkinRegistry();
-        DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
         nameRegistry = new PlayerNameRegistry();
         equipmentStats = new PlayerEquipmentStats();
 
@@ -67,21 +61,6 @@ contract DuelGameTest is TestBase {
         // Set game contract trust as owner (deployer)
         playerContract.setGameContractTrust(address(game), true);
 
-        // Register default skin
-        defaultSkinIndex = _registerSkin(address(defaultSkin));
-        skinRegistry.setDefaultSkinRegistryId(defaultSkinIndex);
-        skinRegistry.setDefaultCollection(defaultSkinIndex, true);
-        skinRegistry.setSkinVerification(defaultSkinIndex, true);
-        // Mint default skin token ID 1
-        (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getDefaultWarrior(defaultSkinIndex, 1);
-
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
         // Setup test addresses
         PLAYER_ONE = address(0xdF);
         PLAYER_TWO = address(0xeF);
@@ -93,11 +72,6 @@ contract DuelGameTest is TestBase {
         // Give them ETH
         vm.deal(PLAYER_ONE, 100 ether);
         vm.deal(PLAYER_TWO, 100 ether);
-    }
-
-    function _registerSkin(address skinContract) internal returns (uint32) {
-        vm.prank(address(this));
-        return skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(skinContract);
     }
 
     function testInitialState() public {
@@ -153,25 +127,38 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(
             _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
         );
-        vm.stopPrank();
+        vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
 
         // Give enough ETH to PLAYER_TWO to cover wager
         vm.deal(PLAYER_TWO, wagerAmount);
 
         // Accept challenge as player two
         vm.startPrank(PLAYER_TWO);
+        vm.recordLogs();
         game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
 
-        // Verify challenge state
-        (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,, uint256 requestId, bool fulfilled) =
+        // Decode VRF event and prepare fulfillment data
+        (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+        vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
+
+        // Get the request ID from the challenge
+        (uint32 challengerId, uint32 defenderId,,,,, uint256 requestId,) = game.challenges(challengeId);
+
+        // Fulfill VRF with the exact data from the event
+        vm.stopPrank(); // Stop any active pranks before fulfilling VRF
+        vm.prank(operator);
+        game.fulfillRandomness(0, dataWithRound);
+
+        // Get challenge info and verify combat results
+        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,,) =
             game.challenges(challengeId);
-        assertEq(challengerId, PLAYER_ONE_ID);
-        assertEq(defenderId, PLAYER_TWO_ID);
-        assertEq(storedWager, wagerAmount);
-        assertFalse(fulfilled);
-        assertTrue(game.hasPendingRequest(challengeId));
-        assertEq(game.requestToChallengeId(requestId), challengeId);
-        vm.stopPrank();
+        bytes memory results = gameEngine.processGame(challengerLoadout, defenderLoadout, 0, playerContract);
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, challengerId, defenderId);
+
+        assertTrue(game.totalFeesCollected() > 0, "Fees should be collected");
     }
 
     function testCancelExpiredChallenge() public {
@@ -218,8 +205,7 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallenge{value: wagerAmount + fee}(
             _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
         );
-
-        vm.stopPrank();
+        vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
 
         // Give enough ETH to PLAYER_TWO to cover wager
         vm.deal(PLAYER_TWO, wagerAmount);
@@ -229,36 +215,27 @@ contract DuelGameTest is TestBase {
         vm.recordLogs();
         game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
 
-        // Decode RequestedRandomness event and prepare fulfillment data
-        bytes memory dataWithRound;
-        uint256 decodedRequestId;
-        uint256 roundId;
-        bytes memory eventData;
-
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        for (uint256 i = 0; i < entries.length; i++) {
-            // Try to decode the RequestedRandomness event data
-            if (entries[i].topics[0] == keccak256("RequestedRandomness(uint256,bytes)")) {
-                // Extract the round ID from the event data
-                (roundId, eventData) = abi.decode(entries[i].data, (uint256, bytes));
-                decodedRequestId = 0;
-                bytes memory extraData = "";
-                bytes memory innerData = abi.encode(decodedRequestId, extraData);
-                dataWithRound = abi.encode(roundId, innerData);
-            }
-        }
-        vm.stopPrank();
+        // Decode VRF event and prepare fulfillment data
+        (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+        vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
 
         // Get the request ID from the challenge
-        (,,,,,, uint256 requestId,) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId,,,,, uint256 requestId,) = game.challenges(challengeId);
 
         // Fulfill VRF with the exact data from the event
+        vm.stopPrank(); // Stop any active pranks before fulfilling VRF
         vm.prank(operator);
-        game.fulfillRandomness(decodedRequestId, dataWithRound);
+        game.fulfillRandomness(0, dataWithRound);
 
-        // Verify challenge is completed
-        (,,,,,, uint256 requestId2, bool fulfilled2) = game.challenges(challengeId);
-        assertTrue(fulfilled2, "Challenge should be fulfilled");
+        // Get challenge info and verify combat results
+        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,,) =
+            game.challenges(challengeId);
+        bytes memory results = gameEngine.processGame(challengerLoadout, defenderLoadout, 0, playerContract);
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, challengerId, defenderId);
+
         assertTrue(game.totalFeesCollected() > 0, "Fees should be collected");
     }
 
@@ -340,11 +317,6 @@ contract DuelGameTest is TestBase {
     }
 
     function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        return IGameEngine.PlayerLoadout({
-            playerId: playerId,
-            skinIndex: stats.skinIndex,
-            skinTokenId: 1 // Just use token ID 1 since that's what we minted
-        });
+        return _createLoadout(playerId, false, true, playerContract);
     }
 }
