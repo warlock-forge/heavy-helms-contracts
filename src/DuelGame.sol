@@ -218,7 +218,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
     function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData) internal override {
         uint256 challengeId = requestToChallengeId[requestId];
-        require(challengeId != 0, "Invalid VRF request");
         DuelChallenge storage challenge = challenges[challengeId];
         require(isChallengeActive(challengeId), "Challenge not active");
         require(challenge.vrfRequestId == requestId, "VRF request mismatch");

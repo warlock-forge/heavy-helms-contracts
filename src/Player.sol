@@ -598,4 +598,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
         emit PlayerRetired(uint256(playerId), msg.sender, true);
     }
+
+    // For testing purposes only
+    function setPlayerOwner(uint256 playerId, address owner) external onlyOwner {
+        require(playerId >= 1000 || owner == address(0), "Cannot set owner for default characters");
+        _playerOwners[playerId] = owner;
+    }
 }

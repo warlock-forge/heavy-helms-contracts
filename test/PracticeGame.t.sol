@@ -30,17 +30,14 @@ contract PracticeGameTest is TestBase {
     PlayerEquipmentStats public equipmentStats;
     Player public playerContract;
     PlayerSkinRegistry public skinRegistry;
-    DefaultPlayerSkinNFT public defaultSkin;
     PlayerNameRegistry public nameRegistry;
-    uint32 public skinIndex;
     TestCharacters public chars;
 
     function setUp() public override {
         super.setUp();
 
-        // Deploy contracts in correct order
+        // Deploy registries
         skinRegistry = new PlayerSkinRegistry();
-        defaultSkin = new DefaultPlayerSkinNFT();
         nameRegistry = new PlayerNameRegistry();
         equipmentStats = new PlayerEquipmentStats();
 
@@ -52,16 +49,16 @@ contract PracticeGameTest is TestBase {
         game = new PracticeGame(address(gameEngine), address(playerContract));
 
         // Register default skin and set up registry
-        skinIndex = skinRegistry.registerSkin(address(defaultSkin));
+        vm.deal(address(this), skinRegistry.registrationFee());
+        skinIndex = uint32(skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(defaultSkin)));
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
         skinRegistry.setDefaultCollection(skinIndex, true);
 
-        // Create default characters
+        // Mint default characters for testing
         mintDefaultCharacters();
     }
 
-    // Create default characters using DefaultPlayerLibrary
-    function mintDefaultCharacters() private {
+    function mintDefaultCharacters() internal {
         // Create offensive characters
         (
             IPlayerSkinNFT.WeaponType weapon,

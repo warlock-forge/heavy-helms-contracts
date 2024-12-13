@@ -25,13 +25,14 @@ contract PlayerTest is TestBase {
     PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
     PlayerEquipmentStats public equipmentStats;
-    DefaultPlayerSkinNFT public defaultSkin;
-    address operator;
+    uint32 public defaultSkinIndex;
+
+    // Test addresses
+    address public PLAYER_ONE;
+    address public PLAYER_TWO;
+
     uint256 public ROUND_ID;
     uint256 private constant _PERIOD = 3;
-
-    address public constant PLAYER_ONE = address(0xDF);
-    uint256 public constant PLAYER_ONE_EXPECTED_ID = 1000; // Updated to match nextPlayerId in Player contract
 
     event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
@@ -48,15 +49,15 @@ contract PlayerTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        // Set operator address
-        operator = address(1);
+        // Set up test addresses
+        PLAYER_ONE = address(0x1111);
+        PLAYER_TWO = address(0x2222);
 
         // Set up the test environment with a proper timestamp
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Deploy contracts in correct order
         skinRegistry = new PlayerSkinRegistry();
-        defaultSkin = new DefaultPlayerSkinNFT();
         nameRegistry = new PlayerNameRegistry();
         equipmentStats = new PlayerEquipmentStats();
 
@@ -64,10 +65,10 @@ contract PlayerTest is TestBase {
         playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
 
         // Register default skin
-        uint32 skinIndex = _registerSkin(address(defaultSkin));
-        skinRegistry.setDefaultSkinRegistryId(skinIndex);
-        skinRegistry.setDefaultCollection(skinIndex, true);
-        skinRegistry.setSkinVerification(skinIndex, true); // Verify the skin
+        defaultSkinIndex = _registerSkin(address(new DefaultPlayerSkinNFT()));
+        skinRegistry.setDefaultSkinRegistryId(defaultSkinIndex);
+        skinRegistry.setDefaultCollection(defaultSkinIndex, true);
+        skinRegistry.setSkinVerification(defaultSkinIndex, true); // Verify the skin
 
         // Reset VRF state
         ROUND_ID = 0;
@@ -509,7 +510,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, false);
-        emit PlayerCreationFulfilled(requestId, PLAYER_ONE_EXPECTED_ID, PLAYER_ONE);
+        emit PlayerCreationFulfilled(requestId, 1000, PLAYER_ONE);
         _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
     }
 
@@ -540,65 +541,8 @@ contract PlayerTest is TestBase {
     }
 
     // Helper functions
-    function _assertStatRanges(IPlayer.PlayerStats memory stats, IPlayer.CalculatedStats memory calc) internal pure {
-        // Basic stat bounds
-        assertTrue(stats.strength >= 3 && stats.strength <= 21);
-        assertTrue(stats.constitution >= 3 && stats.constitution <= 21);
-        assertTrue(stats.size >= 3 && stats.size <= 21);
-        assertTrue(stats.agility >= 3 && stats.agility <= 21);
-        assertTrue(stats.stamina >= 3 && stats.stamina <= 21);
-        assertTrue(stats.luck >= 3 && stats.luck <= 21);
-
-        // Health calculation: base(75) + constitution(3-21 * 12) + size(3-21 * 6)
-        uint256 minHealth = 75 + (3 * 12) + (3 * 6); // min stats (3) = 75 + 36 + 18 = 129
-        uint256 maxHealth = 75 + (21 * 12) + (21 * 6); // max stats (21) = 75 + 252 + 126 = 453
-        assertTrue(calc.maxHealth >= minHealth && calc.maxHealth <= maxHealth, "Health out of range");
-
-        assertTrue(calc.damageModifier >= 50 && calc.damageModifier <= 200, "Damage mod out of range");
-        assertTrue(calc.hitChance >= 30 && calc.hitChance <= 100, "Hit chance out of range");
-        assertTrue(calc.critChance <= 50, "Crit chance too high");
-        assertTrue(calc.critMultiplier >= 150 && calc.critMultiplier <= 300, "Crit multiplier out of range");
-    }
-
-    // Helper function to get the current fee amount
-    function _getCreatePlayerFee() internal view returns (uint256) {
-        return playerContract.createPlayerFeeAmount();
-    }
-
-    // Player Creation Helper
-    function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint256 playerId) {
-        // Give enough ETH to cover the fee
-        vm.deal(owner, playerContract.createPlayerFeeAmount());
-
-        vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
-        vm.stopPrank();
-
-        // Get the request hash and fulfill it
-        bytes32 requestHash = playerContract.requestedHash(requestId);
-        bytes memory extraData = "";
-        bytes memory data = abi.encode(requestId, extraData);
-        uint256 round = 0;
-
-        // Find the matching round number
-        while (true) {
-            bytes memory dataWithRound = abi.encode(round, data);
-            if (keccak256(dataWithRound) == requestHash) {
-                // Call fulfillRandomness as operator
-                vm.prank(operator);
-                playerContract.fulfillRandomness(
-                    uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, round))),
-                    dataWithRound
-                );
-                break;
-            }
-            round++;
-        }
-
-        // Get the player ID from the owner's list
-        uint256[] memory playerIds = playerContract.getPlayerIds(owner);
-        require(playerIds.length > 0, "Player not created");
-        return playerIds[playerIds.length - 1];
+    function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint256) {
+        return _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
     }
 
     function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
@@ -652,22 +596,7 @@ contract PlayerTest is TestBase {
 
     // Helper function for VRF fulfillment
     function _fulfillVRF(uint256 requestId, uint256 randomSeed) internal {
-        bytes32 requestHash = playerContract.requestedHash(requestId);
-        bytes memory extraData = "";
-        bytes memory data = abi.encode(requestId, extraData);
-        uint256 round = 0;
-
-        // Find the matching round number
-        while (true) {
-            bytes memory dataWithRound = abi.encode(round, data);
-            if (keccak256(dataWithRound) == requestHash) {
-                // Call fulfillRandomness as operator
-                vm.prank(operator);
-                playerContract.fulfillRandomness(randomSeed, dataWithRound);
-                break;
-            }
-            round++;
-        }
+        _fulfillVRF(requestId, randomSeed, address(playerContract));
     }
 
     function _registerSkin(address skinContract) internal returns (uint32) {
