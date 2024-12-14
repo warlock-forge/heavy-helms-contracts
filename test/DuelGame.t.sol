@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {Test} from "forge-std/Test.sol";
 import {DuelGame} from "../src/DuelGame.sol";
 import {Player} from "../src/Player.sol";
+import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {GameEngine} from "../src/GameEngine.sol";
 import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
@@ -60,8 +61,10 @@ contract DuelGameTest is TestBase {
         game = new DuelGame(address(gameEngine), address(playerContract), operator);
         vm.stopPrank();
 
-        // Set game contract trust as owner (deployer)
-        playerContract.setGameContractTrust(address(game), true);
+        // Set permissions for game contract
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
+        playerContract.setGameContractPermission(address(game), perms);
 
         // Setup test addresses
         PLAYER_ONE = address(0xdF);

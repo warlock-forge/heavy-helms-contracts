@@ -44,8 +44,22 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     // Add GameStats reference
     PlayerEquipmentStats public equipmentStats;
 
-    // Whitelist for trusted game contracts
-    mapping(address => bool) public trustedGameContracts;
+    // Permissions for game contracts
+    mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
+
+    // Modifier to check specific permission
+    modifier hasPermission(IPlayer.GamePermission permission) {
+        IPlayer.GamePermissions storage perms = _gameContractPermissions[msg.sender];
+        bool hasAccess = permission == IPlayer.GamePermission.RECORD
+            ? perms.record
+            : permission == IPlayer.GamePermission.RETIRE
+                ? perms.retire
+                : permission == IPlayer.GamePermission.NAME
+                    ? perms.name
+                    : permission == IPlayer.GamePermission.ATTRIBUTES ? perms.attributes : false;
+        require(hasAccess, "Missing required permission");
+        _;
+    }
 
     // Events
     event PlayerRetired(uint256 indexed playerId, address indexed caller, bool retired);
@@ -65,11 +79,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     uint256 private constant ROUND_ID = 1;
 
     uint32 private nextPlayerId = 1000;
-
-    modifier onlyTrustedGame() {
-        require(trustedGameContracts[msg.sender], "Not a trusted game contract");
-        _;
-    }
 
     struct PendingPlayer {
         address owner;
@@ -555,37 +564,93 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return (playerId, stats);
     }
 
-    function setGameContractTrust(address gameContract, bool trusted) external onlyOwner {
-        trustedGameContracts[gameContract] = trusted;
-        emit GameContractTrustUpdated(gameContract, trusted);
+    function gameContractPermissions(address gameContract) external view returns (GamePermissions memory) {
+        return _gameContractPermissions[gameContract];
     }
 
-    function setPlayerRetired(uint256 playerId, bool retired) external onlyTrustedGame {
-        require(_playerOwners[playerId] != address(0), "Player does not exist");
-        _retiredPlayers[playerId] = retired;
-        emit PlayerRetired(playerId, msg.sender, retired);
+    function setGameContractPermission(address gameContract, IPlayer.GamePermissions memory permissions)
+        external
+        onlyOwner
+    {
+        _gameContractPermissions[gameContract] = permissions;
     }
 
-    function isPlayerRetired(uint256 playerId) external view returns (bool) {
-        return _retiredPlayers[playerId];
-    }
-
-    function incrementWins(uint32 playerId) external onlyTrustedGame {
+    function incrementWins(uint32 playerId) external hasPermission(IPlayer.GamePermission.RECORD) {
         require(_players[playerId].strength != 0, "Player does not exist");
         PlayerStats storage stats = _players[playerId];
         stats.wins++;
     }
 
-    function incrementLosses(uint32 playerId) external onlyTrustedGame {
+    function incrementLosses(uint32 playerId) external hasPermission(IPlayer.GamePermission.RECORD) {
         require(_players[playerId].strength != 0, "Player does not exist");
         PlayerStats storage stats = _players[playerId];
         stats.losses++;
     }
 
-    function incrementKills(uint32 playerId) external onlyTrustedGame {
+    function incrementKills(uint32 playerId) external hasPermission(IPlayer.GamePermission.RECORD) {
         require(_players[playerId].strength != 0, "Player does not exist");
         PlayerStats storage stats = _players[playerId];
         stats.kills++;
+    }
+
+    function setPlayerRetired(uint256 playerId, bool retired) external hasPermission(IPlayer.GamePermission.RETIRE) {
+        require(_players[playerId].strength != 0, "Player does not exist");
+        _retiredPlayers[playerId] = retired;
+        emit PlayerRetired(playerId, msg.sender, retired);
+    }
+
+    function setPlayerName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex)
+        external
+        hasPermission(IPlayer.GamePermission.NAME)
+    {
+        require(_players[playerId].strength != 0, "Player does not exist");
+        PlayerStats storage player = _players[playerId];
+        player.firstNameIndex = firstNameIndex;
+        player.surnameIndex = surnameIndex;
+    }
+
+    function setPlayerAttributes(
+        uint32 playerId,
+        uint8 strength,
+        uint8 constitution,
+        uint8 size,
+        uint8 agility,
+        uint8 stamina,
+        uint8 luck
+    ) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) {
+        require(_players[playerId].strength != 0, "Player does not exist");
+
+        // Create a temporary PlayerStats to validate
+        PlayerStats memory newStats = PlayerStats({
+            strength: strength,
+            constitution: constitution,
+            size: size,
+            agility: agility,
+            stamina: stamina,
+            luck: luck,
+            skinIndex: _players[playerId].skinIndex,
+            skinTokenId: _players[playerId].skinTokenId,
+            firstNameIndex: _players[playerId].firstNameIndex,
+            surnameIndex: _players[playerId].surnameIndex,
+            wins: _players[playerId].wins,
+            losses: _players[playerId].losses,
+            kills: _players[playerId].kills
+        });
+
+        require(_validateStats(newStats), "Invalid player stats");
+
+        // If validation passes, update the player's attributes
+        PlayerStats storage player = _players[playerId];
+        player.strength = strength;
+        player.constitution = constitution;
+        player.size = size;
+        player.agility = agility;
+        player.stamina = stamina;
+        player.luck = luck;
+    }
+
+    function isPlayerRetired(uint256 playerId) external view returns (bool) {
+        return _retiredPlayers[playerId];
     }
 
     function retireOwnPlayer(uint32 playerId) external {

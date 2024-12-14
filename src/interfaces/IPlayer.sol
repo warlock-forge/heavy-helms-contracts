@@ -35,6 +35,21 @@ interface IPlayer {
         uint16 parryChance;
     }
 
+    enum GamePermission {
+        RECORD, // For wins, losses, kills
+        RETIRE, // For retirement status
+        NAME, // For name changes
+        ATTRIBUTES // For attribute modifications
+
+    }
+
+    struct GamePermissions {
+        bool record; // Can modify game records
+        bool retire; // Can retire players
+        bool name; // Can change names
+        bool attributes; // Can modify attributes
+    }
+
     function equipmentStats() external view returns (PlayerEquipmentStats);
     function skinRegistry() external view returns (PlayerSkinRegistry);
     function getPlayerIds(address owner) external view returns (uint256[] memory);
@@ -48,10 +63,20 @@ interface IPlayer {
     function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner);
     function isPlayerRetired(uint256 playerId) external view returns (bool);
     function setPlayerRetired(uint256 playerId, bool retired) external;
-    function trustedGameContracts(address gameContract) external view returns (bool);
-    function setGameContractTrust(address gameContract, bool trusted) external;
+    function gameContractPermissions(address gameContract) external view returns (GamePermissions memory);
+    function setGameContractPermission(address gameContract, GamePermissions memory permissions) external;
     function incrementWins(uint32 playerId) external;
     function incrementLosses(uint32 playerId) external;
     function incrementKills(uint32 playerId) external;
+    function setPlayerName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex) external;
+    function setPlayerAttributes(
+        uint32 playerId,
+        uint8 strength,
+        uint8 constitution,
+        uint8 size,
+        uint8 agility,
+        uint8 stamina,
+        uint8 luck
+    ) external;
     function retireOwnPlayer(uint32 playerId) external;
 }

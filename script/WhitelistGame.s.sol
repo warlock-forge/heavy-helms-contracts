@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../src/Player.sol";
+import {IPlayer} from "../src/interfaces/IPlayer.sol";
 
 contract WhitelistGameScript is Script {
     function setUp() public {}
@@ -17,10 +18,10 @@ contract WhitelistGameScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         Player playerContract = Player(playerAddr);
-
-        // Whitelist the Game contract
-        playerContract.setGameContractTrust(gameAddr, true);
-        console.log("Game contract whitelisted:", gameAddr);
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
+        playerContract.setGameContractPermission(gameAddr, perms);
+        console.log("Game contract permission set:", gameAddr);
 
         vm.stopBroadcast();
     }

@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import {DuelGame} from "../src/DuelGame.sol";
 import {GameEngine} from "../src/GameEngine.sol";
 import {Player} from "../src/Player.sol";
+import {IPlayer} from "../src/interfaces/IPlayer.sol";
 
 contract DuelGameDeployScript is Script {
     function setUp() public {}
@@ -28,7 +29,9 @@ contract DuelGameDeployScript is Script {
 
         // Whitelist DuelGame in Player contract
         Player playerContract = Player(playerAddr);
-        playerContract.setGameContractTrust(address(duelGame), true);
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
+        playerContract.setGameContractPermission(address(duelGame), perms);
 
         console2.log("\n=== Deployed Addresses ===");
         console2.log("DuelGame:", address(duelGame));
