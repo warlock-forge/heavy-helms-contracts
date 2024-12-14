@@ -20,6 +20,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
     uint256 private constant ROUND_ID = 1;
 
+    address private _operatorAddress;
+
     // Structs
     struct DuelChallenge {
         uint32 challengerId;
@@ -39,9 +41,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     mapping(uint256 => bool) public hasPendingRequest; // Track if challenge has pending request
     mapping(address => mapping(uint256 => bool)) public userChallenges; // Track challenges per user
 
-    // Add operator as a state variable
-    address private immutable _operatorAddress;
-
     // Game state
     bool public isGameEnabled = true;
 
@@ -57,9 +56,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event ChallengeCancelled(uint256 indexed challengeId);
     event ChallengeExpired(uint256 indexed challengeId);
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
-    event DuelComplete(
-        uint256 indexed challengeId, uint32 indexed winnerId, uint32 indexed loserId, uint256 winnerPrize
-    );
+    event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomSeed, uint256 winnerPayout);
     event FeesWithdrawn(uint256 amount);
     event MinDuelFeeUpdated(uint256 oldFee, uint256 newFee);
     event MinWagerAmountUpdated(uint256 newAmount);
@@ -75,12 +72,18 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         BaseGame(_gameEngine, _playerContract)
         GelatoVRFConsumerBase()
     {
+        require(operator != address(0), "Invalid operator address");
         _operatorAddress = operator;
     }
 
     // Override _operator to use the operator address
     function _operator() internal view override returns (address) {
         return _operatorAddress;
+    }
+
+    function setOperator(address newOperator) external onlyOwner {
+        require(newOperator != address(0), "Invalid operator address");
+        _operatorAddress = newOperator;
     }
 
     function setMinDuelFee(uint256 _minDuelFee) external onlyOwner {
@@ -109,13 +112,16 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint32 defenderId,
         uint256 wagerAmount
     ) external payable whenGameEnabled nonReentrant returns (uint256) {
+        require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
         // Calculate required msg.value based on wager
         uint256 requiredAmount;
         if (wagerAmount == 0) {
             requiredAmount = minDuelFee;
+            totalFeesCollected += minDuelFee; // Always collect minDuelFee upfront for operational costs
         } else {
             require(wagerAmount >= minWagerAmount, "Wager below minimum");
             requiredAmount = wagerAmount;
+            totalFeesCollected += minDuelFee; // Always collect minDuelFee upfront, even for wagered duels
         }
 
         require(msg.value == requiredAmount, "Incorrect ETH amount sent");
@@ -204,9 +210,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function cancelChallenge(uint256 challengeId) external nonReentrant {
         DuelChallenge storage challenge = challenges[challengeId];
 
-        // Can only cancel if it exists but is NOT active (has expired)
+        // Can only cancel if it exists
         require(challenge.challengerId != 0, "Challenge does not exist");
-        require(!isChallengeActive(challengeId), "Challenge still active");
 
         // Get challenger's address
         address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
@@ -219,19 +224,19 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         userChallenges[challenger][challengeId] = false;
         userChallenges[IPlayer(playerContract).getPlayerOwner(challenge.defenderId)][challengeId] = false;
 
-        // Only keep minDuelFee as cancellation fee, return rest
-        uint256 refundAmount = challenge.wagerAmount - minDuelFee;
-        totalFeesCollected += minDuelFee;
-
-        (bool sent,) = payable(challenger).call{value: refundAmount}("");
-        require(sent, "Failed to send refund");
+        // Handle refund for wagered duels
+        if (challenge.wagerAmount > 0) {
+            uint256 refundAmount = challenge.wagerAmount - minDuelFee;
+            (bool sent,) = payable(challenger).call{value: refundAmount}("");
+            require(sent, "Failed to send refund");
+        }
 
         emit ChallengeCancelled(challengeId);
     }
 
     function calculateFee(uint256 amount) public view returns (uint256) {
         // If amount is 0 or below min wager, return minimum fee
-        if (amount == 0 || amount < minWagerAmount) return minDuelFee;
+        if (amount < minWagerAmount) return minDuelFee;
 
         // Calculate percentage fee (3% of amount)
         uint256 percentageFee = (amount * wagerFeePercentage) / 10000;
@@ -280,25 +285,32 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Determine loser ID
         uint32 loserId = winnerId == challenge.challengerId ? challenge.defenderId : challenge.challengerId;
 
-        uint256 winnerPrize = 0;
+        // Emit combat results first
+        emit CombatResult(challenge.challengerId, challenge.defenderId, winnerId, results);
+
+        uint256 winnerPayout = 0;
         if (challenge.wagerAmount > 0) {
             // Calculate winner's prize (total wager minus fee)
             uint256 totalWager = challenge.wagerAmount * 2;
             uint256 fee = calculateFee(totalWager);
             totalFeesCollected += fee;
-            winnerPrize = totalWager - fee;
+            winnerPayout = totalWager - fee;
 
             // Get winner's address and transfer prize
             address winner = IPlayer(playerContract).getPlayerOwner(winnerId);
-            (bool sent,) = payable(winner).call{value: winnerPrize}("");
+            (bool sent,) = payable(winner).call{value: winnerPayout}("");
             require(sent, "Failed to send prize");
+        } else {
+            // Add minDuelFee to totalFeesCollected for non-wagered duels
+            totalFeesCollected += minDuelFee;
         }
 
         // Update player stats
         IPlayer(playerContract).incrementWins(winnerId);
         IPlayer(playerContract).incrementLosses(loserId);
 
-        emit DuelComplete(challengeId, winnerId, loserId, winnerPrize);
+        // Emit economic results
+        emit DuelComplete(challengeId, winnerId, combinedSeed, winnerPayout);
     }
 
     function getUserActiveChallenges(address user) external view returns (uint256[] memory) {

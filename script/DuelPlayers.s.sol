@@ -42,20 +42,14 @@ contract DuelPlayersScript is Script {
 
         // Get minimum duel fee
         uint256 minDuelFee = duelGame.minDuelFee();
-        uint256 wagerAmount = 1 wei;
 
-        // Initiate challenge with minimum fee and 1 wei wager
-        uint256 challengeId =
-            duelGame.initiateChallenge{value: minDuelFee + wagerAmount}(challengerLoadout, defenderId, wagerAmount);
+        uint256 challengeId = duelGame.initiateChallenge{value: minDuelFee}(challengerLoadout, defenderId, 0);
 
         console2.log("\n=== Challenge Initiated ===");
         console2.log("Challenge ID:", challengeId);
-        console2.log("Challenger ID:", challengerId);
-        console2.log("Defender ID:", defenderId);
-        console2.log("Wager Amount:", wagerAmount);
 
         // Accept challenge
-        duelGame.acceptChallenge{value: wagerAmount}(challengeId, defenderLoadout);
+        duelGame.acceptChallenge(challengeId, defenderLoadout);
 
         console2.log("\n=== Challenge Accepted ===");
         console2.log("Challenge ID:", challengeId);

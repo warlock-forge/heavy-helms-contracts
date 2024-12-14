@@ -89,8 +89,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     mapping(uint256 => PendingPlayer) private _pendingPlayers;
     mapping(address => uint256[]) private _userPendingRequests;
 
-    // Add operator as a state variable
-    address private immutable _operatorAddress;
+    // Change from immutable to mutable operator
+    address private _operatorAddress;
 
     constructor(
         address skinRegistryAddress,
@@ -104,6 +104,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
         _operatorAddress = operator;
+    }
+
+    // Add setOperator function
+    function setOperator(address newOperator) external onlyOwner {
+        require(newOperator != address(0), "Invalid operator address");
+        _operatorAddress = newOperator;
     }
 
     // Override _operator to use the operator address
