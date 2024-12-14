@@ -16,13 +16,12 @@ contract DuelGameDeployScript is Script {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-                address operator = vm.envAddress("GELATO_VRF_OPERATOR");
+        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
         vm.startBroadcast(deployerPrivateKey);
-        
 
         // Deploy DuelGame
         DuelGame duelGame = new DuelGame(gameEngineAddr, playerAddr, operator);
