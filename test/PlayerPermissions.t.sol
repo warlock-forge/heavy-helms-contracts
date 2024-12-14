@@ -39,114 +39,98 @@ contract PlayerPermissionsTest is TestBase {
     function test_PermissionChecks() public {
         // Try operations without permissions (should fail)
         vm.startPrank(gameContract);
-        
+
         vm.expectRevert("Missing required permission");
         playerContract.incrementWins(playerId);
-        
+
         vm.expectRevert("Missing required permission");
         playerContract.setPlayerRetired(playerId, true);
-        
+
         vm.expectRevert("Missing required permission");
         playerContract.setPlayerName(playerId, 1, 1);
-        
+
         vm.expectRevert("Missing required permission");
         playerContract.setPlayerAttributes(playerId, 10, 10, 10, 10, 10, 10);
-        
+
         vm.stopPrank();
     }
 
     function test_RecordPermission() public {
         // Grant only RECORD permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: true,
-            retire: false,
-            name: false,
-            attributes: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
         playerContract.setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
-        
+
         // These should succeed
         playerContract.incrementWins(playerId);
         playerContract.incrementLosses(playerId);
         playerContract.incrementKills(playerId);
-        
+
         // Other operations should still fail
         vm.expectRevert("Missing required permission");
         playerContract.setPlayerRetired(playerId, true);
-        
+
         vm.stopPrank();
     }
 
     function test_AttributePermission() public {
         // Grant only ATTRIBUTES permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            name: false,
-            attributes: true
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true});
         playerContract.setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
-        
+
         // Should succeed with valid stats (sum = 72)
         playerContract.setPlayerAttributes(playerId, 12, 12, 12, 12, 12, 12);
-        
+
         // Should fail with invalid total
         vm.expectRevert("Invalid player stats");
         playerContract.setPlayerAttributes(playerId, 5, 5, 5, 5, 5, 5);
-        
+
         vm.stopPrank();
     }
 
     function test_NamePermission() public {
         // Grant only NAME permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            name: true,
-            attributes: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false});
         playerContract.setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
-        
+
         // Should succeed
         playerContract.setPlayerName(playerId, 1, 1);
-        
+
         // Other operations should fail
         vm.expectRevert("Missing required permission");
         playerContract.incrementWins(playerId);
-        
+
         vm.stopPrank();
     }
 
     function test_RetirePermission() public {
         // Grant only RETIRE permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: true,
-            name: false,
-            attributes: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: false, retire: true, name: false, attributes: false});
         playerContract.setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
-        
+
         // Should succeed
         playerContract.setPlayerRetired(playerId, true);
         assertTrue(playerContract.isPlayerRetired(playerId));
-        
+
         // Should be able to un-retire
         playerContract.setPlayerRetired(playerId, false);
         assertFalse(playerContract.isPlayerRetired(playerId));
-        
+
         // Other operations should fail
         vm.expectRevert("Missing required permission");
         playerContract.incrementWins(playerId);
-        
+
         vm.stopPrank();
     }
 }
