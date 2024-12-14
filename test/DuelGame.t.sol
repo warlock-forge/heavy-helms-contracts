@@ -55,8 +55,10 @@ contract DuelGameTest is TestBase {
         playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
 
         // Deploy Game contracts
+        vm.startPrank(operator);
         gameEngine = new GameEngine();
         game = new DuelGame(address(gameEngine), address(playerContract), operator);
+        vm.stopPrank();
 
         // Set game contract trust as owner (deployer)
         playerContract.setGameContractTrust(address(game), true);
@@ -84,20 +86,16 @@ contract DuelGameTest is TestBase {
     function testCreateChallenge() public {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        uint256 fee = (wagerAmount * game.WAGER_FEE_PERCENTAGE()) / 10000;
-        // Use max of percentage fee or min fee
-        fee = fee > game.minDuelFee() ? fee : game.minDuelFee();
-        uint256 totalAmount = wagerAmount + fee;
+
+        // Calculate fee based on wager amount
+        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
+        uint256 totalAmount = wagerAmount;
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
 
-        // Ensure PLAYER_ONE owns the player
-        require(playerContract.getPlayerOwner(PLAYER_ONE_ID) == PLAYER_ONE, "Player one should own their player");
-
         IGameEngine.PlayerLoadout memory loadout = _createLoadout(uint32(PLAYER_ONE_ID));
 
-        // Expect the challenge created event
         vm.expectEmit(true, true, true, true);
         emit ChallengeCreated(0, uint32(PLAYER_ONE_ID), uint32(PLAYER_TWO_ID), wagerAmount, block.number);
 
@@ -116,10 +114,10 @@ contract DuelGameTest is TestBase {
         // First create a challenge
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        uint256 fee = (wagerAmount * game.WAGER_FEE_PERCENTAGE()) / 10000;
-        // Use max of percentage fee or min fee
-        fee = fee > game.minDuelFee() ? fee : game.minDuelFee();
-        uint256 totalAmount = wagerAmount + fee;
+
+        // Calculate fee based on wager amount
+        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
+        uint256 totalAmount = wagerAmount;
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -164,10 +162,10 @@ contract DuelGameTest is TestBase {
     function testCancelExpiredChallenge() public {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        uint256 fee = (wagerAmount * game.WAGER_FEE_PERCENTAGE()) / 10000;
-        // Use max of percentage fee or min fee
-        fee = fee > game.minDuelFee() ? fee : game.minDuelFee();
-        uint256 totalAmount = wagerAmount + fee;
+
+        // Calculate fee based on wager amount
+        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
+        uint256 totalAmount = wagerAmount;
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -197,12 +195,15 @@ contract DuelGameTest is TestBase {
     function testCompleteDuel() public {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        uint256 fee = (wagerAmount * game.WAGER_FEE_PERCENTAGE()) / 10000;
+
+        // Calculate fee based on wager amount
+        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
+        uint256 totalAmount = wagerAmount;
 
         // Give enough ETH to cover wager + fee
-        vm.deal(PLAYER_ONE, wagerAmount + fee);
+        vm.deal(PLAYER_ONE, totalAmount);
 
-        uint256 challengeId = game.initiateChallenge{value: wagerAmount + fee}(
+        uint256 challengeId = game.initiateChallenge{value: totalAmount}(
             _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
         );
         vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
@@ -242,10 +243,10 @@ contract DuelGameTest is TestBase {
     function testForceCloseAbandonedChallenge() public {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        uint256 fee = (wagerAmount * game.WAGER_FEE_PERCENTAGE()) / 10000;
-        // Use max of percentage fee or min fee
-        fee = fee > game.minDuelFee() ? fee : game.minDuelFee();
-        uint256 totalAmount = wagerAmount + fee;
+
+        // Calculate fee based on wager amount
+        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
+        uint256 totalAmount = wagerAmount;
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -264,8 +265,9 @@ contract DuelGameTest is TestBase {
 
         // Force close the challenge as owner
         vm.stopPrank();
-        vm.prank(game.owner());
+        vm.startPrank(game.owner());
         game.forceCloseAbandonedChallenge(challengeId);
+        vm.stopPrank();
 
         // Verify challenge state
         (,,,,,, bool fulfilled) = game.challenges(challengeId);
@@ -291,7 +293,7 @@ contract DuelGameTest is TestBase {
         game.cancelChallenge(999);
 
         // Try to cancel active challenge
-        uint256 fee = (wagerAmount * game.WAGER_FEE_PERCENTAGE()) / 10000;
+        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
         uint256 challengeId = game.initiateChallenge{value: wagerAmount + fee}(
             _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
         );
@@ -308,12 +310,44 @@ contract DuelGameTest is TestBase {
 
     function testUpdateMinDuelFee() public {
         uint256 newFee = 0.001 ether;
-        vm.prank(game.owner());
+        vm.startPrank(game.owner());
         vm.expectEmit(true, true, false, false);
         emit MinDuelFeeUpdated(game.minDuelFee(), newFee);
 
         game.setMinDuelFee(newFee);
         assertEq(game.minDuelFee(), newFee);
+        vm.stopPrank();
+    }
+
+    function testGameToggle() public {
+        // Verify game starts enabled
+        assertTrue(game.isGameEnabled(), "Game should start enabled");
+
+        // Verify non-owner can't disable
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("UNAUTHORIZED");
+        game.setGameEnabled(false);
+
+        // Owner can disable
+        vm.startPrank(game.owner());
+        game.setGameEnabled(false);
+        assertFalse(game.isGameEnabled(), "Game should be disabled");
+
+        // Give PLAYER_ONE some ETH
+        vm.deal(PLAYER_ONE, 100 ether);
+        uint256 wagerAmount = 1 ether;
+
+        vm.startPrank(PLAYER_ONE);
+        IGameEngine.PlayerLoadout memory loadout = _createLoadout(uint32(PLAYER_ONE_ID));
+        vm.expectRevert("Game is disabled");
+        game.initiateChallenge{value: wagerAmount}(loadout, uint32(PLAYER_TWO_ID), wagerAmount);
+        vm.stopPrank();
+
+        // Owner can re-enable
+        vm.startPrank(game.owner());
+        game.setGameEnabled(true);
+        assertTrue(game.isGameEnabled(), "Game should be re-enabled");
+        vm.stopPrank();
     }
 
     function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {

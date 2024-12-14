@@ -3,9 +3,8 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../src/Player.sol";
-import {DuelGame} from "../src/DuelGame.sol";
 
-contract WhitelistDuelGameScript is Script {
+contract WhitelistGameScript is Script {
     function setUp() public {}
 
     function run(address gameAddr, address playerAddr) public {
@@ -19,9 +18,9 @@ contract WhitelistDuelGameScript is Script {
 
         Player playerContract = Player(playerAddr);
 
-        // Whitelist the DuelGame contract
+        // Whitelist the Game contract
         playerContract.setGameContractTrust(gameAddr, true);
-        console.log("DuelGame contract whitelisted:", gameAddr);
+        console.log("Game contract whitelisted:", gameAddr);
 
         vm.stopBroadcast();
     }

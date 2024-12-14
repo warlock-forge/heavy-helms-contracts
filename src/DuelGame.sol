@@ -12,11 +12,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
 
     // Constants
-    uint256 public constant WAGER_FEE_PERCENTAGE = 300; // 3% fee (basis points)
+    uint256 public wagerFeePercentage = 300; // 3% fee (basis points)
+    uint256 public minWagerAmount = 0.001 ether;
+    uint256 public minDuelFee = 0.0005 ether;
     uint256 public constant BLOCKS_UNTIL_EXPIRE = 43200; // ~24 hours at 2s blocks
     uint256 public constant BLOCKS_UNTIL_WITHDRAW = 1296000; // ~30 days at 2s blocks
 
-    uint256 public minDuelFee = 0.0005 ether;
     uint256 private constant ROUND_ID = 1;
 
     // Structs
@@ -41,6 +42,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     // Add operator as a state variable
     address private immutable _operatorAddress;
 
+    // Game state
+    bool public isGameEnabled = true;
+
     // Events
     event ChallengeCreated(
         uint256 indexed challengeId,
@@ -58,6 +62,14 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     );
     event FeesWithdrawn(uint256 amount);
     event MinDuelFeeUpdated(uint256 oldFee, uint256 newFee);
+    event MinWagerAmountUpdated(uint256 newAmount);
+    event GameEnabledUpdated(bool enabled);
+    event WagerFeePercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
+
+    modifier whenGameEnabled() {
+        require(isGameEnabled, "Game is disabled");
+        _;
+    }
 
     constructor(address _gameEngine, address _playerContract, address operator)
         BaseGame(_gameEngine, _playerContract)
@@ -72,23 +84,38 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     function setMinDuelFee(uint256 _minDuelFee) external onlyOwner {
-        uint256 oldFee = minDuelFee;
+        emit MinDuelFeeUpdated(minDuelFee, _minDuelFee);
         minDuelFee = _minDuelFee;
-        emit MinDuelFeeUpdated(oldFee, _minDuelFee);
+    }
+
+    function setMinWagerAmount(uint256 _minWagerAmount) external onlyOwner {
+        emit MinWagerAmountUpdated(_minWagerAmount);
+        minWagerAmount = _minWagerAmount;
+    }
+
+    function setWagerFeePercentage(uint256 _wagerFeePercentage) external onlyOwner {
+        require(_wagerFeePercentage <= 1000, "Fee cannot exceed 10%"); // Safety check
+        emit WagerFeePercentageUpdated(wagerFeePercentage, _wagerFeePercentage);
+        wagerFeePercentage = _wagerFeePercentage;
+    }
+
+    function setGameEnabled(bool enabled) external onlyOwner {
+        emit GameEnabledUpdated(enabled);
+        isGameEnabled = enabled;
     }
 
     function initiateChallenge(
         IGameEngine.PlayerLoadout calldata challengerLoadout,
         uint32 defenderId,
         uint256 wagerAmount
-    ) external payable nonReentrant returns (uint256) {
+    ) external payable whenGameEnabled nonReentrant returns (uint256) {
         // Calculate required msg.value based on wager
         uint256 requiredAmount;
         if (wagerAmount == 0) {
             requiredAmount = minDuelFee;
         } else {
-            uint256 percentageFee = (wagerAmount * WAGER_FEE_PERCENTAGE) / 10000;
-            requiredAmount = wagerAmount + (percentageFee >= minDuelFee ? percentageFee : minDuelFee);
+            require(wagerAmount >= minWagerAmount, "Wager below minimum");
+            requiredAmount = wagerAmount;
         }
 
         require(msg.value == requiredAmount, "Incorrect ETH amount sent");
@@ -203,11 +230,11 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     function calculateFee(uint256 amount) public view returns (uint256) {
-        // If amount is 0 or too small, return minimum fee
-        if (amount == 0) return minDuelFee;
+        // If amount is 0 or below min wager, return minimum fee
+        if (amount == 0 || amount < minWagerAmount) return minDuelFee;
 
         // Calculate percentage fee (3% of amount)
-        uint256 percentageFee = (amount * WAGER_FEE_PERCENTAGE) / 10000;
+        uint256 percentageFee = (amount * wagerFeePercentage) / 10000;
 
         // Return the larger of percentage fee or minimum fee
         return percentageFee > minDuelFee ? percentageFee : minDuelFee;
