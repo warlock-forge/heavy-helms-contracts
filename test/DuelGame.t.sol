@@ -104,7 +104,7 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, uint32(PLAYER_TWO_ID), wagerAmount);
 
         assertEq(challengeId, 0);
-        (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,,, bool fulfilled) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,, bool fulfilled) = game.challenges(challengeId);
         assertEq(challengerId, PLAYER_ONE_ID);
         assertEq(defenderId, PLAYER_TWO_ID);
         assertEq(storedWager, wagerAmount);
@@ -142,16 +142,16 @@ contract DuelGameTest is TestBase {
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
         vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
 
-        // Get the request ID from the challenge
-        (uint32 challengerId, uint32 defenderId,,,,, uint256 requestId,) = game.challenges(challengeId);
+        // Get the challenger and defender IDs
+        (uint32 challengerId, uint32 defenderId,,,,,) = game.challenges(challengeId);
 
         // Fulfill VRF with the exact data from the event
         vm.stopPrank(); // Stop any active pranks before fulfilling VRF
         vm.prank(operator);
         game.fulfillRandomness(0, dataWithRound);
 
-        // Get challenge info and verify combat results
-        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,,) =
+        // Get loadouts from challenge
+        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         bytes memory results = gameEngine.processGame(challengerLoadout, defenderLoadout, 0, playerContract);
         (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
@@ -188,7 +188,7 @@ contract DuelGameTest is TestBase {
         game.cancelChallenge(challengeId);
 
         // Verify challenge state
-        (,,,,,,, bool fulfilled) = game.challenges(challengeId);
+        (,,,,,, bool fulfilled) = game.challenges(challengeId);
         assertTrue(fulfilled);
         assertFalse(game.userChallenges(challenger, challengeId));
         vm.stopPrank();
@@ -220,16 +220,16 @@ contract DuelGameTest is TestBase {
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
         vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
 
-        // Get the request ID from the challenge
-        (uint32 challengerId, uint32 defenderId,,,,, uint256 requestId,) = game.challenges(challengeId);
+        // Get the challenger and defender IDs
+        (uint32 challengerId, uint32 defenderId,,,,,) = game.challenges(challengeId);
 
         // Fulfill VRF with the exact data from the event
         vm.stopPrank(); // Stop any active pranks before fulfilling VRF
         vm.prank(operator);
         game.fulfillRandomness(0, dataWithRound);
 
-        // Get challenge info and verify combat results
-        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,,) =
+        // Get loadouts from challenge
+        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         bytes memory results = gameEngine.processGame(challengerLoadout, defenderLoadout, 0, playerContract);
         (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
@@ -268,7 +268,7 @@ contract DuelGameTest is TestBase {
         game.forceCloseAbandonedChallenge(challengeId);
 
         // Verify challenge state
-        (,,,,,,, bool fulfilled) = game.challenges(challengeId);
+        (,,,,,, bool fulfilled) = game.challenges(challengeId);
         assertTrue(fulfilled);
         assertFalse(game.userChallenges(challenger, challengeId));
     }

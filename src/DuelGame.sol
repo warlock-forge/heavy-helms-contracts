@@ -27,7 +27,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 createdBlock;
         IGameEngine.PlayerLoadout challengerLoadout;
         IGameEngine.PlayerLoadout defenderLoadout;
-        uint256 vrfRequestId;
         bool fulfilled;
     }
 
@@ -120,7 +119,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             createdBlock: block.number,
             challengerLoadout: challengerLoadout,
             defenderLoadout: IGameEngine.PlayerLoadout(0, 0, 0),
-            vrfRequestId: 0,
             fulfilled: false
         });
 
@@ -170,7 +168,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Request VRF for true randomness
         uint256 requestId = _requestRandomness("");
-        challenge.vrfRequestId = requestId;
         requestToChallengeId[requestId] = challengeId;
         hasPendingRequest[challengeId] = true;
 
@@ -220,7 +217,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 challengeId = requestToChallengeId[requestId];
         DuelChallenge storage challenge = challenges[challengeId];
         require(isChallengeActive(challengeId), "Challenge not active");
-        require(challenge.vrfRequestId == requestId, "VRF request mismatch");
 
         // Clear request tracking
         delete requestToChallengeId[requestId];
@@ -257,16 +253,19 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Determine loser ID
         uint32 loserId = winnerId == challenge.challengerId ? challenge.defenderId : challenge.challengerId;
 
-        // Calculate winner's prize (total wager minus fee)
-        uint256 totalWager = challenge.wagerAmount * 2;
-        uint256 fee = calculateFee(totalWager);
-        totalFeesCollected += fee;
-        uint256 winnerPrize = totalWager - fee;
+        uint256 winnerPrize = 0;
+        if (challenge.wagerAmount > 0) {
+            // Calculate winner's prize (total wager minus fee)
+            uint256 totalWager = challenge.wagerAmount * 2;
+            uint256 fee = calculateFee(totalWager);
+            totalFeesCollected += fee;
+            winnerPrize = totalWager - fee;
 
-        // Get winner's address and transfer prize
-        address winner = IPlayer(playerContract).getPlayerOwner(winnerId);
-        (bool sent,) = payable(winner).call{value: winnerPrize}("");
-        require(sent, "Failed to send prize");
+            // Get winner's address and transfer prize
+            address winner = IPlayer(playerContract).getPlayerOwner(winnerId);
+            (bool sent,) = payable(winner).call{value: winnerPrize}("");
+            require(sent, "Failed to send prize");
+        }
 
         // Update player stats
         IPlayer(playerContract).incrementWins(winnerId);

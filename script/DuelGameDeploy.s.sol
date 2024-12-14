@@ -26,8 +26,13 @@ contract DuelGameDeployScript is Script {
         // Deploy DuelGame
         DuelGame duelGame = new DuelGame(gameEngineAddr, playerAddr, operator);
 
+        // Whitelist DuelGame in Player contract
+        Player playerContract = Player(playerAddr);
+        playerContract.setGameContractTrust(address(duelGame), true);
+
         console2.log("\n=== Deployed Addresses ===");
         console2.log("DuelGame:", address(duelGame));
+        console2.log("DuelGame whitelisted in Player contract");
 
         vm.stopBroadcast();
     }
