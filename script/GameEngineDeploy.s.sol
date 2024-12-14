@@ -20,7 +20,7 @@ contract GameEngineDeployScript is Script {
         // Deploy GameEngine
         GameEngine gameEngine = new GameEngine();
 
-        console2.log("Deployed Addresses:");
+        console2.log("\n=== Deployed Addresses ===");
         console2.log("GameEngine:", address(gameEngine));
 
         vm.stopBroadcast();

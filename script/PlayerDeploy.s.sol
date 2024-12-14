@@ -66,8 +66,7 @@ contract PlayerDeployScript is Script {
 
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
 
-        // Log deployed addresses
-        console2.log("Deployed Addresses:");
+        console2.log("\n=== Deployed Addresses ===");
         console2.log("PlayerEquipmentStats:", address(equipmentStats));
         console2.log("PlayerSkinRegistry:", address(skinRegistry));
         console2.log("PlayerNameRegistry:", address(nameRegistry));
