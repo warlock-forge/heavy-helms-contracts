@@ -53,19 +53,25 @@ interface IPlayer {
         bool attributes; // Can modify attributes
     }
 
+    error PlayerDoesNotExist(uint32 playerId);
+
+    // Events
+    event PlayerRetired(uint32 indexed playerId, address indexed caller, bool retired);
+    event PlayerResurrected(uint32 indexed playerId);
+    event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
+    event PlayerCreationFulfilled(uint256 indexed requestId, uint32 indexed playerId, address indexed owner);
+
     function equipmentStats() external view returns (PlayerEquipmentStats);
     function skinRegistry() external view returns (PlayerSkinRegistry);
-    function getPlayerIds(address owner) external view returns (uint256[] memory);
-    function getPlayer(uint256 playerId) external view returns (PlayerStats memory);
-    function getPlayerOwner(uint256 playerId) external view returns (address);
-    function players(uint256 playerId) external view returns (PlayerStats memory);
-    function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina);
+    function getPlayerIds(address owner) external view returns (uint32[] memory);
+    function getPlayer(uint32 playerId) external view returns (PlayerStats memory);
+    function getPlayerOwner(uint32 playerId) external view returns (address);
     function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory);
     function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId);
     function getPendingRequests(address user) external view returns (uint256[] memory);
     function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner);
-    function isPlayerRetired(uint256 playerId) external view returns (bool);
-    function setPlayerRetired(uint256 playerId, bool retired) external;
+    function isPlayerRetired(uint32 playerId) external view returns (bool);
+    function setPlayerRetired(uint32 playerId, bool retired) external;
     function gameContractPermissions(address gameContract) external view returns (GamePermissions memory);
     function setGameContractPermission(address gameContract, GamePermissions memory permissions) external;
     function incrementWins(uint32 playerId) external;

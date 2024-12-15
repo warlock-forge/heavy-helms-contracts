@@ -14,7 +14,7 @@ interface IDefaultPlayerSkinNFT is IPlayerSkinNFT {
         uint16 desiredTokenId
     ) external returns (uint16);
 
-    function getDefaultPlayerStats(uint256 tokenId) external view returns (IPlayer.PlayerStats memory);
+    function getDefaultPlayerStats(uint32 tokenId) external view returns (IPlayer.PlayerStats memory);
 
     event DefaultPlayerSkinMinted(uint16 indexed tokenId, IPlayer.PlayerStats stats);
 }

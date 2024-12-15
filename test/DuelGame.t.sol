@@ -19,8 +19,8 @@ contract DuelGameTest is TestBase {
     // Test addresses
     address public PLAYER_ONE;
     address public PLAYER_TWO;
-    uint256 public PLAYER_ONE_ID;
-    uint256 public PLAYER_TWO_ID;
+    uint32 public PLAYER_ONE_ID;
+    uint32 public PLAYER_TWO_ID;
 
     // Events to test
     event ChallengeCreated(
@@ -86,12 +86,12 @@ contract DuelGameTest is TestBase {
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
 
-        IGameEngine.PlayerLoadout memory loadout = _createLoadout(uint32(PLAYER_ONE_ID));
+        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         vm.expectEmit(true, true, true, true);
-        emit ChallengeCreated(0, uint32(PLAYER_ONE_ID), uint32(PLAYER_TWO_ID), wagerAmount, block.number);
+        emit ChallengeCreated(0, PLAYER_ONE_ID, PLAYER_TWO_ID, wagerAmount, block.number);
 
-        uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, uint32(PLAYER_TWO_ID), wagerAmount);
+        uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
 
         assertEq(challengeId, 0);
         (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,, bool fulfilled) = game.challenges(challengeId);
@@ -115,7 +115,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
         vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
 
@@ -125,7 +125,7 @@ contract DuelGameTest is TestBase {
         // Accept challenge as player two
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
-        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
 
         // Decode VRF event and prepare fulfillment data
         (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
@@ -169,7 +169,7 @@ contract DuelGameTest is TestBase {
 
         // Create a challenge
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
 
         // Warp to after expiry
@@ -197,7 +197,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
         vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
 
@@ -207,7 +207,7 @@ contract DuelGameTest is TestBase {
         // Accept challenge as player two
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
-        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
 
         // Decode VRF event and prepare fulfillment data
         (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
@@ -251,7 +251,7 @@ contract DuelGameTest is TestBase {
 
         // Create a challenge
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
 
         // Warp to after withdrawal period
@@ -275,12 +275,12 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
         vm.expectRevert("Incorrect ETH amount sent");
         game.initiateChallenge{value: wagerAmount}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
 
         // Try to create challenge with default character
         vm.expectRevert("Cannot use default character as challenger");
-        game.initiateChallenge{value: wagerAmount}(_createLoadout(999), uint32(PLAYER_TWO_ID), wagerAmount);
+        game.initiateChallenge{value: wagerAmount}(_createLoadout(999), PLAYER_TWO_ID, wagerAmount);
 
         // Try to cancel non-existent challenge
         vm.expectRevert("Challenge does not exist");
@@ -289,7 +289,7 @@ contract DuelGameTest is TestBase {
         // Try to cancel active challenge
         uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
         uint256 challengeId = game.initiateChallenge{value: wagerAmount + fee}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
         vm.expectRevert("Challenge still active");
         game.cancelChallenge(challengeId);
@@ -298,7 +298,7 @@ contract DuelGameTest is TestBase {
         // Try to accept with wrong defender
         vm.startPrank(PLAYER_ONE);
         vm.expectRevert("Not defender");
-        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
         vm.stopPrank();
     }
 
@@ -332,9 +332,9 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
 
         vm.startPrank(PLAYER_ONE);
-        IGameEngine.PlayerLoadout memory loadout = _createLoadout(uint32(PLAYER_ONE_ID));
+        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
         vm.expectRevert("Game is disabled");
-        game.initiateChallenge{value: wagerAmount}(loadout, uint32(PLAYER_TWO_ID), wagerAmount);
+        game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         // Owner can re-enable
@@ -351,14 +351,14 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, wagerAmount);
 
         uint256 challengeId = game.initiateChallenge{value: wagerAmount}(
-            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
         );
         vm.stopPrank();
 
         vm.deal(PLAYER_TWO, wagerAmount);
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
-        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
 
         (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);

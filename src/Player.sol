@@ -14,7 +14,7 @@ import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./PlayerEquipmentStats.sol"; // Import PlayerEquipmentStats types
 import "solmate/src/utils/ReentrancyGuard.sol";
 
-error PlayerDoesNotExist(uint256 playerId);
+error PlayerDoesNotExist(uint32 playerId);
 error NotSkinOwner();
 error NotDefaultSkinContract();
 error InvalidDefaultPlayerId();
@@ -29,13 +29,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     uint256 public createPlayerFeeAmount;
 
     // Player state tracking
-    mapping(uint256 => IPlayer.PlayerStats) private _players;
-    mapping(uint256 => address) private _playerOwners;
-    mapping(uint256 => bool) private _retiredPlayers; // Track retirement status
+    mapping(uint32 => IPlayer.PlayerStats) private _players;
+    mapping(uint32 => address) private _playerOwners;
+    mapping(uint32 => bool) private _retiredPlayers; // Track retirement status
 
     // Player count tracking per address
     mapping(address => uint256) private _addressPlayerCount;
-    mapping(address => uint256[]) private _addressToPlayerIds;
+    mapping(address => uint32[]) private _addressToPlayerIds;
 
     // Reference to the PlayerSkinRegistry contract
     PlayerSkinRegistry public skinRegistry;
@@ -64,14 +64,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     }
 
     // Events
-    event PlayerRetired(uint256 indexed playerId, address indexed caller, bool retired);
-    event PlayerResurrected(uint256 indexed playerId);
     event MaxPlayersUpdated(uint256 newMax);
-    event SkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
-    event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
-    event PlayerCreationFulfilled(uint256 indexed requestId, uint256 indexed playerId, address indexed owner);
     event GameContractTrustUpdated(address indexed gameContract, bool trusted);
     event CreatePlayerFeeUpdated(uint256 oldFee, uint256 newFee);
 
@@ -121,11 +116,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     }
 
     // Add these helper functions at the top with the other internal functions
-    function _exists(uint256 playerId) internal view returns (bool) {
-        return _players[playerId].strength != 0;
+    function _exists(uint32 playerId) internal view returns (bool) {
+        return _playerOwners[playerId] != address(0);
     }
 
-    function _ownerOf(uint256 playerId) internal view returns (address) {
+    function _ownerOf(uint32 playerId) internal view returns (address) {
         return _playerOwners[playerId];
     }
 
@@ -203,7 +198,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     }
 
     // Function to equip a skin
-    function equipSkin(uint256 playerId, uint32 skinIndex, uint16 skinTokenId) external {
+    function equipSkin(uint32 playerId, uint32 skinIndex, uint16 skinTokenId) external {
         // Verify player exists and is owned by sender
         if (!_exists(playerId) || _ownerOf(playerId) != msg.sender) {
             revert PlayerDoesNotExist(playerId);
@@ -255,11 +250,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     }
 
     // Make sure all interface functions are marked as external
-    function getPlayerIds(address owner) external view returns (uint256[] memory) {
+    function getPlayerIds(address owner) external view returns (uint32[] memory) {
         return _addressToPlayerIds[owner];
     }
 
-    function getPlayer(uint256 playerId) public view returns (PlayerStats memory) {
+    function getPlayer(uint32 playerId) public view returns (PlayerStats memory) {
         // If it's a default character (1-999)
         if (playerId < 1000) {
             // Get default skin registry
@@ -286,20 +281,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         return _players[playerId];
     }
 
-    function getPlayerOwner(uint256 playerId) external view returns (address) {
+    function getPlayerOwner(uint32 playerId) external view returns (address) {
         if (_playerOwners[playerId] == address(0)) revert PlayerDoesNotExist(playerId);
         return _playerOwners[playerId];
-    }
-
-    function players(uint256 playerId) external view returns (IPlayer.PlayerStats memory) {
-        if (_players[playerId].strength == 0) revert PlayerDoesNotExist(playerId);
-        return _players[playerId];
-    }
-
-    function getPlayerState(uint256 playerId) external view returns (uint256 health, uint256 stamina) {
-        PlayerStats memory player = this.getPlayer(playerId);
-        CalculatedStats memory stats = this.calculateStats(player);
-        return (uint256(stats.maxHealth), uint256(stats.maxEndurance));
     }
 
     function calculateStats(PlayerStats memory player) public pure returns (CalculatedStats memory) {
@@ -443,7 +427,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         // Effects
         _pendingPlayers[requestId].fulfilled = true;
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
-        (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
+        (uint32 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
 
         // Remove from user's pending requests and cleanup
         _removeFromPendingRequests(pending.owner, requestId);
@@ -478,7 +462,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
 
     function _createPlayerWithRandomness(address owner, bool useNameSetB, uint256 randomSeed)
         internal
-        returns (uint256 playerId, IPlayer.PlayerStats memory stats)
+        returns (uint32 playerId, IPlayer.PlayerStats memory stats)
     {
         require(_addressPlayerCount[owner] < maxPlayersPerAddress, "Too many players");
 
@@ -611,7 +595,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         stats.kills++;
     }
 
-    function setPlayerRetired(uint256 playerId, bool retired) external hasPermission(IPlayer.GamePermission.RETIRE) {
+    function setPlayerRetired(uint32 playerId, bool retired) external hasPermission(IPlayer.GamePermission.RETIRE) {
         require(_players[playerId].strength != 0, "Player does not exist");
         _retiredPlayers[playerId] = retired;
         emit PlayerRetired(playerId, msg.sender, retired);
@@ -667,23 +651,23 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         player.luck = luck;
     }
 
-    function isPlayerRetired(uint256 playerId) external view returns (bool) {
+    function isPlayerRetired(uint32 playerId) external view returns (bool) {
         return _retiredPlayers[playerId];
     }
 
     function retireOwnPlayer(uint32 playerId) external {
         // Check player exists and caller owns it
         require(_players[playerId].strength != 0, "Player does not exist");
-        require(_ownerOf(uint256(playerId)) == msg.sender, "Not player owner");
+        require(_ownerOf(playerId) == msg.sender, "Not player owner");
 
         // Mark as retired
         _retiredPlayers[playerId] = true;
 
-        emit PlayerRetired(uint256(playerId), msg.sender, true);
+        emit PlayerRetired(playerId, msg.sender, true);
     }
 
     // For testing purposes only
-    function setPlayerOwner(uint256 playerId, address owner) external onlyOwner {
+    function setPlayerOwner(uint32 playerId, address owner) external onlyOwner {
         require(playerId >= 1000 || owner == address(0), "Cannot set owner for default characters");
         _playerOwners[playerId] = owner;
     }

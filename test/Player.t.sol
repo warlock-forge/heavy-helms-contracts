@@ -27,9 +27,9 @@ contract PlayerTest is TestBase {
     uint256 public ROUND_ID;
     uint256 private constant _PERIOD = 3;
 
-    event PlayerSkinEquipped(uint256 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
+    event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
-    event PlayerCreationFulfilled(uint256 indexed requestId, uint256 indexed playerId, address indexed owner);
+    event PlayerCreationFulfilled(uint256 indexed requestId, uint32 indexed playerId, address indexed owner);
     event RequestedRandomness(uint256 round, bytes data);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
 
@@ -62,7 +62,7 @@ contract PlayerTest is TestBase {
 
     function testCreatePlayerWithVRF() public skipInCI {
         // Create player and verify ownership
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Verify player state
         _assertPlayerState(playerContract, playerId, PLAYER_ONE, true);
@@ -74,7 +74,7 @@ contract PlayerTest is TestBase {
     function testMaxPlayers() public {
         // Create max number of players
         for (uint256 i = 0; i < playerContract.maxPlayersPerAddress(); i++) {
-            _createPlayerAndFulfillVRF(PLAYER_ONE, i % 2 == 0);
+            _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, i % 2 == 0);
         }
 
         // Try to create one more player (should fail)
@@ -88,8 +88,8 @@ contract PlayerTest is TestBase {
         address playerTwo = address(0x2);
 
         // Create players
-        uint256 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
-        uint256 playerId2 = _createPlayerAndFulfillVRF(playerTwo, false);
+        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId2 = _createPlayerAndFulfillVRF(playerTwo, playerContract, false);
 
         // Verify both players were created with correct owners
         _assertPlayerState(playerContract, playerId1, PLAYER_ONE, true);
@@ -167,7 +167,7 @@ contract PlayerTest is TestBase {
 
     function testEquipSkin() public {
         // First create a player
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Register a new skin collection
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
@@ -200,7 +200,7 @@ contract PlayerTest is TestBase {
 
     function testCannotEquipToUnownedPlayer() public {
         // First create a player owned by PLAYER_ONE
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Register a new skin collection
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
@@ -237,7 +237,7 @@ contract PlayerTest is TestBase {
 
     function testCannotEquipInvalidSkinIndex() public {
         // First create a player
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Try to equip a non-existent skin collection
         vm.startPrank(PLAYER_ONE);
@@ -270,7 +270,7 @@ contract PlayerTest is TestBase {
                 abi.encode(335, abi.encode(requestId, ""))
             );
 
-            uint256 playerId = playerContract.getPlayerIds(player)[0];
+            uint32 playerId = playerContract.getPlayerIds(player)[0];
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
             firstNameCounts[stats.firstNameIndex]++;
             surnameCounts[stats.surnameIndex]++;
@@ -327,7 +327,7 @@ contract PlayerTest is TestBase {
             abi.encode(335, abi.encode(requestId, ""))
         );
 
-        uint256 playerId = playerContract.getPlayerIds(player)[0];
+        uint32 playerId = playerContract.getPlayerIds(player)[0];
 
         // Get and validate player stats
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
@@ -347,11 +347,11 @@ contract PlayerTest is TestBase {
 
     function testRetireOwnPlayer() public {
         // Create a player
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Retire the player
         vm.startPrank(PLAYER_ONE);
-        playerContract.retireOwnPlayer(uint32(playerId));
+        playerContract.retireOwnPlayer(playerId);
         vm.stopPrank();
 
         // Verify player is retired
@@ -361,12 +361,12 @@ contract PlayerTest is TestBase {
     function testCannotRetireOtherPlayerCharacter() public {
         // Create a player owned by address(1)
         vm.prank(address(1));
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Try to retire it from address(2)
         vm.prank(address(2));
         vm.expectRevert("Not player owner");
-        playerContract.retireOwnPlayer(uint32(playerId));
+        playerContract.retireOwnPlayer(playerId);
 
         // Verify player is not retired
         assertFalse(playerContract.isPlayerRetired(playerId), "Player should not be retired");
@@ -402,13 +402,13 @@ contract PlayerTest is TestBase {
 
     function testGetPlayerIds() public {
         // Create multiple players for PLAYER_ONE
-        uint256[] memory playerIds = new uint256[](3);
+        uint32[] memory playerIds = new uint32[](3);
         for (uint256 i = 0; i < 3; i++) {
-            playerIds[i] = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+            playerIds[i] = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
         }
 
         // Get all player IDs for PLAYER_ONE
-        uint256[] memory retrievedIds = playerContract.getPlayerIds(PLAYER_ONE);
+        uint32[] memory retrievedIds = playerContract.getPlayerIds(PLAYER_ONE);
 
         // Verify we got all the IDs
         assertEq(retrievedIds.length, 3, "Should have 3 players");
@@ -419,7 +419,7 @@ contract PlayerTest is TestBase {
 
     function testEquipUnlockableCollection() public {
         // Create a player
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Create unlock NFT
         UnlockNFT unlockNFT = new UnlockNFT();
@@ -459,7 +459,7 @@ contract PlayerTest is TestBase {
 
     function testEquipOwnedSkin() public {
         // Create player and equip skin
-        uint256 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Deploy and register a new skin NFT
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("TestSkin", "TEST", 0.01 ether);
@@ -518,7 +518,7 @@ contract PlayerTest is TestBase {
     function testWithdrawFees() public {
         // Create a player and pay the fee
         uint256 initialBalance = address(this).balance;
-        _createPlayerAndFulfillVRF(PLAYER_ONE, true);
+        _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
 
         // Verify fees were collected
         uint256 collectedFees = address(playerContract).balance;
@@ -533,7 +533,7 @@ contract PlayerTest is TestBase {
     }
 
     // Helper functions
-    function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint256) {
+    function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint32) {
         return _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
     }
 
@@ -570,7 +570,7 @@ contract PlayerTest is TestBase {
     }
 
     // Skin Equipment Helper
-    function _equipSkinToPlayer(uint256 playerId, uint32 skinIndexToEquip, uint16 tokenId, bool shouldSucceed)
+    function _equipSkinToPlayer(uint32 playerId, uint32 skinIndexToEquip, uint16 tokenId, bool shouldSucceed)
         internal
     {
         vm.startPrank(PLAYER_ONE);

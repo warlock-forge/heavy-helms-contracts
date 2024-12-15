@@ -77,7 +77,7 @@ contract GameEngine is IGameEngine {
     function decodeCombatLog(bytes memory results)
         public
         pure
-        returns (uint256 winningPlayerId, WinCondition condition, CombatAction[] memory actions)
+        returns (uint32 winningPlayerId, WinCondition condition, CombatAction[] memory actions)
     {
         require(results.length >= 5, "Results too short");
 
@@ -132,6 +132,15 @@ contract GameEngine is IGameEngine {
         IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(player1.playerId);
         IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(player2.playerId);
 
+        // Calculate stats directly
+        IPlayer.CalculatedStats memory p1CalcStats = playerContract.calculateStats(p1Stats);
+        IPlayer.CalculatedStats memory p2CalcStats = playerContract.calculateStats(p2Stats);
+        
+        uint256 p1Health = p1CalcStats.maxHealth;
+        uint256 p1Stamina = p1CalcStats.maxEndurance;
+        uint256 p2Health = p2CalcStats.maxHealth;
+        uint256 p2Stamina = p2CalcStats.maxEndurance;
+
         // Get skin attributes for both players
         (IPlayerSkinNFT.WeaponType p1Weapon, IPlayerSkinNFT.ArmorType p1Armor, IPlayerSkinNFT.FightingStance p1Stance) =
             getSkinAttributes(player1.skinIndex, player1.skinTokenId, playerContract);
@@ -149,9 +158,6 @@ contract GameEngine is IGameEngine {
             PlayerEquipmentStats.ArmorStats memory p2ArmorStats,
             PlayerEquipmentStats.StanceMultiplier memory p2StanceStats
         ) = playerContract.equipmentStats().getFullCharacterStats(p2Weapon, p2Armor, p2Stance);
-
-        IPlayer.CalculatedStats memory p1CalcStats = playerContract.calculateStats(p1Stats);
-        IPlayer.CalculatedStats memory p2CalcStats = playerContract.calculateStats(p2Stats);
 
         // Apply stance modifiers to calculated stats
         p1CalcStats = applyStanceModifiers(p1CalcStats, p1StanceStats);
@@ -233,14 +239,11 @@ contract GameEngine is IGameEngine {
         PlayerEquipmentStats.ArmorStats memory p2ArmorStats,
         IPlayer playerContract
     ) private view returns (CombatState memory state) {
-        (uint256 p1Health, uint256 p1Stamina) = playerContract.getPlayerState(player1.playerId);
-        (uint256 p2Health, uint256 p2Stamina) = playerContract.getPlayerState(player2.playerId);
-
         // Safe downcasting
-        state.p1Health = uint96(p1Health);
-        state.p2Health = uint96(p2Health);
-        state.p1Stamina = uint32(p1Stamina);
-        state.p2Stamina = uint32(p2Stamina);
+        state.p1Health = uint96(p1CalcStats.maxHealth);
+        state.p2Health = uint96(p2CalcStats.maxHealth);
+        state.p1Stamina = uint32(p1CalcStats.maxEndurance);
+        state.p2Stamina = uint32(p2CalcStats.maxEndurance);
 
         // Store the player IDs
         state.p1Id = uint32(player1.playerId);

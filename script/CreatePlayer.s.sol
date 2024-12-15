@@ -31,9 +31,9 @@ contract CreatePlayerScript is Script {
         // After that, you can get your player ID using getPlayerIds()
 
         // Get the player ID (this will only work after VRF fulfillment)
-        uint256[] memory playerIds = player.getPlayerIds(msg.sender);
+        uint32[] memory playerIds = player.getPlayerIds(msg.sender);
         if (playerIds.length > 0) {
-            uint256 playerId = playerIds[playerIds.length - 1];
+            uint32 playerId = playerIds[playerIds.length - 1];
             console2.log("Player created with ID:", playerId);
 
             // Get and display player stats

@@ -9,7 +9,7 @@ import "../src/interfaces/IPlayer.sol";
 contract EquipSkinScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr, uint256 playerId, uint32 skinIndex, uint16 tokenId) public {
+    function run(address playerContractAddr, uint32 playerId, uint32 skinIndex, uint16 tokenId) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");

@@ -121,7 +121,7 @@ abstract contract TestBase is Test {
     // Helper function to create a player with VRF
     function _createPlayerAndFulfillVRF(address owner, Player contractInstance, bool useSetB)
         internal
-        returns (uint256)
+        returns (uint32)
     {
         // Give enough ETH to cover the fee
         vm.deal(owner, contractInstance.createPlayerFeeAmount());
@@ -137,7 +137,7 @@ abstract contract TestBase is Test {
         );
 
         // Get the player ID from the contract
-        uint256[] memory playerIds = contractInstance.getPlayerIds(owner);
+        uint32[] memory playerIds = contractInstance.getPlayerIds(owner);
         require(playerIds.length > 0, "Player not created");
 
         return playerIds[playerIds.length - 1];
@@ -355,7 +355,7 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to assert player ownership and basic state
-    function _assertPlayerState(Player contractInstance, uint256 playerId, address expectedOwner, bool shouldExist)
+    function _assertPlayerState(Player contractInstance, uint32 playerId, address expectedOwner, bool shouldExist)
         internal
     {
         if (shouldExist) {

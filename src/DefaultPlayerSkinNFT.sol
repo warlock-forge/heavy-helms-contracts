@@ -76,7 +76,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         return string(abi.encodePacked("ipfs://", _tokenCIDs[id]));
     }
 
-    function getDefaultPlayerStats(uint256 playerId) external view override returns (IPlayer.PlayerStats memory) {
+    function getDefaultPlayerStats(uint32 playerId) external view override returns (IPlayer.PlayerStats memory) {
         uint256 tokenId = _defaultPlayerToToken[playerId];
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
         return _characterStats[tokenId];
