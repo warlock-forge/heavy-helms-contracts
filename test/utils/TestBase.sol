@@ -191,6 +191,7 @@ abstract contract TestBase is Test {
     // Helper function to validate combat results
     function _assertValidCombatResult(
         uint256 winner,
+        uint16 version,
         GameEngine.WinCondition condition,
         GameEngine.CombatAction[] memory actions,
         uint256 player1Id,
@@ -199,6 +200,7 @@ abstract contract TestBase is Test {
         assertTrue(winner == player1Id || winner == player2Id, "Invalid winner");
         assertTrue(actions.length > 0, "No actions recorded");
         assertTrue(uint8(condition) <= uint8(type(GameEngine.WinCondition).max), "Invalid win condition");
+        assertTrue(version > 0, "Invalid version");
     }
 
     // Helper function to validate events

@@ -26,7 +26,7 @@ abstract contract BaseGame is Owned {
         if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
 
         // Validate game engine interface
-        try IGameEngine(_gameEngine).version() returns (uint32) {}
+        try IGameEngine(_gameEngine).version() returns (uint16) {}
         catch {
             revert InvalidGameEngine();
         }
@@ -45,7 +45,7 @@ abstract contract BaseGame is Owned {
         if (_newEngine == address(0)) revert ZeroAddress();
 
         // Validate interface implementation
-        try IGameEngine(_newEngine).version() returns (uint32) {}
+        try IGameEngine(_newEngine).version() returns (uint16) {}
         catch {
             revert InvalidGameEngine();
         }

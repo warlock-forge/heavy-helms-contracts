@@ -9,7 +9,7 @@ import "./PlayerEquipmentStats.sol";
 
 contract GameEngine is IGameEngine {
     /// @notice Current version of the game engine
-    uint32 public constant override version = 1;
+    uint16 public constant override version = 1;
 
     using UniformRandomNumber for uint256;
 
@@ -77,9 +77,14 @@ contract GameEngine is IGameEngine {
     function decodeCombatLog(bytes memory results)
         public
         pure
-        returns (uint32 winningPlayerId, WinCondition condition, CombatAction[] memory actions)
+        returns (
+            uint32 winningPlayerId,
+            uint16 gameEngineVersion,
+            WinCondition condition,
+            CombatAction[] memory actions
+        )
     {
-        require(results.length >= 5, "Results too short");
+        require(results.length >= 7, "Results too short");
 
         // Single operation for winner ID, saves gas over separate shifts
         unchecked {
@@ -87,15 +92,19 @@ contract GameEngine is IGameEngine {
                 | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
         }
 
-        condition = WinCondition(uint8(results[4]));
+        // Read version (2 bytes)
+        gameEngineVersion = uint16(uint8(results[4])) << 8 | uint16(uint8(results[5]));
 
-        uint256 numActions = (results.length - 5) / 8;
+        // Read condition
+        condition = WinCondition(uint8(results[6]));
+
+        uint256 numActions = (results.length - 7) / 8;
         actions = new CombatAction[](numActions);
 
         // Process actions in a more gas-efficient way
         unchecked {
             for (uint256 i = 0; i < numActions; i++) {
-                uint256 base = 5 + (i * 8);
+                uint256 base = 7 + (i * 8);
 
                 // Bitwise operations are more gas efficient than multiplication
                 uint16 p1Damage = (uint16(uint8(results[base + 1])) << 8) | uint16(uint8(results[base + 2]));
@@ -176,7 +185,7 @@ contract GameEngine is IGameEngine {
             playerContract
         );
 
-        bytes memory results = new bytes(5);
+        bytes memory results = new bytes(7);
         uint8 roundCount = 0;
         uint256 currentSeed = randomSeed;
 
@@ -787,8 +796,11 @@ contract GameEngine is IGameEngine {
         return bytes.concat(results, actionData);
     }
 
+    /// @dev TODO: Potential optimization - Instead of allocating prefix bytes (winner, version, condition) upfront
+    /// and carrying them through combat, consider only storing combat actions during the fight and concatenating
+    /// the prefix at the end. This would reduce memory copying in appendCombatAction and be more gas efficient.
     function encodeCombatResults(CombatState memory state, bytes memory results) private pure returns (bytes memory) {
-        require(results.length >= 5, "Invalid results length");
+        require(results.length >= 7, "Invalid results length");
 
         // Write uint32 winner ID as 4 separate bytes
         results[0] = bytes1(uint8(state.winningPlayerId >> 24));
@@ -796,8 +808,12 @@ contract GameEngine is IGameEngine {
         results[2] = bytes1(uint8(state.winningPlayerId >> 8));
         results[3] = bytes1(uint8(state.winningPlayerId));
 
+        // Write version (2 bytes)
+        results[4] = bytes1(uint8(version >> 8));
+        results[5] = bytes1(uint8(version));
+
         // Write condition
-        results[4] = bytes1(uint8(state.condition));
+        results[6] = bytes1(uint8(state.condition));
 
         return results;
     }

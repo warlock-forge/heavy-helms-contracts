@@ -89,11 +89,11 @@ contract PracticeGameTest is TestBase {
 
         // Run the game with seed and verify the result format
         bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
         // Basic validation
-        super._assertValidCombatResult(winner, condition, actions, player1.playerId, player2.playerId);
+        super._assertValidCombatResult(winner, version, condition, actions, player1.playerId, player2.playerId);
     }
 
     function testCombatMechanics() public {
@@ -107,11 +107,13 @@ contract PracticeGameTest is TestBase {
 
         // Run combat with seed and verify mechanics
         bytes memory results = gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
         // Verify basic mechanics
-        super._assertValidCombatResult(winner, condition, actions, attackerLoadout.playerId, defenderLoadout.playerId);
+        super._assertValidCombatResult(
+            winner, version, condition, actions, attackerLoadout.playerId, defenderLoadout.playerId
+        );
 
         // Verify combat actions
         bool hasOffensiveAction = false;
@@ -135,7 +137,7 @@ contract PracticeGameTest is TestBase {
 
         // Run game with fuzzed seed
         bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
         // Verify game invariants hold with any seed
@@ -167,9 +169,9 @@ contract PracticeGameTest is TestBase {
         GameEngine.PlayerLoadout memory loadout1B =
             _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
         results = practiceGame.play(loadout1A, loadout1B);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, loadout1A.playerId, loadout1B.playerId);
+        super._assertValidCombatResult(winner, version, condition, actions, loadout1A.playerId, loadout1B.playerId);
 
         // Scenario 2: Battleaxe vs Rapier and Shield (Offensive vs Defensive)
         GameEngine.PlayerLoadout memory loadout2A =
@@ -177,16 +179,16 @@ contract PracticeGameTest is TestBase {
         GameEngine.PlayerLoadout memory loadout2B =
             _createLoadout(chars.rapierAndShieldDefensive, true, false, playerContract);
         results = practiceGame.play(loadout2A, loadout2B);
-        (winner, condition, actions) = gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, loadout2A.playerId, loadout2B.playerId);
+        (winner, version, condition, actions) = gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, version, condition, actions, loadout2A.playerId, loadout2B.playerId);
 
         // Scenario 3: Spear vs Quarterstaff (Balanced vs Defensive)
         GameEngine.PlayerLoadout memory loadout3A = _createLoadout(chars.spearBalanced, true, false, playerContract);
         GameEngine.PlayerLoadout memory loadout3B =
             _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
         results = practiceGame.play(loadout3A, loadout3B);
-        (winner, condition, actions) = gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, loadout3A.playerId, loadout3B.playerId);
+        (winner, version, condition, actions) = gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, version, condition, actions, loadout3A.playerId, loadout3B.playerId);
 
         // Scenario 4: Greatsword vs Rapier and Shield (Offensive vs Defensive)
         GameEngine.PlayerLoadout memory loadout4A =
@@ -194,8 +196,8 @@ contract PracticeGameTest is TestBase {
         GameEngine.PlayerLoadout memory loadout4B =
             _createLoadout(chars.rapierAndShieldDefensive, true, false, playerContract);
         results = practiceGame.play(loadout4A, loadout4B);
-        (winner, condition, actions) = gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, loadout4A.playerId, loadout4B.playerId);
+        (winner, version, condition, actions) = gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, version, condition, actions, loadout4A.playerId, loadout4B.playerId);
     }
 
     function testDefensiveActions() public {
@@ -211,7 +213,8 @@ contract PracticeGameTest is TestBase {
 
         // Run combat and analyze defensive actions
         bytes memory results = practiceGame.play(attackerLoadout, defenderLoadout);
-        (uint256 winner,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
         // Verify defensive actions occurred
         bool hasDefensiveAction = false;
@@ -242,11 +245,11 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
         // Verify combat log structure
-        super._assertValidCombatResult(winner, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
+        super._assertValidCombatResult(winner, version, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
 
         // Verify action structure
         for (uint256 i = 0; i < actions.length; i++) {
@@ -265,9 +268,9 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
+        super._assertValidCombatResult(winner, version, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
     }
 
     function testHighDamageEncoding() public pure {

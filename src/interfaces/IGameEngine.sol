@@ -7,7 +7,7 @@ import "../PlayerSkinRegistry.sol";
 
 interface IGameEngine {
     /// @notice Returns the current version of the game engine
-    function version() external pure returns (uint32);
+    function version() external pure returns (uint16);
 
     struct PlayerLoadout {
         uint32 playerId;

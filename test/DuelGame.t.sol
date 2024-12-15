@@ -144,9 +144,9 @@ contract DuelGameTest is TestBase {
             game.challenges(challengeId);
         bytes memory results =
             gameEngine.processGame(challengerLoadout, defenderLoadout, 0, Player(address(playerContract)));
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, challengerId, defenderId);
+        super._assertValidCombatResult(winner, version, condition, actions, challengerId, defenderId);
 
         assertTrue(game.totalFeesCollected() > 0, "Fees should be collected");
     }
@@ -224,9 +224,9 @@ contract DuelGameTest is TestBase {
             game.challenges(challengeId);
         bytes memory results =
             gameEngine.processGame(challengerLoadout, defenderLoadout, 0, Player(address(playerContract)));
-        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(winner, condition, actions, challengerId, defenderId);
+        super._assertValidCombatResult(winner, version, condition, actions, challengerId, defenderId);
 
         assertTrue(game.totalFeesCollected() > 0, "Fees should be collected");
     }
