@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "solmate/src/auth/Owned.sol";
+import "solmate/src/utils/SafeTransferLib.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 import "./PlayerSkinRegistry.sol";
@@ -397,8 +398,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     }
 
     function withdrawFees() external onlyOwner {
-        (bool success,) = payable(owner).call{value: address(this).balance}("");
-        require(success, "Fee withdrawal failed");
+        SafeTransferLib.safeTransferETH(owner, address(this).balance);
     }
 
     function clearPendingRequestsForAddress(address user) external onlyOwner {

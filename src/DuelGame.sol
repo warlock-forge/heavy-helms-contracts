@@ -5,6 +5,7 @@ import "./BaseGame.sol";
 import "./interfaces/IGameEngine.sol";
 import "./interfaces/IPlayer.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
+import "solmate/src/utils/SafeTransferLib.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./lib/UniformRandomNumber.sol";
 
@@ -117,11 +118,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 requiredAmount;
         if (wagerAmount == 0) {
             requiredAmount = minDuelFee;
-            totalFeesCollected += minDuelFee; // Always collect minDuelFee upfront for operational costs
         } else {
             require(wagerAmount >= minWagerAmount, "Wager below minimum");
             requiredAmount = wagerAmount;
-            totalFeesCollected += minDuelFee; // Always collect minDuelFee upfront, even for wagered duels
         }
 
         require(msg.value == requiredAmount, "Incorrect ETH amount sent");
@@ -224,11 +223,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         userChallenges[challenger][challengeId] = false;
         userChallenges[IPlayer(playerContract).getPlayerOwner(challenge.defenderId)][challengeId] = false;
 
+        // Always collect minDuelFee
+        totalFeesCollected += minDuelFee;
+
         // Handle refund for wagered duels
         if (challenge.wagerAmount > 0) {
             uint256 refundAmount = challenge.wagerAmount - minDuelFee;
-            (bool sent,) = payable(challenger).call{value: refundAmount}("");
-            require(sent, "Failed to send refund");
+            if (refundAmount > 0) {
+                SafeTransferLib.safeTransferETH(challenger, refundAmount);
+            }
         }
 
         emit ChallengeCancelled(challengeId);
@@ -256,10 +259,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Mark as fulfilled to prevent re-entry
         challenge.fulfilled = true;
-
-        // Get addresses before marking fulfilled
-        // address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
-        // address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
 
         // Clear challenge tracking for both users
         address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
@@ -312,10 +311,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
             // Get winner's address and transfer prize
             address winner = IPlayer(playerContract).getPlayerOwner(winnerId);
-            (bool sent,) = payable(winner).call{value: winnerPayout}("");
-            require(sent, "Failed to send prize");
+            SafeTransferLib.safeTransferETH(winner, winnerPayout);
         } else {
-            // Add minDuelFee to totalFeesCollected for non-wagered duels
             totalFeesCollected += minDuelFee;
         }
 
@@ -377,8 +374,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         totalFeesCollected = 0;
 
-        (bool sent,) = owner.call{value: amount}("");
-        require(sent, "Failed to withdraw fees");
+        SafeTransferLib.safeTransferETH(owner, amount);
 
         emit FeesWithdrawn(amount);
     }

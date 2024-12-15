@@ -3,8 +3,11 @@ pragma solidity ^0.8.13;
 
 import "solmate/src/auth/Owned.sol";
 import "solmate/src/tokens/ERC20.sol";
+import "solmate/src/utils/SafeTransferLib.sol";
 
 contract PlayerSkinRegistry is Owned {
+    using SafeTransferLib for ERC20;
+
     struct SkinInfo {
         address contractAddress;
         bool isVerified;
@@ -75,13 +78,13 @@ contract PlayerSkinRegistry is Owned {
         if (tokenAddress == address(0)) {
             uint256 balance = address(this).balance;
             if (balance == 0) revert NoTokensToCollect();
-            payable(owner).transfer(balance);
+            SafeTransferLib.safeTransferETH(owner, balance);
             emit TokensCollected(address(0), balance);
         } else {
             ERC20 token = ERC20(tokenAddress);
             uint256 balance = token.balanceOf(address(this));
             if (balance == 0) revert NoTokensToCollect();
-            token.transfer(owner, balance);
+            token.safeTransfer(owner, balance);
             emit TokensCollected(tokenAddress, balance);
         }
     }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {DuelGame} from "../src/DuelGame.sol";
 import {Player} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
@@ -342,6 +342,54 @@ contract DuelGameTest is TestBase {
         game.setGameEnabled(true);
         assertTrue(game.isGameEnabled(), "Game should be re-enabled");
         vm.stopPrank();
+    }
+
+    function testWithdrawFees() public {
+        // First complete a duel to collect some fees
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        vm.deal(PLAYER_ONE, wagerAmount);
+
+        uint256 challengeId = game.initiateChallenge{value: wagerAmount}(
+            _createLoadout(uint32(PLAYER_ONE_ID)), uint32(PLAYER_TWO_ID), wagerAmount
+        );
+        vm.stopPrank();
+
+        vm.deal(PLAYER_TWO, wagerAmount);
+        vm.startPrank(PLAYER_TWO);
+        vm.recordLogs();
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(uint32(PLAYER_TWO_ID)));
+
+        (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+        vm.stopPrank();
+
+        vm.prank(operator);
+        game.fulfillRandomness(0, dataWithRound);
+
+        // Verify fees were collected
+        uint256 collectedFees = game.totalFeesCollected();
+        assertTrue(collectedFees > 0, "Fees should be collected");
+
+        // Store initial balances
+        uint256 initialContractBalance = address(game).balance;
+        uint256 initialOwnerBalance = address(game.owner()).balance;
+
+        // Deal enough ETH to the contract to cover the fees
+        vm.deal(address(game), collectedFees);
+
+        // Withdraw fees as owner
+        vm.prank(game.owner());
+        game.withdrawFees();
+
+        // Verify balances after withdrawal
+        assertEq(game.totalFeesCollected(), 0, "Fees should be 0 after withdrawal");
+        assertEq(address(game).balance, initialContractBalance - collectedFees, "Contract balance should be reduced by fees");
+        assertEq(
+            address(game.owner()).balance,
+            initialOwnerBalance + collectedFees,
+            "Owner should receive collected fees"
+        );
     }
 
     function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
