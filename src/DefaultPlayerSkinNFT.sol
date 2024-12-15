@@ -25,7 +25,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
 
     event SkinAttributesUpdated(uint16 indexed tokenId, WeaponType weapon, ArmorType armor, FightingStance stance);
 
-    constructor() ERC721("Shape Arena Default Player Skins", "SAPS") Owned(msg.sender) {}
+    constructor() ERC721("Heavy Helms Default Player Skins", "HHSKIN") Owned(msg.sender) {}
 
     function mintDefaultPlayerSkin(
         WeaponType weapon,
