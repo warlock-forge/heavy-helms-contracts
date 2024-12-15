@@ -506,8 +506,26 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
                 uint256 availablePoints =
                     remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
 
-                // Add random points to selected stat
-                uint256 pointsToAdd = randomSeed.uniform(min(availablePoints, 18) + 1);
+                // Add extra entropy and make high points rarer
+                // Note: Since stats start at 3, we need max 18 additional points to reach 21
+                uint256 maxPoints = min(availablePoints, 18);
+                uint256 chance = randomSeed.uniform(100);
+                randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, "chance")));
+
+                // 50% chance of normal roll (up to 9 more points, max 12 total)
+                // 30% chance of medium roll (up to 12 more points, max 15 total)
+                // 15% chance of high roll (up to 15 more points, max 18 total)
+                // 5% chance of max roll (up to 18 more points, max 21 total)
+                uint256 pointsCap = chance < 50
+                    ? 9 // 0-49: normal roll (3+9=12)
+                    : chance < 80
+                        ? 12 // 50-79: medium roll (3+12=15)
+                        : chance < 95
+                            ? 15 // 80-94: high roll (3+15=18)
+                            : 18; // 95-99: max roll (3+18=21)
+
+                // Add random points to selected stat using the cap
+                uint256 pointsToAdd = randomSeed.uniform(min(maxPoints, pointsCap) + 1);
                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
 
                 // Update stat and remaining points
@@ -674,5 +692,85 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     function setPlayerOwner(uint256 playerId, address owner) external onlyOwner {
         require(playerId >= 1000 || owner == address(0), "Cannot set owner for default characters");
         _playerOwners[playerId] = owner;
+    }
+
+    function encodePlayerData(uint32 playerId, PlayerStats memory stats) external pure returns (bytes32) {
+        bytes memory packed = new bytes(32);
+
+        // Pack playerId (4 bytes)
+        packed[0] = bytes1(uint8(playerId >> 24));
+        packed[1] = bytes1(uint8(playerId >> 16));
+        packed[2] = bytes1(uint8(playerId >> 8));
+        packed[3] = bytes1(uint8(playerId));
+
+        // Pack uint8 stats (6 bytes)
+        packed[4] = bytes1(stats.strength);
+        packed[5] = bytes1(stats.constitution);
+        packed[6] = bytes1(stats.size);
+        packed[7] = bytes1(stats.agility);
+        packed[8] = bytes1(stats.stamina);
+        packed[9] = bytes1(stats.luck);
+
+        // Pack skinIndex (4 bytes)
+        packed[10] = bytes1(uint8(stats.skinIndex >> 24));
+        packed[11] = bytes1(uint8(stats.skinIndex >> 16));
+        packed[12] = bytes1(uint8(stats.skinIndex >> 8));
+        packed[13] = bytes1(uint8(stats.skinIndex));
+
+        // Pack uint16 values (14 bytes)
+        packed[14] = bytes1(uint8(stats.skinTokenId >> 8));
+        packed[15] = bytes1(uint8(stats.skinTokenId));
+
+        packed[16] = bytes1(uint8(stats.firstNameIndex >> 8));
+        packed[17] = bytes1(uint8(stats.firstNameIndex));
+
+        packed[18] = bytes1(uint8(stats.surnameIndex >> 8));
+        packed[19] = bytes1(uint8(stats.surnameIndex));
+
+        packed[20] = bytes1(uint8(stats.wins >> 8));
+        packed[21] = bytes1(uint8(stats.wins));
+
+        packed[22] = bytes1(uint8(stats.losses >> 8));
+        packed[23] = bytes1(uint8(stats.losses));
+
+        packed[24] = bytes1(uint8(stats.kills >> 8));
+        packed[25] = bytes1(uint8(stats.kills));
+
+        // Last 6 bytes are padded with zeros by default
+
+        return bytes32(packed);
+    }
+
+    function decodePlayerData(bytes32 data) external pure returns (uint32 playerId, PlayerStats memory stats) {
+        bytes memory packed = new bytes(32);
+        assembly {
+            mstore(add(packed, 32), data)
+        }
+
+        // Decode playerId
+        playerId = uint32(uint8(packed[0])) << 24 | uint32(uint8(packed[1])) << 16 | uint32(uint8(packed[2])) << 8
+            | uint32(uint8(packed[3]));
+
+        // Decode uint8 stats
+        stats.strength = uint8(packed[4]);
+        stats.constitution = uint8(packed[5]);
+        stats.size = uint8(packed[6]);
+        stats.agility = uint8(packed[7]);
+        stats.stamina = uint8(packed[8]);
+        stats.luck = uint8(packed[9]);
+
+        // Decode skinIndex
+        stats.skinIndex = uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16
+            | uint32(uint8(packed[12])) << 8 | uint32(uint8(packed[13]));
+
+        // Decode uint16 values
+        stats.skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
+        stats.firstNameIndex = uint16(uint8(packed[16])) << 8 | uint16(uint8(packed[17]));
+        stats.surnameIndex = uint16(uint8(packed[18])) << 8 | uint16(uint8(packed[19]));
+        stats.wins = uint16(uint8(packed[20])) << 8 | uint16(uint8(packed[21]));
+        stats.losses = uint16(uint8(packed[22])) << 8 | uint16(uint8(packed[23]));
+        stats.kills = uint16(uint8(packed[24])) << 8 | uint16(uint8(packed[25]));
+
+        return (playerId, stats);
     }
 }

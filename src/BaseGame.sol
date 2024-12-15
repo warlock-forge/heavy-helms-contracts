@@ -12,7 +12,7 @@ abstract contract BaseGame is Owned {
     event GameEngineUpdated(address indexed newEngine);
     event PlayerContractUpdated(address indexed newContract);
     event CombatResult(
-        uint32 indexed player1Id, uint32 indexed player2Id, uint32 indexed winningPlayerId, bytes packedResults
+        bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 indexed winningPlayerId, bytes packedResults
     );
 
     constructor(address _gameEngine, address _playerContract) Owned(msg.sender) {

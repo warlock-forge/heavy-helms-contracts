@@ -285,8 +285,22 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Determine loser ID
         uint32 loserId = winnerId == challenge.challengerId ? challenge.defenderId : challenge.challengerId;
 
-        // Emit combat results first
-        emit CombatResult(challenge.challengerId, challenge.defenderId, winnerId, results);
+        // Get player stats at time of combat
+        IPlayer.PlayerStats memory challengerStats = IPlayer(playerContract).getPlayer(challenge.challengerId);
+        IPlayer.PlayerStats memory defenderStats = IPlayer(playerContract).getPlayer(challenge.defenderId);
+
+        // Override skin info with the loadout-specific choices
+        challengerStats.skinIndex = challenge.challengerLoadout.skinIndex;
+        challengerStats.skinTokenId = challenge.challengerLoadout.skinTokenId;
+        defenderStats.skinIndex = challenge.defenderLoadout.skinIndex;
+        defenderStats.skinTokenId = challenge.defenderLoadout.skinTokenId;
+
+        // Pack player data using the new encoding
+        bytes32 challengerData = IPlayer(playerContract).encodePlayerData(challenge.challengerId, challengerStats);
+        bytes32 defenderData = IPlayer(playerContract).encodePlayerData(challenge.defenderId, defenderStats);
+
+        // Emit combat results with packed player data
+        emit CombatResult(challengerData, defenderData, winnerId, results);
 
         uint256 winnerPayout = 0;
         if (challenge.wagerAmount > 0) {

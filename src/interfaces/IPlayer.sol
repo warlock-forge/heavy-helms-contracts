@@ -79,4 +79,16 @@ interface IPlayer {
         uint8 luck
     ) external;
     function retireOwnPlayer(uint32 playerId) external;
+
+    /// @notice Encodes a player ID and their stats into a bytes32 value (using first 26 bytes)
+    /// @param playerId The ID of the player
+    /// @param stats The PlayerStats struct to encode
+    /// @return result The encoded bytes32 with player data (26 bytes used, 6 bytes padded)
+    function encodePlayerData(uint32 playerId, PlayerStats memory stats) external pure returns (bytes32);
+
+    /// @notice Decodes a bytes32 value back into a player ID and PlayerStats
+    /// @param data The encoded bytes32 data
+    /// @return playerId The decoded player ID
+    /// @return stats The decoded PlayerStats
+    function decodePlayerData(bytes32 data) external pure returns (uint32 playerId, PlayerStats memory stats);
 }

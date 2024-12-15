@@ -20,10 +20,6 @@ contract MockInvalidEquipmentStats {
 }
 
 contract PlayerTest is TestBase {
-    Player public playerContract;
-    PlayerNameRegistry public nameRegistry;
-    PlayerEquipmentStats public equipmentStats;
-
     // Test addresses
     address public PLAYER_ONE;
     address public PLAYER_TWO;

@@ -15,10 +15,6 @@ import "./utils/TestBase.sol";
 contract DuelGameTest is TestBase {
     DuelGame public game;
     GameEngine public gameEngine;
-    Player public playerContract;
-    PlayerEquipmentStats public equipmentStats;
-    PlayerNameRegistry public nameRegistry;
-    uint32 public defaultSkinIndex;
 
     // Test addresses
     address public PLAYER_ONE;
@@ -49,13 +45,6 @@ contract DuelGameTest is TestBase {
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Deploy contracts in correct order
-        nameRegistry = new PlayerNameRegistry();
-        equipmentStats = new PlayerEquipmentStats();
-
-        // Deploy Player contract with dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
-
-        // Deploy Game contracts
         vm.startPrank(operator);
         gameEngine = new GameEngine();
         game = new DuelGame(address(gameEngine), address(playerContract), operator);
@@ -64,15 +53,15 @@ contract DuelGameTest is TestBase {
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms =
             IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
-        playerContract.setGameContractPermission(address(game), perms);
+        Player(address(playerContract)).setGameContractPermission(address(game), perms);
 
         // Setup test addresses
         PLAYER_ONE = address(0xdF);
         PLAYER_TWO = address(0xeF);
 
         // Create actual players using VRF
-        PLAYER_ONE_ID = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        PLAYER_ONE_ID = _createPlayerAndFulfillVRF(PLAYER_ONE, Player(address(playerContract)), false);
+        PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, Player(address(playerContract)), false);
 
         // Give them ETH
         vm.deal(PLAYER_ONE, 100 ether);
@@ -154,7 +143,8 @@ contract DuelGameTest is TestBase {
         // Get loadouts from challenge
         (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
-        bytes memory results = gameEngine.processGame(challengerLoadout, defenderLoadout, 0, playerContract);
+        bytes memory results =
+            gameEngine.processGame(challengerLoadout, defenderLoadout, 0, Player(address(playerContract)));
         (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, condition, actions, challengerId, defenderId);
@@ -174,7 +164,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         // Get challenger's address
-        address challenger = IPlayer(playerContract).getPlayerOwner(PLAYER_ONE_ID);
+        address challenger = Player(address(playerContract)).getPlayerOwner(PLAYER_ONE_ID);
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
@@ -235,7 +225,8 @@ contract DuelGameTest is TestBase {
         // Get loadouts from challenge
         (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
-        bytes memory results = gameEngine.processGame(challengerLoadout, defenderLoadout, 0, playerContract);
+        bytes memory results =
+            gameEngine.processGame(challengerLoadout, defenderLoadout, 0, Player(address(playerContract)));
         (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, condition, actions, challengerId, defenderId);
@@ -255,7 +246,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         // Get challenger's address
-        address challenger = IPlayer(playerContract).getPlayerOwner(PLAYER_ONE_ID);
+        address challenger = Player(address(playerContract)).getPlayerOwner(PLAYER_ONE_ID);
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
@@ -354,6 +345,6 @@ contract DuelGameTest is TestBase {
     }
 
     function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
-        return _createLoadout(playerId, false, true, playerContract);
+        return _createLoadout(playerId, false, true, Player(address(playerContract)));
     }
 }

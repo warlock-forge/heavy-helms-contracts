@@ -12,12 +12,15 @@ import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 import {IGameEngine} from "../../src/interfaces/IGameEngine.sol";
 import {GameEngine} from "../../src/GameEngine.sol";
+import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
+import {PlayerEquipmentStats} from "../../src/PlayerEquipmentStats.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
     uint256 private constant DEFAULT_FORK_BLOCK = 19_000_000;
     uint256 private constant VRF_ROUND = 335;
     address public operator;
+    Player public playerContract;
 
     struct DefaultCharacters {
         uint16 greatswordOffensive;
@@ -31,6 +34,8 @@ abstract contract TestBase is Test {
     uint32 public skinIndex;
     DefaultPlayerSkinNFT public defaultSkin;
     PlayerSkinRegistry public skinRegistry;
+    PlayerNameRegistry public nameRegistry;
+    PlayerEquipmentStats public equipmentStats;
 
     function setUp() public virtual {
         operator = address(0x42);
@@ -43,6 +48,13 @@ abstract contract TestBase is Test {
         skinRegistry.setSkinVerification(skinIndex, true);
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
         skinRegistry.setDefaultCollection(skinIndex, true);
+
+        // Create name registry and equipment stats
+        nameRegistry = new PlayerNameRegistry();
+        equipmentStats = new PlayerEquipmentStats();
+
+        // Create the player contract with all required dependencies
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
 
         // Mint default skin token ID 1
         (
@@ -97,34 +109,35 @@ abstract contract TestBase is Test {
     // Helper to create a player request, stopping before VRF fulfillment.
     // This is useful for testing VRF fulfillment mechanics separately,
     // such as testing operator permissions or invalid round IDs.
-    function _createPlayerRequest(address owner, Player playerContract, bool useSetB) internal returns (uint256) {
-        vm.deal(owner, playerContract.createPlayerFeeAmount());
+    function _createPlayerRequest(address owner, Player contractInstance, bool useSetB) internal returns (uint256) {
+        vm.deal(owner, contractInstance.createPlayerFeeAmount());
         vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        uint256 requestId =
+            contractInstance.requestCreatePlayer{value: contractInstance.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
         return requestId;
     }
 
     // Helper function to create a player with VRF
-    function _createPlayerAndFulfillVRF(address owner, Player playerContract, bool useSetB)
+    function _createPlayerAndFulfillVRF(address owner, Player contractInstance, bool useSetB)
         internal
         returns (uint256)
     {
         // Give enough ETH to cover the fee
-        vm.deal(owner, playerContract.createPlayerFeeAmount());
+        vm.deal(owner, contractInstance.createPlayerFeeAmount());
 
         // Request player creation
-        uint256 requestId = _createPlayerRequest(owner, playerContract, useSetB);
+        uint256 requestId = _createPlayerRequest(owner, contractInstance, useSetB);
 
         // Fulfill VRF request
         _fulfillVRF(
             requestId,
             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, VRF_ROUND))),
-            address(playerContract)
+            address(contractInstance)
         );
 
         // Get the player ID from the contract
-        uint256[] memory playerIds = playerContract.getPlayerIds(owner);
+        uint256[] memory playerIds = contractInstance.getPlayerIds(owner);
         require(playerIds.length > 0, "Player not created");
 
         return playerIds[playerIds.length - 1];
@@ -186,6 +199,91 @@ abstract contract TestBase is Test {
         assertTrue(winner == player1Id || winner == player2Id, "Invalid winner");
         assertTrue(actions.length > 0, "No actions recorded");
         assertTrue(uint8(condition) <= uint8(type(GameEngine.WinCondition).max), "Invalid win condition");
+    }
+
+    // Helper function to validate events
+    function _assertValidCombatEvent(bytes32 player1Data, bytes32 player2Data) internal {
+        // Get the last CombatResult event and validate the packed data
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bool foundEvent = false;
+        bytes32 eventPlayer1Data;
+        bytes32 eventPlayer2Data;
+
+        for (uint256 i = entries.length; i > 0; i--) {
+            // CombatResult event has 4 topics (event sig + 3 indexed params)
+            if (entries[i - 1].topics.length == 4) {
+                eventPlayer1Data = bytes32(entries[i - 1].topics[1]);
+                eventPlayer2Data = bytes32(entries[i - 1].topics[2]);
+                foundEvent = true;
+                break;
+            }
+        }
+
+        assertTrue(foundEvent, "CombatResult event not found");
+
+        // Decode both expected and actual player data
+        (
+            uint32 expectedId1,
+            uint8 expectedStr1,
+            uint8 expectedCon1,
+            uint8 expectedSize1,
+            uint8 expectedAgi1,
+            uint8 expectedSta1,
+            uint8 expectedLuck1
+        ) = abi.decode(abi.encodePacked(uint96(0), player1Data), (uint32, uint8, uint8, uint8, uint8, uint8, uint8));
+
+        (
+            uint32 actualId1,
+            uint8 actualStr1,
+            uint8 actualCon1,
+            uint8 actualSize1,
+            uint8 actualAgi1,
+            uint8 actualSta1,
+            uint8 actualLuck1
+        ) = abi.decode(
+            abi.encodePacked(uint96(0), eventPlayer1Data), (uint32, uint8, uint8, uint8, uint8, uint8, uint8)
+        );
+
+        // Verify player 1 data
+        assertEq(actualId1, expectedId1, "Player 1 ID mismatch");
+        assertEq(actualStr1, expectedStr1, "Player 1 strength mismatch");
+        assertEq(actualCon1, expectedCon1, "Player 1 constitution mismatch");
+        assertEq(actualSize1, expectedSize1, "Player 1 size mismatch");
+        assertEq(actualAgi1, expectedAgi1, "Player 1 agility mismatch");
+        assertEq(actualSta1, expectedSta1, "Player 1 stamina mismatch");
+        assertEq(actualLuck1, expectedLuck1, "Player 1 luck mismatch");
+
+        // Decode and verify player 2 data
+        (
+            uint32 expectedId2,
+            uint8 expectedStr2,
+            uint8 expectedCon2,
+            uint8 expectedSize2,
+            uint8 expectedAgi2,
+            uint8 expectedSta2,
+            uint8 expectedLuck2
+        ) = abi.decode(abi.encodePacked(uint96(0), player2Data), (uint32, uint8, uint8, uint8, uint8, uint8, uint8));
+
+        (
+            uint32 actualId2,
+            uint8 actualStr2,
+            uint8 actualCon2,
+            uint8 actualSize2,
+            uint8 actualAgi2,
+            uint8 actualSta2,
+            uint8 actualLuck2
+        ) = abi.decode(
+            abi.encodePacked(uint96(0), eventPlayer2Data), (uint32, uint8, uint8, uint8, uint8, uint8, uint8)
+        );
+
+        // Verify player 2 data
+        assertEq(actualId2, expectedId2, "Player 2 ID mismatch");
+        assertEq(actualStr2, expectedStr2, "Player 2 strength mismatch");
+        assertEq(actualCon2, expectedCon2, "Player 2 constitution mismatch");
+        assertEq(actualSize2, expectedSize2, "Player 2 size mismatch");
+        assertEq(actualAgi2, expectedAgi2, "Player 2 agility mismatch");
+        assertEq(actualSta2, expectedSta2, "Player 2 stamina mismatch");
+        assertEq(actualLuck2, expectedLuck2, "Player 2 luck mismatch");
     }
 
     // Helper function to check if a combat action is offensive
@@ -257,22 +355,41 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to assert player ownership and basic state
-    function _assertPlayerState(Player playerContract, uint256 playerId, address expectedOwner, bool shouldExist)
+    function _assertPlayerState(Player contractInstance, uint256 playerId, address expectedOwner, bool shouldExist)
         internal
     {
         if (shouldExist) {
-            assertEq(playerContract.getPlayerOwner(playerId), expectedOwner, "Incorrect player owner");
-            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+            assertEq(contractInstance.getPlayerOwner(playerId), expectedOwner, "Incorrect player owner");
+            IPlayer.PlayerStats memory stats = contractInstance.getPlayer(playerId);
             assertTrue(stats.strength != 0, "Player should exist");
-            assertFalse(playerContract.isPlayerRetired(playerId), "Player should not be retired");
+            assertFalse(contractInstance.isPlayerRetired(playerId), "Player should not be retired");
         } else {
             vm.expectRevert();
-            playerContract.getPlayerOwner(playerId);
+            contractInstance.getPlayerOwner(playerId);
         }
     }
 
     // Helper function to assert ETH balances after transactions
     function _assertBalances(address account, uint256 expectedBalance, string memory message) internal {
         assertEq(account.balance, expectedBalance, message);
+    }
+
+    // Helper function to assert VRF request
+    function _assertVRFRequest(uint256 requestId, uint256 roundId) internal {
+        // Get recorded logs
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        // Look for the VRF request event
+        bool foundEvent = false;
+        for (uint256 i = entries.length; i > 0; i--) {
+            if (entries[i - 1].topics[0] == keccak256("RequestedRandomness(uint256,bytes)")) {
+                // Found event, verify round ID matches
+                assertEq(uint256(entries[i - 1].topics[1]), roundId, "VRF round ID mismatch");
+                foundEvent = true;
+                break;
+            }
+        }
+
+        assertTrue(foundEvent, "VRF request event not found");
     }
 }

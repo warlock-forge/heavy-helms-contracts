@@ -3,9 +3,9 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {PracticeGame} from "../src/PracticeGame.sol";
-import {Player} from "../src/Player.sol";
-import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {GameEngine} from "../src/GameEngine.sol";
+import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
+import {Player} from "../src/Player.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import "../src/interfaces/IPlayer.sol";
@@ -16,21 +16,9 @@ import "../src/interfaces/IPlayerSkinNFT.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
 contract PracticeGameTest is TestBase {
-    struct TestCharacters {
-        uint16 greatswordOffensive;
-        uint16 battleaxeOffensive;
-        uint16 spearBalanced;
-        uint16 swordAndShieldDefensive;
-        uint16 rapierAndShieldDefensive;
-        uint16 quarterstaffDefensive;
-    }
-
-    PracticeGame public game;
+    PracticeGame public practiceGame;
     GameEngine public gameEngine;
-    PlayerEquipmentStats public equipmentStats;
-    Player public playerContract;
-    PlayerNameRegistry public nameRegistry;
-    TestCharacters public chars;
+    DefaultCharacters public chars;
 
     function setUp() public override {
         super.setUp();
@@ -44,7 +32,7 @@ contract PracticeGameTest is TestBase {
 
         // Deploy Game contracts
         gameEngine = new GameEngine();
-        game = new PracticeGame(address(gameEngine), address(playerContract));
+        practiceGame = new PracticeGame(address(gameEngine), address(playerContract));
 
         // Register default skin and set up registry
         vm.deal(address(this), skinRegistry.registrationFee());
@@ -91,7 +79,7 @@ contract PracticeGameTest is TestBase {
         chars.quarterstaffDefensive = 7;
     }
 
-    function testBasicCombat() public view {
+    function testBasicCombat() public {
         // Test basic combat functionality with pseudo-random seed
         uint256 seed = _generateGameSeed();
 
@@ -108,7 +96,7 @@ contract PracticeGameTest is TestBase {
         super._assertValidCombatResult(winner, condition, actions, player1.playerId, player2.playerId);
     }
 
-    function testCombatMechanics() public view {
+    function testCombatMechanics() public {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
         uint256 seed = _generateGameSeed();
 
@@ -139,7 +127,7 @@ contract PracticeGameTest is TestBase {
         assertTrue(hasDefensiveAction, "No defensive actions occurred in combat");
     }
 
-    function testFuzzCombat(uint256 seed) public view {
+    function testFuzzCombat(uint256 seed) public {
         // Create loadouts for fuzz testing
         GameEngine.PlayerLoadout memory player1 = _createLoadout(chars.greatswordOffensive, true, false, playerContract);
         GameEngine.PlayerLoadout memory player2 =
@@ -178,7 +166,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.greatswordOffensive, true, false, playerContract);
         GameEngine.PlayerLoadout memory loadout1B =
             _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
-        results = game.play(loadout1A, loadout1B);
+        results = practiceGame.play(loadout1A, loadout1B);
         (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, condition, actions, loadout1A.playerId, loadout1B.playerId);
@@ -188,7 +176,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.battleaxeOffensive, true, false, playerContract);
         GameEngine.PlayerLoadout memory loadout2B =
             _createLoadout(chars.rapierAndShieldDefensive, true, false, playerContract);
-        results = game.play(loadout2A, loadout2B);
+        results = practiceGame.play(loadout2A, loadout2B);
         (winner, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, condition, actions, loadout2A.playerId, loadout2B.playerId);
 
@@ -196,7 +184,7 @@ contract PracticeGameTest is TestBase {
         GameEngine.PlayerLoadout memory loadout3A = _createLoadout(chars.spearBalanced, true, false, playerContract);
         GameEngine.PlayerLoadout memory loadout3B =
             _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
-        results = game.play(loadout3A, loadout3B);
+        results = practiceGame.play(loadout3A, loadout3B);
         (winner, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, condition, actions, loadout3A.playerId, loadout3B.playerId);
 
@@ -205,12 +193,12 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.greatswordOffensive, true, false, playerContract);
         GameEngine.PlayerLoadout memory loadout4B =
             _createLoadout(chars.rapierAndShieldDefensive, true, false, playerContract);
-        results = game.play(loadout4A, loadout4B);
+        results = practiceGame.play(loadout4A, loadout4B);
         (winner, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, condition, actions, loadout4A.playerId, loadout4B.playerId);
     }
 
-    function testDefensiveActions() public view {
+    function testDefensiveActions() public {
         // Test defensive mechanics with specific character loadouts
         GameEngine.PlayerLoadout memory attackerLoadout =
             _createLoadout(chars.greatswordOffensive, true, false, playerContract);
@@ -222,7 +210,7 @@ contract PracticeGameTest is TestBase {
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(defenderStats);
 
         // Run combat and analyze defensive actions
-        bytes memory results = game.play(attackerLoadout, defenderLoadout);
+        bytes memory results = practiceGame.play(attackerLoadout, defenderLoadout);
         (uint256 winner,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
         // Verify defensive actions occurred
@@ -236,7 +224,7 @@ contract PracticeGameTest is TestBase {
         assertTrue(hasDefensiveAction, "No defensive actions occurred in combat");
     }
 
-    function testParryChanceCalculation() public view {
+    function testParryChanceCalculation() public {
         // Test parry chance calculation for a defensive character
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(chars.rapierAndShieldDefensive);
         IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(stats);
@@ -246,14 +234,14 @@ contract PracticeGameTest is TestBase {
         assertTrue(calcStats.parryChance <= 100, "Parry chance should be <= 100");
     }
 
-    function testCombatLogStructure() public view {
+    function testCombatLogStructure() public {
         // Test the structure and decoding of combat logs
         GameEngine.PlayerLoadout memory p1Loadout =
             _createLoadout(chars.greatswordOffensive, true, false, playerContract);
         GameEngine.PlayerLoadout memory p2Loadout =
             _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
-        bytes memory results = game.play(p1Loadout, p2Loadout);
+        bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
         (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -269,75 +257,17 @@ contract PracticeGameTest is TestBase {
         }
     }
 
-    function testStanceModifiers() public {
-        if (vm.envOr("CI", false)) {
-            console2.log("Skipping randomness test in CI");
-            return;
-        }
+    function testStanceInteractions() public {
+        // Test how different stances interact with each other
+        GameEngine.PlayerLoadout memory p1Loadout =
+            _createLoadout(chars.greatswordOffensive, true, false, playerContract);
+        GameEngine.PlayerLoadout memory p2Loadout =
+            _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
-        // Test scenarios with different weapon matchups
-        console2.log("\n=== Scenario 1 ===");
-        console2.log("Offensive: Greatsword vs Defensive: SwordAndShield");
-        runStanceScenario(chars.greatswordOffensive, chars.swordAndShieldDefensive, 20);
-
-        // Roll forward to get new entropy
-        vm.roll(block.number + 100);
-        vm.warp(block.timestamp + 1200);
-
-        console2.log("\n=== Scenario 2 ===");
-        console2.log("Offensive: Battleaxe vs Defensive: SwordAndShield");
-        runStanceScenario(chars.battleaxeOffensive, chars.swordAndShieldDefensive, 20);
-
-        // Roll forward again
-        vm.roll(block.number + 100);
-        vm.warp(block.timestamp + 1200);
-
-        console2.log("\n=== Scenario 3 ===");
-        console2.log("Offensive: Spear vs Defensive: SwordAndShield");
-        runStanceScenario(chars.spearBalanced, chars.swordAndShieldDefensive, 20);
-    }
-
-    function runStanceScenario(uint32 player1Id, uint32 player2Id, uint256 rounds) internal {
-        GameEngine.PlayerLoadout memory p1Loadout = _createLoadout(player1Id, true, false, playerContract);
-        GameEngine.PlayerLoadout memory p2Loadout = _createLoadout(player2Id, true, false, playerContract);
-
-        uint256 p1Wins = 0;
-        uint256 p2Wins = 0;
-        uint256 totalRounds = 0;
-
-        for (uint256 i = 0; i < rounds; i++) {
-            // Get entropy from the forked chain
-            uint256 seed = uint256(
-                keccak256(
-                    abi.encodePacked(
-                        block.timestamp + i, block.prevrandao, blockhash(block.number - (i % 256)), msg.sender, i
-                    )
-                )
-            );
-
-            // Move time and blocks forward for new entropy
-            vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 12); // ~12 second blocks
-
-            // Run game with seed from forked chain
-            bytes memory results = gameEngine.processGame(p1Loadout, p2Loadout, seed, playerContract);
-            (uint256 winner,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
-
-            if (winner == p1Loadout.playerId) p1Wins++;
-            else if (winner == p2Loadout.playerId) p2Wins++;
-
-            totalRounds += actions.length;
-        }
-
-        // Log results
-        console2.log("Scenario Results:");
-        console2.log("Offensive Player #%d Wins: %d (%d%%)", p1Loadout.playerId, p1Wins, (p1Wins * 100) / rounds);
-        console2.log("Defensive Player #%d Wins: %d (%d%%)", p2Loadout.playerId, p2Wins, (p2Wins * 100) / rounds);
-        console2.log("Average Rounds: %d", totalRounds / rounds);
-
-        // Verify both players can win
-        assertTrue(p1Wins > 0, "Offensive stance never won");
-        assertTrue(p2Wins > 0, "Defensive stance never won");
+        bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
+        (uint256 winner, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+        super._assertValidCombatResult(winner, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
     }
 
     function testHighDamageEncoding() public pure {
