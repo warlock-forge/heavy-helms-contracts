@@ -8,6 +8,9 @@ import "./PlayerSkinRegistry.sol";
 import "./PlayerEquipmentStats.sol";
 
 contract GameEngine is IGameEngine {
+    /// @notice Current version of the game engine
+    uint32 public constant override version = 1;
+
     using UniformRandomNumber for uint256;
 
     enum CombatResultType {
@@ -243,6 +246,10 @@ contract GameEngine is IGameEngine {
         state.p1Id = uint32(player1.playerId);
         state.p2Id = uint32(player2.playerId);
 
+        // Validate equipment stats
+        validateCombatStats(p1WeaponStats, p1ArmorStats);
+        validateCombatStats(p2WeaponStats, p2ArmorStats);
+
         // Calculate effective initiative (90% equipment, 10% stats)
         uint32 p1EquipmentInit = (p1WeaponStats.attackSpeed * 100) / p1ArmorStats.weight;
         uint32 p2EquipmentInit = (p2WeaponStats.attackSpeed * 100) / p2ArmorStats.weight;
@@ -259,6 +266,16 @@ contract GameEngine is IGameEngine {
         }
 
         return state;
+    }
+
+    function validateCombatStats(
+        PlayerEquipmentStats.WeaponStats memory weapon,
+        PlayerEquipmentStats.ArmorStats memory armor
+    ) private pure {
+        require(weapon.maxDamage >= weapon.minDamage, "Invalid weapon damage range");
+        require(weapon.staminaMultiplier > 0, "Invalid stamina multiplier");
+        require(weapon.attackSpeed > 0, "Invalid attack speed");
+        require(armor.weight > 0, "Invalid armor weight");
     }
 
     function checkExhaustion(
@@ -382,7 +399,7 @@ contract GameEngine is IGameEngine {
         uint8 finalHitChance = uint8(withBothBounds);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
-        uint8 hitRoll = uint8(seed % 100);
+        uint8 hitRoll = uint8(seed.uniform(100));
 
         uint256 modifiedStaminaCost =
             calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
@@ -400,11 +417,11 @@ contract GameEngine is IGameEngine {
         }
 
         // Calculate base damage first
-        seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before damage calc
         uint16 damage;
         (damage, seed) = calculateDamage(attacker.damageModifier, attackerWeapon, seed);
 
-        uint8 critRoll = uint8(seed % 100);
+        seed = uint256(keccak256(abi.encodePacked(seed)));
+        uint8 critRoll = uint8(seed.uniform(100));
         bool isCritical = critRoll < attacker.critChance;
 
         if (isCritical) {
@@ -470,12 +487,12 @@ contract GameEngine is IGameEngine {
 
         // Block check - only allow if defender has a shield-type weapon
         seed = uint256(keccak256(abi.encodePacked(seed)));
-        uint8 blockRoll = uint8(seed % 100);
+        uint8 blockRoll = uint8(seed.uniform(100));
 
         if (blockRoll < effectiveBlockChance && defenderStamina >= blockStaminaCost && defenderWeapon.hasShield) {
             // Using hasShield from WeaponStats
             seed = uint256(keccak256(abi.encodePacked(seed)));
-            uint8 counterRoll = uint8(seed % 100);
+            uint8 counterRoll = uint8(seed.uniform(100));
 
             if (counterRoll < defender.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -490,10 +507,10 @@ contract GameEngine is IGameEngine {
 
         // Parry check
         seed = uint256(keccak256(abi.encodePacked(seed)));
-        uint8 parryRoll = uint8(seed % 100);
+        uint8 parryRoll = uint8(seed.uniform(100));
         if (parryRoll < effectiveParryChance && defenderStamina >= parryStaminaCost) {
             seed = uint256(keccak256(abi.encodePacked(seed)));
-            uint8 riposteRoll = uint8(seed % 100);
+            uint8 riposteRoll = uint8(seed.uniform(100));
 
             if (riposteRoll < defender.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -504,7 +521,7 @@ contract GameEngine is IGameEngine {
 
         // Dodge check
         seed = uint256(keccak256(abi.encodePacked(seed)));
-        uint8 dodgeRoll = uint8(seed % 100);
+        uint8 dodgeRoll = uint8(seed.uniform(100));
         if (dodgeRoll < effectiveDodgeChance && defenderStamina >= dodgeStaminaCost) {
             return (uint8(CombatResultType.DODGE), 0, uint8(dodgeStaminaCost), seed);
         }
@@ -527,7 +544,8 @@ contract GameEngine is IGameEngine {
         (counterDamage, seed) = calculateDamage(defenderStats.damageModifier, defenderWeapon, seed);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
-        bool isCritical = (seed % 100) < defenderStats.critChance;
+        uint8 critRoll = uint8(seed.uniform(100));
+        bool isCritical = critRoll < defenderStats.critChance;
 
         if (isCritical) {
             uint32 totalMultiplier =
@@ -592,7 +610,7 @@ contract GameEngine is IGameEngine {
     {
         // Use uint64 for all intermediate calculations to prevent overflow
         uint64 damageRange = weapon.maxDamage >= weapon.minDamage ? weapon.maxDamage - weapon.minDamage : 0;
-        uint64 baseDamage = uint64(weapon.minDamage) + uint64(seed % (damageRange + 1));
+        uint64 baseDamage = uint64(weapon.minDamage) + uint64(seed.uniform(damageRange + 1));
 
         // Scale up for precision, using uint64 to prevent overflow
         uint64 scaledBase = baseDamage * 100;

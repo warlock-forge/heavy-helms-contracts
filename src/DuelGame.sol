@@ -15,6 +15,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     // Constants
     uint256 public wagerFeePercentage = 300; // 3% fee (basis points)
     uint256 public minWagerAmount = 0.001 ether;
+    uint256 public maxWagerAmount = 100 ether; // Add reasonable max wager
     uint256 public minDuelFee = 0.0005 ether;
     uint256 public constant BLOCKS_UNTIL_EXPIRE = 43200; // ~24 hours at 2s blocks
     uint256 public constant BLOCKS_UNTIL_WITHDRAW = 1296000; // ~30 days at 2s blocks
@@ -114,12 +115,14 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 wagerAmount
     ) external payable whenGameEnabled nonReentrant returns (uint256) {
         require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
+
         // Calculate required msg.value based on wager
         uint256 requiredAmount;
         if (wagerAmount == 0) {
             requiredAmount = minDuelFee;
         } else {
             require(wagerAmount >= minWagerAmount, "Wager below minimum");
+            require(wagerAmount <= maxWagerAmount, "Wager exceeds maximum");
             requiredAmount = wagerAmount;
         }
 
@@ -379,5 +382,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit FeesWithdrawn(amount);
     }
 
-    receive() external payable {}
+    receive() external payable {
+        totalFeesCollected += msg.value;
+    }
 }

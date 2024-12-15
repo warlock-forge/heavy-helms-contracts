@@ -6,6 +6,9 @@ import "./IPlayerSkinNFT.sol";
 import "../PlayerSkinRegistry.sol";
 
 interface IGameEngine {
+    /// @notice Returns the current version of the game engine
+    function version() external pure returns (uint32);
+
     struct PlayerLoadout {
         uint32 playerId;
         uint32 skinIndex;

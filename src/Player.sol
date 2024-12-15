@@ -12,6 +12,7 @@ import "./PlayerNameRegistry.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./PlayerEquipmentStats.sol"; // Import PlayerEquipmentStats types
+import "solmate/src/utils/ReentrancyGuard.sol";
 
 error PlayerDoesNotExist(uint256 playerId);
 error NotSkinOwner();
@@ -20,11 +21,11 @@ error InvalidDefaultPlayerId();
 error InvalidContractAddress();
 error RequiredNFTNotOwned(address nftAddress);
 
-contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
+contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     using UniformRandomNumber for uint256;
 
     // Configuration
-    uint256 public maxPlayersPerAddress;
+    uint256 public override maxPlayersPerAddress;
     uint256 public createPlayerFeeAmount;
 
     // Player state tracking
@@ -72,6 +73,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
     event PlayerCreationFulfilled(uint256 indexed requestId, uint256 indexed playerId, address indexed owner);
     event GameContractTrustUpdated(address indexed gameContract, bool trusted);
+    event CreatePlayerFeeUpdated(uint256 oldFee, uint256 newFee);
 
     // Constants
     uint8 private constant MIN_STAT = 3;
@@ -394,10 +396,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     }
 
     function setCreatePlayerFeeAmount(uint256 newFeeAmount) external onlyOwner {
+        uint256 oldFee = createPlayerFeeAmount;
         createPlayerFeeAmount = newFeeAmount;
+        emit CreatePlayerFeeUpdated(oldFee, newFeeAmount);
     }
 
-    function withdrawFees() external onlyOwner {
+    function withdrawFees() external nonReentrant onlyOwner {
         SafeTransferLib.safeTransferETH(owner, address(this).balance);
     }
 
@@ -411,49 +415,42 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         delete _userPendingRequests[user];
     }
 
-    function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId) {
+    function requestCreatePlayer(bool useNameSetB) external payable nonReentrant returns (uint256 requestId) {
+        // Checks
         require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
         require(_userPendingRequests[msg.sender].length == 0, "Pending request exists");
         require(msg.value >= createPlayerFeeAmount, "Insufficient fee amount");
 
-        // Request randomness from Gelato VRF
+        // Effects - Get requestId first since it's deterministic and can't fail
         requestId = _requestRandomness("");
-
-        // Store pending player data
         _pendingPlayers[requestId] = PendingPlayer({owner: msg.sender, useNameSetB: useNameSetB, fulfilled: false});
-
-        // Track this request for the user
         _userPendingRequests[msg.sender].push(requestId);
 
+        // Interactions (just the event emission)
         emit PlayerCreationRequested(requestId, msg.sender);
-        return requestId;
     }
 
-    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData) internal override {
-        // Check if request ID exists first
+    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData)
+        internal
+        override
+        nonReentrant
+    {
+        // Checks
         PendingPlayer memory pending = _pendingPlayers[requestId];
-        if (pending.owner == address(0)) {
-            revert("Invalid request ID");
-        }
-
+        require(pending.owner != address(0), "Invalid request ID");
         require(!pending.fulfilled, "Request already fulfilled");
 
-        // Mark as fulfilled first to prevent reentrancy
+        // Effects
         _pendingPlayers[requestId].fulfilled = true;
-
-        // Create a new random seed by combining VRF randomness with request data
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
-
-        // Create the player with the combined seed
         (uint256 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
 
-        emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
-
-        // Remove from user's pending requests
+        // Remove from user's pending requests and cleanup
         _removeFromPendingRequests(pending.owner, requestId);
-
-        // Cleanup
         delete _pendingPlayers[requestId];
+
+        // Interactions (just the event emission)
+        emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
     }
 
     function getRequestStatus(uint256 requestId) external view returns (bool exists, bool fulfilled, address owner) {
@@ -547,15 +544,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         // Generate name indices based on player preference
         uint16 firstNameIndex;
         if (useNameSetB) {
-            firstNameIndex =
-                uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetBLength());
+            firstNameIndex = uint16(randomSeed.uniform(nameRegistry.getNameSetBLength()));
         } else {
-            firstNameIndex = nameRegistry.SET_A_START()
-                + uint16(uint256(keccak256(abi.encodePacked(randomSeed, "firstName"))) % nameRegistry.getNameSetALength());
+            firstNameIndex = uint16(randomSeed.uniform(nameRegistry.getNameSetALength())) + nameRegistry.SET_A_START();
         }
 
-        uint16 surnameIndex =
-            uint16(uint256(keccak256(abi.encodePacked(randomSeed, "surname"))) % nameRegistry.getSurnamesLength());
+        uint16 surnameIndex = uint16(randomSeed.uniform(nameRegistry.getSurnamesLength()));
 
         // Create stats struct
         stats = IPlayer.PlayerStats({

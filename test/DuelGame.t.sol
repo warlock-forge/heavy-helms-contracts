@@ -384,11 +384,11 @@ contract DuelGameTest is TestBase {
 
         // Verify balances after withdrawal
         assertEq(game.totalFeesCollected(), 0, "Fees should be 0 after withdrawal");
-        assertEq(address(game).balance, initialContractBalance - collectedFees, "Contract balance should be reduced by fees");
         assertEq(
-            address(game.owner()).balance,
-            initialOwnerBalance + collectedFees,
-            "Owner should receive collected fees"
+            address(game).balance, initialContractBalance - collectedFees, "Contract balance should be reduced by fees"
+        );
+        assertEq(
+            address(game.owner()).balance, initialOwnerBalance + collectedFees, "Owner should receive collected fees"
         );
     }
 

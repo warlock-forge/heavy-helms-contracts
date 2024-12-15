@@ -5,6 +5,9 @@ import "../PlayerEquipmentStats.sol";
 import "../PlayerSkinRegistry.sol";
 
 interface IPlayer {
+    /// @notice Returns the maximum number of players allowed per address
+    function maxPlayersPerAddress() external view returns (uint256);
+
     struct PlayerStats {
         uint8 strength;
         uint8 constitution;
