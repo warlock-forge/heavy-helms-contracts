@@ -135,7 +135,7 @@ contract GameEngine is IGameEngine {
         // Calculate stats directly
         IPlayer.CalculatedStats memory p1CalcStats = playerContract.calculateStats(p1Stats);
         IPlayer.CalculatedStats memory p2CalcStats = playerContract.calculateStats(p2Stats);
-        
+
         uint256 p1Health = p1CalcStats.maxHealth;
         uint256 p1Stamina = p1CalcStats.maxEndurance;
         uint256 p2Health = p2CalcStats.maxHealth;

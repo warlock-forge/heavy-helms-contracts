@@ -114,9 +114,8 @@ contract DuelGameTest is TestBase {
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
 
-        uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
 
         // Give enough ETH to PLAYER_TWO to cover wager
@@ -168,9 +167,8 @@ contract DuelGameTest is TestBase {
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
-        uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
         // Warp to after expiry
         vm.roll(block.number + game.BLOCKS_UNTIL_EXPIRE() + 1);
@@ -196,9 +194,8 @@ contract DuelGameTest is TestBase {
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
 
-        uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
 
         // Give enough ETH to PLAYER_TWO to cover wager
@@ -250,9 +247,8 @@ contract DuelGameTest is TestBase {
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
-        uint256 challengeId = game.initiateChallenge{value: totalAmount}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
         // Warp to after withdrawal period
         vm.roll(block.number + game.BLOCKS_UNTIL_WITHDRAW() + 1);
@@ -274,9 +270,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
         vm.expectRevert("Incorrect ETH amount sent");
-        game.initiateChallenge{value: wagerAmount}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        game.initiateChallenge{value: wagerAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
         // Try to create challenge with default character
         vm.expectRevert("Cannot use default character as challenger");
@@ -288,9 +282,8 @@ contract DuelGameTest is TestBase {
 
         // Try to cancel active challenge
         uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 challengeId = game.initiateChallenge{value: wagerAmount + fee}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        uint256 challengeId =
+            game.initiateChallenge{value: wagerAmount + fee}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
         vm.expectRevert("Challenge still active");
         game.cancelChallenge(challengeId);
         vm.stopPrank();
@@ -350,9 +343,8 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
         vm.deal(PLAYER_ONE, wagerAmount);
 
-        uint256 challengeId = game.initiateChallenge{value: wagerAmount}(
-            _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
-        );
+        uint256 challengeId =
+            game.initiateChallenge{value: wagerAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         vm.deal(PLAYER_TWO, wagerAmount);
