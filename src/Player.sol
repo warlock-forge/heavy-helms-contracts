@@ -16,8 +16,6 @@ import "solmate/src/utils/ReentrancyGuard.sol";
 
 error PlayerDoesNotExist(uint32 playerId);
 error NotSkinOwner();
-error NotDefaultSkinContract();
-error InvalidDefaultPlayerId();
 error InvalidContractAddress();
 error RequiredNFTNotOwned(address nftAddress);
 
@@ -49,7 +47,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     // Permissions for game contracts
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
 
-    // Modifier to check specific permission
+    // Modifiers
     modifier hasPermission(IPlayer.GamePermission permission) {
         IPlayer.GamePermissions storage perms = _gameContractPermissions[msg.sender];
         bool hasAccess = permission == IPlayer.GamePermission.RECORD
@@ -63,18 +61,15 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         _;
     }
 
-    // Events
-    event MaxPlayersUpdated(uint256 newMax);
-    event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
-    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
-    event GameContractTrustUpdated(address indexed gameContract, bool trusted);
-    event CreatePlayerFeeUpdated(uint256 oldFee, uint256 newFee);
+    modifier playerExists(uint32 playerId) {
+        require(_players[playerId].strength != 0, "Player does not exist");
+        _;
+    }
 
     // Constants
     uint8 private constant MIN_STAT = 3;
     uint8 private constant MAX_STAT = 21;
     uint16 private constant TOTAL_STATS = 72;
-    uint256 private constant ROUND_ID = 1;
 
     uint32 private nextPlayerId = 1000;
 
@@ -410,7 +405,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         _pendingPlayers[requestId] = PendingPlayer({owner: msg.sender, useNameSetB: useNameSetB, fulfilled: false});
         _userPendingRequests[msg.sender].push(requestId);
 
-        // Interactions (just the event emission)
         emit PlayerCreationRequested(requestId, msg.sender);
     }
 
@@ -433,7 +427,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         _removeFromPendingRequests(pending.owner, requestId);
         delete _pendingPlayers[requestId];
 
-        // Interactions (just the event emission)
         emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
     }
 
@@ -577,26 +570,38 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         _gameContractPermissions[gameContract] = permissions;
     }
 
-    function incrementWins(uint32 playerId) external hasPermission(IPlayer.GamePermission.RECORD) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+    function incrementWins(uint32 playerId)
+        external
+        hasPermission(IPlayer.GamePermission.RECORD)
+        playerExists(playerId)
+    {
         PlayerStats storage stats = _players[playerId];
         stats.wins++;
     }
 
-    function incrementLosses(uint32 playerId) external hasPermission(IPlayer.GamePermission.RECORD) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+    function incrementLosses(uint32 playerId)
+        external
+        hasPermission(IPlayer.GamePermission.RECORD)
+        playerExists(playerId)
+    {
         PlayerStats storage stats = _players[playerId];
         stats.losses++;
     }
 
-    function incrementKills(uint32 playerId) external hasPermission(IPlayer.GamePermission.RECORD) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+    function incrementKills(uint32 playerId)
+        external
+        hasPermission(IPlayer.GamePermission.RECORD)
+        playerExists(playerId)
+    {
         PlayerStats storage stats = _players[playerId];
         stats.kills++;
     }
 
-    function setPlayerRetired(uint32 playerId, bool retired) external hasPermission(IPlayer.GamePermission.RETIRE) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+    function setPlayerRetired(uint32 playerId, bool retired)
+        external
+        hasPermission(IPlayer.GamePermission.RETIRE)
+        playerExists(playerId)
+    {
         _retiredPlayers[playerId] = retired;
         emit PlayerRetired(playerId, msg.sender, retired);
     }
@@ -604,8 +609,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     function setPlayerName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex)
         external
         hasPermission(IPlayer.GamePermission.NAME)
+        playerExists(playerId)
     {
-        require(_players[playerId].strength != 0, "Player does not exist");
         PlayerStats storage player = _players[playerId];
         player.firstNameIndex = firstNameIndex;
         player.surnameIndex = surnameIndex;
@@ -619,9 +624,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         uint8 agility,
         uint8 stamina,
         uint8 luck
-    ) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) {
-        require(_players[playerId].strength != 0, "Player does not exist");
-
+    ) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) playerExists(playerId) {
         // Create a temporary PlayerStats to validate
         PlayerStats memory newStats = PlayerStats({
             strength: strength,
@@ -655,21 +658,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         return _retiredPlayers[playerId];
     }
 
-    function retireOwnPlayer(uint32 playerId) external {
-        // Check player exists and caller owns it
-        require(_players[playerId].strength != 0, "Player does not exist");
+    function retireOwnPlayer(uint32 playerId) external playerExists(playerId) {
+        // Check caller owns it
         require(_ownerOf(playerId) == msg.sender, "Not player owner");
 
         // Mark as retired
         _retiredPlayers[playerId] = true;
 
         emit PlayerRetired(playerId, msg.sender, true);
-    }
-
-    // For testing purposes only
-    function setPlayerOwner(uint32 playerId, address owner) external onlyOwner {
-        require(playerId >= 1000 || owner == address(0), "Cannot set owner for default characters");
-        _playerOwners[playerId] = owner;
     }
 
     function encodePlayerData(uint32 playerId, PlayerStats memory stats) external pure returns (bytes32) {

@@ -122,21 +122,18 @@ contract GameEngine is IGameEngine {
         }
     }
 
+    /// @notice Process a game between two players
+    /// @param player1 The first player's loadout
+    /// @param player2 The second player's loadout
+    /// @param randomSeed The random seed for the game
+    /// @param playerContract The player contract to get stats from
+    /// @return A byte array containing the encoded combat log
     function processGame(
         PlayerLoadout calldata player1,
         PlayerLoadout calldata player2,
         uint256 randomSeed,
         IPlayer playerContract
     ) external view returns (bytes memory) {
-        return playGameInternal(player1, player2, randomSeed, playerContract);
-    }
-
-    function playGameInternal(
-        PlayerLoadout memory player1,
-        PlayerLoadout memory player2,
-        uint256 randomSeed,
-        IPlayer playerContract
-    ) private view returns (bytes memory) {
         // Get player stats and skin attributes
         IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(player1.playerId);
         IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(player2.playerId);
@@ -827,5 +824,14 @@ contract GameEngine is IGameEngine {
         uint256 stanceModifier = playerContract.equipmentStats().getStanceMultiplier(stance).staminaCostModifier;
         // Apply both weapon and stance modifiers
         return (baseCost * stanceModifier * weapon.staminaMultiplier) / 10000;
+    }
+
+    /// @notice Decodes a version number into major and minor components
+    /// @param _version The version number to decode
+    /// @return major The major version number (0-255)
+    /// @return minor The minor version number (0-255)
+    function decodeVersion(uint16 _version) public pure returns (uint8 major, uint8 minor) {
+        major = uint8(_version >> 8); // Get upper 8 bits
+        minor = uint8(_version & 0xFF); // Get lower 8 bits
     }
 }

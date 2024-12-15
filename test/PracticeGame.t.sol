@@ -273,6 +273,88 @@ contract PracticeGameTest is TestBase {
         super._assertValidCombatResult(winner, version, condition, actions, p1Loadout.playerId, p2Loadout.playerId);
     }
 
+    function testStanceModifiers() public {
+        if (vm.envOr("CI", false)) {
+            console2.log("Skipping randomness test in CI");
+            return;
+        }
+
+        // Get stance modifiers for logging
+        (,, PlayerEquipmentStats.StanceMultiplier memory stance) = playerContract.equipmentStats().getFullCharacterStats(
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Chain,
+            IPlayerSkinNFT.FightingStance.Defensive
+        );
+        console2.log(
+            "Stance Mods - Block:%d Parry:%d Dodge:%d", stance.blockChance, stance.parryChance, stance.dodgeChance
+        );
+
+        // Test scenarios with different weapon matchups
+        console2.log("\n=== Scenario 1 ===");
+        console2.log("Offensive: Greatsword vs Defensive: SwordAndShield");
+        runStanceScenario(chars.greatswordOffensive, chars.swordAndShieldDefensive, 20);
+
+        // Roll forward to get new entropy
+        vm.roll(block.number + 100);
+        vm.warp(block.timestamp + 1200);
+
+        console2.log("\n=== Scenario 2 ===");
+        console2.log("Offensive: Battleaxe vs Defensive: SwordAndShield");
+        runStanceScenario(chars.battleaxeOffensive, chars.swordAndShieldDefensive, 20);
+
+        // Roll forward again
+        vm.roll(block.number + 100);
+        vm.warp(block.timestamp + 1200);
+
+        console2.log("\n=== Scenario 3 ===");
+        console2.log("Offensive: Spear vs Defensive: SwordAndShield");
+        runStanceScenario(chars.spearBalanced, chars.swordAndShieldDefensive, 20);
+    }
+
+    function runStanceScenario(uint32 player1Id, uint32 player2Id, uint256 rounds) internal {
+        IGameEngine.PlayerLoadout memory p1Loadout = _createLoadout(player1Id, true, false, playerContract);
+        IGameEngine.PlayerLoadout memory p2Loadout = _createLoadout(player2Id, true, false, playerContract);
+
+        uint256 p1Wins = 0;
+        uint256 p2Wins = 0;
+        uint256 totalRounds = 0;
+
+        for (uint256 i = 0; i < rounds; i++) {
+            // Get entropy from the forked chain
+            uint256 seed = uint256(
+                keccak256(
+                    abi.encodePacked(
+                        block.timestamp + i, block.prevrandao, blockhash(block.number - (i % 256)), msg.sender, i
+                    )
+                )
+            );
+
+            // Move time and blocks forward for new entropy
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 12); // ~12 second blocks
+
+            // Run game with seed from forked chain
+            bytes memory results = gameEngine.processGame(p1Loadout, p2Loadout, seed, playerContract);
+            (uint32 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions)
+            = gameEngine.decodeCombatLog(results);
+
+            if (winner == p1Loadout.playerId) p1Wins++;
+            else if (winner == p2Loadout.playerId) p2Wins++;
+
+            totalRounds += actions.length;
+        }
+
+        // Log results
+        console2.log("Scenario Results:");
+        console2.log("Offensive Player #%d Wins: %d (%d%%)", p1Loadout.playerId, p1Wins, (p1Wins * 100) / rounds);
+        console2.log("Defensive Player #%d Wins: %d (%d%%)", p2Loadout.playerId, p2Wins, (p2Wins * 100) / rounds);
+        console2.log("Average Rounds: %d", totalRounds / rounds);
+
+        // Verify both players can win
+        assertTrue(p1Wins > 0, "Offensive stance never won");
+        assertTrue(p2Wins > 0, "Defensive stance never won");
+    }
+
     function testHighDamageEncoding() public pure {
         // Test several high damage values
         uint16[] memory testDamages = new uint16[](4);
