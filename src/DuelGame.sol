@@ -150,8 +150,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Verify skin ownership if a skin is being used
         if (challengerLoadout.skinIndex > 0) {
-            try playerContract.skinRegistry().validateSkinOwnership(challengerLoadout.skinIndex, challengerLoadout.skinTokenId, msg.sender) {
-            } catch Error(string memory reason) {
+            try playerContract.skinRegistry().validateSkinOwnership(
+                challengerLoadout.skinIndex, challengerLoadout.skinTokenId, msg.sender
+            ) {} catch Error(string memory reason) {
                 revert(string.concat("Challenger skin validation failed: ", reason));
             } catch {
                 revert("Challenger skin validation failed");
@@ -209,8 +210,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Verify skin ownership if a skin is being used
         if (defenderLoadout.skinIndex > 0) {
-            try playerContract.skinRegistry().validateSkinOwnership(defenderLoadout.skinIndex, defenderLoadout.skinTokenId, msg.sender) {
-            } catch Error(string memory reason) {
+            try playerContract.skinRegistry().validateSkinOwnership(
+                defenderLoadout.skinIndex, defenderLoadout.skinTokenId, msg.sender
+            ) {} catch Error(string memory reason) {
                 revert(string.concat("Defender skin validation failed: ", reason));
             } catch {
                 revert("Defender skin validation failed");

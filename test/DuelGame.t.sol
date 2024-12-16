@@ -411,7 +411,8 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        uint256 challengeId = game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         // Try to accept with an unowned skin
@@ -457,11 +458,8 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
-            playerId: PLAYER_ONE_ID,
-            skinIndex: skinIndex,
-            skinTokenId: tokenId
-        });
+        IGameEngine.PlayerLoadout memory loadout =
+            IGameEngine.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
 
         vm.expectRevert("Challenger skin validation failed");
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -501,11 +499,8 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
-            playerId: PLAYER_ONE_ID,
-            skinIndex: skinIndex,
-            skinTokenId: tokenId
-        });
+        IGameEngine.PlayerLoadout memory loadout =
+            IGameEngine.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
 
         // This should not revert
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
