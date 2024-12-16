@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "solmate/src/auth/Owned.sol";
 import "solmate/src/tokens/ERC20.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
+import "solmate/src/tokens/ERC721.sol";
 
 contract PlayerSkinRegistry is Owned {
     using SafeTransferLib for ERC20;
@@ -37,6 +38,7 @@ contract PlayerSkinRegistry is Owned {
     error InvalidDefaultSkinRegistry();
     error SkinRegistryDoesNotExist();
     error RequiredNFTNotOwned(address nftAddress);
+    error SkinNotOwned(address skinContract);
 
     constructor() Owned(msg.sender) {}
 
@@ -127,6 +129,32 @@ contract PlayerSkinRegistry is Owned {
         if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
         skins[registryId].isDefaultCollection = isDefault;
         emit DefaultCollectionUpdated(registryId, isDefault);
+    }
+
+    function validateSkinOwnership(uint32 skinIndex, uint16 tokenId, address owner) external view {
+        if (skinIndex >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        SkinInfo memory skinInfo = skins[skinIndex];
+        if (!skinInfo.isDefaultCollection) {
+            // First check if they own the skin NFT itself
+            try ERC721(skinInfo.contractAddress).ownerOf(tokenId) returns (address skinOwner) {
+                if (skinOwner != owner) {
+                    revert SkinNotOwned(skinInfo.contractAddress);
+                }
+            } catch {
+                revert SkinNotOwned(skinInfo.contractAddress);
+            }
+
+            // Then if there's a required NFT, check that they own at least one
+            if (skinInfo.requiredNFTAddress != address(0)) {
+                try ERC721(skinInfo.requiredNFTAddress).balanceOf(owner) returns (uint256 balance) {
+                    if (balance == 0) {
+                        revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
+                    }
+                } catch {
+                    revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
+                }
+            }
+        }
     }
 
     receive() external payable {}

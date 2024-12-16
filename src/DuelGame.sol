@@ -4,8 +4,11 @@ pragma solidity ^0.8.13;
 import "./BaseGame.sol";
 import "./interfaces/IGameEngine.sol";
 import "./interfaces/IPlayer.sol";
+import "./interfaces/IPlayerSkinNFT.sol";
+import "./PlayerSkinRegistry.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
+import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./lib/UniformRandomNumber.sol";
 
@@ -141,9 +144,19 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             "Must own challenger player"
         );
 
-        // Check if players are retired
+        // Verify players are not retired
         require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
         require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
+
+        // Verify skin ownership if a skin is being used
+        if (challengerLoadout.skinIndex > 0) {
+            try playerContract.skinRegistry().validateSkinOwnership(challengerLoadout.skinIndex, challengerLoadout.skinTokenId, msg.sender) {
+            } catch Error(string memory reason) {
+                revert(string.concat("Challenger skin validation failed: ", reason));
+            } catch {
+                revert("Challenger skin validation failed");
+            }
+        }
 
         // Create challenge
         uint256 challengeId = nextChallengeId++;
@@ -193,6 +206,16 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
         require(msg.sender == defender, "Not defender");
         require(defenderLoadout.playerId == challenge.defenderId, "Wrong defender ID");
+
+        // Verify skin ownership if a skin is being used
+        if (defenderLoadout.skinIndex > 0) {
+            try playerContract.skinRegistry().validateSkinOwnership(defenderLoadout.skinIndex, defenderLoadout.skinTokenId, msg.sender) {
+            } catch Error(string memory reason) {
+                revert(string.concat("Defender skin validation failed: ", reason));
+            } catch {
+                revert("Defender skin validation failed");
+            }
+        }
 
         // Validate player ownership and stats
         require(IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId) == msg.sender, "Not player owner");

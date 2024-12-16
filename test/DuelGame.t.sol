@@ -10,6 +10,8 @@ import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
+import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
+import {UnlockNFT} from "./mocks/UnlockNFT.sol";
 import "./utils/TestBase.sol";
 
 contract DuelGameTest is TestBase {
@@ -382,6 +384,150 @@ contract DuelGameTest is TestBase {
         assertEq(
             address(game.owner()).balance, initialOwnerBalance + collectedFees, "Owner should receive collected fees"
         );
+    }
+
+    function testCannotInitiateChallengeWithUnownedSkin() public {
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount;
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        // Create a loadout with an unowned skin
+        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skinIndex: 2, // Non-default skin index
+            skinTokenId: 999 // Token ID we don't own
+        });
+
+        vm.expectRevert("Challenger skin validation failed");
+        game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+    }
+
+    function testCannotAcceptChallengeWithUnownedSkin() public {
+        // First create a valid challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount;
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        uint256 challengeId = game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        // Try to accept with an unowned skin
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+
+        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+            playerId: PLAYER_TWO_ID,
+            skinIndex: 2, // Non-default skin index
+            skinTokenId: 999 // Token ID we don't own
+        });
+
+        vm.expectRevert("Defender skin validation failed");
+        game.acceptChallenge{value: wagerAmount}(challengeId, loadout);
+        vm.stopPrank();
+    }
+
+    function testCannotInitiateChallengeWithUnownedUnlockableSkin() public {
+        // Create unlock NFT and skin collection
+        UnlockNFT unlockNFT = new UnlockNFT();
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Unlockable Collection", "UC", 0.01 ether);
+        skinNFT.setMintingEnabled(true);
+
+        // Register the skin collection with unlock requirement
+        vm.deal(address(this), skinRegistry.registrationFee());
+        uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
+        skinRegistry.setSkinVerification(skinIndex, true);
+        skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
+
+        // Mint the skin but NOT the unlock NFT
+        vm.startPrank(PLAYER_ONE);
+        vm.deal(PLAYER_ONE, 0.01 ether);
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
+            PLAYER_ONE,
+            IPlayerSkinNFT.WeaponType.Greatsword,
+            IPlayerSkinNFT.ArmorType.Plate,
+            IPlayerSkinNFT.FightingStance.Offensive
+        );
+        uint16 tokenId = 1;
+
+        // Try to initiate challenge with the skin (should fail because no unlock NFT)
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount;
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId
+        });
+
+        vm.expectRevert("Challenger skin validation failed");
+        game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+    }
+
+    function testCanInitiateChallengeWithUnlockedSkin() public {
+        // Create unlock NFT and skin collection
+        UnlockNFT unlockNFT = new UnlockNFT();
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Unlockable Collection", "UC", 0.01 ether);
+        skinNFT.setMintingEnabled(true);
+
+        // Register the skin collection with unlock requirement
+        vm.deal(address(this), skinRegistry.registrationFee());
+        uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
+        skinRegistry.setSkinVerification(skinIndex, true);
+        skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
+
+        // Mint both the skin AND the unlock NFT
+        vm.startPrank(PLAYER_ONE);
+        vm.deal(PLAYER_ONE, 0.01 ether);
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
+            PLAYER_ONE,
+            IPlayerSkinNFT.WeaponType.Greatsword,
+            IPlayerSkinNFT.ArmorType.Plate,
+            IPlayerSkinNFT.FightingStance.Offensive
+        );
+        uint16 tokenId = 1;
+        vm.stopPrank();
+
+        // Mint the unlock NFT
+        unlockNFT.mint(PLAYER_ONE);
+
+        // Now try to initiate challenge with the skin (should succeed)
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount;
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId
+        });
+
+        // This should not revert
+        game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+    }
+
+    function testCanInitiateChallengeWithDefaultSkin() public {
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount;
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        // Create a loadout with a default collection skin
+        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skinIndex: skinRegistry.defaultSkinRegistryId(),
+            skinTokenId: 1
+        });
+
+        // This should not revert since default skins don't require ownership
+        game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
     }
 
     function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
