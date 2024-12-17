@@ -135,16 +135,7 @@ contract PlayerSkinRegistry is Owned {
         if (skinIndex >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
         SkinInfo memory skinInfo = skins[skinIndex];
         if (!skinInfo.isDefaultCollection) {
-            // First check if they own the skin NFT itself
-            try ERC721(skinInfo.contractAddress).ownerOf(tokenId) returns (address skinOwner) {
-                if (skinOwner != owner) {
-                    revert SkinNotOwned(skinInfo.contractAddress);
-                }
-            } catch {
-                revert SkinNotOwned(skinInfo.contractAddress);
-            }
-
-            // Then if there's a required NFT, check that they own at least one
+            // If there's a required NFT, check that they own at least one
             if (skinInfo.requiredNFTAddress != address(0)) {
                 try ERC721(skinInfo.requiredNFTAddress).balanceOf(owner) returns (uint256 balance) {
                     if (balance == 0) {
@@ -152,6 +143,15 @@ contract PlayerSkinRegistry is Owned {
                     }
                 } catch {
                     revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
+                }
+            } else {
+                // If no required NFT (address(0)), then check actual skin ownership
+                try ERC721(skinInfo.contractAddress).ownerOf(tokenId) returns (address skinOwner) {
+                    if (skinOwner != owner) {
+                        revert SkinNotOwned(skinInfo.contractAddress);
+                    }
+                } catch {
+                    revert SkinNotOwned(skinInfo.contractAddress);
                 }
             }
         }
