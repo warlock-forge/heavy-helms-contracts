@@ -34,7 +34,7 @@ library DefaultPlayerLibrary {
             losses: 0,
             kills: 0
         });
-        ipfsCID = "QmTZzCarXPyWK483Eve4NsQLwiJbCuWhAbnPx2sVRyfKqC";
+        ipfsCID = "QmRQEMsXzytfLuhRyntfD23Gu41GNxdn4PyrBL1XoM3sPb";
     }
 
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
@@ -66,7 +66,7 @@ library DefaultPlayerLibrary {
             losses: 0,
             kills: 0
         });
-        ipfsCID = "QmbH4DC4rvXGmz3xv6HTKsG6zYsmDeo1TKvR3b59vxbjVo";
+        ipfsCID = "QmSVzjJMzZ8ARnYVHHsse1N2VJU3tUvacV1GUiJ2vqgFDZ";
     }
 
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
@@ -99,7 +99,7 @@ library DefaultPlayerLibrary {
                 losses: 0,
                 kills: 0
             }),
-            "QmdFJmG9WCbRixqhpWcdsfQHp7JdT9GBM8D3rTSxaL2oU7"
+            "QmUCL71TD41AFZBd1BkVMLVbjDTAF5A6HiNyGcmiXa8upT"
         );
     }
 
