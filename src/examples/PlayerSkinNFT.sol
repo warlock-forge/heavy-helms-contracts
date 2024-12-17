@@ -82,11 +82,31 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
     function tokenURI(uint256 id) public view virtual override returns (string memory) {
         if (id >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf[id] == address(0)) revert TokenDoesNotExist();
-        return string(abi.encodePacked(baseURI, id, ".json"));
+        return string(abi.encodePacked(baseURI, toString(id), ".json"));
     }
 
     function withdraw() external onlyOwner {
         payable(owner).transfer(address(this).balance);
+    }
+
+    // Helper function to convert uint to string
+    function toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 
     // Override ownerOf to match both ERC721 and interface
