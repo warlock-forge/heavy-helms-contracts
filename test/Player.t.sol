@@ -177,14 +177,14 @@ contract PlayerTest is TestBase {
         uint32 skinIndex = _registerSkin(address(skinNFT));
         skinRegistry.setSkinVerification(skinIndex, true);
 
-        // Mint a skin to the player
+        // Mint skin to player
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Leather,
+            IPlayerSkinNFT.FightingStance.Balanced
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -479,6 +479,7 @@ contract PlayerTest is TestBase {
         uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
         skinRegistry.setSkinVerification(skinIndex, true);
         skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
+        skinRegistry.setDefaultCollection(skinIndex, false); // Make sure it's not a default collection
 
         // Try to equip without owning unlock NFT (should fail)
         vm.deal(PLAYER_ONE, 0.01 ether);
@@ -576,6 +577,52 @@ contract PlayerTest is TestBase {
         // Verify balances after withdrawal
         _assertBalances(address(playerContract), 0, "Contract balance should be 0 after withdrawal");
         _assertBalances(address(this), initialBalance + collectedFees, "Owner should receive all fees");
+    }
+
+    function testEquipCollectionBasedSkin() public {
+        // Create player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Create unlock NFT (like Shapecraft Key)
+        PlayerSkinNFT unlockNFT = new PlayerSkinNFT("Unlock NFT", "UNLOCK", 0);
+        unlockNFT.setMintingEnabled(true);
+
+        // Create skin collection where skins stay with contract
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("Collection Skins", "CSKIN", 0);
+        skinNFT.setMintingEnabled(true);
+
+        // Register skin with unlock requirement
+        uint32 skinIndex = _registerSkin(address(skinNFT));
+        skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
+        skinRegistry.setSkinVerification(skinIndex, true);
+        skinRegistry.setDefaultCollection(skinIndex, false); // Make sure it's not a default collection
+
+        // Mint unlock NFT to player
+        vm.startPrank(PLAYER_ONE);
+        unlockNFT.mintSkin(
+            PLAYER_ONE,
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Plate,
+            IPlayerSkinNFT.FightingStance.Balanced
+        );
+        vm.stopPrank();
+
+        // Mint skin but keep it in contract
+        skinNFT.mintSkin(
+            address(skinNFT), // Mint to contract itself, not PLAYER_ONE
+            IPlayerSkinNFT.WeaponType.SwordAndShield,
+            IPlayerSkinNFT.ArmorType.Plate,
+            IPlayerSkinNFT.FightingStance.Balanced
+        );
+        uint16 tokenId = 1;
+
+        // Should be able to equip with just unlock NFT
+        _equipSkinToPlayer(playerId, skinIndex, tokenId, true);
+
+        // Verify the skin was equipped
+        IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
+        assertEq(player.skinIndex, skinIndex, "Skin index should be updated");
+        assertEq(player.skinTokenId, tokenId, "Token ID should be updated");
     }
 
     // Helper functions

@@ -202,18 +202,17 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         // Get skin info from registry
         PlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndex);
 
-        // Check required NFT first if it exists
-        if (skinInfo.requiredNFTAddress != address(0)) {
-            if (!_checkCollectionOwnership(msg.sender, skinInfo.requiredNFTAddress)) {
-                revert PlayerSkinRegistry.RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
-            }
-        }
-
         // Case 1: Default collection - anyone can equip
         if (skinInfo.isDefaultCollection) {
             // Allow equip
         }
-        // Case 2 & 3: Non-default collections
+        // Case 2: Collection with required NFT - just check they own the required NFT
+        else if (skinInfo.requiredNFTAddress != address(0)) {
+            if (!_checkCollectionOwnership(msg.sender, skinInfo.requiredNFTAddress)) {
+                revert PlayerSkinRegistry.RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
+            }
+        }
+        // Case 3: Regular collection - check specific token ownership
         else {
             // Check if player owns the specific skin NFT
             IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinInfo.contractAddress);
@@ -224,16 +223,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
                 revert("ERC721: invalid token ID");
             }
 
-            // If they don't own this specific NFT, they must be using a verified collection
             if (!ownsSpecificNFT) {
-                if (!skinInfo.isVerified) {
-                    revert NotSkinOwner();
-                }
-
-                // For verified collections, they must own at least one NFT from the collection
-                if (!_checkCollectionOwnership(msg.sender, skinInfo.contractAddress)) {
-                    revert NotSkinOwner();
-                }
+                revert NotSkinOwner();
             }
         }
 
