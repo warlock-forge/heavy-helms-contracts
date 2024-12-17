@@ -481,8 +481,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
                     remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
 
                 // Add extra entropy and make high points rarer
-                // Note: Since stats start at 3, we need max 18 additional points to reach 21
-                uint256 maxPoints = min(availablePoints, 18);
                 uint256 chance = randomSeed.uniform(100);
                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, "chance")));
 
@@ -499,7 +497,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
                             : 18; // 95-99: max roll (3+18=21)
 
                 // Add random points to selected stat using the cap
-                uint256 pointsToAdd = randomSeed.uniform(min(maxPoints, pointsCap) + 1);
+                uint256 pointsToAdd = randomSeed.uniform(min(availablePoints, pointsCap) + 1);
                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
 
                 // Update stat and remaining points

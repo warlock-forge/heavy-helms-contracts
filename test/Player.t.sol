@@ -345,6 +345,52 @@ contract PlayerTest is TestBase {
         assertTrue(totalPoints >= 18 && totalPoints <= 126, "Total points out of range");
     }
 
+    function test_statDistribution() public {
+        uint256 numPlayers = 100;
+        // Set max players high enough for test
+        playerContract.setMaxPlayersPerAddress(numPlayers);
+
+        uint256 maxStatCount = 0;
+        uint256 highStatCount = 0;
+        uint256 medStatCount = 0;
+        uint256 lowStatCount = 0;
+
+        for (uint256 i = 0; i < numPlayers; i++) {
+            uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+
+            // Check each stat
+            uint8[6] memory statArray =
+                [stats.strength, stats.constitution, stats.size, stats.agility, stats.stamina, stats.luck];
+
+            for (uint256 j = 0; j < 6; j++) {
+                if (statArray[j] >= 19) maxStatCount++; // 19-21
+
+                else if (statArray[j] >= 16) highStatCount++; // 16-18
+
+                else if (statArray[j] >= 13) medStatCount++; // 13-15
+
+                else lowStatCount++; // 3-12
+            }
+        }
+
+        // Total stats checked = numPlayers * 6 stats per player
+        uint256 totalStats = numPlayers * 6;
+
+        // Log distributions
+        console2.log("Stat Distribution for %d total stats:", totalStats);
+        console2.log("Max stats (19-21): %d (%d%%)", maxStatCount, (maxStatCount * 100) / totalStats);
+        console2.log("High stats (16-18): %d (%d%%)", highStatCount, (highStatCount * 100) / totalStats);
+        console2.log("Med stats (13-15): %d (%d%%)", medStatCount, (medStatCount * 100) / totalStats);
+        console2.log("Low stats (3-12): %d (%d%%)", lowStatCount, (lowStatCount * 100) / totalStats);
+
+        // Verify rough distributions
+        // Max stats should still be relatively rare (<20%)
+        assertLt(maxStatCount * 100 / totalStats, 20);
+        // Low stats should still be most common (>40%)
+        assertGt(lowStatCount * 100 / totalStats, 40);
+    }
+
     function testRetireOwnPlayer() public {
         // Create a player
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
