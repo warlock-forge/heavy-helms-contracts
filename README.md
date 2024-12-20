@@ -121,7 +121,7 @@ A: Yes! The player contract was designed with a modular permission system that a
 We are currently working on a tournament game mode that will allow players to compete for prizes including exclusive skins as well as cool player specific rewards such as one time name change, attribute adjustment, etc.
 
 **Q: What if the onchain game engine is unbalanced/broken?**  
-A: We have take a modular approach to the game engine as well. Each game mode can use either a completely different game engine (GameEngine.sol) or take advanatge of the built in versioning system. We track a version number in GameEngine.sol and have a helper method to split major and minor versions from our uint16 (giving us a total of 256 major and 256 minor versions):
+A: We have taken a modular approach to the game engine as well. Each game mode can use either a completely different game engine (GameEngine.sol) or take advanatge of the built in versioning system. We track a version number in GameEngine.sol and have a helper method to split major and minor versions from our uint16 (giving us a total of 256 major and 256 minor versions):
 ```solidity
 uint16 public constant override version = 1;
 function decodeVersion(uint16 _version) public pure returns (uint8 major, uint8 minor) {
