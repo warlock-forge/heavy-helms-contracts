@@ -26,11 +26,125 @@
 - UnlockablePlayerSkinNFT: 0x581D3A98dD2Ce08D087C3eE944ad8118CAD07eA1 (Need a Shapecraft Key 0x05aA491820662b131d285757E5DA4b74BD0F0e5F to use this skin collection)
 
 ## Noteworty Transactions
-- First OnChain Duel:
+- First OnChain Duel (using VRF):
 https://shapescan.xyz/tx/0x18c91a5e670581d37c8a565f98fbae40b443fed8f4a588692cf243dfe37b4c33
 - First Player Created (using VRF): https://shapescan.xyz/tx/0x1ae7d90088b34fa61156357755fed36750da79681c81017449b3ae3731039537
 - Player 1 owned by address 0xA069EcA6dEfc3f9E13e6C9f75629beA64655b729 <-- Owns Shapecraft Key NFT Equiping locked skin collection: 
 https://shapescan.xyz/tx/0x32b5c1e6e9a3acb2179158b1fee3e385fa55f944c00f99b4e331b853117ab87b
+
+## Contract FAQs
+
+**Q: What is a player?**  
+A: A Player in the context of Heavy Helms is probably best described by the struct defined in the IPlayer interface:
+```solidity
+struct PlayerStats {
+    uint8 strength;
+    uint8 constitution;
+    uint8 size;
+    uint8 agility;
+    uint8 stamina;
+    uint8 luck;
+    uint32 skinIndex;
+    uint16 skinTokenId;
+    uint32 firstNameIndex;
+    uint32 surnameIndex;
+    uint32 wins;
+    uint32 losses;
+    uint32 kills;
+}
+```
+Lets break this down a little bit: We have 6 attributes (str, con, size, agi, stam, luck), name and skin references, in addition to record. These PlayerStats structs are stored in state on the Player contract and mapped to an address.
+```solidity
+// Player state tracking
+mapping(uint32 => IPlayer.PlayerStats) private _players;
+mapping(uint32 => address) private _playerOwners;
+```
+**Q: Is a player an NFT?**  
+A: No. This is by design. Players are not allowed to be transferred  to a different address. Customization via NFTs is done through skins that are equipped by players.
+
+**Q: What is a skin?**  
+A: A skin is a normal ERC721 NFT that implements the IPlayerSkinNFT. The PlayerSkinNFT contract not only keeps track of standard NFT metadata (including a new spritesheet_image field) but also stores the "strategy" settings of this skin in state:
+```solidity
+    enum WeaponType {
+        SwordAndShield,
+        MaceAndShield,
+        Greatsword,
+        Battleaxe,
+        Quarterstaff,
+        Spear,
+        RapierAndShield
+    }
+    enum ArmorType {
+        Plate,
+        Chain,
+        Leather,
+        Cloth
+    }
+    enum FightingStance {
+        Defensive,
+        Balanced,
+        Offensive
+    }
+```
+
+**Q: Skins include a strategy too?**  
+A: Yes. In Heavy Helms, not only does the skin you equip change how the player appears in game (the client loads spritesheet via IPFS) but also what weapon and armor they have equipped along with their fighting stance. 
+
+**Q: How do I get skins?**  
+A: There are three different types of skins in the game:
+1. Default Skins - This collection of skins can be equipped by anyone. We intend to have a wide variety of skins in this collection so no strategies are locked behind a paywall. These are important as they allow users to create a new player and equip them with a skin that fits their desired strategy without having to invest in any NFTs.
+2. Unlockable Skins - This is another type of skin collection that requires a specific NFT (like a Shapecraft Key) to unlock. These collections can be used to collaborate with other projects to incentivize NFT ownership.
+3. NFT Skins - If a user owns a token from a verified IPlayerSkinNFT collection (See PlayerSkinRegistry), they can equip that NFT skin on their player. This allows for any NFT artist to create and sell their own skins that can be equipped by players. Here is the integration guide for NFT artists (*WIP - check PlayerSkinNFT.sol in examples*)
+
+**Q: So what do player attributes + skins do?**  
+A: The Player contract uses the 6 player attributes to calculate some base stats:
+```solidity
+    struct CalculatedStats {
+        uint16 maxHealth;
+        uint16 damageModifier;
+        uint16 hitChance;
+        uint16 blockChance;
+        uint16 dodgeChance;
+        uint16 maxEndurance;
+        uint16 critChance;
+        uint16 initiative;
+        uint16 counterChance;
+        uint16 critMultiplier;
+        uint16 parryChance;
+    }
+```
+The onchain game engine (GameEngine.sol) uses these stats combined with strategy specific modifiers to determine the outcome of each round of combat. Each strategy element has a strength and weakness (ie Plate is vuleraneble to blunt weapons but quite effective against slashing and piercing) as well as attribute requirements. These are defined in the PlayerEquipmentStats contract (PlayerEquipmentStats.sol).
+
+**Q: So what can I do with a player?**  
+A: Good question and I am glad you are still following along! We currently have 2 distinct game modes:
+- Practice Game: This is the simplest of game modes and doesn't actually make any state changes(record does not increase, etc.). The beauty of this is that since these are all views - we can not only run these for free but we can allow users to experience this game mode without even needing a wallet or logging in. We pass the 2 player IDs we want to fight to the `play()` method and send the returned combat bytes to the game client. This game mode uses a pseuso-random number based on block entropy - so a new fight outcome happens every block. Since we do not modify state however, once the fight is over the results are "lost".
+- Duel Game: This mode allows a player to challenge another player to a duel and records are on the line. The winner will pickup a win on their record and the loser takes an L... this changes state for that player. This game mode uses VRF and also stores the match results in the event logs (including what skins players had equipped, etc.) of the transaction. This allows this fight to be shared and viewed by anyone simply by providing the transaction hash to the game client. This allows anyone to interact with and watch other fights via leaderboards, etc. to stay engaged in the community. Players who so wish can place a wager on the Duel and the contract esnures that the wager amount is escrowed until the fight is resolved.
+
+**Q: Will new game modes be added?**  
+A: Yes! The player contract was designed with a modular permission system that allows the contract owner to grant permissions to (future) game contracts that allow them to modify player state.
+```solidity
+    struct GamePermissions {
+        bool record; // Can modify game records
+        bool retire; // Can retire players
+        bool name; // Can change names
+        bool attributes; // Can modify attributes
+    }
+```
+We are currently working on a tournament game mode that will allow players to compete for prizes including exclusive skins as well as cool player specific rewards such as one time name change, attribute adjustment, etc.
+
+**Q: What if the onchain game engine is unbalances/broken?**  
+A: We have take a modular approach to the game engine as well. Each game mode can use either a completely different game engine (GameEngine.sol) or take advanatge of the built in versioning system. We track a version number in GameEngine.sol and have a helper method to split major and minor versions from our uint16 (giving us a total of 256 major and 256 minor versions):
+```solidity
+uint16 public constant override version = 1;
+function decodeVersion(uint16 _version) public pure returns (uint8 major, uint8 minor) {
+    major = uint8(_version >> 8); // Get upper 8 bits
+    minor = uint8(_version & 0xFF); // Get lower 8 bits
+}
+```
+This allows us to upgrade our game engine while keeping our game client in sync. Since the game engine version is encoded in to the combat bytes we can let the game client handle the expected combat bytes based on the version of the game engine.
+
+**Q: Can I use my players in other games?**  
+A: Yes! Not only can other creators tweak the game engine but they can even create entirely new game modes! Your player spritesheet and attributes in other worlds!
 
 ## Usage Scripts
 
@@ -78,11 +192,11 @@ forge script script/PlayerDeploy.s.sol
 ```bash
 forge script script/GameEngineDeploy.s.sol
 ```
-5. Deploy PracticeGame
+5. Deploy PracticeGame *(add --broadcast to send tx)*
 ```bash
 forge script script/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
-6. Deploy DuelGame
+6. Deploy DuelGame *(add --broadcast to send tx)*
 ```bash
 forge script script/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
