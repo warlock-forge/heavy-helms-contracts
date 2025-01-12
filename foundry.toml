@@ -1,4 +1,5 @@
 [profile.default]
+size_limit = 120000
 src = "src"
 out = "out"
 libs = ["lib"]
