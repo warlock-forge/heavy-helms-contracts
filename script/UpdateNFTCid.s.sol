@@ -7,7 +7,7 @@ import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 contract UpdateNFTCidScript is Script {
     function setUp() public {}
 
-    function run(address nftContractAddr, uint256 tokenId, string memory newCid) public {
+    function run(address defaultSkinAddr, uint32 tokenId, string memory newCid) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -18,12 +18,12 @@ contract UpdateNFTCidScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Get the NFT contract
-        DefaultPlayerSkinNFT nft = DefaultPlayerSkinNFT(nftContractAddr);
+        DefaultPlayerSkinNFT defaultSkin = DefaultPlayerSkinNFT(defaultSkinAddr);
 
         // Update the CID for the specified token ID
-        nft.setCID(tokenId, newCid);
+        defaultSkin.setCID(tokenId, newCid);
         console2.log("Updated CID for token", tokenId);
-        console2.log("New URI:", nft.tokenURI(tokenId));
+        console2.log("New URI:", defaultSkin.tokenURI(tokenId));
 
         vm.stopBroadcast();
     }

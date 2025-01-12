@@ -399,7 +399,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         emit PlayerCreationRequested(requestId, msg.sender);
     }
 
-    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData)
+    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory /* extraData */ )
         internal
         override
         nonReentrant
@@ -461,7 +461,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
 
         unchecked {
-            for (uint256 i; i < 5; ++i) {
+            // Change to handle all 6 stats
+            for (uint256 i; i < 6; ++i) {
                 // Select random stat index and update order
                 uint256 statIndex = order.uniform(6 - i);
                 order = uint256(keccak256(abi.encodePacked(order)));
@@ -475,10 +476,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
                 uint256 chance = randomSeed.uniform(100);
                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, "chance")));
 
-                // 50% chance of normal roll (up to 9 more points, max 12 total)
-                // 30% chance of medium roll (up to 12 more points, max 15 total)
-                // 15% chance of high roll (up to 15 more points, max 18 total)
-                // 5% chance of max roll (up to 18 more points, max 21 total)
                 uint256 pointsCap = chance < 50
                     ? 9 // 0-49: normal roll (3+9=12)
                     : chance < 80
@@ -502,9 +499,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
                     statArray[5 - i] = temp;
                 }
             }
-
-            // Assign all remaining points to the last stat
-            statArray[0] += uint8(remainingPoints);
         }
 
         // Generate name indices based on player preference

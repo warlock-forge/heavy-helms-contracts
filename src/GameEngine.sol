@@ -9,7 +9,7 @@ import "./PlayerEquipmentStats.sol";
 
 contract GameEngine is IGameEngine {
     /// @notice Current version of the game engine
-    uint16 public constant override version = 1;
+    uint16 public constant override version = 2;
 
     using UniformRandomNumber for uint256;
 
@@ -142,11 +142,6 @@ contract GameEngine is IGameEngine {
         IPlayer.CalculatedStats memory p1CalcStats = playerContract.calculateStats(p1Stats);
         IPlayer.CalculatedStats memory p2CalcStats = playerContract.calculateStats(p2Stats);
 
-        uint256 p1Health = p1CalcStats.maxHealth;
-        uint256 p1Stamina = p1CalcStats.maxEndurance;
-        uint256 p2Health = p2CalcStats.maxHealth;
-        uint256 p2Stamina = p2CalcStats.maxEndurance;
-
         // Get skin attributes for both players
         (IPlayerSkinNFT.WeaponType p1Weapon, IPlayerSkinNFT.ArmorType p1Armor, IPlayerSkinNFT.FightingStance p1Stance) =
             getSkinAttributes(player1.skinIndex, player1.skinTokenId, playerContract);
@@ -178,8 +173,7 @@ contract GameEngine is IGameEngine {
             p1WeaponStats,
             p1ArmorStats,
             p2WeaponStats,
-            p2ArmorStats,
-            playerContract
+            p2ArmorStats
         );
 
         bytes memory results = new bytes(7);
@@ -242,9 +236,8 @@ contract GameEngine is IGameEngine {
         PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
         PlayerEquipmentStats.ArmorStats memory p1ArmorStats,
         PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
-        PlayerEquipmentStats.ArmorStats memory p2ArmorStats,
-        IPlayer playerContract
-    ) private view returns (CombatState memory state) {
+        PlayerEquipmentStats.ArmorStats memory p2ArmorStats
+    ) private pure returns (CombatState memory state) {
         // Safe downcasting
         state.p1Health = uint96(p1CalcStats.maxHealth);
         state.p2Health = uint96(p2CalcStats.maxHealth);
@@ -348,9 +341,7 @@ contract GameEngine is IGameEngine {
         );
 
         // Update combat state based on results
-        updateCombatState(
-            state, attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost
-        );
+        updateCombatState(state, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost);
 
         // Append results to combat log
         results = appendCombatAction(
@@ -693,7 +684,6 @@ contract GameEngine is IGameEngine {
 
     function updateCombatState(
         CombatState memory state,
-        uint8 attackResult,
         uint16 attackDamage,
         uint8 attackStaminaCost,
         uint8 defenseResult,

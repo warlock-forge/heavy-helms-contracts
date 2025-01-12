@@ -219,23 +219,23 @@ library DefaultPlayerLibrary {
         return (
             IPlayerSkinNFT.WeaponType.RapierAndShield,
             IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Defensive,
+            IPlayerSkinNFT.FightingStance.Balanced,
             IPlayer.PlayerStats({
                 strength: 10,
                 constitution: 12,
-                size: 12,
-                agility: 14,
+                size: 8,
+                agility: 16,
                 stamina: 12,
-                luck: 12,
+                luck: 14,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
-                firstNameIndex: 1,
-                surnameIndex: 1,
+                firstNameIndex: 7,
+                surnameIndex: 6,
                 wins: 0,
                 losses: 0,
                 kills: 0
             }),
-            "QmSwordAndShieldUserCIDHere"
+            "QmXJH9LwZ1nk4aood3R6i9JC1NMg1KyWvUYByWD25Ddtoe"
         );
     }
 
