@@ -2,11 +2,11 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import {DefaultPlayerLibrary} from "../src/lib/DefaultPlayerLibrary.sol";
-import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
-import "../src/interfaces/IPlayerSkinNFT.sol";
-import "../src/interfaces/IPlayer.sol";
+import {DefaultPlayerSkinNFT} from "../../../src/DefaultPlayerSkinNFT.sol";
+import {DefaultPlayerLibrary} from "../../../src/lib/DefaultPlayerLibrary.sol";
+import {PlayerSkinRegistry} from "../../../src/PlayerSkinRegistry.sol";
+import {IPlayerSkinNFT} from "../../../src/interfaces/IPlayerSkinNFT.sol";
+import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
 
 contract MintDefaultSkinScript is Script {
     function setUp() public {}

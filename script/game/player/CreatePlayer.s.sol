@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Player} from "../src/Player.sol";
-import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import "../src/interfaces/IPlayer.sol";
+import {Player} from "../../../src/Player.sol";
+import {PlayerNameRegistry} from "../../../src/PlayerNameRegistry.sol";
+import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
 
 contract CreatePlayerScript is Script {
     function setUp() public {}

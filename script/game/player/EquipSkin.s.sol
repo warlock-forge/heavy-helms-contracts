@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Player} from "../src/Player.sol";
-import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
-import "../src/interfaces/IPlayer.sol";
+import {Player} from "../../../src/Player.sol";
+import {PlayerSkinRegistry} from "../../../src/PlayerSkinRegistry.sol";
+import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
 
 contract EquipSkinScript is Script {
     function setUp() public {}

@@ -14,7 +14,7 @@ contract UnlockableSkinDeployScript is Script {
         vm.createSelectFork(rpcUrl);
         vm.startBroadcast(deployerPrivateKey);
 
-        PlayerSkinRegistry skinRegistry = PlayerSkinRegistry(skinRegistryAddress);
+        PlayerSkinRegistry skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
 
         // Deploy unlockable skin collection
         PlayerSkinNFT unlockableSkin = new PlayerSkinNFT("Shapecraft Key Collection", "SKHHSKIN", 0);
