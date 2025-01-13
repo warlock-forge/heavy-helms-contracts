@@ -186,21 +186,25 @@ forge install
 ```
 3. Deploy Player + helper contracts: *(add --broadcast to send tx)*
 ```bash
-forge script script/PlayerDeploy.s.sol
+forge script script/deploy/PlayerDeploy.s.sol
 ```
-4. Deploy GameEngine contract *(add --broadcast to send tx)*
+4. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
 ```bash
-forge script script/GameEngineDeploy.s.sol
+forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
 ```
-5. Deploy PracticeGame *(add --broadcast to send tx)*
+5. Deploy GameEngine contract *(add --broadcast to send tx)*
 ```bash
-forge script script/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
+forge script script/deploy/GameEngineDeploy.s.sol
 ```
-6. Deploy DuelGame *(add --broadcast to send tx)*
+6. Deploy PracticeGame *(add --broadcast to send tx)*
 ```bash
-forge script script/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
+forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
-7. Setup VRF
+7. Deploy DuelGame *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
+```
+8. Setup VRF
 ```bash
 Use Gelato dashboard to add VRF tasks for Player + Duel Game contracts
 ```

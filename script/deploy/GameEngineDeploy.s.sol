@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {GameEngine} from "../src/GameEngine.sol";
+import {GameEngine} from "../../src/GameEngine.sol";
 
 contract GameEngineDeployScript is Script {
     function setUp() public {}
