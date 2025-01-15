@@ -29,7 +29,7 @@ library DefaultPlayerLibrary {
             skinIndex: skinIndex,
             skinTokenId: tokenId,
             firstNameIndex: 0,
-            surnameIndex: 0,
+            surnameIndex: 155,
             wins: 0,
             losses: 0,
             kills: 0
@@ -60,8 +60,8 @@ library DefaultPlayerLibrary {
             luck: 12,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
-            firstNameIndex: 1001,
-            surnameIndex: 3,
+            firstNameIndex: 1015,
+            surnameIndex: 97,
             wins: 0,
             losses: 0,
             kills: 0
@@ -93,8 +93,8 @@ library DefaultPlayerLibrary {
                 luck: 10,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
-                firstNameIndex: 1010,
-                surnameIndex: 18,
+                firstNameIndex: 1062,
+                surnameIndex: 131,
                 wins: 0,
                 losses: 0,
                 kills: 0
@@ -229,8 +229,8 @@ library DefaultPlayerLibrary {
                 luck: 14,
                 skinIndex: skinIndex,
                 skinTokenId: tokenId,
-                firstNameIndex: 7,
-                surnameIndex: 6,
+                firstNameIndex: 38,
+                surnameIndex: 15,
                 wins: 0,
                 losses: 0,
                 kills: 0

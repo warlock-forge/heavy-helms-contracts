@@ -11,7 +11,7 @@ import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import "./PlayerEquipmentStats.sol"; // Import PlayerEquipmentStats types
+import "./PlayerEquipmentStats.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 
 error PlayerDoesNotExist(uint32 playerId);
@@ -82,7 +82,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     mapping(uint256 => PendingPlayer) private _pendingPlayers;
     mapping(address => uint256[]) private _userPendingRequests;
 
-    // Change from immutable to mutable operator
     address private _operatorAddress;
 
     constructor(

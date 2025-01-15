@@ -5,8 +5,6 @@ import "forge-std/Script.sol";
 import {GameEngine} from "../../src/GameEngine.sol";
 
 contract GameEngineDeployScript is Script {
-    function setUp() public {}
-
     function run() public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");

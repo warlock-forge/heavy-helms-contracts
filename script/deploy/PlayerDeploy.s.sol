@@ -3,18 +3,16 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../../src/Player.sol";
-import {PlayerEquipmentStats} from "../../src/PlayerEquipmentStats.sol";
-import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
-import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
 import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
 import {IPlayer} from "../../src/interfaces/IPlayer.sol";
+import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 
 contract PlayerDeployScript is Script {
     function setUp() public {}
 
-    function run() public {
+    function run(address skinRegistryAddr, address nameRegistryAddr, address equipmentStatsAddr) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -25,22 +23,16 @@ contract PlayerDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy core contracts in correct order
-        PlayerEquipmentStats equipmentStats = new PlayerEquipmentStats();
-        PlayerSkinRegistry skinRegistry = new PlayerSkinRegistry();
-        PlayerNameRegistry nameRegistry = new PlayerNameRegistry();
-
-        // Deploy Player contract with Gelato VRF operator
-        Player playerContract =
-            new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
+        // 1. Deploy Player contract with Gelato VRF operator
+        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, equipmentStatsAddr, operator);
 
         // 2. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
 
         // Register default skin collection and set it as default
-        uint32 skinIndex = skinRegistry.registerSkin(address(defaultSkin));
-        skinRegistry.setDefaultSkinRegistryId(skinIndex);
-        skinRegistry.setDefaultCollection(skinIndex, true); // Mark as default collection
+        uint32 skinIndex = PlayerSkinRegistry(payable(skinRegistryAddr)).registerSkin(address(defaultSkin));
+        PlayerSkinRegistry(payable(skinRegistryAddr)).setDefaultSkinRegistryId(skinIndex);
+        PlayerSkinRegistry(payable(skinRegistryAddr)).setDefaultCollection(skinIndex, true); // Mark as default collection
 
         // 3. Mint initial default characters
         console2.log("\n=== Minting Default Characters ===");
@@ -69,9 +61,6 @@ contract PlayerDeployScript is Script {
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
 
         console2.log("\n=== Deployed Addresses ===");
-        console2.log("PlayerEquipmentStats:", address(equipmentStats));
-        console2.log("PlayerSkinRegistry:", address(skinRegistry));
-        console2.log("PlayerNameRegistry:", address(nameRegistry));
         console2.log("Player:", address(playerContract));
         console2.log("DefaultPlayerSkinNFT:", address(defaultSkin));
         console2.log("Default Skin Registry Index:", skinIndex);

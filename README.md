@@ -184,27 +184,39 @@ cd auto_battler_game_contracts
 ```bash
 forge install
 ```
-3. Deploy Player + helper contracts: *(add --broadcast to send tx)*
-```bash
-forge script script/deploy/PlayerDeploy.s.sol
-```
-4. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
-```bash
-forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
-```
-5. Deploy GameEngine contract *(add --broadcast to send tx)*
+3. Deploy GameEngine contract *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/GameEngineDeploy.s.sol
 ```
-6. Deploy PracticeGame *(add --broadcast to send tx)*
+4. Deploy PlayerSkinRegistry: *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/PlayerSkinRegistryDeploy.s.sol
+```
+5. Deploy PlayerNameRegistry: *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/PlayerNameRegistryDeploy.s.sol
+```
+6. Deploy PlayerEquipmentStats: *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/PlayerEquipmentStatsDeploy.s.sol
+```
+7. Deploy Player: *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/PlayerDeploy.s.sol --sig "run(address,address,address)" <SKIN_REGISTRY_ADDRESS> <NAME_REGISTRY_ADDRESS> <EQUIPMENT_STATS_ADDRESS>
+```
+8. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
+```
+9. Deploy PracticeGame *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
-7. Deploy DuelGame *(add --broadcast to send tx)*
+10. Deploy DuelGame *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
-8. Setup VRF
+11. Setup VRF
 ```bash
 Use Gelato dashboard to add VRF tasks for Player + Duel Game contracts
 ```
