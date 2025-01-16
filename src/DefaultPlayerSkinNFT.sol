@@ -82,12 +82,12 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         return _characterStats[tokenId];
     }
 
-    function mintSkin(address _to, WeaponType _weapon, ArmorType _armor, FightingStance _stance)
-        external
-        payable
-        override
-        returns (uint16)
-    {
+    function mintSkin(
+        address, /* _to */
+        WeaponType, /* _weapon */
+        ArmorType, /* _armor */
+        FightingStance /* _stance */
+    ) external payable override returns (uint16) {
         revert MintingDisabled();
     }
 

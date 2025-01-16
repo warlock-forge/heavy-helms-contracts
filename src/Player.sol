@@ -14,11 +14,6 @@ import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./PlayerEquipmentStats.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 
-error PlayerDoesNotExist(uint32 playerId);
-error NotSkinOwner();
-error InvalidContractAddress();
-error RequiredNFTNotOwned(address nftAddress);
-
 contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     using UniformRandomNumber for uint256;
 
@@ -41,7 +36,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     // Reference to the PlayerNameRegistry contract
     PlayerNameRegistry public nameRegistry;
 
-    // Add GameStats reference
+    // Reference to the PlayerEquipmentStats contract
     PlayerEquipmentStats public equipmentStats;
 
     // Permissions for game contracts
@@ -196,6 +191,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         // Verify player exists and is owned by sender
         if (!_exists(playerId) || _ownerOf(playerId) != msg.sender) {
             revert PlayerDoesNotExist(playerId);
+        }
+
+        // Check if player is retired
+        if (_retiredPlayers[playerId]) {
+            revert PlayerIsRetired(playerId);
         }
 
         // Get skin info from registry

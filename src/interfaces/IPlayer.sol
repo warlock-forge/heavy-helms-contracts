@@ -53,10 +53,12 @@ interface IPlayer {
         bool attributes; // Can modify attributes
     }
 
+    // Public errors that can be thrown by any public/external function
     error PlayerDoesNotExist(uint32 playerId);
     error NotSkinOwner();
     error InvalidContractAddress();
     error RequiredNFTNotOwned(address nftAddress);
+    error PlayerIsRetired(uint32 playerId);
 
     // Events
     event PlayerRetired(uint32 indexed playerId, address indexed caller, bool retired);

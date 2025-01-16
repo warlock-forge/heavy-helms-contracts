@@ -2,9 +2,8 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {
-    Player, NotSkinOwner, RequiredNFTNotOwned, InvalidContractAddress, PlayerDoesNotExist
-} from "../src/Player.sol";
+import {Player} from "../src/Player.sol";
+import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
@@ -224,13 +223,13 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
 
         // Try to equip the skin (should fail)
-        vm.expectRevert(abi.encodeWithSelector(PlayerDoesNotExist.selector, playerId));
+        vm.expectRevert(abi.encodeWithSignature("PlayerDoesNotExist(uint32)", playerId));
         playerContract.equipSkin(playerId, skinIndex, tokenId);
         vm.stopPrank();
 
         // Now try to equip the same skin as PLAYER_ONE (who owns the player but not the skin)
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert(NotSkinOwner.selector);
+        vm.expectRevert(abi.encodeWithSignature("NotSkinOwner()"));
         playerContract.equipSkin(playerId, skinIndex, tokenId);
         vm.stopPrank();
     }
@@ -437,7 +436,7 @@ contract PlayerTest is TestBase {
         assertEq(address(playerContract.equipmentStats()), address(newStats), "Equipment stats not updated");
 
         // Test 3: Cannot swap to zero address
-        vm.expectRevert(InvalidContractAddress.selector);
+        vm.expectRevert(abi.encodeWithSignature("InvalidContractAddress()"));
         playerContract.setEquipmentStats(address(0));
 
         // Test 4: Cannot swap to invalid contract
