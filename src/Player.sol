@@ -271,61 +271,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         return _playerOwners[playerId];
     }
 
-    function calculateStats(PlayerStats memory player) public pure returns (CalculatedStats memory) {
-        // Safe health calculation using uint32 for intermediate values
-        uint32 healthBase = 75;
-        uint32 healthFromCon = uint32(player.constitution) * 12;
-        uint32 healthFromSize = uint32(player.size) * 6;
-        uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize);
-
-        // Safe endurance calculation
-        uint32 enduranceBase = 45;
-        uint32 enduranceFromStamina = uint32(player.stamina) * 8;
-        uint32 enduranceFromSize = uint32(player.size) * 2;
-        uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize);
-
-        // Safe initiative calculation
-        uint32 initiativeBase = 20;
-        uint32 initiativeFromAgility = uint32(player.agility) * 3;
-        uint32 initiativeFromLuck = uint32(player.luck) * 2;
-        uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
-
-        // Safe defensive stats calculation
-        uint16 dodgeChance =
-            uint16(2 + (uint32(player.agility) * 8 / 10) + (uint32(21 - min(player.size, 21)) * 5 / 10));
-        uint16 blockChance = uint16(5 + (uint32(player.constitution) * 8 / 10) + (uint32(player.size) * 5 / 10));
-        uint16 parryChance = uint16(3 + (uint32(player.strength) * 6 / 10) + (uint32(player.agility) * 6 / 10));
-
-        // Safe hit chance calculation
-        uint16 hitChance = uint16(30 + (uint32(player.agility) * 2) + uint32(player.luck));
-
-        // Safe crit calculations
-        uint16 critChance = uint16(2 + uint32(player.agility) + uint32(player.luck));
-        uint16 critMultiplier = uint16(150 + (uint32(player.strength) * 3) + (uint32(player.luck) * 2));
-
-        // Safe counter chance
-        uint16 counterChance = uint16(3 + uint32(player.agility) + uint32(player.luck));
-
-        // Physical power calculation
-        uint32 combinedStats = uint32(player.strength) + uint32(player.size);
-        uint32 tempPowerMod = 25 + ((combinedStats * 4167) / 1000);
-        uint16 physicalPowerMod = uint16(min(tempPowerMod, type(uint16).max));
-
-        return CalculatedStats({
-            maxHealth: maxHealth,
-            maxEndurance: maxEndurance,
-            initiative: initiative,
-            hitChance: hitChance,
-            dodgeChance: dodgeChance,
-            blockChance: blockChance,
-            parryChance: parryChance,
-            critChance: critChance,
-            critMultiplier: critMultiplier,
-            counterChance: counterChance,
-            damageModifier: physicalPowerMod
-        });
-    }
-
     // Helper functions (can remain private/internal)
     function _validateStats(IPlayer.PlayerStats memory player) private pure returns (bool) {
         // Check stat bounds

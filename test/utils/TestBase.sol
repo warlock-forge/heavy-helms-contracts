@@ -144,7 +144,7 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to assert stat ranges
-    function _assertStatRanges(IPlayer.PlayerStats memory stats, IPlayer.CalculatedStats memory calc)
+    function _assertStatRanges(IPlayer.PlayerStats memory stats, PlayerEquipmentStats.CalculatedStats memory calc)
         internal
         pure
         virtual

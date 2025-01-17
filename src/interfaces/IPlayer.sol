@@ -24,20 +24,6 @@ interface IPlayer {
         uint16 kills;
     }
 
-    struct CalculatedStats {
-        uint16 maxHealth;
-        uint16 damageModifier;
-        uint16 hitChance;
-        uint16 blockChance;
-        uint16 dodgeChance;
-        uint16 maxEndurance;
-        uint16 critChance;
-        uint16 initiative;
-        uint16 counterChance;
-        uint16 critMultiplier;
-        uint16 parryChance;
-    }
-
     enum GamePermission {
         RECORD, // For wins, losses, kills
         RETIRE, // For retirement status
@@ -88,10 +74,6 @@ interface IPlayer {
     /// @notice Returns the owner of a specific player
     /// @param playerId The ID of the player to get owner for
     function getPlayerOwner(uint32 playerId) external view returns (address);
-
-    /// @notice Calculates derived stats from base player stats
-    /// @param player The player stats to calculate from
-    function calculateStats(PlayerStats memory player) external pure returns (CalculatedStats memory);
 
     // Player Creation
     /// @notice Returns the current fee amount required to create a player

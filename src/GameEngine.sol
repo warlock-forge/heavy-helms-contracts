@@ -139,8 +139,8 @@ contract GameEngine is IGameEngine {
         IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(player2.playerId);
 
         // Calculate stats directly
-        IPlayer.CalculatedStats memory p1CalcStats = playerContract.calculateStats(p1Stats);
-        IPlayer.CalculatedStats memory p2CalcStats = playerContract.calculateStats(p2Stats);
+        PlayerEquipmentStats.CalculatedStats memory p1CalcStats = playerContract.equipmentStats().calculateStats(p1Stats);
+        PlayerEquipmentStats.CalculatedStats memory p2CalcStats = playerContract.equipmentStats().calculateStats(p2Stats);
 
         // Get skin attributes for both players
         (IPlayerSkinNFT.WeaponType p1Weapon, IPlayerSkinNFT.ArmorType p1Armor, IPlayerSkinNFT.FightingStance p1Stance) =
@@ -231,8 +231,8 @@ contract GameEngine is IGameEngine {
         PlayerLoadout memory player1,
         PlayerLoadout memory player2,
         uint256 seed,
-        IPlayer.CalculatedStats memory p1CalcStats,
-        IPlayer.CalculatedStats memory p2CalcStats,
+        PlayerEquipmentStats.CalculatedStats memory p1CalcStats,
+        PlayerEquipmentStats.CalculatedStats memory p2CalcStats,
         PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
         PlayerEquipmentStats.ArmorStats memory p1ArmorStats,
         PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
@@ -309,8 +309,8 @@ contract GameEngine is IGameEngine {
         CombatState memory state,
         uint256 currentSeed,
         bytes memory results,
-        IPlayer.CalculatedStats memory p1CalcStats,
-        IPlayer.CalculatedStats memory p2CalcStats,
+        PlayerEquipmentStats.CalculatedStats memory p1CalcStats,
+        PlayerEquipmentStats.CalculatedStats memory p2CalcStats,
         PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
         PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
         PlayerEquipmentStats.ArmorStats memory p1ArmorStats,
@@ -359,8 +359,8 @@ contract GameEngine is IGameEngine {
     }
 
     function processCombatTurn(
-        IPlayer.CalculatedStats memory attacker,
-        IPlayer.CalculatedStats memory defender,
+        PlayerEquipmentStats.CalculatedStats memory attacker,
+        PlayerEquipmentStats.CalculatedStats memory defender,
         uint256 attackerStamina,
         uint256 defenderStamina,
         PlayerEquipmentStats.WeaponStats memory attackerWeapon,
@@ -459,7 +459,7 @@ contract GameEngine is IGameEngine {
     }
 
     function processDefense(
-        IPlayer.CalculatedStats memory defender,
+        PlayerEquipmentStats.CalculatedStats memory defender,
         uint256 defenderStamina,
         PlayerEquipmentStats.WeaponStats memory defenderWeapon,
         PlayerEquipmentStats.ArmorStats memory defenderArmor,
@@ -533,7 +533,7 @@ contract GameEngine is IGameEngine {
     }
 
     function processCounterAttack(
-        IPlayer.CalculatedStats memory defenderStats,
+        PlayerEquipmentStats.CalculatedStats memory defenderStats,
         PlayerEquipmentStats.WeaponStats memory defenderWeapon,
         uint256 seed,
         CounterType counterType,
@@ -664,10 +664,10 @@ contract GameEngine is IGameEngine {
 
     // Add new function to apply stance modifiers
     function applyStanceModifiers(
-        IPlayer.CalculatedStats memory stats,
+        PlayerEquipmentStats.CalculatedStats memory stats,
         PlayerEquipmentStats.StanceMultiplier memory stance
-    ) private pure returns (IPlayer.CalculatedStats memory) {
-        return IPlayer.CalculatedStats({
+    ) private pure returns (PlayerEquipmentStats.CalculatedStats memory) {
+        return PlayerEquipmentStats.CalculatedStats({
             maxHealth: stats.maxHealth,
             maxEndurance: stats.maxEndurance,
             initiative: stats.initiative,

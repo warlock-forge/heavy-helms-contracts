@@ -209,7 +209,7 @@ contract PracticeGameTest is TestBase {
 
         // Get defender's stats to verify defensive capabilities
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(defenderLoadout.playerId);
-        IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(defenderStats);
+        PlayerEquipmentStats.CalculatedStats memory calcStats = playerContract.equipmentStats().calculateStats(defenderStats);
 
         // Run combat and analyze defensive actions
         bytes memory results = practiceGame.play(attackerLoadout, defenderLoadout);
@@ -230,7 +230,7 @@ contract PracticeGameTest is TestBase {
     function testParryChanceCalculation() public {
         // Test parry chance calculation for a defensive character
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(chars.rapierAndShieldDefensive);
-        IPlayer.CalculatedStats memory calcStats = playerContract.calculateStats(stats);
+        PlayerEquipmentStats.CalculatedStats memory calcStats = playerContract.equipmentStats().calculateStats(stats);
 
         // Verify parry chance is within valid range
         assertTrue(calcStats.parryChance > 0, "Parry chance should be greater than 0");

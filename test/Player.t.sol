@@ -67,7 +67,7 @@ contract PlayerTest is TestBase {
         _assertPlayerState(playerContract, playerId, PLAYER_ONE, true);
 
         IPlayer.PlayerStats memory newPlayer = playerContract.getPlayer(playerId);
-        _assertStatRanges(newPlayer, playerContract.calculateStats(newPlayer));
+        _assertStatRanges(newPlayer, playerContract.equipmentStats().calculateStats(newPlayer));
     }
 
     function testMaxPlayers() public {
@@ -100,8 +100,8 @@ contract PlayerTest is TestBase {
         // Verify each player's stats
         IPlayer.PlayerStats memory stats1 = playerContract.getPlayer(playerId1);
         IPlayer.PlayerStats memory stats2 = playerContract.getPlayer(playerId2);
-        _assertStatRanges(stats1, playerContract.calculateStats(stats1));
-        _assertStatRanges(stats2, playerContract.calculateStats(stats2));
+        _assertStatRanges(stats1, playerContract.equipmentStats().calculateStats(stats1));
+        _assertStatRanges(stats2, playerContract.equipmentStats().calculateStats(stats2));
     }
 
     function testFailCreatePlayerBeforeVRFFulfillment() public {
