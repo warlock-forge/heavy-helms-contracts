@@ -2,8 +2,6 @@
 pragma solidity ^0.8.13;
 
 import "./BaseGame.sol";
-import "./interfaces/IGameEngine.sol";
-import "./interfaces/IPlayer.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./PlayerSkinRegistry.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
@@ -276,31 +274,66 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         return percentageFee > minDuelFee ? percentageFee : minDuelFee;
     }
 
-    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData) internal override {
+    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory /* extraData */ )
+        internal
+        override
+    {
         uint256 challengeId = requestToChallengeId[requestId];
         DuelChallenge storage challenge = challenges[challengeId];
         require(isChallengeActive(challengeId), "Challenge not active");
 
-        // Clear request tracking
+        // Clear state FIRST
         delete requestToChallengeId[requestId];
         delete hasPendingRequest[challengeId];
+        challenge.fulfilled = true; // Prevent re-entry
 
-        // Mark as fulfilled to prevent re-entry
-        challenge.fulfilled = true;
-
-        // Clear challenge tracking for both users
-        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
-        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
-        userChallenges[challenger][challengeId] = false;
-        userChallenges[defender][challengeId] = false;
+        // THEN do external calls
+        require(!playerContract.isPlayerRetired(challenge.challengerId), "Challenger is retired");
+        require(!playerContract.isPlayerRetired(challenge.defenderId), "Defender is retired");
 
         // Create a new random seed by combining VRF randomness with request data
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId)));
 
+        // Get player stats and update with loadout-specific skin choices
+        IPlayer.PlayerStats memory challengerStats = playerContract.getPlayer(challenge.challengerId);
+        challengerStats.skinIndex = challenge.challengerLoadout.skinIndex;
+        challengerStats.skinTokenId = challenge.challengerLoadout.skinTokenId;
+
+        IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(challenge.defenderId);
+        defenderStats.skinIndex = challenge.defenderLoadout.skinIndex;
+        defenderStats.skinTokenId = challenge.defenderLoadout.skinTokenId;
+
+        // Get challenger skin attributes
+        PlayerSkinRegistry.SkinInfo memory challengerSkinInfo =
+            playerContract.skinRegistry().getSkin(challenge.challengerLoadout.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory challengerAttrs = IPlayerSkinNFT(challengerSkinInfo.contractAddress)
+            .getSkinAttributes(challenge.challengerLoadout.skinTokenId);
+
+        // Get defender skin attributes
+        PlayerSkinRegistry.SkinInfo memory defenderSkinInfo =
+            playerContract.skinRegistry().getSkin(challenge.defenderLoadout.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory defenderAttrs =
+            IPlayerSkinNFT(defenderSkinInfo.contractAddress).getSkinAttributes(challenge.defenderLoadout.skinTokenId);
+
+        // Create CombatLoadouts
+        IGameEngine.CombatLoadout memory challengerCombat = IGameEngine.CombatLoadout({
+            playerId: challenge.challengerId,
+            weapon: challengerAttrs.weapon,
+            armor: challengerAttrs.armor,
+            stance: challengerAttrs.stance,
+            stats: challengerStats
+        });
+
+        IGameEngine.CombatLoadout memory defenderCombat = IGameEngine.CombatLoadout({
+            playerId: challenge.defenderId,
+            weapon: defenderAttrs.weapon,
+            armor: defenderAttrs.armor,
+            stance: defenderAttrs.stance,
+            stats: defenderStats
+        });
+
         // Execute the duel with the random seed
-        bytes memory results = gameEngine.processGame(
-            challenge.challengerLoadout, challenge.defenderLoadout, combinedSeed, IPlayer(playerContract)
-        );
+        bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed);
 
         // Unpack winner ID from bytes
         uint32 winnerId;
@@ -312,22 +345,13 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Determine loser ID
         uint32 loserId = winnerId == challenge.challengerId ? challenge.defenderId : challenge.challengerId;
 
-        // Get player stats at time of combat
-        IPlayer.PlayerStats memory challengerStats = IPlayer(playerContract).getPlayer(challenge.challengerId);
-        IPlayer.PlayerStats memory defenderStats = IPlayer(playerContract).getPlayer(challenge.defenderId);
-
-        // Override skin info with the loadout-specific choices
-        challengerStats.skinIndex = challenge.challengerLoadout.skinIndex;
-        challengerStats.skinTokenId = challenge.challengerLoadout.skinTokenId;
-        defenderStats.skinIndex = challenge.defenderLoadout.skinIndex;
-        defenderStats.skinTokenId = challenge.defenderLoadout.skinTokenId;
-
-        // Pack player data using the new encoding
-        bytes32 challengerData = IPlayer(playerContract).encodePlayerData(challenge.challengerId, challengerStats);
-        bytes32 defenderData = IPlayer(playerContract).encodePlayerData(challenge.defenderId, defenderStats);
-
         // Emit combat results with packed player data
-        emit CombatResult(challengerData, defenderData, winnerId, results);
+        emit CombatResult(
+            IPlayer(playerContract).encodePlayerData(challenge.challengerId, challengerStats),
+            IPlayer(playerContract).encodePlayerData(challenge.defenderId, defenderStats),
+            winnerId,
+            results
+        );
 
         uint256 winnerPayout = 0;
         if (challenge.wagerAmount > 0) {
@@ -343,6 +367,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         } else {
             totalFeesCollected += minDuelFee;
         }
+
+        // Clear challenge tracking for both users
+        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
+        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
+        userChallenges[challenger][challengeId] = false;
+        userChallenges[defender][challengeId] = false;
 
         // Update player stats
         IPlayer(playerContract).incrementWins(winnerId);

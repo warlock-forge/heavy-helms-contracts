@@ -1,17 +1,77 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./interfaces/IGameEngine.sol";
-import "./interfaces/IPlayer.sol";
 import "./lib/UniformRandomNumber.sol";
-import "./PlayerSkinRegistry.sol";
-import "./PlayerEquipmentStats.sol";
+import "./interfaces/IPlayer.sol";
+import "./interfaces/IGameEngine.sol";
+import "./interfaces/IGameDefinitions.sol";
 
-contract GameEngine is IGameEngine {
-    /// @notice Current version of the game engine
-    uint16 public constant override version = 2;
-
+contract GameEngine is IGameEngine, IGameDefinitions {
     using UniformRandomNumber for uint256;
+
+    uint16 public constant version = 1;
+
+    struct CalculatedStats {
+        uint16 maxHealth;
+        uint16 damageModifier;
+        uint16 hitChance;
+        uint16 blockChance;
+        uint16 dodgeChance;
+        uint16 maxEndurance;
+        uint16 critChance;
+        uint16 initiative;
+        uint16 counterChance;
+        uint16 critMultiplier;
+        uint16 parryChance;
+    }
+
+    enum DamageType {
+        Slashing,
+        Piercing,
+        Blunt
+    }
+
+    struct WeaponStats {
+        uint16 minDamage;
+        uint16 maxDamage;
+        uint16 attackSpeed; // Base 100, higher is faster
+        uint16 parryChance; // Base 100, chance to parry
+        uint16 riposteChance; // Add this new stat
+        uint16 critMultiplier; // Reduce the gap in crit damage
+        uint16 staminaMultiplier; // NEW: Base 100, higher means more stamina drain
+        DamageType damageType; // Primary damage type
+        bool isTwoHanded;
+        bool hasShield;
+    }
+
+    struct ArmorStats {
+        uint16 defense; // Base damage reduction
+        uint16 weight; // Affects stamina drain
+        uint16 slashResist; // Resistance to slashing (base 100)
+        uint16 pierceResist; // Resistance to piercing (base 100)
+        uint16 bluntResist; // Resistance to blunt (base 100)
+    }
+
+    struct StanceMultiplier {
+        uint16 damageModifier; // Reduce the range between offensive/defensive
+        uint16 hitChance; // Make hit chance differences smaller
+        uint16 critChance; // Keep crit chances relatively close
+        uint16 critMultiplier; // Reduce the gap in crit damage
+        uint16 blockChance; // Make defensive abilities more consistent
+        uint16 parryChance; // Keep parry in check
+        uint16 dodgeChance; // Balance dodge with other defensive options
+        uint16 counterChance; // Make counter more reliable but less swingy
+        uint16 staminaCostModifier; // Add this new field
+    }
+
+    struct StatRequirements {
+        uint8 strength;
+        uint8 constitution;
+        uint8 size;
+        uint8 agility;
+        uint8 stamina;
+        uint8 luck;
+    }
 
     enum CombatResultType {
         MISS, // 0 - Complete miss, some stamina cost
@@ -46,8 +106,6 @@ contract GameEngine is IGameEngine {
     uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
     uint8 private immutable STAMINA_PARRY = 5;
 
-    uint32 private constant MAX_UINT16 = type(uint16).max;
-
     struct CombatAction {
         CombatResultType p1Result;
         uint16 p1Damage;
@@ -74,6 +132,32 @@ contract GameEngine is IGameEngine {
         COUNTER
     }
 
+    /// @notice Decodes a version number into major and minor components
+    /// @param _version The version number to decode
+    /// @return major The major version number (0-255)
+    /// @return minor The minor version number (0-255)
+    function decodeVersion(uint16 _version) public pure returns (uint8 major, uint8 minor) {
+        major = uint8(_version >> 8); // Get upper 8 bits
+        minor = uint8(_version & 0xFF); // Get lower 8 bits
+    }
+
+    /// @notice Decodes a combat log byte array into structured data
+    /// @param results The byte array containing the encoded combat log
+    /// @return winningPlayerId The ID of the winning player (32 bits)
+    /// @return gameEngineVersion The version of the game engine that generated this log (16 bits)
+    /// @return condition The win condition that ended the combat
+    /// @return actions Array of combat actions containing results for both players
+    /// @dev Format:
+    ///   - Bytes 0-3: Winner ID (32 bits)
+    ///   - Bytes 4-5: Game Engine Version (16 bits)
+    ///   - Byte 6: Win Condition
+    ///   - Bytes 7+: Combat actions (8 bytes each):
+    ///     - Byte 0: Player 1 Result
+    ///     - Bytes 1-2: Player 1 Damage
+    ///     - Byte 3: Player 1 Stamina Lost
+    ///     - Byte 4: Player 2 Result
+    ///     - Bytes 5-6: Player 2 Damage
+    ///     - Byte 7: Player 2 Stamina Lost
     function decodeCombatLog(bytes memory results)
         public
         pure
@@ -122,43 +206,83 @@ contract GameEngine is IGameEngine {
         }
     }
 
+    function calculateStats(IPlayer.PlayerStats memory player) public pure returns (CalculatedStats memory) {
+        // Safe health calculation using uint32 for intermediate values
+        uint32 healthBase = 75;
+        uint32 healthFromCon = uint32(player.constitution) * 12;
+        uint32 healthFromSize = uint32(player.size) * 6;
+        uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize);
+
+        // Safe endurance calculation
+        uint32 enduranceBase = 45;
+        uint32 enduranceFromStamina = uint32(player.stamina) * 8;
+        uint32 enduranceFromSize = uint32(player.size) * 2;
+        uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize);
+
+        // Safe initiative calculation
+        uint32 initiativeBase = 20;
+        uint32 initiativeFromAgility = uint32(player.agility) * 3;
+        uint32 initiativeFromLuck = uint32(player.luck) * 2;
+        uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
+
+        // Safe defensive stats calculation
+        uint16 dodgeChance =
+            uint16(2 + (uint32(player.agility) * 8 / 10) + (uint32(21 - min(player.size, 21)) * 5 / 10));
+        uint16 blockChance = uint16(5 + (uint32(player.constitution) * 8 / 10) + (uint32(player.size) * 5 / 10));
+        uint16 parryChance = uint16(3 + (uint32(player.strength) * 6 / 10) + (uint32(player.agility) * 6 / 10));
+
+        // Safe hit chance calculation
+        uint16 hitChance = uint16(30 + (uint32(player.agility) * 2) + uint32(player.luck));
+
+        // Safe crit calculations
+        uint16 critChance = uint16(2 + uint32(player.agility) + uint32(player.luck));
+        uint16 critMultiplier = uint16(150 + (uint32(player.strength) * 3) + (uint32(player.luck) * 2));
+
+        // Safe counter chance
+        uint16 counterChance = uint16(3 + uint32(player.agility) + uint32(player.luck));
+
+        // Physical power calculation
+        uint32 combinedStats = uint32(player.strength) + uint32(player.size);
+        uint32 tempPowerMod = 25 + ((combinedStats * 4167) / 1000);
+        uint16 physicalPowerMod = uint16(min(tempPowerMod, type(uint16).max));
+
+        return CalculatedStats({
+            maxHealth: maxHealth,
+            maxEndurance: maxEndurance,
+            initiative: initiative,
+            hitChance: hitChance,
+            dodgeChance: dodgeChance,
+            blockChance: blockChance,
+            parryChance: parryChance,
+            critChance: critChance,
+            critMultiplier: critMultiplier,
+            counterChance: counterChance,
+            damageModifier: physicalPowerMod
+        });
+    }
+
     /// @notice Process a game between two players
-    /// @param player1 The first player's loadout
+    /// @param player1 The first player's combat loadout
     /// @param player2 The second player's loadout
     /// @param randomSeed The random seed for the game
-    /// @param playerContract The player contract to get stats from
     /// @return A byte array containing the encoded combat log
-    function processGame(
-        PlayerLoadout calldata player1,
-        PlayerLoadout calldata player2,
-        uint256 randomSeed,
-        IPlayer playerContract
-    ) external view returns (bytes memory) {
-        // Get player stats and skin attributes
-        IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(player1.playerId);
-        IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(player2.playerId);
-
+    function processGame(CombatLoadout calldata player1, CombatLoadout calldata player2, uint256 randomSeed)
+        external
+        view
+        returns (bytes memory)
+    {
         // Calculate stats directly
-        PlayerEquipmentStats.CalculatedStats memory p1CalcStats = playerContract.equipmentStats().calculateStats(p1Stats);
-        PlayerEquipmentStats.CalculatedStats memory p2CalcStats = playerContract.equipmentStats().calculateStats(p2Stats);
+        CalculatedStats memory p1CalcStats = calculateStats(player1.stats);
+        CalculatedStats memory p2CalcStats = calculateStats(player2.stats);
 
-        // Get skin attributes for both players
-        (IPlayerSkinNFT.WeaponType p1Weapon, IPlayerSkinNFT.ArmorType p1Armor, IPlayerSkinNFT.FightingStance p1Stance) =
-            getSkinAttributes(player1.skinIndex, player1.skinTokenId, playerContract);
-        (IPlayerSkinNFT.WeaponType p2Weapon, IPlayerSkinNFT.ArmorType p2Armor, IPlayerSkinNFT.FightingStance p2Stance) =
-            getSkinAttributes(player2.skinIndex, player2.skinTokenId, playerContract);
+        // Get full combat stats directly from loadout attributes
+        WeaponStats memory p1WeaponStats = getWeaponStats(player1.weapon);
+        ArmorStats memory p1ArmorStats = getArmorStats(player1.armor);
+        StanceMultiplier memory p1StanceStats = getStanceMultiplier(player1.stance);
 
-        // Get full combat stats including weapon, armor, and stance modifiers
-        (
-            PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
-            PlayerEquipmentStats.ArmorStats memory p1ArmorStats,
-            PlayerEquipmentStats.StanceMultiplier memory p1StanceStats
-        ) = playerContract.equipmentStats().getFullCharacterStats(p1Weapon, p1Armor, p1Stance);
-        (
-            PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
-            PlayerEquipmentStats.ArmorStats memory p2ArmorStats,
-            PlayerEquipmentStats.StanceMultiplier memory p2StanceStats
-        ) = playerContract.equipmentStats().getFullCharacterStats(p2Weapon, p2Armor, p2Stance);
+        WeaponStats memory p2WeaponStats = getWeaponStats(player2.weapon);
+        ArmorStats memory p2ArmorStats = getArmorStats(player2.armor);
+        StanceMultiplier memory p2StanceStats = getStanceMultiplier(player2.stance);
 
         // Apply stance modifiers to calculated stats
         p1CalcStats = applyStanceModifiers(p1CalcStats, p1StanceStats);
@@ -182,17 +306,7 @@ contract GameEngine is IGameEngine {
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
             // Check exhaustion first
-            if (
-                checkExhaustion(
-                    state,
-                    currentSeed,
-                    p1Stance,
-                    p2Stance,
-                    p1WeaponStats, // Pass weapon stats
-                    p2WeaponStats, // Pass weapon stats
-                    playerContract
-                )
-            ) {
+            if (checkExhaustion(state, currentSeed, player1.stance, player2.stance, p1WeaponStats, p2WeaponStats)) {
                 break;
             }
 
@@ -210,9 +324,8 @@ contract GameEngine is IGameEngine {
                 p2WeaponStats,
                 p1ArmorStats,
                 p2ArmorStats,
-                p1Stance,
-                p2Stance,
-                playerContract
+                player1.stance,
+                player2.stance
             );
 
             roundCount++;
@@ -228,15 +341,15 @@ contract GameEngine is IGameEngine {
     }
 
     function initializeCombatState(
-        PlayerLoadout memory player1,
-        PlayerLoadout memory player2,
+        CombatLoadout memory player1,
+        CombatLoadout memory player2,
         uint256 seed,
-        PlayerEquipmentStats.CalculatedStats memory p1CalcStats,
-        PlayerEquipmentStats.CalculatedStats memory p2CalcStats,
-        PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
-        PlayerEquipmentStats.ArmorStats memory p1ArmorStats,
-        PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
-        PlayerEquipmentStats.ArmorStats memory p2ArmorStats
+        CalculatedStats memory p1CalcStats,
+        CalculatedStats memory p2CalcStats,
+        WeaponStats memory p1WeaponStats,
+        ArmorStats memory p1ArmorStats,
+        WeaponStats memory p2WeaponStats,
+        ArmorStats memory p2ArmorStats
     ) private pure returns (CombatState memory state) {
         // Safe downcasting
         state.p1Health = uint96(p1CalcStats.maxHealth);
@@ -270,10 +383,7 @@ contract GameEngine is IGameEngine {
         return state;
     }
 
-    function validateCombatStats(
-        PlayerEquipmentStats.WeaponStats memory weapon,
-        PlayerEquipmentStats.ArmorStats memory armor
-    ) private pure {
+    function validateCombatStats(WeaponStats memory weapon, ArmorStats memory armor) private pure {
         require(weapon.maxDamage >= weapon.minDamage, "Invalid weapon damage range");
         require(weapon.staminaMultiplier > 0, "Invalid stamina multiplier");
         require(weapon.attackSpeed > 0, "Invalid attack speed");
@@ -283,14 +393,13 @@ contract GameEngine is IGameEngine {
     function checkExhaustion(
         CombatState memory state,
         uint256 seed,
-        IPlayerSkinNFT.FightingStance p1Stance,
-        IPlayerSkinNFT.FightingStance p2Stance,
-        PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
-        PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
-        IPlayer playerContract
+        FightingStance p1Stance,
+        FightingStance p2Stance,
+        WeaponStats memory p1WeaponStats,
+        WeaponStats memory p2WeaponStats
     ) private view returns (bool) {
-        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Stance, p1WeaponStats, playerContract);
-        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Stance, p2WeaponStats, playerContract);
+        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Stance, p1WeaponStats);
+        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Stance, p2WeaponStats);
 
         if ((state.p1Stamina < uint32(p1MinCost)) || (state.p2Stamina < uint32(p2MinCost))) {
             state.condition = WinCondition.EXHAUSTION;
@@ -309,15 +418,14 @@ contract GameEngine is IGameEngine {
         CombatState memory state,
         uint256 currentSeed,
         bytes memory results,
-        PlayerEquipmentStats.CalculatedStats memory p1CalcStats,
-        PlayerEquipmentStats.CalculatedStats memory p2CalcStats,
-        PlayerEquipmentStats.WeaponStats memory p1WeaponStats,
-        PlayerEquipmentStats.WeaponStats memory p2WeaponStats,
-        PlayerEquipmentStats.ArmorStats memory p1ArmorStats,
-        PlayerEquipmentStats.ArmorStats memory p2ArmorStats,
-        IPlayerSkinNFT.FightingStance p1Stance,
-        IPlayerSkinNFT.FightingStance p2Stance,
-        IPlayer playerContract
+        CalculatedStats memory p1CalcStats,
+        CalculatedStats memory p2CalcStats,
+        WeaponStats memory p1WeaponStats,
+        WeaponStats memory p2WeaponStats,
+        ArmorStats memory p1ArmorStats,
+        ArmorStats memory p2ArmorStats,
+        FightingStance p1Stance,
+        FightingStance p2Stance
     ) private view returns (uint256, bytes memory) {
         (
             uint8 attackResult,
@@ -336,8 +444,7 @@ contract GameEngine is IGameEngine {
             state.isPlayer1Turn ? p2ArmorStats : p1ArmorStats,
             currentSeed,
             state.isPlayer1Turn ? p1Stance : p2Stance,
-            state.isPlayer1Turn ? p2Stance : p1Stance,
-            playerContract
+            state.isPlayer1Turn ? p2Stance : p1Stance
         );
 
         // Update combat state based on results
@@ -359,17 +466,16 @@ contract GameEngine is IGameEngine {
     }
 
     function processCombatTurn(
-        PlayerEquipmentStats.CalculatedStats memory attacker,
-        PlayerEquipmentStats.CalculatedStats memory defender,
+        CalculatedStats memory attacker,
+        CalculatedStats memory defender,
         uint256 attackerStamina,
         uint256 defenderStamina,
-        PlayerEquipmentStats.WeaponStats memory attackerWeapon,
-        PlayerEquipmentStats.WeaponStats memory defenderWeapon,
-        PlayerEquipmentStats.ArmorStats memory defenderArmor,
+        WeaponStats memory attackerWeapon,
+        WeaponStats memory defenderWeapon,
+        ArmorStats memory defenderArmor,
         uint256 seed,
-        IPlayerSkinNFT.FightingStance attackerStance,
-        IPlayerSkinNFT.FightingStance defenderStance,
-        IPlayer playerContract
+        FightingStance attackerStance,
+        FightingStance defenderStance
     )
         private
         view
@@ -383,7 +489,7 @@ contract GameEngine is IGameEngine {
         )
     {
         // Check stamina first
-        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
+        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon);
         if (attackerStamina < attackCost) {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0);
         }
@@ -391,8 +497,7 @@ contract GameEngine is IGameEngine {
         // Calculate hit chance
         uint32 baseHitChance = uint32(attacker.hitChance);
         uint32 weaponSpeedMod = uint32(attackerWeapon.attackSpeed);
-        PlayerEquipmentStats.StanceMultiplier memory attackerStanceMods =
-            playerContract.equipmentStats().getStanceMultiplier(attackerStance);
+        StanceMultiplier memory attackerStanceMods = getStanceMultiplier(attackerStance);
         uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attackerStanceMods.hitChance) / 10000;
         uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
         uint32 withBothBounds = withMin > 95 ? 95 : withMin;
@@ -401,8 +506,7 @@ contract GameEngine is IGameEngine {
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 hitRoll = uint8(seed.uniform(100));
 
-        uint256 modifiedStaminaCost =
-            calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon, playerContract);
+        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon);
 
         if (hitRoll >= finalHitChance) {
             // Miss case - MUST return ATTACK for attacker and MISS for defender
@@ -443,8 +547,7 @@ contract GameEngine is IGameEngine {
             attackDamage,
             attackerWeapon.damageType,
             seed,
-            defenderStance,
-            playerContract
+            defenderStance
         );
 
         // Clear attack damage if defense was successful
@@ -459,24 +562,22 @@ contract GameEngine is IGameEngine {
     }
 
     function processDefense(
-        PlayerEquipmentStats.CalculatedStats memory defender,
+        CalculatedStats memory defender,
         uint256 defenderStamina,
-        PlayerEquipmentStats.WeaponStats memory defenderWeapon,
-        PlayerEquipmentStats.ArmorStats memory defenderArmor,
+        WeaponStats memory defenderWeapon,
+        ArmorStats memory defenderArmor,
         uint16 incomingDamage,
-        PlayerEquipmentStats.DamageType damageType,
+        DamageType damageType,
         uint256 seed,
-        IPlayerSkinNFT.FightingStance stance,
-        IPlayer playerContract
+        FightingStance stance
     ) private view returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         // Get stance multipliers
-        PlayerEquipmentStats.StanceMultiplier memory stanceMods =
-            playerContract.equipmentStats().getStanceMultiplier(stance);
+        StanceMultiplier memory stanceMods = getStanceMultiplier(stance);
 
         // Calculate all stamina costs with stance modifiers
-        uint256 blockStaminaCost = calculateStaminaCost(STAMINA_BLOCK, stance, defenderWeapon, playerContract);
-        uint256 parryStaminaCost = calculateStaminaCost(STAMINA_PARRY, stance, defenderWeapon, playerContract);
-        uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, stance, defenderWeapon, playerContract);
+        uint256 blockStaminaCost = calculateStaminaCost(STAMINA_BLOCK, stance, defenderWeapon);
+        uint256 parryStaminaCost = calculateStaminaCost(STAMINA_PARRY, stance, defenderWeapon);
+        uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, stance, defenderWeapon);
 
         // Calculate all effective defensive chances with stance modifiers
         uint16 effectiveBlockChance = uint16((uint32(defender.blockChance) * uint32(stanceMods.blockChance)) / 100);
@@ -497,7 +598,7 @@ contract GameEngine is IGameEngine {
             if (counterRoll < defender.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 (result, damage, staminaCost, seed) =
-                    processCounterAttack(defender, defenderWeapon, seed, CounterType.COUNTER, stance, playerContract);
+                    processCounterAttack(defender, defenderWeapon, seed, CounterType.COUNTER, stance);
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 return (result, damage, staminaCost, seed);
             }
@@ -514,7 +615,7 @@ contract GameEngine is IGameEngine {
 
             if (riposteRoll < defender.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                return processCounterAttack(defender, defenderWeapon, seed, CounterType.PARRY, stance, playerContract);
+                return processCounterAttack(defender, defenderWeapon, seed, CounterType.PARRY, stance);
             }
             return (uint8(CombatResultType.PARRY), 0, uint8(parryStaminaCost), seed);
         }
@@ -533,12 +634,11 @@ contract GameEngine is IGameEngine {
     }
 
     function processCounterAttack(
-        PlayerEquipmentStats.CalculatedStats memory defenderStats,
-        PlayerEquipmentStats.WeaponStats memory defenderWeapon,
+        CalculatedStats memory defenderStats,
+        WeaponStats memory defenderWeapon,
         uint256 seed,
         CounterType counterType,
-        IPlayerSkinNFT.FightingStance stance,
-        IPlayer playerContract
+        FightingStance stance
     ) private view returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         uint16 counterDamage;
         (counterDamage, seed) = calculateDamage(defenderStats.damageModifier, defenderWeapon, seed);
@@ -553,8 +653,7 @@ contract GameEngine is IGameEngine {
             counterDamage = uint16((uint32(counterDamage) * totalMultiplier) / 100);
 
             uint256 critStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-            uint256 critModifiedStaminaCost =
-                calculateStaminaCost(critStaminaCostBase, stance, defenderWeapon, playerContract);
+            uint256 critModifiedStaminaCost = calculateStaminaCost(critStaminaCostBase, stance, defenderWeapon);
 
             seed = uint256(keccak256(abi.encodePacked(seed)));
             return (
@@ -566,8 +665,7 @@ contract GameEngine is IGameEngine {
         }
 
         uint256 normalStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-        uint256 normalModifiedStaminaCost =
-            calculateStaminaCost(normalStaminaCostBase, stance, defenderWeapon, playerContract);
+        uint256 normalModifiedStaminaCost = calculateStaminaCost(normalStaminaCostBase, stance, defenderWeapon);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         return (
@@ -576,21 +674,6 @@ contract GameEngine is IGameEngine {
             uint8(normalModifiedStaminaCost),
             seed
         );
-    }
-
-    function getSkinAttributes(uint32 skinIndex, uint16 skinTokenId, IPlayer playerContract)
-        private
-        view
-        returns (IPlayerSkinNFT.WeaponType weapon, IPlayerSkinNFT.ArmorType armor, IPlayerSkinNFT.FightingStance stance)
-    {
-        // Get the skin info from the registry through the player contract's skinRegistry
-        PlayerSkinRegistry.SkinInfo memory skinInfo = playerContract.skinRegistry().getSkin(skinIndex);
-
-        // Get the attributes from the skin contract using the token ID
-        IPlayerSkinNFT.SkinAttributes memory attrs =
-            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(skinTokenId);
-
-        return (attrs.weapon, attrs.armor, attrs.stance);
     }
 
     function min(uint256 a, uint256 b) private pure returns (uint256) {
@@ -603,7 +686,7 @@ contract GameEngine is IGameEngine {
         }
     }
 
-    function calculateDamage(uint16 damageModifier, PlayerEquipmentStats.WeaponStats memory weapon, uint256 seed)
+    function calculateDamage(uint16 damageModifier, WeaponStats memory weapon, uint256 seed)
         private
         pure
         returns (uint16 damage, uint256 nextSeed)
@@ -622,11 +705,11 @@ contract GameEngine is IGameEngine {
         return (modifiedDamage > type(uint16).max ? type(uint16).max : uint16(modifiedDamage), seed);
     }
 
-    function applyDefensiveStats(
-        uint16 incomingDamage,
-        PlayerEquipmentStats.ArmorStats memory armor,
-        PlayerEquipmentStats.DamageType damageType
-    ) private pure returns (uint16) {
+    function applyDefensiveStats(uint16 incomingDamage, ArmorStats memory armor, DamageType damageType)
+        private
+        pure
+        returns (uint16)
+    {
         // Apply resistance first for better scaling
         uint16 resistance = getResistanceForDamageType(armor, damageType);
         resistance = resistance > 100 ? 100 : resistance;
@@ -648,26 +731,24 @@ contract GameEngine is IGameEngine {
         return (value * percentage) / 10000;
     }
 
-    function getResistanceForDamageType(
-        PlayerEquipmentStats.ArmorStats memory armor,
-        PlayerEquipmentStats.DamageType damageType
-    ) private pure returns (uint16) {
-        if (damageType == PlayerEquipmentStats.DamageType.Slashing) {
+    function getResistanceForDamageType(ArmorStats memory armor, DamageType damageType) private pure returns (uint16) {
+        if (damageType == DamageType.Slashing) {
             return armor.slashResist;
-        } else if (damageType == PlayerEquipmentStats.DamageType.Piercing) {
+        } else if (damageType == DamageType.Piercing) {
             return armor.pierceResist;
-        } else if (damageType == PlayerEquipmentStats.DamageType.Blunt) {
+        } else if (damageType == DamageType.Blunt) {
             return armor.bluntResist;
         }
         return 0;
     }
 
     // Add new function to apply stance modifiers
-    function applyStanceModifiers(
-        PlayerEquipmentStats.CalculatedStats memory stats,
-        PlayerEquipmentStats.StanceMultiplier memory stance
-    ) private pure returns (PlayerEquipmentStats.CalculatedStats memory) {
-        return PlayerEquipmentStats.CalculatedStats({
+    function applyStanceModifiers(CalculatedStats memory stats, StanceMultiplier memory stance)
+        private
+        pure
+        returns (CalculatedStats memory)
+    {
+        return CalculatedStats({
             maxHealth: stats.maxHealth,
             maxEndurance: stats.maxEndurance,
             initiative: stats.initiative,
@@ -805,23 +886,281 @@ contract GameEngine is IGameEngine {
         return results;
     }
 
-    function calculateStaminaCost(
-        uint256 baseCost,
-        IPlayerSkinNFT.FightingStance stance,
-        PlayerEquipmentStats.WeaponStats memory weapon,
-        IPlayer playerContract
-    ) internal view returns (uint256) {
-        uint256 stanceModifier = playerContract.equipmentStats().getStanceMultiplier(stance).staminaCostModifier;
+    function calculateStaminaCost(uint256 baseCost, FightingStance stance, WeaponStats memory weapon)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 stanceModifier = getStanceMultiplier(stance).staminaCostModifier;
         // Apply both weapon and stance modifiers
         return (baseCost * stanceModifier * weapon.staminaMultiplier) / 10000;
     }
 
-    /// @notice Decodes a version number into major and minor components
-    /// @param _version The version number to decode
-    /// @return major The major version number (0-255)
-    /// @return minor The minor version number (0-255)
-    function decodeVersion(uint16 _version) public pure returns (uint8 major, uint8 minor) {
-        major = uint8(_version >> 8); // Get upper 8 bits
-        minor = uint8(_version & 0xFF); // Get lower 8 bits
+    // =============================================
+    // WEAPON STATS AND REQUIREMENTS
+    // =============================================
+
+    function SWORD_AND_SHIELD() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 18,
+            maxDamage: 26,
+            attackSpeed: 100,
+            parryChance: 110,
+            riposteChance: 120,
+            critMultiplier: 220,
+            staminaMultiplier: 100,
+            damageType: DamageType.Slashing,
+            isTwoHanded: false,
+            hasShield: true
+        });
+    }
+
+    function SWORD_AND_SHIELD_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 10, constitution: 0, size: 0, agility: 6, stamina: 0, luck: 0});
+    }
+
+    function MACE_AND_SHIELD() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 22,
+            maxDamage: 34,
+            attackSpeed: 80,
+            parryChance: 80,
+            riposteChance: 70,
+            critMultiplier: 240,
+            staminaMultiplier: 120,
+            damageType: DamageType.Blunt,
+            isTwoHanded: false,
+            hasShield: true
+        });
+    }
+
+    function MACE_AND_SHIELD_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 12, constitution: 0, size: 0, agility: 0, stamina: 8, luck: 0});
+    }
+
+    function RAPIER_AND_SHIELD() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 16,
+            maxDamage: 24,
+            attackSpeed: 110,
+            parryChance: 120,
+            riposteChance: 130,
+            critMultiplier: 200,
+            staminaMultiplier: 100,
+            damageType: DamageType.Piercing,
+            isTwoHanded: false,
+            hasShield: true
+        });
+    }
+
+    function RAPIER_AND_SHIELD_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 6, constitution: 0, size: 0, agility: 12, stamina: 0, luck: 0});
+    }
+
+    function GREATSWORD() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 28,
+            maxDamage: 46,
+            attackSpeed: 80,
+            parryChance: 100,
+            riposteChance: 110,
+            critMultiplier: 280,
+            staminaMultiplier: 180,
+            damageType: DamageType.Slashing,
+            isTwoHanded: true,
+            hasShield: false
+        });
+    }
+
+    function GREATSWORD_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 12, constitution: 0, size: 10, agility: 8, stamina: 0, luck: 0});
+    }
+
+    function BATTLEAXE() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 32,
+            maxDamage: 48,
+            attackSpeed: 60,
+            parryChance: 60,
+            riposteChance: 70,
+            critMultiplier: 300,
+            staminaMultiplier: 200,
+            damageType: DamageType.Slashing,
+            isTwoHanded: true,
+            hasShield: false
+        });
+    }
+
+    function BATTLEAXE_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 15, constitution: 0, size: 12, agility: 0, stamina: 0, luck: 0});
+    }
+
+    function QUARTERSTAFF() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 22,
+            maxDamage: 37,
+            attackSpeed: 120,
+            parryChance: 120,
+            riposteChance: 130,
+            critMultiplier: 200,
+            staminaMultiplier: 100,
+            damageType: DamageType.Blunt,
+            isTwoHanded: true,
+            hasShield: false
+        });
+    }
+
+    function QUARTERSTAFF_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
+    }
+
+    function SPEAR() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 30,
+            maxDamage: 40,
+            attackSpeed: 90,
+            parryChance: 80,
+            riposteChance: 90,
+            critMultiplier: 260,
+            staminaMultiplier: 140,
+            damageType: DamageType.Piercing,
+            isTwoHanded: true,
+            hasShield: false
+        });
+    }
+
+    function SPEAR_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 8, constitution: 0, size: 8, agility: 10, stamina: 0, luck: 0});
+    }
+
+    function getWeaponStats(IGameDefinitions.WeaponType weapon) public pure returns (WeaponStats memory) {
+        if (weapon == IGameDefinitions.WeaponType.SwordAndShield) return SWORD_AND_SHIELD();
+        if (weapon == IGameDefinitions.WeaponType.MaceAndShield) return MACE_AND_SHIELD();
+        if (weapon == IGameDefinitions.WeaponType.RapierAndShield) return RAPIER_AND_SHIELD();
+        if (weapon == IGameDefinitions.WeaponType.Greatsword) return GREATSWORD();
+        if (weapon == IGameDefinitions.WeaponType.Battleaxe) return BATTLEAXE();
+        if (weapon == IGameDefinitions.WeaponType.Quarterstaff) return QUARTERSTAFF();
+        if (weapon == IGameDefinitions.WeaponType.Spear) return SPEAR();
+        revert("Invalid weapon type");
+    }
+
+    function getWeaponRequirements(IGameDefinitions.WeaponType weapon) public pure returns (StatRequirements memory) {
+        if (weapon == IGameDefinitions.WeaponType.SwordAndShield) return SWORD_AND_SHIELD_REQS();
+        if (weapon == IGameDefinitions.WeaponType.MaceAndShield) return MACE_AND_SHIELD_REQS();
+        if (weapon == IGameDefinitions.WeaponType.RapierAndShield) return RAPIER_AND_SHIELD_REQS();
+        if (weapon == IGameDefinitions.WeaponType.Greatsword) return GREATSWORD_REQS();
+        if (weapon == IGameDefinitions.WeaponType.Battleaxe) return BATTLEAXE_REQS();
+        if (weapon == IGameDefinitions.WeaponType.Quarterstaff) return QUARTERSTAFF_REQS();
+        if (weapon == IGameDefinitions.WeaponType.Spear) return SPEAR_REQS();
+        revert("Invalid weapon type");
+    }
+
+    // =============================================
+    // ARMOR STATS AND REQUIREMENTS
+    // =============================================
+
+    function CLOTH() public pure returns (ArmorStats memory) {
+        return ArmorStats({defense: 2, weight: 25, slashResist: 70, pierceResist: 70, bluntResist: 80});
+    }
+
+    function CLOTH_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
+    }
+
+    function LEATHER() public pure returns (ArmorStats memory) {
+        return ArmorStats({defense: 4, weight: 50, slashResist: 90, pierceResist: 85, bluntResist: 90});
+    }
+
+    function LEATHER_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 6, constitution: 6, size: 0, agility: 0, stamina: 0, luck: 0});
+    }
+
+    function CHAIN() public pure returns (ArmorStats memory) {
+        return ArmorStats({defense: 6, weight: 75, slashResist: 110, pierceResist: 70, bluntResist: 100});
+    }
+
+    function CHAIN_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 8, constitution: 8, size: 0, agility: 0, stamina: 0, luck: 0});
+    }
+
+    function PLATE() public pure returns (ArmorStats memory) {
+        return ArmorStats({defense: 12, weight: 100, slashResist: 120, pierceResist: 90, bluntResist: 80});
+    }
+
+    function PLATE_REQS() public pure returns (StatRequirements memory) {
+        return StatRequirements({strength: 10, constitution: 10, size: 0, agility: 0, stamina: 0, luck: 0});
+    }
+
+    function getArmorStats(IGameDefinitions.ArmorType armor) public pure returns (ArmorStats memory) {
+        if (armor == IGameDefinitions.ArmorType.Cloth) return CLOTH();
+        if (armor == IGameDefinitions.ArmorType.Leather) return LEATHER();
+        if (armor == IGameDefinitions.ArmorType.Chain) return CHAIN();
+        if (armor == IGameDefinitions.ArmorType.Plate) return PLATE();
+        revert("Invalid armor type");
+    }
+
+    function getArmorRequirements(IGameDefinitions.ArmorType armor) public pure returns (StatRequirements memory) {
+        if (armor == IGameDefinitions.ArmorType.Cloth) return CLOTH_REQS();
+        if (armor == IGameDefinitions.ArmorType.Leather) return LEATHER_REQS();
+        if (armor == IGameDefinitions.ArmorType.Chain) return CHAIN_REQS();
+        if (armor == IGameDefinitions.ArmorType.Plate) return PLATE_REQS();
+        revert("Invalid armor type");
+    }
+
+    // =============================================
+    // STANCES
+    // =============================================
+
+    function DEFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
+        return StanceMultiplier({
+            damageModifier: 85,
+            hitChance: 95,
+            critChance: 90,
+            critMultiplier: 90,
+            blockChance: 120,
+            parryChance: 120,
+            dodgeChance: 115,
+            counterChance: 115,
+            staminaCostModifier: 85
+        });
+    }
+
+    function BALANCED_STANCE() public pure returns (StanceMultiplier memory) {
+        return StanceMultiplier({
+            damageModifier: 100,
+            hitChance: 100,
+            critChance: 100,
+            critMultiplier: 100,
+            blockChance: 100,
+            parryChance: 100,
+            dodgeChance: 100,
+            counterChance: 100,
+            staminaCostModifier: 100
+        });
+    }
+
+    function OFFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
+        return StanceMultiplier({
+            damageModifier: 135,
+            hitChance: 115,
+            critChance: 125,
+            critMultiplier: 125,
+            blockChance: 85,
+            parryChance: 85,
+            dodgeChance: 85,
+            counterChance: 85,
+            staminaCostModifier: 115
+        });
+    }
+
+    function getStanceMultiplier(IGameDefinitions.FightingStance stance)
+        public
+        pure
+        returns (StanceMultiplier memory)
+    {
+        if (stance == IGameDefinitions.FightingStance.Defensive) return DEFENSIVE_STANCE();
+        if (stance == IGameDefinitions.FightingStance.Balanced) return BALANCED_STANCE();
+        if (stance == IGameDefinitions.FightingStance.Offensive) return OFFENSIVE_STANCE();
+        revert("Invalid stance type");
     }
 }

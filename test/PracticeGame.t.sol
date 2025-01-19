@@ -4,15 +4,12 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {PracticeGame} from "../src/PracticeGame.sol";
 import {GameEngine} from "../src/GameEngine.sol";
-import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {Player} from "../src/Player.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import "../src/interfaces/IPlayer.sol";
-import "../src/interfaces/IGameEngine.sol";
 import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
-import "../src/interfaces/IPlayerSkinNFT.sol";
+import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
 contract PracticeGameTest is TestBase {
@@ -25,10 +22,9 @@ contract PracticeGameTest is TestBase {
 
         // Deploy registries
         nameRegistry = new PlayerNameRegistry();
-        equipmentStats = new PlayerEquipmentStats();
 
         // Deploy Player contract with dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), address(1));
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(1));
 
         // Deploy Game contracts
         gameEngine = new GameEngine();
@@ -47,9 +43,9 @@ contract PracticeGameTest is TestBase {
     function mintDefaultCharacters() internal {
         // Create offensive characters
         (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         ) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
@@ -88,7 +84,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
 
         // Run the game with seed and verify the result format
-        bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
+        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -106,7 +102,8 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.quarterstaffDefensive, true, false, playerContract);
 
         // Run combat with seed and verify mechanics
-        bytes memory results = gameEngine.processGame(attackerLoadout, defenderLoadout, seed, playerContract);
+        bytes memory results =
+            gameEngine.processGame(_convertToLoadout(attackerLoadout), _convertToLoadout(defenderLoadout), seed);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -136,7 +133,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
 
         // Run game with fuzzed seed
-        bytes memory results = gameEngine.processGame(player1, player2, seed, playerContract);
+        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -209,7 +206,7 @@ contract PracticeGameTest is TestBase {
 
         // Get defender's stats to verify defensive capabilities
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(defenderLoadout.playerId);
-        PlayerEquipmentStats.CalculatedStats memory calcStats = playerContract.equipmentStats().calculateStats(defenderStats);
+        GameEngine.CalculatedStats memory calcStats = gameEngine.calculateStats(defenderStats);
 
         // Run combat and analyze defensive actions
         bytes memory results = practiceGame.play(attackerLoadout, defenderLoadout);
@@ -230,7 +227,7 @@ contract PracticeGameTest is TestBase {
     function testParryChanceCalculation() public {
         // Test parry chance calculation for a defensive character
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(chars.rapierAndShieldDefensive);
-        PlayerEquipmentStats.CalculatedStats memory calcStats = playerContract.equipmentStats().calculateStats(stats);
+        GameEngine.CalculatedStats memory calcStats = gameEngine.calculateStats(stats);
 
         // Verify parry chance is within valid range
         assertTrue(calcStats.parryChance > 0, "Parry chance should be greater than 0");
@@ -280,11 +277,8 @@ contract PracticeGameTest is TestBase {
         }
 
         // Get stance modifiers for logging
-        (,, PlayerEquipmentStats.StanceMultiplier memory stance) = playerContract.equipmentStats().getFullCharacterStats(
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive
-        );
+        GameEngine.StanceMultiplier memory stance =
+            gameEngine.getStanceMultiplier(IGameDefinitions.FightingStance.Defensive);
         console2.log(
             "Stance Mods - Block:%d Parry:%d Dodge:%d", stance.blockChance, stance.parryChance, stance.dodgeChance
         );
@@ -334,7 +328,8 @@ contract PracticeGameTest is TestBase {
             vm.warp(block.timestamp + 12); // ~12 second blocks
 
             // Run game with seed from forked chain
-            bytes memory results = gameEngine.processGame(p1Loadout, p2Loadout, seed, playerContract);
+            bytes memory results =
+                gameEngine.processGame(_convertToLoadout(p1Loadout), _convertToLoadout(p2Loadout), seed);
             (uint32 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions)
             = gameEngine.decodeCombatLog(results);
 
@@ -381,20 +376,20 @@ contract PracticeGameTest is TestBase {
         }
     }
 
-    function getWeaponName(IPlayerSkinNFT.WeaponType weapon) internal pure returns (string memory) {
-        if (weapon == IPlayerSkinNFT.WeaponType.Greatsword) return "Greatsword";
-        if (weapon == IPlayerSkinNFT.WeaponType.Battleaxe) return "Battleaxe";
-        if (weapon == IPlayerSkinNFT.WeaponType.Spear) return "Spear";
-        if (weapon == IPlayerSkinNFT.WeaponType.SwordAndShield) return "SwordAndShield";
-        if (weapon == IPlayerSkinNFT.WeaponType.MaceAndShield) return "MaceAndShield";
-        if (weapon == IPlayerSkinNFT.WeaponType.Quarterstaff) return "Quarterstaff";
+    function getWeaponName(IGameDefinitions.WeaponType weapon) internal pure returns (string memory) {
+        if (weapon == IGameDefinitions.WeaponType.Greatsword) return "Greatsword";
+        if (weapon == IGameDefinitions.WeaponType.Battleaxe) return "Battleaxe";
+        if (weapon == IGameDefinitions.WeaponType.Spear) return "Spear";
+        if (weapon == IGameDefinitions.WeaponType.SwordAndShield) return "SwordAndShield";
+        if (weapon == IGameDefinitions.WeaponType.MaceAndShield) return "MaceAndShield";
+        if (weapon == IGameDefinitions.WeaponType.Quarterstaff) return "Quarterstaff";
         return "Unknown";
     }
 
-    function getArmorName(IPlayerSkinNFT.ArmorType armor) internal pure returns (string memory) {
-        if (armor == IPlayerSkinNFT.ArmorType.Leather) return "Leather";
-        if (armor == IPlayerSkinNFT.ArmorType.Chain) return "Chain";
-        if (armor == IPlayerSkinNFT.ArmorType.Plate) return "Plate";
+    function getArmorName(IGameDefinitions.ArmorType armor) internal pure returns (string memory) {
+        if (armor == IGameDefinitions.ArmorType.Leather) return "Leather";
+        if (armor == IGameDefinitions.ArmorType.Chain) return "Chain";
+        if (armor == IGameDefinitions.ArmorType.Plate) return "Plate";
         return "Unknown";
     }
 

@@ -6,15 +6,12 @@ import "solmate/src/utils/SafeTransferLib.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 import "./PlayerSkinRegistry.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
-import "./PlayerEquipmentStats.sol";
 import "./PlayerNameRegistry.sol";
+import "./interfaces/IPlayerSkinNFT.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import "./PlayerEquipmentStats.sol";
-import "solmate/src/utils/ReentrancyGuard.sol";
 
-contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
+contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
 
     // Configuration
@@ -35,9 +32,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
 
     // Reference to the PlayerNameRegistry contract
     PlayerNameRegistry public nameRegistry;
-
-    // Reference to the PlayerEquipmentStats contract
-    PlayerEquipmentStats public equipmentStats;
 
     // Permissions for game contracts
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
@@ -79,17 +73,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
 
     address private _operatorAddress;
 
-    constructor(
-        address skinRegistryAddress,
-        address nameRegistryAddress,
-        address equipmentStatsAddress,
-        address operator
-    ) Owned(msg.sender) {
+    constructor(address skinRegistryAddress, address nameRegistryAddress, address operator) Owned(msg.sender) {
         maxPlayersPerAddress = 6;
         createPlayerFeeAmount = 0.001 ether;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
-        equipmentStats = PlayerEquipmentStats(equipmentStatsAddress);
         _operatorAddress = operator;
     }
 
@@ -295,27 +283,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         emit MaxPlayersUpdated(newMax);
     }
 
-    function setEquipmentStats(address newEquipmentStats) external onlyOwner {
-        if (newEquipmentStats == address(0)) revert InvalidContractAddress();
-
-        // Store old address for event
-        address oldStats = address(equipmentStats);
-
-        // Validate interface by trying to call a view function
-        PlayerEquipmentStats newStats = PlayerEquipmentStats(newEquipmentStats);
-        newStats.getStanceMultiplier(IPlayerSkinNFT.FightingStance.Balanced); // Will revert if invalid
-
-        equipmentStats = newStats;
-        emit EquipmentStatsUpdated(oldStats, newEquipmentStats);
-    }
-
     function setCreatePlayerFeeAmount(uint256 newFeeAmount) external onlyOwner {
         uint256 oldFee = createPlayerFeeAmount;
         createPlayerFeeAmount = newFeeAmount;
         emit CreatePlayerFeeUpdated(oldFee, newFeeAmount);
     }
 
-    function withdrawFees() external nonReentrant onlyOwner {
+    function withdrawFees() external onlyOwner {
         SafeTransferLib.safeTransferETH(owner, address(this).balance);
     }
 
@@ -329,7 +303,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
         delete _userPendingRequests[user];
     }
 
-    function requestCreatePlayer(bool useNameSetB) external payable nonReentrant returns (uint256 requestId) {
+    function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId) {
         // Checks
         require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
         require(_userPendingRequests[msg.sender].length == 0, "Pending request exists");
@@ -346,7 +320,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, ReentrancyGuard {
     function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory /* extraData */ )
         internal
         override
-        nonReentrant
     {
         // Checks
         PendingPlayer memory pending = _pendingPlayers[requestId];

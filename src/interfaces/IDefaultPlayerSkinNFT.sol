@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "./IGameDefinitions.sol";
 import "./IPlayer.sol";
 import "./IPlayerSkinNFT.sol";
 
 interface IDefaultPlayerSkinNFT is IPlayerSkinNFT {
     function mintDefaultPlayerSkin(
-        WeaponType weapon,
-        ArmorType armor,
-        FightingStance stance,
+        IGameDefinitions.WeaponType weapon,
+        IGameDefinitions.ArmorType armor,
+        IGameDefinitions.FightingStance stance,
         IPlayer.PlayerStats memory stats,
         string memory ipfsCID,
         uint16 desiredTokenId

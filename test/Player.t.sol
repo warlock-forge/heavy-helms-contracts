@@ -6,12 +6,11 @@ import {Player} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import {IPlayerSkinNFT} from "../src/interfaces/IPlayerSkinNFT.sol";
+import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
+import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 import "./utils/TestBase.sol";
 import "./mocks/UnlockNFT.sol";
-import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 
 // Helper contract that doesn't implement the required interface
 contract MockInvalidEquipmentStats {
@@ -50,10 +49,9 @@ contract PlayerTest is TestBase {
 
         // Deploy contracts in correct order
         nameRegistry = new PlayerNameRegistry();
-        equipmentStats = new PlayerEquipmentStats();
 
         // Deploy Player contract with dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
 
         // Reset VRF state
         ROUND_ID = 0;
@@ -67,7 +65,7 @@ contract PlayerTest is TestBase {
         _assertPlayerState(playerContract, playerId, PLAYER_ONE, true);
 
         IPlayer.PlayerStats memory newPlayer = playerContract.getPlayer(playerId);
-        _assertStatRanges(newPlayer, playerContract.equipmentStats().calculateStats(newPlayer));
+        _assertStatRanges(newPlayer);
     }
 
     function testMaxPlayers() public {
@@ -100,8 +98,8 @@ contract PlayerTest is TestBase {
         // Verify each player's stats
         IPlayer.PlayerStats memory stats1 = playerContract.getPlayer(playerId1);
         IPlayer.PlayerStats memory stats2 = playerContract.getPlayer(playerId2);
-        _assertStatRanges(stats1, playerContract.equipmentStats().calculateStats(stats1));
-        _assertStatRanges(stats2, playerContract.equipmentStats().calculateStats(stats2));
+        _assertStatRanges(stats1);
+        _assertStatRanges(stats2);
     }
 
     function testFailCreatePlayerBeforeVRFFulfillment() public {
@@ -181,9 +179,9 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Balanced
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Leather,
+            IGameDefinitions.FightingStance.Balanced
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -215,9 +213,9 @@ contract PlayerTest is TestBase {
         vm.startPrank(otherAddress);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             otherAddress,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Defensive
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -417,34 +415,6 @@ contract PlayerTest is TestBase {
         assertFalse(playerContract.isPlayerRetired(playerId), "Player should not be retired");
     }
 
-    function testEquipmentStatsOwnership() public {
-        // Store original equipment stats address
-        address originalEquipmentStats = address(equipmentStats);
-
-        // Create new stats contract first
-        PlayerEquipmentStats newStats = new PlayerEquipmentStats();
-
-        // Test 1: Non-owner cannot swap stats
-        vm.prank(address(0xBEEF));
-        vm.expectRevert();
-        playerContract.setEquipmentStats(address(newStats));
-
-        // Test 2: Owner can swap stats and event is emitted
-        vm.expectEmit(true, true, false, false);
-        emit EquipmentStatsUpdated(originalEquipmentStats, address(newStats));
-        playerContract.setEquipmentStats(address(newStats));
-        assertEq(address(playerContract.equipmentStats()), address(newStats), "Equipment stats not updated");
-
-        // Test 3: Cannot swap to zero address
-        vm.expectRevert(abi.encodeWithSignature("InvalidContractAddress()"));
-        playerContract.setEquipmentStats(address(0));
-
-        // Test 4: Cannot swap to invalid contract
-        MockInvalidEquipmentStats invalidStats = new MockInvalidEquipmentStats();
-        vm.expectRevert();
-        playerContract.setEquipmentStats(address(invalidStats));
-    }
-
     function testGetPlayerIds() public {
         // Create multiple players for PLAYER_ONE
         uint32[] memory playerIds = new uint32[](3);
@@ -485,9 +455,9 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IGameDefinitions.WeaponType.Greatsword,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Offensive
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -521,9 +491,9 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Offensive
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -600,18 +570,18 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         unlockNFT.mintSkin(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Balanced
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Balanced
         );
         vm.stopPrank();
 
         // Mint skin but keep it in contract
         skinNFT.mintSkin(
             address(skinNFT), // Mint to contract itself, not PLAYER_ONE
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Balanced
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Balanced
         );
         uint16 tokenId = 1;
 

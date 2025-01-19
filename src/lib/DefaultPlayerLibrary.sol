@@ -2,23 +2,23 @@
 pragma solidity ^0.8.13;
 
 import "../interfaces/IPlayer.sol";
-import "../interfaces/IPlayerSkinNFT.sol";
+import "../interfaces/IGameDefinitions.sol";
 
 library DefaultPlayerLibrary {
     function getDefaultWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
-        weapon = IPlayerSkinNFT.WeaponType.Quarterstaff;
-        armor = IPlayerSkinNFT.ArmorType.Cloth;
-        stance = IPlayerSkinNFT.FightingStance.Balanced;
+        weapon = IGameDefinitions.WeaponType.Quarterstaff;
+        armor = IGameDefinitions.ArmorType.Cloth;
+        stance = IGameDefinitions.FightingStance.Balanced;
         stats = IPlayer.PlayerStats({
             strength: 12,
             constitution: 12,
@@ -41,16 +41,16 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
-        weapon = IPlayerSkinNFT.WeaponType.SwordAndShield;
-        armor = IPlayerSkinNFT.ArmorType.Chain;
-        stance = IPlayerSkinNFT.FightingStance.Balanced;
+        weapon = IGameDefinitions.WeaponType.SwordAndShield;
+        armor = IGameDefinitions.ArmorType.Chain;
+        stance = IGameDefinitions.FightingStance.Balanced;
         stats = IPlayer.PlayerStats({
             strength: 12,
             constitution: 12,
@@ -73,17 +73,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Offensive,
+            IGameDefinitions.WeaponType.Greatsword,
+            IGameDefinitions.ArmorType.Leather,
+            IGameDefinitions.FightingStance.Offensive,
             IPlayer.PlayerStats({
                 strength: 18,
                 constitution: 10,
@@ -107,17 +107,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.Battleaxe,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Offensive,
+            IGameDefinitions.WeaponType.Battleaxe,
+            IGameDefinitions.ArmorType.Chain,
+            IGameDefinitions.FightingStance.Offensive,
             IPlayer.PlayerStats({
                 strength: 16,
                 constitution: 12,
@@ -141,17 +141,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.Spear,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Balanced,
+            IGameDefinitions.WeaponType.Spear,
+            IGameDefinitions.ArmorType.Leather,
+            IGameDefinitions.FightingStance.Balanced,
             IPlayer.PlayerStats({
                 strength: 14,
                 constitution: 12,
@@ -175,17 +175,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.Quarterstaff,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive,
+            IGameDefinitions.WeaponType.Quarterstaff,
+            IGameDefinitions.ArmorType.Chain,
+            IGameDefinitions.FightingStance.Defensive,
             IPlayer.PlayerStats({
                 strength: 10,
                 constitution: 14,
@@ -209,17 +209,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.RapierAndShield,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Balanced,
+            IGameDefinitions.WeaponType.RapierAndShield,
+            IGameDefinitions.ArmorType.Leather,
+            IGameDefinitions.FightingStance.Balanced,
             IPlayer.PlayerStats({
                 strength: 10,
                 constitution: 12,
@@ -243,17 +243,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Offensive,
+            IGameDefinitions.WeaponType.Greatsword,
+            IGameDefinitions.ArmorType.Leather,
+            IGameDefinitions.FightingStance.Offensive,
             IPlayer.PlayerStats({
                 strength: 18,
                 constitution: 8,
@@ -277,17 +277,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive,
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Chain,
+            IGameDefinitions.FightingStance.Defensive,
             IPlayer.PlayerStats({
                 strength: 10,
                 constitution: 16,
@@ -311,17 +311,17 @@ library DefaultPlayerLibrary {
         internal
         pure
         returns (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         )
     {
         return (
-            IPlayerSkinNFT.WeaponType.SwordAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive,
+            IGameDefinitions.WeaponType.SwordAndShield,
+            IGameDefinitions.ArmorType.Chain,
+            IGameDefinitions.FightingStance.Defensive,
             IPlayer.PlayerStats({
                 strength: 12,
                 constitution: 14,

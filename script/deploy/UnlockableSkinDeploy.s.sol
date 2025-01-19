@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 import {PlayerSkinNFT} from "../../src/examples/PlayerSkinNFT.sol";
-import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
+import {IGameDefinitions} from "../../src/interfaces/IGameDefinitions.sol";
 
 contract UnlockableSkinDeployScript is Script {
     function run(address skinRegistryAddress) public {
@@ -36,25 +36,25 @@ contract UnlockableSkinDeployScript is Script {
         // Mint Quarterstaff Mystic (ID 1)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
-            IPlayerSkinNFT.WeaponType.Quarterstaff,
-            IPlayerSkinNFT.ArmorType.Cloth,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IGameDefinitions.WeaponType.Quarterstaff,
+            IGameDefinitions.ArmorType.Cloth,
+            IGameDefinitions.FightingStance.Offensive
         );
 
         // Mint Mace Guardian (ID 2)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
-            IPlayerSkinNFT.WeaponType.MaceAndShield,
-            IPlayerSkinNFT.ArmorType.Chain,
-            IPlayerSkinNFT.FightingStance.Defensive
+            IGameDefinitions.WeaponType.MaceAndShield,
+            IGameDefinitions.ArmorType.Chain,
+            IGameDefinitions.FightingStance.Defensive
         );
 
         // Mint Battle Master (ID 3)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
-            IPlayerSkinNFT.WeaponType.Battleaxe,
-            IPlayerSkinNFT.ArmorType.Leather,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IGameDefinitions.WeaponType.Battleaxe,
+            IGameDefinitions.ArmorType.Leather,
+            IGameDefinitions.FightingStance.Offensive
         );
 
         // Set the collection as verified

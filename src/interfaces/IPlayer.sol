@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../PlayerEquipmentStats.sol";
 import "../PlayerSkinRegistry.sol";
 
 interface IPlayer {
@@ -52,12 +51,7 @@ interface IPlayer {
     event PlayerCreationFulfilled(uint256 indexed requestId, uint32 indexed playerId, address indexed owner);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
     event MaxPlayersUpdated(uint256 newMax);
-    event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event CreatePlayerFeeUpdated(uint256 oldFee, uint256 newFee);
-
-    // Contract References
-    /// @notice Returns the equipment stats contract reference
-    function equipmentStats() external view returns (PlayerEquipmentStats);
 
     /// @notice Returns the skin registry contract reference
     function skinRegistry() external view returns (PlayerSkinRegistry);
@@ -168,11 +162,6 @@ interface IPlayer {
     /// @param newMax The new maximum number of players
     /// @dev Only callable by contract owner
     function setMaxPlayersPerAddress(uint256 newMax) external;
-
-    /// @notice Updates the equipment stats contract address
-    /// @param newEquipmentStats The new equipment stats contract address
-    /// @dev Only callable by contract owner
-    function setEquipmentStats(address newEquipmentStats) external;
 
     /// @notice Updates the fee amount required to create a new player
     /// @param newFeeAmount The new fee amount in wei

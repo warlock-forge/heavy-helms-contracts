@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./interfaces/IPlayer.sol";
+import "./interfaces/IGameDefinitions.sol";
 import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "solmate/src/auth/Owned.sol";
@@ -23,14 +24,19 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     error MaxSupplyReached();
     error NotPlayerContract();
 
-    event SkinAttributesUpdated(uint16 indexed tokenId, WeaponType weapon, ArmorType armor, FightingStance stance);
+    event SkinAttributesUpdated(
+        uint16 indexed tokenId,
+        IGameDefinitions.WeaponType weapon,
+        IGameDefinitions.ArmorType armor,
+        IGameDefinitions.FightingStance stance
+    );
 
     constructor() ERC721("Heavy Helms Default Player Skins", "HHSKIN") Owned(msg.sender) {}
 
     function mintDefaultPlayerSkin(
-        WeaponType weapon,
-        ArmorType armor,
-        FightingStance stance,
+        IGameDefinitions.WeaponType weapon,
+        IGameDefinitions.ArmorType armor,
+        IGameDefinitions.FightingStance stance,
         IPlayer.PlayerStats memory stats,
         string memory ipfsCID,
         uint16 desiredTokenId
@@ -84,9 +90,9 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
 
     function mintSkin(
         address, /* _to */
-        WeaponType, /* _weapon */
-        ArmorType, /* _armor */
-        FightingStance /* _stance */
+        IGameDefinitions.WeaponType, /* _weapon */
+        IGameDefinitions.ArmorType, /* _armor */
+        IGameDefinitions.FightingStance /* _stance */
     ) external payable override returns (uint16) {
         revert MintingDisabled();
     }
@@ -109,10 +115,12 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         payable(owner).transfer(address(this).balance);
     }
 
-    function updateSkinAttributes(uint256 tokenId, WeaponType weapon, ArmorType armor, FightingStance stance)
-        external
-        onlyOwner
-    {
+    function updateSkinAttributes(
+        uint256 tokenId,
+        IGameDefinitions.WeaponType weapon,
+        IGameDefinitions.ArmorType armor,
+        IGameDefinitions.FightingStance stance
+    ) external onlyOwner {
         if (tokenId >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
 

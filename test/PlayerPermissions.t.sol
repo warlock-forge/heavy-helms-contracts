@@ -6,7 +6,6 @@ import {Player} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import "./utils/TestBase.sol";
 
 contract PlayerPermissionsTest is TestBase {

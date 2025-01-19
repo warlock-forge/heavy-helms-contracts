@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {DefaultPlayerSkinNFT} from "../../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../../src/lib/DefaultPlayerLibrary.sol";
 import {PlayerSkinRegistry} from "../../../src/PlayerSkinRegistry.sol";
-import {IPlayerSkinNFT} from "../../../src/interfaces/IPlayerSkinNFT.sol";
+import {IGameDefinitions} from "../../../src/interfaces/IGameDefinitions.sol";
 import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
 
 contract MintDefaultSkinScript is Script {
@@ -31,9 +31,9 @@ contract MintDefaultSkinScript is Script {
 
         // Get the character data - replace getBalancedWarrior with your desired character type
         (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         ) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, tokenId);

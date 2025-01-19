@@ -7,13 +7,13 @@ import {GelatoVRFConsumerBase} from "../../lib/vrf-contracts/contracts/GelatoVRF
 import {IPlayer} from "../../src/interfaces/IPlayer.sol";
 import {Player} from "../../src/Player.sol";
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
-import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
+import {IGameDefinitions} from "../../src/interfaces/IGameDefinitions.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 import {IGameEngine} from "../../src/interfaces/IGameEngine.sol";
 import {GameEngine} from "../../src/GameEngine.sol";
 import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
-import {PlayerEquipmentStats} from "../../src/PlayerEquipmentStats.sol";
+import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
@@ -35,7 +35,6 @@ abstract contract TestBase is Test {
     DefaultPlayerSkinNFT public defaultSkin;
     PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
-    PlayerEquipmentStats public equipmentStats;
 
     function setUp() public virtual {
         operator = address(0x42);
@@ -49,18 +48,17 @@ abstract contract TestBase is Test {
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
         skinRegistry.setDefaultCollection(skinIndex, true);
 
-        // Create name registry and equipment stats
+        // Create name registry
         nameRegistry = new PlayerNameRegistry();
-        equipmentStats = new PlayerEquipmentStats();
 
         // Create the player contract with all required dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(equipmentStats), operator);
+        playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
 
         // Mint default skin token ID 1
         (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
@@ -94,7 +92,7 @@ abstract contract TestBase is Test {
     }
 
     // Helper function for VRF fulfillment with round matching
-    function _fulfillVRF(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
+    function _fulfillVRF(uint256 requestId, uint256, /* randomSeed */ address vrfConsumer) internal {
         bytes memory extraData = "";
         bytes memory data = abi.encode(requestId, extraData);
         bytes memory dataWithRound = abi.encode(VRF_ROUND, data);
@@ -144,31 +142,14 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to assert stat ranges
-    function _assertStatRanges(IPlayer.PlayerStats memory stats, PlayerEquipmentStats.CalculatedStats memory calc)
-        internal
-        pure
-        virtual
-    {
+    function _assertStatRanges(IPlayer.PlayerStats memory stats) internal pure virtual {
         // Basic stat bounds
-        assertTrue(stats.strength >= 3 && stats.strength <= 21);
-        assertTrue(stats.constitution >= 3 && stats.constitution <= 21);
-        assertTrue(stats.size >= 3 && stats.size <= 21);
-        assertTrue(stats.agility >= 3 && stats.agility <= 21);
-        assertTrue(stats.stamina >= 3 && stats.stamina <= 21);
-        assertTrue(stats.luck >= 3 && stats.luck <= 21);
-
-        // Calculated stats
-        assertTrue(calc.maxHealth > 0);
-        assertTrue(calc.maxEndurance > 0);
-        assertTrue(calc.damageModifier > 0);
-        assertTrue(calc.hitChance > 0);
-        assertTrue(calc.blockChance > 0);
-        assertTrue(calc.dodgeChance > 0);
-        assertTrue(calc.critChance > 0);
-        assertTrue(calc.initiative > 0);
-        assertTrue(calc.counterChance > 0);
-        assertTrue(calc.critMultiplier > 0);
-        assertTrue(calc.parryChance > 0);
+        assertTrue(stats.strength >= 3 && stats.strength <= 21, "Strength out of range");
+        assertTrue(stats.constitution >= 3 && stats.constitution <= 21, "Constitution out of range");
+        assertTrue(stats.size >= 3 && stats.size <= 21, "Size out of range");
+        assertTrue(stats.agility >= 3 && stats.agility <= 21, "Agility out of range");
+        assertTrue(stats.stamina >= 3 && stats.stamina <= 21, "Stamina out of range");
+        assertTrue(stats.luck >= 3 && stats.luck <= 21, "Luck out of range");
     }
 
     // Helper function to create a player loadout that supports both practice and duel game test cases
@@ -393,5 +374,28 @@ abstract contract TestBase is Test {
         }
 
         assertTrue(foundEvent, "VRF request event not found");
+    }
+
+    // Helper function to convert PlayerLoadout to CombatLoadout
+    function _convertToLoadout(IGameEngine.PlayerLoadout memory playerLoadout)
+        internal
+        view
+        returns (IGameEngine.CombatLoadout memory)
+    {
+        // Get skin info and attributes
+        PlayerSkinRegistry.SkinInfo memory skinInfo = playerContract.skinRegistry().getSkin(playerLoadout.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory attrs =
+            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(playerLoadout.skinTokenId);
+
+        // Get player stats
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerLoadout.playerId);
+
+        return IGameEngine.CombatLoadout({
+            playerId: playerLoadout.playerId,
+            weapon: attrs.weapon,
+            armor: attrs.armor,
+            stance: attrs.stance,
+            stats: stats
+        });
     }
 }

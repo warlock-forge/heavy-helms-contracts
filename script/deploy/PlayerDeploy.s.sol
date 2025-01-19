@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {Player} from "../../src/Player.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
-import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
+import {IGameDefinitions} from "../../src/interfaces/IGameDefinitions.sol";
 import {IPlayer} from "../../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 
@@ -24,7 +24,7 @@ contract PlayerDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 1. Deploy Player contract with Gelato VRF operator
-        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, equipmentStatsAddr, operator);
+        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, operator);
 
         // 2. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
@@ -39,9 +39,9 @@ contract PlayerDeployScript is Script {
 
         // Balanced Warrior (ID 1)
         (
-            IPlayerSkinNFT.WeaponType weapon,
-            IPlayerSkinNFT.ArmorType armor,
-            IPlayerSkinNFT.FightingStance stance,
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
             IPlayer.PlayerStats memory stats,
             string memory ipfsCID
         ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);

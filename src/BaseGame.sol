@@ -6,8 +6,6 @@ import "./interfaces/IPlayer.sol";
 import "solmate/src/auth/Owned.sol";
 
 error ZeroAddress();
-error InvalidGameEngine();
-error InvalidPlayerContract();
 
 /// @title BaseGame
 /// @notice Base contract for game implementations
@@ -24,32 +22,12 @@ abstract contract BaseGame is Owned {
 
     constructor(address _gameEngine, address _playerContract) Owned(msg.sender) {
         if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
-
-        // Validate game engine interface
-        try IGameEngine(_gameEngine).version() returns (uint16) {}
-        catch {
-            revert InvalidGameEngine();
-        }
-
-        // Validate player contract interface
-        try IPlayer(_playerContract).maxPlayersPerAddress() returns (uint256) {}
-        catch {
-            revert InvalidPlayerContract();
-        }
-
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);
     }
 
     function setGameEngine(address _newEngine) external onlyOwner {
         if (_newEngine == address(0)) revert ZeroAddress();
-
-        // Validate interface implementation
-        try IGameEngine(_newEngine).version() returns (uint16) {}
-        catch {
-            revert InvalidGameEngine();
-        }
-
         address oldEngine = address(gameEngine);
         gameEngine = IGameEngine(_newEngine);
         emit GameEngineUpdated(oldEngine, _newEngine);
@@ -57,13 +35,6 @@ abstract contract BaseGame is Owned {
 
     function setPlayerContract(address _newContract) external onlyOwner {
         if (_newContract == address(0)) revert ZeroAddress();
-
-        // Validate interface implementation
-        try IPlayer(_newContract).maxPlayersPerAddress() returns (uint256) {}
-        catch {
-            revert InvalidPlayerContract();
-        }
-
         address oldContract = address(playerContract);
         playerContract = IPlayer(_newContract);
         emit PlayerContractUpdated(oldContract, _newContract);

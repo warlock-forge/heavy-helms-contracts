@@ -4,13 +4,12 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {DuelGame} from "../src/DuelGame.sol";
 import {Player} from "../src/Player.sol";
-import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {GameEngine} from "../src/GameEngine.sol";
-import {PlayerEquipmentStats} from "../src/PlayerEquipmentStats.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
+import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
 import {UnlockNFT} from "./mocks/UnlockNFT.sol";
 import "./utils/TestBase.sol";
 
@@ -145,7 +144,7 @@ contract DuelGameTest is TestBase {
         (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         bytes memory results =
-            gameEngine.processGame(challengerLoadout, defenderLoadout, 0, Player(address(playerContract)));
+            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, version, condition, actions, challengerId, defenderId);
@@ -225,7 +224,7 @@ contract DuelGameTest is TestBase {
         (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         bytes memory results =
-            gameEngine.processGame(challengerLoadout, defenderLoadout, 0, Player(address(playerContract)));
+            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, version, condition, actions, challengerId, defenderId);
@@ -447,9 +446,9 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IGameDefinitions.WeaponType.Greatsword,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Offensive
         );
         uint16 tokenId = 1;
 
@@ -483,9 +482,9 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
-            IPlayerSkinNFT.WeaponType.Greatsword,
-            IPlayerSkinNFT.ArmorType.Plate,
-            IPlayerSkinNFT.FightingStance.Offensive
+            IGameDefinitions.WeaponType.Greatsword,
+            IGameDefinitions.ArmorType.Plate,
+            IGameDefinitions.FightingStance.Offensive
         );
         uint16 tokenId = 1;
         vm.stopPrank();
