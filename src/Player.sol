@@ -46,12 +46,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
                 : permission == IPlayer.GamePermission.NAME
                     ? perms.name
                     : permission == IPlayer.GamePermission.ATTRIBUTES ? perms.attributes : false;
-        require(hasAccess, "Missing required permission");
+        if (!hasAccess) revert NoPermission();
         _;
     }
 
     modifier playerExists(uint32 playerId) {
-        require(_players[playerId].strength != 0, "Player does not exist");
+        if (_players[playerId].strength == 0) revert PlayerDoesNotExist(playerId);
         _;
     }
 
@@ -73,6 +73,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     address private _operatorAddress;
 
+    bool public isPaused;
+
+    modifier whenNotPaused() {
+        if (isPaused) revert IPlayer.ContractPaused();
+        _;
+    }
+
     constructor(address skinRegistryAddress, address nameRegistryAddress, address operator) Owned(msg.sender) {
         maxPlayersPerAddress = 6;
         createPlayerFeeAmount = 0.001 ether;
@@ -83,7 +90,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     // Add setOperator function
     function setOperator(address newOperator) external onlyOwner {
-        require(newOperator != address(0), "Invalid operator address");
+        if (newOperator == address(0)) revert BadZeroAddress();
         _operatorAddress = newOperator;
     }
 
@@ -207,7 +214,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             try skinContract.ownerOf(skinTokenId) returns (address owner) {
                 ownsSpecificNFT = (owner == msg.sender);
             } catch {
-                revert("ERC721: invalid token ID");
+                revert InvalidTokenId(skinTokenId);
             }
 
             if (!ownsSpecificNFT) {
@@ -293,6 +300,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         SafeTransferLib.safeTransferETH(owner, address(this).balance);
     }
 
+    function recoverERC20(address token, uint256 amount) external onlyOwner {
+        SafeTransferLib.safeTransfer(ERC20(token), owner, amount);
+    }
+
     function clearPendingRequestsForAddress(address user) external onlyOwner {
         // Clear all pending requests for this user
         uint256[] memory requests = _userPendingRequests[user];
@@ -303,11 +314,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         delete _userPendingRequests[user];
     }
 
-    function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId) {
+    function setPaused(bool paused) external onlyOwner {
+        isPaused = paused;
+        emit PausedStateChanged(paused);
+    }
+
+    function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
         // Checks
-        require(_addressPlayerCount[msg.sender] < maxPlayersPerAddress, "Too many players");
-        require(_userPendingRequests[msg.sender].length == 0, "Pending request exists");
-        require(msg.value >= createPlayerFeeAmount, "Insufficient fee amount");
+        if (_addressPlayerCount[msg.sender] >= maxPlayersPerAddress) revert TooManyPlayers();
+        if (_userPendingRequests[msg.sender].length != 0) revert PendingRequestExists();
+        if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
 
         // Effects - Get requestId first since it's deterministic and can't fail
         requestId = _requestRandomness("");
@@ -323,8 +339,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     {
         // Checks
         PendingPlayer memory pending = _pendingPlayers[requestId];
-        require(pending.owner != address(0), "Invalid request ID");
-        require(!pending.fulfilled, "Request already fulfilled");
+        if (pending.owner == address(0)) revert InvalidRequestID();
+        if (pending.fulfilled) revert RequestAlreadyFulfilled();
 
         // Effects
         _pendingPlayers[requestId].fulfilled = true;
@@ -365,7 +381,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         internal
         returns (uint32 playerId, IPlayer.PlayerStats memory stats)
     {
-        require(_addressPlayerCount[owner] < maxPlayersPerAddress, "Too many players");
+        if (_addressPlayerCount[owner] >= maxPlayersPerAddress) revert TooManyPlayers();
 
         // Use incremental playerId
         playerId = nextPlayerId++;
@@ -542,7 +558,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             kills: _players[playerId].kills
         });
 
-        require(_validateStats(newStats), "Invalid player stats");
+        if (!_validateStats(newStats)) revert InvalidPlayerStats();
 
         // If validation passes, update the player's attributes
         PlayerStats storage player = _players[playerId];
@@ -560,7 +576,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     function retireOwnPlayer(uint32 playerId) external playerExists(playerId) {
         // Check caller owns it
-        require(_ownerOf(playerId) == msg.sender, "Not player owner");
+        if (_ownerOf(playerId) != msg.sender) revert NotPlayerOwner();
 
         // Mark as retired
         _retiredPlayers[playerId] = true;

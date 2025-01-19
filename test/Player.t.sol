@@ -76,7 +76,7 @@ contract PlayerTest is TestBase {
 
         // Try to create one more player (should fail)
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert("Too many players");
+        vm.expectRevert(IPlayer.TooManyPlayers.selector);
         playerContract.requestCreatePlayer(true);
         vm.stopPrank();
     }
@@ -221,7 +221,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
 
         // Try to equip the skin (should fail)
-        vm.expectRevert(abi.encodeWithSignature("PlayerDoesNotExist(uint32)", playerId));
+        vm.expectRevert(abi.encodeWithSignature("PlayerDoesNotExist(uint32)", 1000));
         playerContract.equipSkin(playerId, skinIndex, tokenId);
         vm.stopPrank();
 
@@ -238,7 +238,7 @@ contract PlayerTest is TestBase {
 
         // Try to equip a non-existent skin collection
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert();
+        vm.expectRevert(PlayerSkinRegistry.SkinRegistryDoesNotExist.selector);
         playerContract.equipSkin(playerId, 999, 1);
         vm.stopPrank();
     }
@@ -408,7 +408,7 @@ contract PlayerTest is TestBase {
 
         // Try to retire it from address(2)
         vm.prank(address(2));
-        vm.expectRevert("Not player owner");
+        vm.expectRevert(IPlayer.NotPlayerOwner.selector);
         playerContract.retireOwnPlayer(playerId);
 
         // Verify player is not retired
@@ -642,7 +642,7 @@ contract PlayerTest is TestBase {
             assertEq(stats.skinIndex, skinIndexToEquip);
             assertEq(stats.skinTokenId, tokenId);
         } else {
-            vm.expectRevert();
+            vm.expectRevert(IPlayer.InvalidPlayerStats.selector);
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
         }
         vm.stopPrank();

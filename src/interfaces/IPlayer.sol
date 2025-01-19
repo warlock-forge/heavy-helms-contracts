@@ -41,9 +41,19 @@ interface IPlayer {
     // Public errors that can be thrown by any public/external function
     error PlayerDoesNotExist(uint32 playerId);
     error NotSkinOwner();
-    error InvalidContractAddress();
+    error NotPlayerOwner();
     error RequiredNFTNotOwned(address nftAddress);
     error PlayerIsRetired(uint32 playerId);
+    error ContractPaused();
+    error TooManyPlayers();
+    error PendingRequestExists();
+    error InvalidRequestID();
+    error RequestAlreadyFulfilled();
+    error InsufficientFeeAmount();
+    error InvalidPlayerStats();
+    error NoPermission();
+    error BadZeroAddress();
+    error InvalidTokenId(uint16 tokenId);
 
     // Events
     event PlayerRetired(uint32 indexed playerId, address indexed caller, bool retired);
@@ -52,6 +62,7 @@ interface IPlayer {
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
     event MaxPlayersUpdated(uint256 newMax);
     event CreatePlayerFeeUpdated(uint256 oldFee, uint256 newFee);
+    event PausedStateChanged(bool isPaused);
 
     /// @notice Returns the skin registry contract reference
     function skinRegistry() external view returns (PlayerSkinRegistry);
@@ -146,36 +157,6 @@ interface IPlayer {
     /// @notice Gets the permissions for a game contract
     /// @param gameContract The address of the game contract
     function gameContractPermissions(address gameContract) external view returns (GamePermissions memory);
-
-    /// @notice Sets permissions for a game contract
-    /// @param gameContract The address of the game contract
-    /// @param permissions The new permissions to set
-    function setGameContractPermission(address gameContract, GamePermissions memory permissions) external;
-
-    // Contract Configuration
-    /// @notice Sets the operator address for VRF operations
-    /// @param newOperator The new operator address
-    /// @dev Only callable by contract owner
-    function setOperator(address newOperator) external;
-
-    /// @notice Updates the maximum number of players allowed per address
-    /// @param newMax The new maximum number of players
-    /// @dev Only callable by contract owner
-    function setMaxPlayersPerAddress(uint256 newMax) external;
-
-    /// @notice Updates the fee amount required to create a new player
-    /// @param newFeeAmount The new fee amount in wei
-    /// @dev Only callable by contract owner
-    function setCreatePlayerFeeAmount(uint256 newFeeAmount) external;
-
-    /// @notice Withdraws accumulated fees to the contract owner
-    /// @dev Only callable by contract owner
-    function withdrawFees() external;
-
-    /// @notice Clears all pending player creation requests for a given address
-    /// @param user The address to clear requests for
-    /// @dev Only callable by contract owner
-    function clearPendingRequestsForAddress(address user) external;
 
     // Utility Functions
     /// @notice Encodes a player ID and their stats into a bytes32 value (using first 26 bytes)
