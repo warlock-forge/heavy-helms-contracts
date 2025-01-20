@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {Player} from "../src/Player.sol";
+import {Player, TooManyPlayers, NotPlayerOwner, InvalidPlayerStats} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
@@ -76,7 +76,7 @@ contract PlayerTest is TestBase {
 
         // Try to create one more player (should fail)
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert(IPlayer.TooManyPlayers.selector);
+        vm.expectRevert(TooManyPlayers.selector);
         playerContract.requestCreatePlayer(true);
         vm.stopPrank();
     }
@@ -408,7 +408,7 @@ contract PlayerTest is TestBase {
 
         // Try to retire it from address(2)
         vm.prank(address(2));
-        vm.expectRevert(IPlayer.NotPlayerOwner.selector);
+        vm.expectRevert(NotPlayerOwner.selector);
         playerContract.retireOwnPlayer(playerId);
 
         // Verify player is not retired
@@ -642,7 +642,7 @@ contract PlayerTest is TestBase {
             assertEq(stats.skinIndex, skinIndexToEquip);
             assertEq(stats.skinTokenId, tokenId);
         } else {
-            vm.expectRevert(IPlayer.InvalidPlayerStats.selector);
+            vm.expectRevert(InvalidPlayerStats.selector);
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
         }
         vm.stopPrank();

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {Player} from "../src/Player.sol";
+import {Player, NoPermission, InvalidPlayerStats} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
@@ -30,16 +30,16 @@ contract PlayerPermissionsTest is TestBase {
         // Try operations without permissions (should fail)
         vm.startPrank(gameContract);
 
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).incrementWins(playerId);
 
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).setPlayerRetired(playerId, true);
 
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).setPlayerName(playerId, 1, 1);
 
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).setPlayerAttributes(playerId, 10, 10, 10, 10, 10, 10);
 
         vm.stopPrank();
@@ -59,7 +59,7 @@ contract PlayerPermissionsTest is TestBase {
         Player(playerContract).incrementKills(playerId);
 
         // Other operations should still fail
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).setPlayerRetired(playerId, true);
 
         vm.stopPrank();
@@ -77,7 +77,7 @@ contract PlayerPermissionsTest is TestBase {
         Player(playerContract).setPlayerAttributes(playerId, 12, 12, 12, 12, 12, 12);
 
         // Should fail with invalid total
-        vm.expectRevert(IPlayer.InvalidPlayerStats.selector);
+        vm.expectRevert(InvalidPlayerStats.selector);
         Player(playerContract).setPlayerAttributes(playerId, 5, 5, 5, 5, 5, 5);
 
         vm.stopPrank();
@@ -95,7 +95,7 @@ contract PlayerPermissionsTest is TestBase {
         Player(playerContract).setPlayerName(playerId, 1, 1);
 
         // Other operations should fail
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).incrementWins(playerId);
 
         vm.stopPrank();
@@ -118,7 +118,7 @@ contract PlayerPermissionsTest is TestBase {
         assertFalse(Player(playerContract).isPlayerRetired(playerId));
 
         // Other operations should fail
-        vm.expectRevert(IPlayer.NoPermission.selector);
+        vm.expectRevert(NoPermission.selector);
         Player(playerContract).incrementWins(playerId);
 
         vm.stopPrank();
