@@ -105,6 +105,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     uint8 private immutable MINIMUM_ACTION_COST = 3;
     uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
     uint8 private immutable STAMINA_PARRY = 5;
+    uint8 private constant ATTACK_ACTION_COST = 100;
+    uint8 private constant MAX_WEAPON_SPEED = 120;
 
     struct CombatAction {
         CombatResultType p1Result;
@@ -125,6 +127,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint96 p2Health;
         uint32 p1Stamina;
         uint32 p2Stamina;
+        uint8 p1ActionPoints;
+        uint8 p2ActionPoints;
     }
 
     enum CounterType {
@@ -268,7 +272,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     /// @return A byte array containing the encoded combat log
     function processGame(CombatLoadout calldata player1, CombatLoadout calldata player2, uint256 randomSeed)
         external
-        view
+        pure
         returns (bytes memory)
     {
         // Calculate stats directly
@@ -310,26 +314,54 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                 break;
             }
 
-            // Get new random seed
-            currentSeed = uint256(keccak256(abi.encodePacked(currentSeed)));
+            // Add action points for both players with overflow protection
+            unchecked {
+                uint16 newP1Points = uint16(state.p1ActionPoints) + uint16(p1WeaponStats.attackSpeed);
+                uint16 newP2Points = uint16(state.p2ActionPoints) + uint16(p2WeaponStats.attackSpeed);
 
-            // Process round and update state
-            (currentSeed, results) = processRound(
-                state,
-                currentSeed,
-                results,
-                p1CalcStats,
-                p2CalcStats,
-                p1WeaponStats,
-                p2WeaponStats,
-                p1ArmorStats,
-                p2ArmorStats,
-                player1.stance,
-                player2.stance
-            );
+                // Cap at uint8 max if overflow would occur
+                state.p1ActionPoints = newP1Points > type(uint8).max ? type(uint8).max : uint8(newP1Points);
+                state.p2ActionPoints = newP2Points > type(uint8).max ? type(uint8).max : uint8(newP2Points);
+            }
+
+            // Determine if anyone can attack this round
+            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST;
+            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST;
+
+            if (canP1Attack || canP2Attack) {
+                // Get new random seed
+                currentSeed = uint256(keccak256(abi.encodePacked(currentSeed)));
+
+                // Determine attacker - if both can attack, one with more points goes first
+                bool isPlayer1Attacking = canP1Attack && (!canP2Attack || state.p1ActionPoints >= state.p2ActionPoints);
+
+                // Process round and update state
+                (currentSeed, results) = processRound(
+                    state,
+                    currentSeed,
+                    results,
+                    p1CalcStats,
+                    p2CalcStats,
+                    p1WeaponStats,
+                    p2WeaponStats,
+                    p1ArmorStats,
+                    p2ArmorStats,
+                    player1.stance,
+                    player2.stance,
+                    isPlayer1Attacking
+                );
+
+                // Safely deduct action points from attacker
+                if (isPlayer1Attacking) {
+                    require(state.p1ActionPoints >= ATTACK_ACTION_COST, "Insufficient action points");
+                    state.p1ActionPoints -= ATTACK_ACTION_COST;
+                } else {
+                    require(state.p2ActionPoints >= ATTACK_ACTION_COST, "Insufficient action points");
+                    state.p2ActionPoints -= ATTACK_ACTION_COST;
+                }
+            }
 
             roundCount++;
-            state.isPlayer1Turn = !state.isPlayer1Turn;
         }
 
         if (roundCount >= MAX_ROUNDS) {
@@ -372,12 +404,23 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint32 p1TotalInit = ((p1EquipmentInit * 90) + (uint32(p1CalcStats.initiative) * 10)) / 100;
         uint32 p2TotalInit = ((p2EquipmentInit * 90) + (uint32(p2CalcStats.initiative) * 10)) / 100;
 
-        // Simple deterministic check with tiebreaker
-        if (p1TotalInit == p2TotalInit) {
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-            state.isPlayer1Turn = seed.uniform(2) == 0;
+        // Initialize action points based on initiative
+        if (p1TotalInit > p2TotalInit) {
+            state.p1ActionPoints = uint8(p1WeaponStats.attackSpeed);
+            state.p2ActionPoints = 0;
+        } else if (p2TotalInit > p1TotalInit) {
+            state.p1ActionPoints = 0;
+            state.p2ActionPoints = uint8(p2WeaponStats.attackSpeed);
         } else {
-            state.isPlayer1Turn = p1TotalInit > p2TotalInit;
+            // Tie breaker
+            seed = uint256(keccak256(abi.encodePacked(seed)));
+            if (seed.uniform(2) == 0) {
+                state.p1ActionPoints = uint8(p1WeaponStats.attackSpeed);
+                state.p2ActionPoints = 0;
+            } else {
+                state.p1ActionPoints = 0;
+                state.p2ActionPoints = uint8(p2WeaponStats.attackSpeed);
+            }
         }
 
         return state;
@@ -386,7 +429,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     function validateCombatStats(WeaponStats memory weapon, ArmorStats memory armor) private pure {
         require(weapon.maxDamage >= weapon.minDamage, "Invalid weapon damage range");
         require(weapon.staminaMultiplier > 0, "Invalid stamina multiplier");
-        require(weapon.attackSpeed > 0, "Invalid attack speed");
+        require(weapon.attackSpeed > 0 && weapon.attackSpeed <= MAX_WEAPON_SPEED, "Invalid attack speed");
         require(armor.weight > 0, "Invalid armor weight");
     }
 
@@ -397,7 +440,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         FightingStance p2Stance,
         WeaponStats memory p1WeaponStats,
         WeaponStats memory p2WeaponStats
-    ) private view returns (bool) {
+    ) private pure returns (bool) {
         uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Stance, p1WeaponStats);
         uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Stance, p2WeaponStats);
 
@@ -425,8 +468,9 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         ArmorStats memory p1ArmorStats,
         ArmorStats memory p2ArmorStats,
         FightingStance p1Stance,
-        FightingStance p2Stance
-    ) private view returns (uint256, bytes memory) {
+        FightingStance p2Stance,
+        bool isPlayer1Attacking
+    ) private pure returns (uint256, bytes memory) {
         (
             uint8 attackResult,
             uint16 attackDamage,
@@ -435,16 +479,16 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             uint16 defenseDamage,
             uint8 defenseStaminaCost
         ) = processCombatTurn(
-            state.isPlayer1Turn ? p1CalcStats : p2CalcStats,
-            state.isPlayer1Turn ? p2CalcStats : p1CalcStats,
-            state.isPlayer1Turn ? state.p1Stamina : state.p2Stamina,
-            state.isPlayer1Turn ? state.p2Stamina : state.p1Stamina,
-            state.isPlayer1Turn ? p1WeaponStats : p2WeaponStats,
-            state.isPlayer1Turn ? p2WeaponStats : p1WeaponStats,
-            state.isPlayer1Turn ? p2ArmorStats : p1ArmorStats,
+            isPlayer1Attacking ? p1CalcStats : p2CalcStats,
+            isPlayer1Attacking ? p2CalcStats : p1CalcStats,
+            isPlayer1Attacking ? state.p1Stamina : state.p2Stamina,
+            isPlayer1Attacking ? state.p2Stamina : state.p1Stamina,
+            isPlayer1Attacking ? p1WeaponStats : p2WeaponStats,
+            isPlayer1Attacking ? p2WeaponStats : p1WeaponStats,
+            isPlayer1Attacking ? p2ArmorStats : p1ArmorStats,
             currentSeed,
-            state.isPlayer1Turn ? p1Stance : p2Stance,
-            state.isPlayer1Turn ? p2Stance : p1Stance
+            isPlayer1Attacking ? p1Stance : p2Stance,
+            isPlayer1Attacking ? p2Stance : p1Stance
         );
 
         // Update combat state based on results
@@ -459,7 +503,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             defenseResult,
             defenseDamage,
             defenseStaminaCost,
-            state.isPlayer1Turn
+            isPlayer1Attacking
         );
 
         return (currentSeed, results);
@@ -478,7 +522,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         FightingStance defenderStance
     )
         private
-        view
+        pure
         returns (
             uint8 attackResult,
             uint16 attackDamage,
@@ -570,7 +614,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         DamageType damageType,
         uint256 seed,
         FightingStance stance
-    ) private view returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
+    ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         // Get stance multipliers
         StanceMultiplier memory stanceMods = getStanceMultiplier(stance);
 
@@ -639,7 +683,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint256 seed,
         CounterType counterType,
         FightingStance stance
-    ) private view returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
+    ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         uint16 counterDamage;
         (counterDamage, seed) = calculateDamage(defenderStats.damageModifier, defenderWeapon, seed);
 
@@ -837,11 +881,12 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint8 defenseResult,
         uint16 defenseDamage,
         uint8 defenseStaminaCost,
-        bool isPlayer1Turn
+        bool isPlayer1Attacking
     ) private pure returns (bytes memory) {
         bytes memory actionData = new bytes(8);
 
-        if (isPlayer1Turn) {
+        if (isPlayer1Attacking) {
+            // P1 attack info in bytes 0-3, P2 defense info in bytes 4-7
             actionData[0] = bytes1(attackResult);
             actionData[1] = bytes1(uint8(attackDamage >> 8));
             actionData[2] = bytes1(uint8(attackDamage));
@@ -851,6 +896,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             actionData[6] = bytes1(uint8(defenseDamage));
             actionData[7] = bytes1(defenseStaminaCost);
         } else {
+            // P1 defense info in bytes 0-3, P2 attack info in bytes 4-7
             actionData[0] = bytes1(defenseResult);
             actionData[1] = bytes1(uint8(defenseDamage >> 8));
             actionData[2] = bytes1(uint8(defenseDamage));
@@ -860,7 +906,6 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             actionData[6] = bytes1(uint8(attackDamage));
             actionData[7] = bytes1(attackStaminaCost);
         }
-
         return bytes.concat(results, actionData);
     }
 
@@ -888,7 +933,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
 
     function calculateStaminaCost(uint256 baseCost, FightingStance stance, WeaponStats memory weapon)
         internal
-        view
+        pure
         returns (uint256)
     {
         uint256 stanceModifier = getStanceMultiplier(stance).staminaCostModifier;
