@@ -25,8 +25,6 @@ error PlayerDoesNotExist(uint32 playerId);
 error NotSkinOwner();
 /// @notice Thrown when caller doesn't own the player they're trying to modify
 error NotPlayerOwner();
-/// @notice Thrown when caller doesn't own required NFT for a skin
-error RequiredNFTNotOwned(address nftAddress);
 /// @notice Thrown when attempting to modify a retired player
 error PlayerIsRetired(uint32 playerId);
 /// @notice Thrown when contract is in paused state
@@ -453,7 +451,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         // Case 2: Collection with required NFT - just check they own the required NFT
         else if (skinInfo.requiredNFTAddress != address(0)) {
             if (!_checkCollectionOwnership(msg.sender, skinInfo.requiredNFTAddress)) {
-                revert PlayerSkinRegistry.RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
+                revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
             }
         }
         // Case 3: Regular collection - check specific token ownership

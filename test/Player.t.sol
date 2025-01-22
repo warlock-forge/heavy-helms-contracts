@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {Test} from "forge-std/Test.sol";
 import {Player, TooManyPlayers, NotPlayerOwner, InvalidPlayerStats} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
-import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
+import {PlayerSkinRegistry, SkinRegistryDoesNotExist} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
@@ -238,7 +238,7 @@ contract PlayerTest is TestBase {
 
         // Try to equip a non-existent skin collection
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert(PlayerSkinRegistry.SkinRegistryDoesNotExist.selector);
+        vm.expectRevert(SkinRegistryDoesNotExist.selector);
         playerContract.equipSkin(playerId, 999, 1);
         vm.stopPrank();
     }
