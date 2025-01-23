@@ -23,6 +23,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint16 counterChance;
         uint16 critMultiplier;
         uint16 parryChance;
+        uint16 baseSurvivalRate;
     }
 
     enum DamageType {
@@ -38,7 +39,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint16 parryChance; // Base 100, chance to parry
         uint16 riposteChance; // Add this new stat
         uint16 critMultiplier; // Reduce the gap in crit damage
-        uint16 staminaMultiplier; // NEW: Base 100, higher means more stamina drain
+        uint16 staminaMultiplier; // Base 100, higher means more stamina drain
+        uint16 survivalFactor; // Base 100, higher means better survival chance
         DamageType damageType; // Primary damage type
         bool isTwoHanded;
         bool hasShield;
@@ -62,6 +64,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint16 dodgeChance; // Balance dodge with other defensive options
         uint16 counterChance; // Make counter more reliable but less swingy
         uint16 staminaCostModifier; // Add this new field
+        uint16 survivalFactor; // Base 100, higher means better survival chance
     }
 
     struct StatRequirements {
@@ -90,9 +93,10 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     }
 
     enum WinCondition {
-        HEALTH, // Won by reducing opponent's health to 0
+        HEALTH, // KO
         EXHAUSTION, // Won because opponent couldn't attack (low stamina)
-        MAX_ROUNDS // Won by having more health after max rounds
+        MAX_ROUNDS, // Won by having more health after max rounds
+        DEATH // RIP
 
     }
 
@@ -135,6 +139,12 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         PARRY,
         COUNTER
     }
+
+    // Add base survival constant
+    uint8 private constant BASE_SURVIVAL_CHANCE = 90;
+    uint8 private constant MINIMUM_SURVIVAL_CHANCE = 10;
+    uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
+    uint8 private constant MAX_DAMAGE_OVERAGE = 60;
 
     /// @notice Decodes a version number into major and minor components
     /// @param _version The version number to decode
@@ -250,6 +260,9 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint32 tempPowerMod = 25 + ((combinedStats * 4167) / 1000);
         uint16 physicalPowerMod = uint16(min(tempPowerMod, type(uint16).max));
 
+        // Calculate base survival rate
+        uint16 baseSurvivalRate = BASE_SURVIVAL_CHANCE + (uint16(player.luck) * 2) + uint16(player.constitution);
+
         return CalculatedStats({
             maxHealth: maxHealth,
             maxEndurance: maxEndurance,
@@ -261,7 +274,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             critChance: critChance,
             critMultiplier: critMultiplier,
             counterChance: counterChance,
-            damageModifier: physicalPowerMod
+            damageModifier: physicalPowerMod,
+            baseSurvivalRate: baseSurvivalRate
         });
     }
 
@@ -492,7 +506,21 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         );
 
         // Update combat state based on results
-        updateCombatState(state, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost);
+        updateCombatState(
+            state,
+            attackDamage,
+            attackStaminaCost,
+            defenseResult,
+            defenseDamage,
+            defenseStaminaCost,
+            p1CalcStats,
+            p2CalcStats,
+            p1WeaponStats,
+            p2WeaponStats,
+            p1Stance,
+            p2Stance,
+            currentSeed
+        );
 
         // Append results to combat log
         results = appendCombatAction(
@@ -803,7 +831,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             critChance: uint16((uint32(stats.critChance) * uint32(stance.critChance)) / 100),
             critMultiplier: uint16((uint32(stats.critMultiplier) * uint32(stance.critMultiplier)) / 100),
             counterChance: uint16((uint32(stats.counterChance) * uint32(stance.counterChance)) / 100),
-            damageModifier: uint16((uint32(stats.damageModifier) * uint32(stance.damageModifier)) / 100)
+            damageModifier: uint16((uint32(stats.damageModifier) * uint32(stance.damageModifier)) / 100),
+            baseSurvivalRate: stats.baseSurvivalRate
         });
     }
 
@@ -813,7 +842,14 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint8 attackStaminaCost,
         uint8 defenseResult,
         uint16 defenseDamage,
-        uint8 defenseStaminaCost
+        uint8 defenseStaminaCost,
+        CalculatedStats memory p1Stats,
+        CalculatedStats memory p2Stats,
+        WeaponStats memory p1Weapon,
+        WeaponStats memory p2Weapon,
+        FightingStance p1Stance,
+        FightingStance p2Stance,
+        uint256 seed
     ) private pure {
         if (state.isPlayer1Turn) {
             // Apply stamina costs
@@ -821,7 +857,6 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             state.p2Stamina = state.p2Stamina > defenseStaminaCost ? state.p2Stamina - defenseStaminaCost : 0;
 
             // Apply attack damage ONLY if defense wasn't successful
-            // Added all defensive actions that should block damage
             if (
                 defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
                     && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
@@ -830,7 +865,16 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                     && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
             ) {
                 state.p2Health = applyDamage(state.p2Health, attackDamage);
-                if (state.p2Health == 0) {
+
+                // Check for lethal damage
+                if (
+                    state.p2Health > 0
+                        && isLethalDamage(attackDamage, p2Stats.maxHealth, p2Stats, p1Weapon, p2Stance, seed)
+                ) {
+                    state.p2Health = 0;
+                    state.winningPlayerId = state.p1Id;
+                    state.condition = WinCondition.DEATH;
+                } else if (state.p2Health == 0) {
                     state.winningPlayerId = state.p1Id;
                     state.condition = WinCondition.HEALTH;
                 }
@@ -839,13 +883,29 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             // Apply counter damage
             if (defenseDamage > 0) {
                 state.p1Health = applyDamage(state.p1Health, defenseDamage);
-                if (state.p1Health == 0) {
+
+                // Check for lethal damage from counter
+                if (
+                    state.p1Health > 0
+                        && isLethalDamage(
+                            defenseDamage,
+                            p1Stats.maxHealth,
+                            p1Stats,
+                            p2Weapon,
+                            p1Stance,
+                            uint256(keccak256(abi.encodePacked(seed))) // New seed for counter check
+                        )
+                ) {
+                    state.p1Health = 0;
+                    state.winningPlayerId = state.p2Id;
+                    state.condition = WinCondition.DEATH;
+                } else if (state.p1Health == 0) {
                     state.winningPlayerId = state.p2Id;
                     state.condition = WinCondition.HEALTH;
                 }
             }
         } else {
-            // Player 2's turn - mirror the logic exactly
+            // Mirror the same logic for Player 2's turn
             state.p2Stamina = state.p2Stamina > attackStaminaCost ? state.p2Stamina - attackStaminaCost : 0;
             state.p1Stamina = state.p1Stamina > defenseStaminaCost ? state.p1Stamina - defenseStaminaCost : 0;
 
@@ -857,7 +917,23 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                     && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
             ) {
                 state.p1Health = applyDamage(state.p1Health, attackDamage);
-                if (state.p1Health == 0) {
+
+                // Check for lethal damage
+                if (
+                    state.p1Health > 0
+                        && isLethalDamage(
+                            attackDamage,
+                            p1Stats.maxHealth,
+                            p1Stats,
+                            p2Weapon,
+                            p2Stance,
+                            uint256(keccak256(abi.encodePacked(seed))) // New seed for counter check
+                        )
+                ) {
+                    state.p1Health = 0;
+                    state.winningPlayerId = state.p2Id;
+                    state.condition = WinCondition.DEATH;
+                } else if (state.p1Health == 0) {
                     state.winningPlayerId = state.p2Id;
                     state.condition = WinCondition.HEALTH;
                 }
@@ -865,7 +941,23 @@ contract GameEngine is IGameEngine, IGameDefinitions {
 
             if (defenseDamage > 0) {
                 state.p2Health = applyDamage(state.p2Health, defenseDamage);
-                if (state.p2Health == 0) {
+
+                // Check for lethal damage from counter
+                if (
+                    state.p2Health > 0
+                        && isLethalDamage(
+                            defenseDamage,
+                            p2Stats.maxHealth,
+                            p2Stats,
+                            p1Weapon,
+                            p2Stance,
+                            uint256(keccak256(abi.encodePacked(seed))) // New seed for counter check
+                        )
+                ) {
+                    state.p2Health = 0;
+                    state.winningPlayerId = state.p1Id;
+                    state.condition = WinCondition.DEATH;
+                } else if (state.p2Health == 0) {
                     state.winningPlayerId = state.p1Id;
                     state.condition = WinCondition.HEALTH;
                 }
@@ -954,6 +1046,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 120,
             critMultiplier: 220,
             staminaMultiplier: 100,
+            survivalFactor: 100,
             damageType: DamageType.Slashing,
             isTwoHanded: false,
             hasShield: true
@@ -973,6 +1066,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 70,
             critMultiplier: 240,
             staminaMultiplier: 120,
+            survivalFactor: 120,
             damageType: DamageType.Blunt,
             isTwoHanded: false,
             hasShield: true
@@ -992,6 +1086,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 130,
             critMultiplier: 200,
             staminaMultiplier: 100,
+            survivalFactor: 120,
             damageType: DamageType.Piercing,
             isTwoHanded: false,
             hasShield: true
@@ -1011,6 +1106,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 110,
             critMultiplier: 280,
             staminaMultiplier: 180,
+            survivalFactor: 85,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
             hasShield: false
@@ -1030,6 +1126,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 70,
             critMultiplier: 300,
             staminaMultiplier: 200,
+            survivalFactor: 80,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
             hasShield: false
@@ -1049,6 +1146,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 130,
             critMultiplier: 200,
             staminaMultiplier: 100,
+            survivalFactor: 100,
             damageType: DamageType.Blunt,
             isTwoHanded: true,
             hasShield: false
@@ -1068,6 +1166,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             riposteChance: 90,
             critMultiplier: 260,
             staminaMultiplier: 140,
+            survivalFactor: 90,
             damageType: DamageType.Piercing,
             isTwoHanded: true,
             hasShield: false
@@ -1166,7 +1265,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             parryChance: 120,
             dodgeChance: 115,
             counterChance: 115,
-            staminaCostModifier: 85
+            staminaCostModifier: 85,
+            survivalFactor: 120
         });
     }
 
@@ -1180,7 +1280,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             parryChance: 100,
             dodgeChance: 100,
             counterChance: 100,
-            staminaCostModifier: 100
+            staminaCostModifier: 100,
+            survivalFactor: 100
         });
     }
 
@@ -1194,7 +1295,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             parryChance: 85,
             dodgeChance: 85,
             counterChance: 85,
-            staminaCostModifier: 115
+            staminaCostModifier: 115,
+            survivalFactor: 80
         });
     }
 
@@ -1207,5 +1309,32 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         if (stance == IGameDefinitions.FightingStance.Balanced) return BALANCED_STANCE();
         if (stance == IGameDefinitions.FightingStance.Offensive) return OFFENSIVE_STANCE();
         revert("Invalid stance type");
+    }
+
+    function isLethalDamage(
+        uint16 attackerDamage,
+        uint16 defenderMaxHealth,
+        CalculatedStats memory defenderStats,
+        WeaponStats memory weapon,
+        FightingStance defenderStance,
+        uint256 seed
+    ) private pure returns (bool died) {
+        uint32 damagePercent = ((uint32(attackerDamage) * 100) / defenderMaxHealth);
+
+        if (damagePercent <= DAMAGE_THRESHOLD_PERCENT) {
+            return false;
+        }
+
+        uint16 survivalChance = defenderStats.baseSurvivalRate;
+
+        uint32 excessDamage = damagePercent - DAMAGE_THRESHOLD_PERCENT;
+        excessDamage = excessDamage > MAX_DAMAGE_OVERAGE ? MAX_DAMAGE_OVERAGE : excessDamage;
+        survivalChance = survivalChance > excessDamage ? survivalChance - uint16(excessDamage) : 0;
+
+        StanceMultiplier memory stanceStats = getStanceMultiplier(defenderStance);
+        uint32 modifiedSurvival = (uint32(survivalChance) * weapon.survivalFactor * stanceStats.survivalFactor) / 10000;
+        survivalChance = uint16(modifiedSurvival < MINIMUM_SURVIVAL_CHANCE ? MINIMUM_SURVIVAL_CHANCE : modifiedSurvival);
+
+        return uint8(seed.uniform(100)) >= survivalChance;
     }
 }
