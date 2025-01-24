@@ -95,7 +95,7 @@ contract ActionPointsTest is TestBase {
 
         // Run combat simulation
         uint256 seed = _generateGameSeed();
-        bytes memory results = gameEngine.processGame(fast, slow, seed);
+        bytes memory results = gameEngine.processGame(fast, slow, seed, 0);
 
         // Decode and verify results
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
@@ -123,7 +123,7 @@ contract ActionPointsTest is TestBase {
         IGameEngine.CombatLoadout memory p1 = _convertToLoadout(p1Loadout);
         IGameEngine.CombatLoadout memory p2 = _convertToLoadout(p2Loadout);
 
-        bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed());
+        bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed(), 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -152,7 +152,7 @@ contract ActionPointsTest is TestBase {
         IGameEngine.CombatLoadout memory p1 = _convertToLoadout(p1Loadout);
         IGameEngine.CombatLoadout memory p2 = _convertToLoadout(p2Loadout);
 
-        bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed());
+        bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed(), 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 

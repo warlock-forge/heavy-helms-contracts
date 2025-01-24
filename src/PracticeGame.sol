@@ -57,6 +57,6 @@ contract PracticeGame is BaseGame {
 
         uint256 pseudoRandomSeed = _generatePseudoRandomSeed(uint32(player1.playerId), uint32(player2.playerId));
 
-        return gameEngine.processGame(p1Combat, p2Combat, pseudoRandomSeed);
+        return gameEngine.processGame(p1Combat, p2Combat, pseudoRandomSeed, 0);
     }
 }

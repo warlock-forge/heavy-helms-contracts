@@ -333,7 +333,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         });
 
         // Execute the duel with the random seed
-        bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed);
+        bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed, 0);
 
         // Unpack winner ID from bytes
         uint32 winnerId;

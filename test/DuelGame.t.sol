@@ -144,7 +144,7 @@ contract DuelGameTest is TestBase {
         (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         bytes memory results =
-            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0);
+            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0, 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, version, condition, actions, challengerId, defenderId);
@@ -224,7 +224,7 @@ contract DuelGameTest is TestBase {
         (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         bytes memory results =
-            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0);
+            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0, 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(winner, version, condition, actions, challengerId, defenderId);

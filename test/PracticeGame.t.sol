@@ -84,7 +84,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
 
         // Run the game with seed and verify the result format
-        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed);
+        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed, 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -103,7 +103,7 @@ contract PracticeGameTest is TestBase {
 
         // Run combat with seed and verify mechanics
         bytes memory results =
-            gameEngine.processGame(_convertToLoadout(attackerLoadout), _convertToLoadout(defenderLoadout), seed);
+            gameEngine.processGame(_convertToLoadout(attackerLoadout), _convertToLoadout(defenderLoadout), seed, 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -133,7 +133,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(chars.swordAndShieldDefensive, true, false, playerContract);
 
         // Run game with fuzzed seed
-        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed);
+        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed, 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -329,7 +329,7 @@ contract PracticeGameTest is TestBase {
 
             // Run game with seed from forked chain
             bytes memory results =
-                gameEngine.processGame(_convertToLoadout(p1Loadout), _convertToLoadout(p2Loadout), seed);
+                gameEngine.processGame(_convertToLoadout(p1Loadout), _convertToLoadout(p2Loadout), seed, 0);
             (uint32 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions)
             = gameEngine.decodeCombatLog(results);
 

@@ -111,6 +111,11 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     uint8 private immutable STAMINA_PARRY = 5;
     uint8 private constant ATTACK_ACTION_COST = 100;
     uint8 private constant MAX_WEAPON_SPEED = 120;
+    // Add base survival constant
+    uint8 private constant BASE_SURVIVAL_CHANCE = 95;
+    uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
+    uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
+    uint8 private constant MAX_DAMAGE_OVERAGE = 60;
 
     struct CombatAction {
         CombatResultType p1Result;
@@ -139,12 +144,6 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         PARRY,
         COUNTER
     }
-
-    // Add base survival constant
-    uint8 private constant BASE_SURVIVAL_CHANCE = 90;
-    uint8 private constant MINIMUM_SURVIVAL_CHANCE = 10;
-    uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
-    uint8 private constant MAX_DAMAGE_OVERAGE = 60;
 
     /// @notice Decodes a version number into major and minor components
     /// @param _version The version number to decode
@@ -283,12 +282,14 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     /// @param player1 The first player's combat loadout
     /// @param player2 The second player's loadout
     /// @param randomSeed The random seed for the game
+    /// @param lethalityFactor The lethality factor for the game
     /// @return A byte array containing the encoded combat log
-    function processGame(CombatLoadout calldata player1, CombatLoadout calldata player2, uint256 randomSeed)
-        external
-        pure
-        returns (bytes memory)
-    {
+    function processGame(
+        CombatLoadout calldata player1,
+        CombatLoadout calldata player2,
+        uint256 randomSeed,
+        uint16 lethalityFactor
+    ) external pure returns (bytes memory) {
         // Calculate stats directly
         CalculatedStats memory p1CalcStats = calculateStats(player1.stats);
         CalculatedStats memory p2CalcStats = calculateStats(player2.stats);
@@ -362,7 +363,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                     p2ArmorStats,
                     player1.stance,
                     player2.stance,
-                    isPlayer1Attacking
+                    isPlayer1Attacking,
+                    lethalityFactor
                 );
 
                 // Safely deduct action points from attacker
@@ -483,7 +485,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         ArmorStats memory p2ArmorStats,
         FightingStance p1Stance,
         FightingStance p2Stance,
-        bool isPlayer1Attacking
+        bool isPlayer1Attacking,
+        uint16 lethalityFactor
     ) private pure returns (uint256, bytes memory) {
         (
             uint8 attackResult,
@@ -519,7 +522,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             p2WeaponStats,
             p1Stance,
             p2Stance,
-            currentSeed
+            currentSeed,
+            lethalityFactor
         );
 
         // Append results to combat log
@@ -849,7 +853,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         WeaponStats memory p2Weapon,
         FightingStance p1Stance,
         FightingStance p2Stance,
-        uint256 seed
+        uint256 seed,
+        uint16 lethalityFactor
     ) private pure {
         if (state.isPlayer1Turn) {
             // Apply stamina costs
@@ -869,7 +874,9 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                 // Check for lethal damage
                 if (
                     state.p2Health > 0
-                        && isLethalDamage(attackDamage, p2Stats.maxHealth, p2Stats, p1Weapon, p2Stance, seed)
+                        && isLethalDamage(
+                            attackDamage, p2Stats.maxHealth, p2Stats, p1Weapon, p2Stance, seed, lethalityFactor
+                        )
                 ) {
                     state.p2Health = 0;
                     state.winningPlayerId = state.p1Id;
@@ -893,7 +900,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                             p1Stats,
                             p2Weapon,
                             p1Stance,
-                            uint256(keccak256(abi.encodePacked(seed))) // New seed for counter check
+                            uint256(keccak256(abi.encodePacked(seed))),
+                            lethalityFactor
                         )
                 ) {
                     state.p1Health = 0;
@@ -905,7 +913,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                 }
             }
         } else {
-            // Mirror the same logic for Player 2's turn
+            // Mirror logic for Player 2's turn
             state.p2Stamina = state.p2Stamina > attackStaminaCost ? state.p2Stamina - attackStaminaCost : 0;
             state.p1Stamina = state.p1Stamina > defenseStaminaCost ? state.p1Stamina - defenseStaminaCost : 0;
 
@@ -922,12 +930,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                 if (
                     state.p1Health > 0
                         && isLethalDamage(
-                            attackDamage,
-                            p1Stats.maxHealth,
-                            p1Stats,
-                            p2Weapon,
-                            p2Stance,
-                            uint256(keccak256(abi.encodePacked(seed))) // New seed for counter check
+                            attackDamage, p1Stats.maxHealth, p1Stats, p2Weapon, p1Stance, seed, lethalityFactor
                         )
                 ) {
                     state.p1Health = 0;
@@ -939,6 +942,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                 }
             }
 
+            // Apply counter damage
             if (defenseDamage > 0) {
                 state.p2Health = applyDamage(state.p2Health, defenseDamage);
 
@@ -951,7 +955,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
                             p2Stats,
                             p1Weapon,
                             p2Stance,
-                            uint256(keccak256(abi.encodePacked(seed))) // New seed for counter check
+                            uint256(keccak256(abi.encodePacked(seed))),
+                            lethalityFactor
                         )
                 ) {
                     state.p2Health = 0;
@@ -1317,8 +1322,12 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         CalculatedStats memory defenderStats,
         WeaponStats memory weapon,
         FightingStance defenderStance,
-        uint256 seed
+        uint256 seed,
+        uint16 lethalityFactor
     ) private pure returns (bool died) {
+        // Early return if lethality is disabled
+        if (lethalityFactor == 0) return false;
+
         uint32 damagePercent = ((uint32(attackerDamage) * 100) / defenderMaxHealth);
 
         if (damagePercent <= DAMAGE_THRESHOLD_PERCENT) {
@@ -1331,9 +1340,19 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         excessDamage = excessDamage > MAX_DAMAGE_OVERAGE ? MAX_DAMAGE_OVERAGE : excessDamage;
         survivalChance = survivalChance > excessDamage ? survivalChance - uint16(excessDamage) : 0;
 
+        // Apply lethality factor BEFORE defensive bonuses
+        survivalChance = uint16((uint32(survivalChance) * 100) / lethalityFactor);
+
+        // Then apply defensive bonuses
         StanceMultiplier memory stanceStats = getStanceMultiplier(defenderStance);
         uint32 modifiedSurvival = (uint32(survivalChance) * weapon.survivalFactor * stanceStats.survivalFactor) / 10000;
-        survivalChance = uint16(modifiedSurvival < MINIMUM_SURVIVAL_CHANCE ? MINIMUM_SURVIVAL_CHANCE : modifiedSurvival);
+
+        // Cap survival between MINIMUM_SURVIVAL_CHANCE and BASE_SURVIVAL_CHANCE
+        survivalChance = uint16(
+            modifiedSurvival < MINIMUM_SURVIVAL_CHANCE
+                ? MINIMUM_SURVIVAL_CHANCE
+                : modifiedSurvival > BASE_SURVIVAL_CHANCE ? BASE_SURVIVAL_CHANCE : modifiedSurvival
+        );
 
         return uint8(seed.uniform(100)) >= survivalChance;
     }

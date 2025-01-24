@@ -23,8 +23,10 @@ interface IGameEngine {
 
     function decodeVersion(uint16 _version) external pure returns (uint8 major, uint8 minor);
 
-    function processGame(CombatLoadout calldata player1, CombatLoadout calldata player2, uint256 randomSeed)
-        external
-        view
-        returns (bytes memory);
+    function processGame(
+        CombatLoadout calldata player1,
+        CombatLoadout calldata player2,
+        uint256 randomSeed,
+        uint16 lethalityFactor
+    ) external view returns (bytes memory);
 }
