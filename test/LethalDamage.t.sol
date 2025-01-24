@@ -119,7 +119,7 @@ contract LethalDamageTest is TestBase {
         });
 
         uint256 deathCount = 0;
-        uint256 totalFights = 20;
+        uint256 totalFights = 50;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
