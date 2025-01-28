@@ -304,7 +304,7 @@ contract PlayerTest is TestBase {
         assertTrue(surnameCounts[0] < numPlayers, "Too many default surnames");
     }
 
-    function testFuzz_PlayerCreation(address player) public {
+    function test_PlayerCreation(address player) public {
         // Skip zero address and contracts
         vm.assume(player != address(0));
         vm.assume(uint160(player) > 0x10000); // Skip precompiles
@@ -592,6 +592,66 @@ contract PlayerTest is TestBase {
         IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
         assertEq(player.skinIndex, skinIndex, "Skin index should be updated");
         assertEq(player.skinTokenId, tokenId, "Token ID should be updated");
+    }
+
+    function testActivePlayerCountTracking() public {
+        // Initial count should be 0
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 0);
+
+        // Create first player and verify count
+        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
+
+        // Create second player and verify count
+        uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 2);
+
+        // Retire first player as owner
+        vm.prank(PLAYER_ONE);
+        playerContract.retireOwnPlayer(playerId1);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
+
+        // Try to retire same player again (should fail)
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert(abi.encodeWithSignature("PlayerIsRetired(uint32)", playerId1));
+        playerContract.retireOwnPlayer(playerId1);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
+
+        // Grant RETIRE permission to game contract
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: true, name: false, attributes: false});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Test game contract retirement
+        playerContract.setPlayerRetired(playerId2, true);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 0);
+
+        // Un-retire a player
+        playerContract.setPlayerRetired(playerId2, false);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
+    }
+
+    function testFail_MaxPlayersReached() public {
+        // Set max players to a small number for testing - do this as owner
+        vm.startPrank(address(this));
+        playerContract.setMaxPlayersPerAddress(2);
+        vm.stopPrank();
+
+        uint256 maxPlayers = playerContract.maxPlayersPerAddress();
+
+        // Create max players
+        for (uint256 i = 0; i < maxPlayers; i++) {
+            _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        }
+
+        // Verify we hit the max
+        uint256 activeCount = playerContract.getActivePlayerCount(PLAYER_ONE);
+        assertEq(activeCount, maxPlayers);
+
+        // Try to create one more - should fail
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount());
+        vm.prank(PLAYER_ONE);
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
     }
 
     // Helper functions

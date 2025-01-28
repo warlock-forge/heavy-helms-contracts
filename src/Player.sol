@@ -113,6 +113,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     mapping(address => uint32[]) private _addressToPlayerIds;
     /// @notice Maps game contract address to their granted permissions
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
+    /// @notice Tracks how many active (non-retired) players each address has
+    mapping(address => uint256) private _addressActivePlayerCount;
 
     // VRF Request tracking
     /// @notice Address of the Gelato VRF operator
@@ -406,14 +408,20 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return (exists, fulfilled, owner);
     }
 
+    /// @notice Gets the number of active players for an address
+    /// @param owner The address to check
+    /// @return Number of active players
+    function getActivePlayerCount(address owner) external view returns (uint256) {
+        return _addressActivePlayerCount[owner];
+    }
+
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Requires ETH payment of createPlayerFeeAmount. Reverts if caller has pending requests or is over max players
     function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
-        // Checks
-        if (_addressPlayerCount[msg.sender] >= maxPlayersPerAddress) revert TooManyPlayers();
+        if (_addressActivePlayerCount[msg.sender] >= maxPlayersPerAddress) revert TooManyPlayers();
         if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
         if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
 
@@ -484,8 +492,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         // Check caller owns it
         if (_ownerOf(playerId) != msg.sender) revert NotPlayerOwner();
 
-        // Mark as retired
+        // Prevent double retirement
+        if (_retiredPlayers[playerId]) revert PlayerIsRetired(playerId);
+
+        // Mark as retired and decrease active count
         _retiredPlayers[playerId] = true;
+        _addressActivePlayerCount[msg.sender]--;
 
         emit PlayerRetired(playerId, msg.sender, true);
     }
@@ -536,6 +548,18 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         hasPermission(IPlayer.GamePermission.RETIRE)
         playerExists(playerId)
     {
+        bool wasRetired = _retiredPlayers[playerId];
+        address owner = _playerOwners[playerId];
+
+        // Only update if status is actually changing
+        if (wasRetired != retired) {
+            if (retired) {
+                _addressActivePlayerCount[owner]--;
+            } else {
+                _addressActivePlayerCount[owner]++;
+            }
+        }
+
         _retiredPlayers[playerId] = retired;
         emit PlayerRetired(playerId, msg.sender, retired);
     }
@@ -842,7 +866,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         private
         returns (uint32 playerId, IPlayer.PlayerStats memory stats)
     {
-        if (_addressPlayerCount[owner] >= maxPlayersPerAddress) revert TooManyPlayers();
+        if (_addressActivePlayerCount[owner] >= maxPlayersPerAddress) revert TooManyPlayers();
 
         // Use incremental playerId
         playerId = nextPlayerId++;
@@ -932,6 +956,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         _playerOwners[playerId] = owner;
         _addressToPlayerIds[owner].push(playerId);
         _addressPlayerCount[owner]++;
+        _addressActivePlayerCount[owner]++;
 
         return (playerId, stats);
     }
