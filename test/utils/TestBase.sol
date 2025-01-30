@@ -398,4 +398,31 @@ abstract contract TestBase is Test {
             stats: stats
         });
     }
+
+    /// @notice Helper to ensure an address has enough slots for desired player count
+    /// @param owner Address to purchase slots for
+    /// @param desiredSlots Total number of slots needed
+    /// @param contractInstance Player contract instance
+    function _ensurePlayerSlots(address owner, uint256 desiredSlots, Player contractInstance) internal {
+        require(desiredSlots <= 200, "Cannot exceed MAX_TOTAL_SLOTS");
+
+        uint256 currentSlots = contractInstance.getPlayerSlots(owner);
+        if (currentSlots >= desiredSlots) return; // Already have enough slots
+
+        // Calculate how many batches of 5 slots we need to purchase
+        uint256 slotsNeeded = desiredSlots - currentSlots;
+        uint256 batchesNeeded = (slotsNeeded + 4) / 5; // Round up division
+
+        // Purchase required batches
+        for (uint256 i = 0; i < batchesNeeded; i++) {
+            vm.startPrank(owner);
+            uint256 batchCost = contractInstance.getNextSlotBatchCost(owner);
+            vm.deal(owner, batchCost);
+            contractInstance.purchasePlayerSlots{value: batchCost}();
+            vm.stopPrank();
+        }
+
+        // Verify we have enough slots
+        assertGe(contractInstance.getPlayerSlots(owner), desiredSlots);
+    }
 }

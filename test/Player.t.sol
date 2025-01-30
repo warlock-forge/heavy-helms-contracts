@@ -69,15 +69,86 @@ contract PlayerTest is TestBase {
     }
 
     function testMaxPlayers() public {
-        // Create max number of players
-        for (uint256 i = 0; i < playerContract.maxPlayersPerAddress(); i++) {
+        // Test default slots first
+        uint256 defaultSlots = playerContract.getPlayerSlots(PLAYER_ONE);
+
+        // Fill up default slots
+        for (uint256 i = 0; i < defaultSlots; i++) {
             _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, i % 2 == 0);
         }
 
-        // Try to create one more player (should fail)
+        // Keep purchasing and filling slots until we hit max
+        while (playerContract.getPlayerSlots(PLAYER_ONE) < 200) {
+            // Use actual constant value
+            // Purchase one additional slot batch (5 slots)
+            vm.startPrank(PLAYER_ONE);
+            uint256 batchCost = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+            vm.deal(PLAYER_ONE, batchCost);
+            playerContract.purchasePlayerSlots{value: batchCost}();
+            vm.stopPrank();
+
+            // Fill up all new slots
+            uint256 newSlotCount = playerContract.getPlayerSlots(PLAYER_ONE);
+            while (playerContract.getActivePlayerCount(PLAYER_ONE) < newSlotCount) {
+                _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, true);
+            }
+
+            // Verify slot count matches active players
+            assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), newSlotCount);
+        }
+    }
+
+    function test_RevertWhen_MaxPlayersReached() public {
+        // Fill up default slots first
+        uint256 defaultSlots = playerContract.getPlayerSlots(PLAYER_ONE);
+        for (uint256 i = 0; i < defaultSlots; i++) {
+            _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        }
+
+        // Verify we hit the default slots limit
+        uint256 activeCount = playerContract.getActivePlayerCount(PLAYER_ONE);
+        assertEq(activeCount, defaultSlots);
+
+        // Try to create one more without purchasing slots - should revert
         vm.startPrank(PLAYER_ONE);
+        uint256 feeAmount = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, feeAmount);
         vm.expectRevert(TooManyPlayers.selector);
-        playerContract.requestCreatePlayer(true);
+        playerContract.requestCreatePlayer{value: feeAmount}(false);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_AbsoluteMaxSlotsReached() public {
+        // Fill up to max slots (200)
+        while (playerContract.getPlayerSlots(PLAYER_ONE) < 200) {
+            // Purchase slots
+            vm.startPrank(PLAYER_ONE);
+            uint256 batchCost = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+            vm.deal(PLAYER_ONE, batchCost);
+            playerContract.purchasePlayerSlots{value: batchCost}();
+            vm.stopPrank();
+
+            // Fill new slots
+            uint256 newSlotCount = playerContract.getPlayerSlots(PLAYER_ONE);
+            while (playerContract.getActivePlayerCount(PLAYER_ONE) < newSlotCount) {
+                _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, true);
+            }
+        }
+
+        // Try to purchase more slots at max - should revert
+        vm.startPrank(PLAYER_ONE);
+        uint256 batchCost = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+        vm.deal(PLAYER_ONE, batchCost);
+        vm.expectRevert(TooManyPlayers.selector);
+        playerContract.purchasePlayerSlots{value: batchCost}();
+        vm.stopPrank();
+
+        // Try to create one more player at max - should revert
+        vm.startPrank(PLAYER_ONE);
+        uint256 feeAmount = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, feeAmount);
+        vm.expectRevert(TooManyPlayers.selector);
+        playerContract.requestCreatePlayer{value: feeAmount}(true);
         vm.stopPrank();
     }
 
@@ -344,8 +415,8 @@ contract PlayerTest is TestBase {
 
     function test_statDistribution() public {
         uint256 numPlayers = 100;
-        // Set max players high enough for test
-        playerContract.setMaxPlayersPerAddress(numPlayers);
+        // Ensure we have enough slots for the test
+        _ensurePlayerSlots(PLAYER_ONE, numPlayers, playerContract);
 
         uint256 maxStatCount = 0;
         uint256 highStatCount = 0;
@@ -629,29 +700,6 @@ contract PlayerTest is TestBase {
         // Un-retire a player
         playerContract.setPlayerRetired(playerId2, false);
         assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
-    }
-
-    function testFail_MaxPlayersReached() public {
-        // Set max players to a small number for testing - do this as owner
-        vm.startPrank(address(this));
-        playerContract.setMaxPlayersPerAddress(2);
-        vm.stopPrank();
-
-        uint256 maxPlayers = playerContract.maxPlayersPerAddress();
-
-        // Create max players
-        for (uint256 i = 0; i < maxPlayers; i++) {
-            _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        }
-
-        // Verify we hit the max
-        uint256 activeCount = playerContract.getActivePlayerCount(PLAYER_ONE);
-        assertEq(activeCount, maxPlayers);
-
-        // Try to create one more - should fail
-        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount());
-        vm.prank(PLAYER_ONE);
-        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
     }
 
     // Helper functions

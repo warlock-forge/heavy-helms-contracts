@@ -427,6 +427,15 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return BASE_PLAYER_SLOTS + _extraPlayerSlots[owner];
     }
 
+    /// @notice Calculate the cost for the next slot batch purchase for an address
+    /// @param user The address to calculate the cost for
+    /// @return Cost in ETH for the next slot batch purchase
+    function getNextSlotBatchCost(address user) public view returns (uint256) {
+        uint8 currentExtraSlots = _extraPlayerSlots[user];
+        uint256 batchesPurchased = currentExtraSlots / 5;
+        return slotBatchCost * (batchesPurchased + 1);
+    }
+
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
@@ -710,9 +719,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
         // Calculate cost based on current extra slots
         // Cost increases by slotBatchCost for each batch already purchased
-        uint256 batchesPurchased = currentExtraSlots / 5;
-        uint256 requiredPayment = slotBatchCost * (batchesPurchased + 1);
-
+        uint256 requiredPayment = getNextSlotBatchCost(msg.sender);
         if (msg.value < requiredPayment) revert InsufficientFeeAmount();
 
         // Calculate new slots to add (cap at MAX_TOTAL_SLOTS)
