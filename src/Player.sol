@@ -83,12 +83,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     uint8 private constant MAX_STAT = 21;
     /// @notice Total points available for player stats (sum of all stats must equal this)
     uint16 private constant TOTAL_STATS = 72;
+    /// @notice Base number of player slots per address
+    uint8 public constant BASE_PLAYER_SLOTS = 5;
+    /// @notice Maximum total player slots an address can have (base + purchased)
+    uint8 private constant MAX_TOTAL_SLOTS = 200;
 
     // Configuration
-    /// @notice Maximum number of players a single address can create
-    uint256 public maxPlayersPerAddress;
     /// @notice Fee amount in ETH required to create a new player
-    uint256 public createPlayerFeeAmount;
+    uint256 public createPlayerFeeAmount = 0.001 ether;
+    /// @notice Cost in ETH for each additional slot batch (5 slots), increases linearly with purchases
+    uint256 public slotBatchCost = 0.005 ether;
     /// @notice Whether the contract is paused (prevents new player creation)
     bool public isPaused;
 
@@ -115,6 +119,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
     /// @notice Tracks how many active (non-retired) players each address has
     mapping(address => uint256) private _addressActivePlayerCount;
+    /// @notice Maps address to their number of purchased extra player slots
+    mapping(address => uint8) private _extraPlayerSlots;
 
     // VRF Request tracking
     /// @notice Address of the Gelato VRF operator
@@ -151,10 +157,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param requester The address requesting the player creation
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
 
-    /// @notice Emitted when max players per address is updated
-    /// @param newMax The new maximum number of players allowed per address
-    event MaxPlayersUpdated(uint256 newMax);
-
     /// @notice Emitted when the player creation fee is updated
     /// @param oldFee The previous fee amount
     /// @param newFee The new fee amount
@@ -181,6 +183,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         uint8 stamina,
         uint8 luck
     );
+
+    /// @notice Emitted when the slot batch cost is updated
+    /// @param oldCost The previous cost
+    /// @param newCost The new cost
+    event SlotBatchCostUpdated(uint256 oldCost, uint256 newCost);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -225,8 +232,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param operator Address of the Gelato VRF operator
     /// @dev Sets initial configuration values and connects to required registries
     constructor(address skinRegistryAddress, address nameRegistryAddress, address operator) Owned(msg.sender) {
-        maxPlayersPerAddress = 6;
-        createPlayerFeeAmount = 0.001 ether;
         skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
         nameRegistry = PlayerNameRegistry(nameRegistryAddress);
         _operatorAddress = operator;
@@ -415,13 +420,20 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return _addressActivePlayerCount[owner];
     }
 
+    /// @notice Gets the total player slots available for an address
+    /// @param owner The address to check
+    /// @return Total number of player slots (base + purchased)
+    function getPlayerSlots(address owner) public view returns (uint256) {
+        return BASE_PLAYER_SLOTS + _extraPlayerSlots[owner];
+    }
+
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Requires ETH payment of createPlayerFeeAmount. Reverts if caller has pending requests or is over max players
     function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
-        if (_addressActivePlayerCount[msg.sender] >= maxPlayersPerAddress) revert TooManyPlayers();
+        if (_addressActivePlayerCount[msg.sender] >= getPlayerSlots(msg.sender)) revert TooManyPlayers();
         if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
         if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
 
@@ -637,13 +649,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         _operatorAddress = newOperator;
     }
 
-    /// @notice Updates the maximum number of players allowed per address
-    /// @param newMax The new maximum limit
-    function setMaxPlayersPerAddress(uint256 newMax) external onlyOwner {
-        maxPlayersPerAddress = newMax;
-        emit MaxPlayersUpdated(newMax);
-    }
-
     /// @notice Updates the fee required to create a new player
     /// @param newFeeAmount The new fee amount in ETH
     function setCreatePlayerFeeAmount(uint256 newFeeAmount) external onlyOwner {
@@ -690,6 +695,43 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         onlyOwner
     {
         _gameContractPermissions[gameContract] = permissions;
+    }
+
+    /// @notice Purchase additional player slots
+    /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
+    /// @return Number of slots purchased
+    function purchasePlayerSlots() external payable returns (uint8) {
+        // Calculate current total slots
+        uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
+        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
+
+        // Ensure we don't exceed maximum
+        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
+
+        // Calculate cost based on current extra slots
+        // Cost increases by slotBatchCost for each batch already purchased
+        uint256 batchesPurchased = currentExtraSlots / 5;
+        uint256 requiredPayment = slotBatchCost * (batchesPurchased + 1);
+
+        if (msg.value < requiredPayment) revert InsufficientFeeAmount();
+
+        // Calculate new slots to add (cap at MAX_TOTAL_SLOTS)
+        uint8 slotsToAdd = 5;
+        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
+            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
+        }
+
+        _extraPlayerSlots[msg.sender] += slotsToAdd;
+
+        return slotsToAdd;
+    }
+
+    /// @notice Updates the cost for purchasing additional player slots
+    /// @param newCost The new cost in ETH for each slot batch
+    function setSlotBatchCost(uint256 newCost) external onlyOwner {
+        uint256 oldCost = slotBatchCost;
+        slotBatchCost = newCost;
+        emit SlotBatchCostUpdated(oldCost, newCost);
     }
 
     //==============================================================//
@@ -866,7 +908,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         private
         returns (uint32 playerId, IPlayer.PlayerStats memory stats)
     {
-        if (_addressActivePlayerCount[owner] >= maxPlayersPerAddress) revert TooManyPlayers();
+        if (_addressActivePlayerCount[owner] >= getPlayerSlots(owner)) revert TooManyPlayers();
 
         // Use incremental playerId
         playerId = nextPlayerId++;
