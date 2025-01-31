@@ -63,6 +63,7 @@ interface IPlayer {
         NAME, // For name changes
         ATTRIBUTES, // For attribute modifications
         IMMORTAL // For immortality status
+
     }
 
     //==============================================================//
