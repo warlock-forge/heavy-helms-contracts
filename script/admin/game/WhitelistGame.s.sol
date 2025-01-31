@@ -19,7 +19,7 @@ contract WhitelistGameScript is Script {
 
         Player playerContract = Player(playerAddr);
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
         playerContract.setGameContractPermission(gameAddr, perms);
         console.log("Game contract permission set:", gameAddr);
 

@@ -50,6 +50,7 @@ interface IPlayer {
         bool retire;
         bool name;
         bool attributes;
+        bool immortal;
     }
 
     //==============================================================//
@@ -60,8 +61,8 @@ interface IPlayer {
         RECORD, // For wins, losses, kills
         RETIRE, // For retirement status
         NAME, // For name changes
-        ATTRIBUTES // For attribute modifications
-
+        ATTRIBUTES, // For attribute modifications
+        IMMORTAL // For immortality status
     }
 
     //==============================================================//

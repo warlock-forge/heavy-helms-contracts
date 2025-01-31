@@ -111,6 +111,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     mapping(uint32 => address) private _playerOwners;
     /// @notice Maps player ID to their retirement status
     mapping(uint32 => bool) private _retiredPlayers;
+    /// @notice Maps player ID to their immortality status
+    mapping(uint32 => bool) private _immortalPlayers;
     /// @notice Tracks how many players each address has created
     mapping(address => uint256) private _addressPlayerCount;
     /// @notice Maps address to array of their owned player IDs
@@ -189,6 +191,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param newCost The new cost
     event SlotBatchCostUpdated(uint256 oldCost, uint256 newCost);
 
+    /// @notice Emitted when a player's immortality status changes
+    /// @param playerId The ID of the player
+    /// @param caller The address that changed the immortality status
+    /// @param immortal The new immortality status
+    event PlayerImmortalityChanged(uint32 indexed playerId, address indexed caller, bool immortal);
+
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
@@ -203,7 +211,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
                 ? perms.retire
                 : permission == IPlayer.GamePermission.NAME
                     ? perms.name
-                    : permission == IPlayer.GamePermission.ATTRIBUTES ? perms.attributes : false;
+                    : permission == IPlayer.GamePermission.ATTRIBUTES
+                        ? perms.attributes
+                        : permission == IPlayer.GamePermission.IMMORTAL ? perms.immortal : false;
         if (!hasAccess) revert NoPermission();
         _;
     }
@@ -398,6 +408,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @return True if the player is retired, false otherwise
     function isPlayerRetired(uint32 playerId) external view returns (bool) {
         return _retiredPlayers[playerId];
+    }
+
+    /// @notice Checks if a player is immortal
+    /// @param playerId The ID of the player to check
+    /// @return True if the player is immortal, false otherwise
+    function isPlayerImmortal(uint32 playerId) external view returns (bool) {
+        return _immortalPlayers[playerId];
     }
 
     /// @notice Gets the status of a VRF request
@@ -739,6 +756,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         uint256 oldCost = slotBatchCost;
         slotBatchCost = newCost;
         emit SlotBatchCostUpdated(oldCost, newCost);
+    }
+
+    /// @notice Sets the immortality status of a player
+    /// @param playerId The ID of the player to update
+    /// @param immortal The new immortality status
+    /// @dev Requires IMMORTAL permission. Reverts if player doesn't exist
+    function setPlayerImmortal(uint32 playerId, bool immortal)
+        external
+        hasPermission(IPlayer.GamePermission.IMMORTAL)
+        playerExists(playerId)
+    {
+        _immortalPlayers[playerId] = immortal;
+        emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
     }
 
     //==============================================================//

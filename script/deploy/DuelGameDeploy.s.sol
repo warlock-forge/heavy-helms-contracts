@@ -30,7 +30,7 @@ contract DuelGameDeployScript is Script {
         // Whitelist DuelGame in Player contract
         Player playerContract = Player(playerAddr);
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false});
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
         playerContract.setGameContractPermission(address(duelGame), perms);
 
         console2.log("\n=== Deployed Addresses ===");

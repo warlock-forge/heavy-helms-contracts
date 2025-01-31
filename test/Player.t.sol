@@ -2,7 +2,14 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {Player, TooManyPlayers, NotPlayerOwner, InvalidPlayerStats} from "../src/Player.sol";
+import {
+    Player,
+    TooManyPlayers,
+    NotPlayerOwner,
+    InvalidPlayerStats,
+    NoPermission,
+    PlayerDoesNotExist
+} from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry, SkinRegistryDoesNotExist} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
@@ -30,6 +37,7 @@ contract PlayerTest is TestBase {
     event PlayerCreationFulfilled(uint256 indexed requestId, uint32 indexed playerId, address indexed owner);
     event RequestedRandomness(uint256 round, bytes data);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
+    event PlayerImmortalityChanged(uint32 indexed playerId, address indexed changer, bool isImmortal);
 
     modifier skipInCI() {
         if (!vm.envOr("CI", false)) {
@@ -123,9 +131,9 @@ contract PlayerTest is TestBase {
         while (playerContract.getPlayerSlots(PLAYER_ONE) < 200) {
             // Purchase slots
             vm.startPrank(PLAYER_ONE);
-            uint256 batchCost = playerContract.getNextSlotBatchCost(PLAYER_ONE);
-            vm.deal(PLAYER_ONE, batchCost);
-            playerContract.purchasePlayerSlots{value: batchCost}();
+            uint256 batchCostTmp = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+            vm.deal(PLAYER_ONE, batchCostTmp);
+            playerContract.purchasePlayerSlots{value: batchCostTmp}();
             vm.stopPrank();
 
             // Fill new slots
@@ -690,7 +698,7 @@ contract PlayerTest is TestBase {
 
         // Grant RETIRE permission to game contract
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: true, name: false, attributes: false});
+            IPlayer.GamePermissions({record: false, retire: true, name: false, attributes: false, immortal: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Test game contract retirement
@@ -700,6 +708,118 @@ contract PlayerTest is TestBase {
         // Un-retire a player
         playerContract.setPlayerRetired(playerId2, false);
         assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
+    }
+
+    function testImmortalityStatus() public {
+        // Create a player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Check initial state - should not be immortal
+        assertFalse(playerContract.isPlayerImmortal(playerId));
+
+        // Grant immortal permission to test contract
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: false, immortal: true});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Set player as immortal
+        playerContract.setPlayerImmortal(playerId, true);
+        assertTrue(playerContract.isPlayerImmortal(playerId));
+
+        // Toggle immortality off
+        playerContract.setPlayerImmortal(playerId, false);
+        assertFalse(playerContract.isPlayerImmortal(playerId));
+    }
+
+    function testCannotSetImmortalWithoutPermission() public {
+        // Create a player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Try to set immortal without permission
+        vm.expectRevert(abi.encodeWithSelector(NoPermission.selector));
+        playerContract.setPlayerImmortal(playerId, true);
+    }
+
+    function testCannotSetImmortalForNonexistentPlayer() public {
+        // Grant immortal permission to test contract
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: false, immortal: true});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Try to set immortal for non-existent player
+        uint32 nonExistentPlayerId = 999;
+        vm.expectRevert(abi.encodeWithSelector(PlayerDoesNotExist.selector, nonExistentPlayerId));
+        playerContract.setPlayerImmortal(nonExistentPlayerId, true);
+    }
+
+    function testImmortalityEventEmission() public {
+        // Create a player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Grant immortal permission
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: false, immortal: true});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Expect event when setting to true
+        vm.expectEmit(true, true, false, true);
+        emit PlayerImmortalityChanged(playerId, address(this), true);
+        playerContract.setPlayerImmortal(playerId, true);
+
+        // Expect event when setting to false
+        vm.expectEmit(true, true, false, true);
+        emit PlayerImmortalityChanged(playerId, address(this), false);
+        playerContract.setPlayerImmortal(playerId, false);
+    }
+
+    function testMultiplePlayersImmortalityIndependence() public {
+        // Create two players
+        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+
+        // Grant immortal permission
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: false, immortal: true});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Set only player 1 as immortal
+        playerContract.setPlayerImmortal(playerId1, true);
+
+        // Verify independence
+        assertTrue(playerContract.isPlayerImmortal(playerId1), "Player 1 should be immortal");
+        assertFalse(playerContract.isPlayerImmortal(playerId2), "Player 2 should not be immortal");
+    }
+
+    function testImmortalityPermissionRevocation() public {
+        // Create a player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Grant immortal permission
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: false, immortal: true});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Set player as immortal
+        playerContract.setPlayerImmortal(playerId, true);
+
+        // Revoke permission
+        permissions.immortal = false;
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Try to modify immortality after revocation
+        vm.expectRevert(abi.encodeWithSelector(NoPermission.selector));
+        playerContract.setPlayerImmortal(playerId, false);
+    }
+
+    function testOwnerCannotBypassImmortalityPermission() public {
+        // Create a player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Even as owner, should not be able to set immortality without permission
+        vm.startPrank(playerContract.owner());
+        vm.expectRevert(abi.encodeWithSelector(NoPermission.selector));
+        playerContract.setPlayerImmortal(playerId, true);
+        vm.stopPrank();
     }
 
     // Helper functions
