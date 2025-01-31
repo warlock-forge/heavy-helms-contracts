@@ -8,7 +8,6 @@ import "./utils/TestBase.sol";
 
 contract GasAnalysisTest is TestBase {
     DuelGame public game;
-    GameEngine public gameEngine;
 
     // Test addresses
     address public PLAYER_ONE;
@@ -19,14 +18,8 @@ contract GasAnalysisTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        // Set up the test environment
-        vm.warp(1692803367 + 1000);
-
         // Deploy contracts
-        vm.startPrank(operator);
-        gameEngine = new GameEngine();
         game = new DuelGame(address(gameEngine), address(playerContract), operator);
-        vm.stopPrank();
 
         // Set permissions
         IPlayer.GamePermissions memory perms =

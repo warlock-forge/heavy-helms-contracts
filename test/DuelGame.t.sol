@@ -15,7 +15,6 @@ import "./utils/TestBase.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;
-    GameEngine public gameEngine;
 
     // Test addresses
     address public PLAYER_ONE;
@@ -42,14 +41,7 @@ contract DuelGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        // Set up the test environment with a proper timestamp
-        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
-
-        // Deploy contracts in correct order
-        vm.startPrank(operator);
-        gameEngine = new GameEngine();
         game = new DuelGame(address(gameEngine), address(playerContract), operator);
-        vm.stopPrank();
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms =
@@ -527,4 +519,6 @@ contract DuelGameTest is TestBase {
     function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
         return _createLoadout(playerId, false, true, Player(address(playerContract)));
     }
+
+    receive() external payable {}
 }

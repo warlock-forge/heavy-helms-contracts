@@ -14,65 +14,12 @@ import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 
 contract PracticeGameTest is TestBase {
     PracticeGame public practiceGame;
-    GameEngine public gameEngine;
-    DefaultCharacters public chars;
 
     function setUp() public override {
         super.setUp();
 
-        // Deploy registries
-        nameRegistry = new PlayerNameRegistry();
-
-        // Deploy Player contract with dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), address(1));
-
         // Deploy Game contracts
-        gameEngine = new GameEngine();
         practiceGame = new PracticeGame(address(gameEngine), address(playerContract));
-
-        // Register default skin and set up registry
-        vm.deal(address(this), skinRegistry.registrationFee());
-        skinIndex = uint32(skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(defaultSkin)));
-        skinRegistry.setDefaultSkinRegistryId(skinIndex);
-        skinRegistry.setDefaultCollection(skinIndex, true);
-
-        // Mint default characters for testing
-        mintDefaultCharacters();
-    }
-
-    function mintDefaultCharacters() internal {
-        // Create offensive characters
-        (
-            IGameDefinitions.WeaponType weapon,
-            IGameDefinitions.ArmorType armor,
-            IGameDefinitions.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
-        chars.greatswordOffensive = 2;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 3);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
-        chars.battleaxeOffensive = 3;
-
-        // Create balanced character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 4);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
-        chars.spearBalanced = 4;
-
-        // Create defensive characters
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 5);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 5);
-        chars.swordAndShieldDefensive = 5;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 6);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 6);
-        chars.rapierAndShieldDefensive = 6;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 7);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 7);
-        chars.quarterstaffDefensive = 7;
     }
 
     function testBasicCombat() public {

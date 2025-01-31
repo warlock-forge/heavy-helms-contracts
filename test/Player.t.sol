@@ -19,18 +19,12 @@ import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 import "./utils/TestBase.sol";
 import "./mocks/UnlockNFT.sol";
 
-// Helper contract that doesn't implement the required interface
-contract MockInvalidEquipmentStats {
-// Empty contract that will fail the interface check
-}
-
 contract PlayerTest is TestBase {
     // Test addresses
     address public PLAYER_ONE;
     address public PLAYER_TWO;
 
     uint256 public ROUND_ID;
-    uint256 private constant _PERIOD = 3;
 
     event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
@@ -39,27 +33,12 @@ contract PlayerTest is TestBase {
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event PlayerImmortalityChanged(uint32 indexed playerId, address indexed changer, bool isImmortal);
 
-    modifier skipInCI() {
-        if (!vm.envOr("CI", false)) {
-            _;
-        }
-    }
-
     function setUp() public override {
         super.setUp();
 
         // Set up test addresses
         PLAYER_ONE = address(0x1111);
         PLAYER_TWO = address(0x2222);
-
-        // Set up the test environment with a proper timestamp
-        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
-
-        // Deploy contracts in correct order
-        nameRegistry = new PlayerNameRegistry();
-
-        // Deploy Player contract with dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
 
         // Reset VRF state
         ROUND_ID = 0;
@@ -822,43 +801,6 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
     }
 
-    // Helper functions
-    function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint32) {
-        return _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
-    }
-
-    function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
-        vm.deal(owner, playerContract.createPlayerFeeAmount());
-
-        vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
-        vm.stopPrank();
-
-        vm.expectRevert(bytes(expectedError));
-        _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
-    }
-
-    function _createPlayerAndExpectVRFFail(
-        address owner,
-        bool useSetB,
-        string memory expectedError,
-        uint256 customRoundId
-    ) internal {
-        vm.deal(owner, playerContract.createPlayerFeeAmount());
-
-        vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
-        vm.stopPrank();
-
-        bytes memory extraData = "";
-        bytes memory innerData = abi.encode(requestId, extraData);
-        bytes memory dataWithRound = abi.encode(customRoundId, innerData);
-
-        vm.expectRevert(bytes(expectedError));
-        vm.prank(operator);
-        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
-    }
-
     // Skin Equipment Helper
     function _equipSkinToPlayer(uint32 playerId, uint32 skinIndexToEquip, uint16 tokenId, bool shouldSucceed)
         internal
@@ -874,11 +816,6 @@ contract PlayerTest is TestBase {
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
         }
         vm.stopPrank();
-    }
-
-    // Helper function for VRF fulfillment
-    function _fulfillVRF(uint256 requestId, uint256 randomSeed) internal {
-        _fulfillVRF(requestId, randomSeed, address(playerContract));
     }
 
     receive() external payable {}

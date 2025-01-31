@@ -10,12 +10,10 @@ import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
 
 contract LethalDamageTest is TestBase {
-    GameEngine public gameEngine;
     address public PLAYER_ONE;
     address public PLAYER_TWO;
     uint32 public PLAYER_ONE_ID;
     uint32 public PLAYER_TWO_ID;
-    DefaultCharacters public chars;
 
     function setUp() public override {
         super.setUp();
@@ -23,53 +21,6 @@ contract LethalDamageTest is TestBase {
         // Set up test addresses
         PLAYER_ONE = address(0x1111);
         PLAYER_TWO = address(0x2222);
-
-        // Set up the test environment with a proper timestamp
-        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
-
-        // Deploy contracts in correct order
-        nameRegistry = new PlayerNameRegistry();
-
-        // Deploy Player contract with dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
-
-        // Deploy Game contracts
-        gameEngine = new GameEngine();
-
-        // Mint default characters for testing
-        mintDefaultCharacters();
-    }
-
-    function mintDefaultCharacters() internal {
-        // Create offensive characters
-        (
-            IGameDefinitions.WeaponType weapon,
-            IGameDefinitions.ArmorType armor,
-            IGameDefinitions.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
-        chars.greatswordOffensive = 2;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 3);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
-        chars.battleaxeOffensive = 3;
-
-        // Create balanced character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 4);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
-        chars.spearBalanced = 4;
-
-        // Create defensive characters
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 5);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 5);
-        chars.swordAndShieldDefensive = 5;
-
-        // Add rapier and shield defensive character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 6);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 6);
-        chars.rapierAndShieldDefensive = 6;
     }
 
     function test_NonLethalMode() public {

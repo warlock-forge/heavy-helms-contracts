@@ -19,9 +19,6 @@ contract PlayerPermissionsTest is TestBase {
         // Setup game contract address
         gameContract = address(0xdead);
 
-        // Set up the test environment with a proper timestamp
-        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
-
         // Create a test player using VRF
         playerId = uint32(_createPlayerAndFulfillVRF(address(1), playerContract, false));
     }

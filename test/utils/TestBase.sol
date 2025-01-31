@@ -22,6 +22,15 @@ abstract contract TestBase is Test {
     address public operator;
     Player public playerContract;
 
+    /// @notice Modifier to skip tests in CI environment
+    /// @dev Uses vm.envOr to check if CI environment variable is set
+    modifier skipInCI() {
+        if (!vm.envOr("CI", false)) {
+            _;
+        }
+    }
+
+    /// @notice Struct to hold default character IDs
     struct DefaultCharacters {
         uint16 greatswordOffensive;
         uint16 battleaxeOffensive;
@@ -31,10 +40,12 @@ abstract contract TestBase is Test {
         uint16 quarterstaffDefensive;
     }
 
-    uint32 public skinIndex;
+    DefaultCharacters public chars;
     DefaultPlayerSkinNFT public defaultSkin;
     PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
+    uint32 public skinIndex;
+    GameEngine public gameEngine;
 
     function setUp() public virtual {
         operator = address(0x42);
@@ -48,21 +59,18 @@ abstract contract TestBase is Test {
         skinRegistry.setDefaultSkinRegistryId(skinIndex);
         skinRegistry.setDefaultCollection(skinIndex, true);
 
+        _mintDefaultCharacters();
+
         // Create name registry
         nameRegistry = new PlayerNameRegistry();
+
+        gameEngine = new GameEngine();
 
         // Create the player contract with all required dependencies
         playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
 
-        // Mint default skin token ID 1
-        (
-            IGameDefinitions.WeaponType weapon,
-            IGameDefinitions.ArmorType armor,
-            IGameDefinitions.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
+        // Set up the test environment with a proper timestamp
+        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
     }
 
     function _registerSkin(address skinContract) internal returns (uint32) {
@@ -424,5 +432,87 @@ abstract contract TestBase is Test {
 
         // Verify we have enough slots
         assertGe(contractInstance.getPlayerSlots(owner), desiredSlots);
+    }
+
+    /// @notice Mints default characters for testing
+    /// @dev This creates a standard set of characters with different fighting styles
+    function _mintDefaultCharacters() internal {
+        // Mint default skin token ID 1
+        (
+            IGameDefinitions.WeaponType weapon,
+            IGameDefinitions.ArmorType armor,
+            IGameDefinitions.FightingStance stance,
+            IPlayer.PlayerStats memory stats,
+            string memory ipfsCID
+        ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
+        // Create offensive characters
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
+        chars.greatswordOffensive = 2;
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 3);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
+        chars.battleaxeOffensive = 3;
+
+        // Create balanced character
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 4);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
+        chars.spearBalanced = 4;
+
+        // Create defensive characters
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 5);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 5);
+        chars.swordAndShieldDefensive = 5;
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 6);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 6);
+        chars.rapierAndShieldDefensive = 6;
+
+        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 7);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 7);
+        chars.quarterstaffDefensive = 7;
+    }
+
+    // Helper functions
+    function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint32) {
+        return _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
+    }
+
+    function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
+        vm.deal(owner, playerContract.createPlayerFeeAmount());
+
+        vm.startPrank(owner);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        vm.stopPrank();
+
+        vm.expectRevert(bytes(expectedError));
+        _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
+    }
+
+    function _createPlayerAndExpectVRFFail(
+        address owner,
+        bool useSetB,
+        string memory expectedError,
+        uint256 customRoundId
+    ) internal {
+        vm.deal(owner, playerContract.createPlayerFeeAmount());
+
+        vm.startPrank(owner);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        vm.stopPrank();
+
+        bytes memory extraData = "";
+        bytes memory innerData = abi.encode(requestId, extraData);
+        bytes memory dataWithRound = abi.encode(customRoundId, innerData);
+
+        vm.expectRevert(bytes(expectedError));
+        vm.prank(operator);
+        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
+    }
+
+    // Helper function for VRF fulfillment
+    function _fulfillVRF(uint256 requestId, uint256 randomSeed) internal {
+        _fulfillVRF(requestId, randomSeed, address(playerContract));
     }
 }
