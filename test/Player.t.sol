@@ -32,6 +32,17 @@ contract PlayerTest is TestBase {
     event RequestedRandomness(uint256 round, bytes data);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event PlayerImmortalityChanged(uint32 indexed playerId, address indexed changer, bool isImmortal);
+    event PlayerCreated(
+        uint32 indexed playerId,
+        uint16 indexed firstNameIndex,
+        uint16 indexed surnameIndex,
+        uint8 strength,
+        uint8 constitution,
+        uint8 size,
+        uint8 agility,
+        uint8 stamina,
+        uint8 luck
+    );
 
     function setUp() public override {
         super.setUp();
@@ -799,6 +810,143 @@ contract PlayerTest is TestBase {
         vm.expectRevert(abi.encodeWithSelector(NoPermission.selector));
         playerContract.setPlayerImmortal(playerId, true);
         vm.stopPrank();
+    }
+
+    function testPlayerCreatedEvent() public {
+        // Give enough ETH for the fee
+        vm.deal(PLAYER_ONE, playerContract.createPlayerFeeAmount());
+
+        // Create player request
+        vm.startPrank(PLAYER_ONE);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
+        vm.stopPrank();
+
+        // Record logs for event verification
+        vm.recordLogs();
+
+        // Fulfill VRF request using helper
+        _fulfillVRF(requestId, _generateGameSeed(), address(playerContract));
+
+        // Get the logs and find our PlayerCreated event
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bool foundPlayerCreatedEvent = false;
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            // Check if this is our PlayerCreated event
+            if (
+                entries[i].topics[0]
+                    == keccak256("PlayerCreated(uint32,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)")
+            ) {
+                foundPlayerCreatedEvent = true;
+
+                // Get playerId from first indexed parameter
+                uint32 playerId = uint32(uint256(entries[i].topics[1]));
+                uint16 firstNameIndex = uint16(uint256(entries[i].topics[2]));
+                uint16 surnameIndex = uint16(uint256(entries[i].topics[3]));
+
+                // Decode the non-indexed parameters
+                (uint8 strength, uint8 constitution, uint8 size, uint8 agility, uint8 stamina, uint8 luck) =
+                    abi.decode(entries[i].data, (uint8, uint8, uint8, uint8, uint8, uint8));
+
+                // Get stored player data for comparison
+                IPlayer.PlayerStats memory storedStats = playerContract.getPlayer(playerId);
+
+                // Use TestBase helper to verify stat ranges
+                _assertStatRanges(storedStats);
+
+                // Verify stats match stored data
+                assertEq(storedStats.firstNameIndex, firstNameIndex, "First name index mismatch");
+                assertEq(storedStats.surnameIndex, surnameIndex, "Surname index mismatch");
+                assertEq(storedStats.strength, strength, "Strength mismatch");
+                assertEq(storedStats.constitution, constitution, "Constitution mismatch");
+                assertEq(storedStats.size, size, "Size mismatch");
+                assertEq(storedStats.agility, agility, "Agility mismatch");
+                assertEq(storedStats.stamina, stamina, "Stamina mismatch");
+                assertEq(storedStats.luck, luck, "Luck mismatch");
+
+                // Verify total stats equal 72
+                uint16 totalStats = uint16(strength) + constitution + size + agility + stamina + luck;
+                assertEq(totalStats, 72, "Total stats should equal 72");
+
+                // Verify name indices are within valid ranges
+                // For Set A names
+                bool validFirstName = firstNameIndex >= nameRegistry.SET_A_START()
+                    && firstNameIndex < (nameRegistry.SET_A_START() + nameRegistry.getNameSetALength())
+                // For Set B names
+                || firstNameIndex < nameRegistry.getNameSetBLength();
+
+                assertTrue(validFirstName, "First name index out of range");
+                assertTrue(surnameIndex < nameRegistry.getSurnamesLength(), "Surname index out of range");
+            }
+        }
+
+        assertTrue(foundPlayerCreatedEvent, "PlayerCreated event was not emitted");
+    }
+
+    function testWinLossKillEvents() public {
+        // Create a player
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Grant RECORD permission to test contract
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
+        playerContract.setGameContractPermission(address(this), permissions);
+
+        // Test win event
+        vm.recordLogs();
+        playerContract.incrementWins(playerId);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bool foundWinLossEvent = false;
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("PlayerWinLossUpdated(uint32,uint16,uint16)")) {
+                foundWinLossEvent = true;
+                uint32 eventPlayerId = uint32(uint256(entries[i].topics[1]));
+                (uint16 wins, uint16 losses) = abi.decode(entries[i].data, (uint16, uint16));
+
+                assertEq(eventPlayerId, playerId, "Player ID mismatch");
+                assertEq(wins, 1, "Wins should be 1");
+                assertEq(losses, 0, "Losses should be 0");
+            }
+        }
+        assertTrue(foundWinLossEvent, "PlayerWinLossUpdated event not emitted for win");
+
+        // Test loss event
+        vm.recordLogs();
+        playerContract.incrementLosses(playerId);
+        entries = vm.getRecordedLogs();
+        foundWinLossEvent = false;
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("PlayerWinLossUpdated(uint32,uint16,uint16)")) {
+                foundWinLossEvent = true;
+                uint32 eventPlayerId = uint32(uint256(entries[i].topics[1]));
+                (uint16 wins, uint16 losses) = abi.decode(entries[i].data, (uint16, uint16));
+
+                assertEq(eventPlayerId, playerId, "Player ID mismatch");
+                assertEq(wins, 1, "Wins should still be 1");
+                assertEq(losses, 1, "Losses should be 1");
+            }
+        }
+        assertTrue(foundWinLossEvent, "PlayerWinLossUpdated event not emitted for loss");
+
+        // Test kill event
+        vm.recordLogs();
+        playerContract.incrementKills(playerId);
+        entries = vm.getRecordedLogs();
+        bool foundKillEvent = false;
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (entries[i].topics[0] == keccak256("PlayerKillUpdated(uint32,uint16)")) {
+                foundKillEvent = true;
+                uint32 eventPlayerId = uint32(uint256(entries[i].topics[1]));
+                uint16 kills = abi.decode(entries[i].data, (uint16));
+
+                assertEq(eventPlayerId, playerId, "Player ID mismatch");
+                assertEq(kills, 1, "Kills should be 1");
+            }
+        }
+        assertTrue(foundKillEvent, "PlayerKillUpdated event not emitted");
     }
 
     // Skin Equipment Helper

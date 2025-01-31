@@ -142,6 +142,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param retired The new retirement status
     event PlayerRetired(uint32 indexed playerId, address indexed caller, bool retired);
 
+    /// @notice Emitted when a player's immortality status changes
+    /// @param playerId The ID of the player
+    /// @param caller The address that changed the immortality status
+    /// @param immortal The new immortality status
+    event PlayerImmortalityChanged(uint32 indexed playerId, address indexed caller, bool immortal);
+
     /// @notice Emitted when a player equips a new skin
     /// @param playerId The ID of the player
     /// @param skinIndex The index of the skin collection in the registry
@@ -191,11 +197,56 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param newCost The new cost
     event SlotBatchCostUpdated(uint256 oldCost, uint256 newCost);
 
-    /// @notice Emitted when a player's immortality status changes
+    /// @notice Emitted when a new player is created with their initial stats
+    /// @param playerId The ID of the newly created player
+    /// @param firstNameIndex Index of the first name in the registry
+    /// @param surnameIndex Index of the surname in the registry
+    /// @param strength Initial strength value
+    /// @param constitution Initial constitution value
+    /// @param size Initial size value
+    /// @param agility Initial agility value
+    /// @param stamina Initial stamina value
+    /// @param luck Initial luck value
+    event PlayerCreated(
+        uint32 indexed playerId,
+        uint16 indexed firstNameIndex,
+        uint16 indexed surnameIndex,
+        uint8 strength,
+        uint8 constitution,
+        uint8 size,
+        uint8 agility,
+        uint8 stamina,
+        uint8 luck
+    );
+
+    /// @notice Emitted when a user purchases additional player slots
+    /// @param user Address of the purchaser
+    /// @param slotsAdded Number of new slots purchased
+    /// @param totalSlots New total slots for the user
+    /// @param amountPaid Amount of ETH paid for the slots
+    event PlayerSlotsPurchased(address indexed user, uint8 slotsAdded, uint8 totalSlots, uint256 amountPaid);
+
+    /// @notice Emitted when a game contract's permissions are updated
+    /// @param gameContract Address of the game contract
+    /// @param permissions New permissions struct
+    event GameContractPermissionsUpdated(address indexed gameContract, GamePermissions permissions);
+
+    /// @notice Emitted when a player's win/loss record is updated
     /// @param playerId The ID of the player
-    /// @param caller The address that changed the immortality status
-    /// @param immortal The new immortality status
-    event PlayerImmortalityChanged(uint32 indexed playerId, address indexed caller, bool immortal);
+    /// @param wins Current win count
+    /// @param losses Current loss count
+    event PlayerWinLossUpdated(uint32 indexed playerId, uint16 wins, uint16 losses);
+
+    /// @notice Emitted when a player's kill count is updated
+    /// @param playerId The ID of the player
+    /// @param kills Current kill count
+    event PlayerKillUpdated(uint32 indexed playerId, uint16 kills);
+
+    /// @notice Emitted when a player's name is changed
+    /// @param playerId The ID of the player
+    /// @param firstNameIndex New first name index
+    /// @param surnameIndex New surname index
+    event PlayerNameUpdated(uint32 indexed playerId, uint16 firstNameIndex, uint16 surnameIndex);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -551,6 +602,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     {
         PlayerStats storage stats = _players[playerId];
         stats.wins++;
+        emit PlayerWinLossUpdated(playerId, stats.wins, stats.losses);
     }
 
     /// @notice Increments the loss count for a player
@@ -563,6 +615,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     {
         PlayerStats storage stats = _players[playerId];
         stats.losses++;
+        emit PlayerWinLossUpdated(playerId, stats.wins, stats.losses);
     }
 
     /// @notice Increments the kill count for a player
@@ -575,6 +628,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     {
         PlayerStats storage stats = _players[playerId];
         stats.kills++;
+        emit PlayerKillUpdated(playerId, stats.kills);
     }
 
     /// @notice Sets the retirement status of a player
@@ -615,6 +669,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         PlayerStats storage player = _players[playerId];
         player.firstNameIndex = firstNameIndex;
         player.surnameIndex = surnameIndex;
+        emit PlayerNameUpdated(playerId, firstNameIndex, surnameIndex);
     }
 
     /// @notice Updates a player's attribute stats
@@ -721,6 +776,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         onlyOwner
     {
         _gameContractPermissions[gameContract] = permissions;
+        emit GameContractPermissionsUpdated(gameContract, permissions);
     }
 
     /// @notice Purchase additional player slots
@@ -746,6 +802,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         }
 
         _extraPlayerSlots[msg.sender] += slotsToAdd;
+
+        emit PlayerSlotsPurchased(msg.sender, slotsToAdd, currentTotalSlots, msg.value);
 
         return slotsToAdd;
     }
@@ -798,13 +856,25 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         // Effects
         _pendingPlayers[requestId].fulfilled = true;
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
-        (uint32 playerId,) = _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
+        (uint32 playerId, IPlayer.PlayerStats memory stats) =
+            _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
 
         // Remove from user's pending requests and cleanup
         _removeFromPendingRequests(pending.owner, requestId);
         delete _pendingPlayers[requestId];
 
         emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
+        emit PlayerCreated(
+            playerId,
+            stats.firstNameIndex,
+            stats.surnameIndex,
+            stats.strength,
+            stats.constitution,
+            stats.size,
+            stats.agility,
+            stats.stamina,
+            stats.luck
+        );
     }
 
     //==============================================================//
