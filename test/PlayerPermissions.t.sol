@@ -34,10 +34,10 @@ contract PlayerPermissionsTest is TestBase {
         Player(playerContract).setPlayerRetired(playerId, true);
 
         vm.expectRevert(NoPermission.selector);
-        Player(playerContract).setPlayerName(playerId, 1, 1);
+        Player(playerContract).awardNameChange(address(1));
 
         vm.expectRevert(NoPermission.selector);
-        Player(playerContract).setPlayerAttributes(playerId, 10, 10, 10, 10, 10, 10);
+        Player(playerContract).awardAttributeSwap(address(1));
 
         vm.stopPrank();
     }
@@ -70,13 +70,18 @@ contract PlayerPermissionsTest is TestBase {
 
         vm.startPrank(gameContract);
 
-        // Should succeed with valid stats (sum = 72)
-        Player(playerContract).setPlayerAttributes(playerId, 12, 12, 12, 12, 12, 12);
+        // Should succeed
+        Player(playerContract).awardAttributeSwap(address(1));
 
-        // Should fail with invalid total
-        vm.expectRevert(InvalidPlayerStats.selector);
-        Player(playerContract).setPlayerAttributes(playerId, 5, 5, 5, 5, 5, 5);
+        // Other operations should fail
+        vm.expectRevert(NoPermission.selector);
+        Player(playerContract).incrementWins(playerId);
 
+        vm.stopPrank();
+
+        // Test attribute swap with awarded charge
+        vm.startPrank(address(1));
+        Player(playerContract).swapAttributes(playerId, IPlayer.Attribute.STRENGTH, IPlayer.Attribute.AGILITY);
         vm.stopPrank();
     }
 
@@ -89,12 +94,17 @@ contract PlayerPermissionsTest is TestBase {
         vm.startPrank(gameContract);
 
         // Should succeed
-        Player(playerContract).setPlayerName(playerId, 1, 1);
+        Player(playerContract).awardNameChange(address(1));
 
         // Other operations should fail
         vm.expectRevert(NoPermission.selector);
         Player(playerContract).incrementWins(playerId);
 
+        vm.stopPrank();
+
+        // Verify name change works with awarded charge
+        vm.startPrank(address(1));
+        Player(playerContract).changeName(playerId, 1, 1);
         vm.stopPrank();
     }
 

@@ -116,6 +116,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 wagerAmount
     ) external payable whenGameEnabled nonReentrant returns (uint256) {
         require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
+        require(challengerLoadout.playerId >= 1000, "Cannot use default character as challenger");
+        require(defenderId >= 1000, "Cannot use default character as defender");
+
+        // Check player existence by calling getPlayer (will revert if player doesn't exist)
+        IPlayer(playerContract).getPlayer(challengerLoadout.playerId);
+        IPlayer(playerContract).getPlayer(defenderId);
 
         // Calculate required msg.value based on wager
         uint256 requiredAmount;
@@ -200,6 +206,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         require(isChallengeActive(challengeId), "Challenge not active");
         require(!hasPendingRequest[challengeId], "Challenge has pending request");
         require(msg.value == challenge.wagerAmount, "Incorrect wager amount");
+
+        // Check player existence by calling getPlayer (will revert if player doesn't exist)
+        IPlayer(playerContract).getPlayer(defenderLoadout.playerId);
 
         // Verify msg.sender owns the defender
         address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);

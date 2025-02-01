@@ -58,12 +58,22 @@ interface IPlayer {
     //==============================================================//
     /// @notice Types of permissions that can be granted to game contracts
     enum GamePermission {
-        RECORD, // For wins, losses, kills
-        RETIRE, // For retirement status
-        NAME, // For name changes
-        ATTRIBUTES, // For attribute modifications
-        IMMORTAL // For immortality status
+        RECORD,
+        RETIRE,
+        NAME,
+        ATTRIBUTES,
+        IMMORTAL
+    }
 
+    /// @notice Represents the different attributes that can be modified on a player
+    /// @dev Used for attribute swapping functionality
+    enum Attribute {
+        STRENGTH,
+        CONSTITUTION,
+        SIZE,
+        AGILITY,
+        STAMINA,
+        LUCK
     }
 
     //==============================================================//
@@ -166,27 +176,33 @@ interface IPlayer {
     /// @param retired The new retirement status
     function setPlayerRetired(uint32 playerId, bool retired) external;
 
-    /// @notice Updates a player's name indices
-    /// @param playerId The ID of the player
-    /// @param firstNameIndex Index in the name registry for first name
-    /// @param surnameIndex Index in the name registry for surname
-    function setPlayerName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex) external;
+    /// @notice Awards a name change charge to an address
+    /// @param to Address to receive the charge
+    function awardNameChange(address to) external;
 
-    /// @notice Updates a player's attribute stats
-    /// @param playerId The ID of the player
-    /// @param strength New strength value (3-21)
-    /// @param constitution New constitution value (3-21)
-    /// @param size New size value (3-21)
-    /// @param agility New agility value (3-21)
-    /// @param stamina New stamina value (3-21)
-    /// @param luck New luck value (3-21)
-    function setPlayerAttributes(
-        uint32 playerId,
-        uint8 strength,
-        uint8 constitution,
-        uint8 size,
-        uint8 agility,
-        uint8 stamina,
-        uint8 luck
-    ) external;
+    /// @notice Awards an attribute swap charge to an address
+    /// @param to Address to receive the charge
+    function awardAttributeSwap(address to) external;
+
+    /// @notice Changes a player's name using a name change charge
+    /// @param playerId The ID of the player to update
+    /// @param firstNameIndex Index of the first name in the name registry
+    /// @param surnameIndex Index of the surname in the name registry
+    function changeName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex) external;
+
+    /// @notice Swaps attributes between two player attributes
+    /// @param playerId The ID of the player to update
+    /// @param decreaseAttribute The attribute to decrease
+    /// @param increaseAttribute The attribute to increase
+    function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute) external;
+
+    /// @notice Gets the number of name change charges available for an address
+    /// @param owner The address to check
+    /// @return Number of name change charges available
+    function nameChangeCharges(address owner) external view returns (uint256);
+
+    /// @notice Gets the number of attribute swap charges available for an address
+    /// @param owner The address to check
+    /// @return Number of attribute swap charges available
+    function attributeSwapCharges(address owner) external view returns (uint256);
 }

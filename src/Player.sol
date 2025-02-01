@@ -47,6 +47,12 @@ error NoPermission();
 error BadZeroAddress();
 /// @notice Thrown when attempting to use an invalid token ID for a skin
 error InvalidTokenId(uint16 tokenId);
+/// @notice Thrown when insufficient charges are available
+error InsufficientCharges();
+/// @notice Thrown when attempting to swap invalid attributes
+error InvalidAttributeSwap();
+/// @notice Thrown when attempting to use an invalid name index
+error InvalidNameIndex();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -123,6 +129,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     mapping(address => uint256) private _addressActivePlayerCount;
     /// @notice Maps address to their number of purchased extra player slots
     mapping(address => uint8) private _extraPlayerSlots;
+    /// @notice Maps address to the number of name change charges available
+    mapping(address => uint256) private _nameChangeCharges;
+    /// @notice Maps address to the number of attribute swap charges available
+    mapping(address => uint256) private _attributeSwapCharges;
 
     // VRF Request tracking
     /// @notice Address of the Gelato VRF operator
@@ -158,7 +168,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param requestId The VRF request ID
     /// @param playerId The ID of the newly created player
     /// @param owner The address that will own the new player
-    event PlayerCreationFulfilled(uint256 indexed requestId, uint32 indexed playerId, address indexed owner);
+    /// @param randomness The random value provided by VRF
+    event PlayerCreationFulfilled(
+        uint256 indexed requestId, uint32 indexed playerId, address indexed owner, uint256 randomness
+    );
 
     /// @notice Emitted when a new player creation is requested
     /// @param requestId The VRF request ID
@@ -247,6 +260,30 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param firstNameIndex New first name index
     /// @param surnameIndex New surname index
     event PlayerNameUpdated(uint32 indexed playerId, uint16 firstNameIndex, uint16 surnameIndex);
+
+    /// @notice Emitted when a name change charge is awarded
+    /// @param to Address receiving the charge
+    /// @param totalCharges Total number of name change charges available
+    event NameChangeAwarded(address indexed to, uint256 totalCharges);
+
+    /// @notice Emitted when an attribute swap charge is awarded
+    /// @param to Address receiving the charge
+    /// @param totalCharges Total number of attribute swap charges available
+    event AttributeSwapAwarded(address indexed to, uint256 totalCharges);
+
+    /// @notice Emitted when a player's attributes are swapped
+    /// @param playerId The ID of the player
+    /// @param decreaseAttribute Attribute being decreased
+    /// @param increaseAttribute Attribute being increased
+    /// @param newDecreaseValue New value of the decreased attribute
+    /// @param newIncreaseValue New value of the increased attribute
+    event PlayerAttributesSwapped(
+        uint32 indexed playerId,
+        Attribute decreaseAttribute,
+        Attribute increaseAttribute,
+        uint8 newDecreaseValue,
+        uint8 newIncreaseValue
+    );
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -468,6 +505,20 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return _immortalPlayers[playerId];
     }
 
+    /// @notice Gets the number of name change charges available for an address
+    /// @param owner The address to check
+    /// @return Number of name change charges available
+    function nameChangeCharges(address owner) external view returns (uint256) {
+        return _nameChangeCharges[owner];
+    }
+
+    /// @notice Gets the number of attribute swap charges available for an address
+    /// @param owner The address to check
+    /// @return Number of attribute swap charges available
+    function attributeSwapCharges(address owner) external view returns (uint256) {
+        return _attributeSwapCharges[owner];
+    }
+
     /// @notice Gets the status of a VRF request
     /// @param requestId The ID of the request to check
     /// @return exists Whether the request exists
@@ -574,6 +625,106 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         emit PlayerSkinEquipped(playerId, skinIndex, skinTokenId);
     }
 
+    /// @notice Purchase additional player slots
+    /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
+    /// @return Number of slots purchased
+    function purchasePlayerSlots() external payable returns (uint8) {
+        // Calculate current total slots
+        uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
+        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
+
+        // Ensure we don't exceed maximum
+        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
+
+        // Calculate cost based on current extra slots
+        // Cost increases by slotBatchCost for each batch already purchased
+        uint256 requiredPayment = getNextSlotBatchCost(msg.sender);
+        if (msg.value < requiredPayment) revert InsufficientFeeAmount();
+
+        // Calculate new slots to add (cap at MAX_TOTAL_SLOTS)
+        uint8 slotsToAdd = 5;
+        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
+            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
+        }
+
+        _extraPlayerSlots[msg.sender] += slotsToAdd;
+
+        emit PlayerSlotsPurchased(msg.sender, slotsToAdd, currentTotalSlots, msg.value);
+
+        return slotsToAdd;
+    }
+
+    /// @notice Changes a player's name
+    /// @param playerId The ID of the player to update
+    /// @param firstNameIndex Index of the first name in the name registry
+    /// @param surnameIndex Index of the surname in the name registry
+    function changeName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex) external playerExists(playerId) {
+        if (_nameChangeCharges[msg.sender] == 0) revert InsufficientCharges();
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+
+        // Validate name indices
+        if (firstNameIndex < nameRegistry.SET_A_START()) {
+            // Set B name (0-999)
+            if (firstNameIndex >= nameRegistry.getNameSetBLength()) {
+                revert InvalidNameIndex();
+            }
+        } else {
+            // Set A name (1000+)
+            uint16 setAIndex = firstNameIndex - nameRegistry.SET_A_START();
+            if (setAIndex >= nameRegistry.getNameSetALength()) {
+                revert InvalidNameIndex();
+            }
+        }
+
+        if (surnameIndex >= nameRegistry.getSurnamesLength()) {
+            revert InvalidNameIndex();
+        }
+
+        _nameChangeCharges[msg.sender]--;
+
+        PlayerStats storage player = _players[playerId];
+        player.firstNameIndex = firstNameIndex;
+        player.surnameIndex = surnameIndex;
+
+        emit PlayerNameUpdated(playerId, firstNameIndex, surnameIndex);
+    }
+
+    /// @notice Swaps attributes between two player attributes
+    /// @param playerId The ID of the player to update
+    /// @param decreaseAttribute The attribute to decrease
+    /// @param increaseAttribute The attribute to increase
+    /// @dev Requires ATTRIBUTES permission and sufficient charges. Reverts if player doesn't exist or charges are insufficient
+    function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute)
+        external
+        playerExists(playerId)
+    {
+        if (_attributeSwapCharges[msg.sender] == 0) revert InsufficientCharges();
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+        if (decreaseAttribute == increaseAttribute) revert InvalidAttributeSwap();
+
+        PlayerStats storage player = _players[playerId];
+
+        uint8 decreaseValue = _getAttributeValue(player, decreaseAttribute);
+        uint8 increaseValue = _getAttributeValue(player, increaseAttribute);
+
+        if (decreaseValue <= MIN_STAT || increaseValue >= MAX_STAT) {
+            revert InvalidAttributeSwap();
+        }
+
+        _attributeSwapCharges[msg.sender]--;
+
+        _setAttributeValue(player, decreaseAttribute, decreaseValue - 1);
+        _setAttributeValue(player, increaseAttribute, increaseValue + 1);
+
+        emit PlayerAttributesSwapped(
+            playerId,
+            decreaseAttribute,
+            increaseAttribute,
+            _getAttributeValue(player, decreaseAttribute),
+            _getAttributeValue(player, increaseAttribute)
+        );
+    }
+
     /// @notice Retires a player owned by the caller
     /// @param playerId The ID of the player to retire
     /// @dev Retired players cannot be used in games but can still be viewed
@@ -656,69 +807,35 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         emit PlayerRetired(playerId, msg.sender, retired);
     }
 
-    /// @notice Updates a player's name indices
+    /// @notice Sets the immortality status of a player
     /// @param playerId The ID of the player to update
-    /// @param firstNameIndex Index of the first name in the name registry
-    /// @param surnameIndex Index of the surname in the name registry
-    /// @dev Requires NAME permission. Reverts if player doesn't exist
-    function setPlayerName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex)
+    /// @param immortal The new immortality status
+    /// @dev Requires IMMORTAL permission. Reverts if player doesn't exist
+    function setPlayerImmortal(uint32 playerId, bool immortal)
         external
-        hasPermission(IPlayer.GamePermission.NAME)
+        hasPermission(IPlayer.GamePermission.IMMORTAL)
         playerExists(playerId)
     {
-        PlayerStats storage player = _players[playerId];
-        player.firstNameIndex = firstNameIndex;
-        player.surnameIndex = surnameIndex;
-        emit PlayerNameUpdated(playerId, firstNameIndex, surnameIndex);
+        _immortalPlayers[playerId] = immortal;
+        emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
     }
 
-    /// @notice Updates a player's attribute stats
-    /// @param playerId The ID of the player to update
-    /// @param strength New strength value
-    /// @param constitution New constitution value
-    /// @param size New size value
-    /// @param agility New agility value
-    /// @param stamina New stamina value
-    /// @param luck New luck value
-    /// @dev Requires ATTRIBUTES permission. Validates total stats = 72. Reverts if invalid stats or player doesn't exist
-    function setPlayerAttributes(
-        uint32 playerId,
-        uint8 strength,
-        uint8 constitution,
-        uint8 size,
-        uint8 agility,
-        uint8 stamina,
-        uint8 luck
-    ) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) playerExists(playerId) {
-        // Create a temporary PlayerStats to validate
-        PlayerStats memory newStats = PlayerStats({
-            strength: strength,
-            constitution: constitution,
-            size: size,
-            agility: agility,
-            stamina: stamina,
-            luck: luck,
-            skinIndex: _players[playerId].skinIndex,
-            skinTokenId: _players[playerId].skinTokenId,
-            firstNameIndex: _players[playerId].firstNameIndex,
-            surnameIndex: _players[playerId].surnameIndex,
-            wins: _players[playerId].wins,
-            losses: _players[playerId].losses,
-            kills: _players[playerId].kills
-        });
+    /// @notice Awards a name change charge to an address
+    /// @param to Address to receive the charge
+    /// @dev Requires NAME permission
+    function awardNameChange(address to) external hasPermission(IPlayer.GamePermission.NAME) {
+        if (to == address(0)) revert BadZeroAddress();
+        _nameChangeCharges[to]++;
+        emit NameChangeAwarded(to, _nameChangeCharges[to]);
+    }
 
-        if (!_validateStats(newStats)) revert InvalidPlayerStats();
-
-        // If validation passes, update the player's attributes
-        PlayerStats storage player = _players[playerId];
-        player.strength = strength;
-        player.constitution = constitution;
-        player.size = size;
-        player.agility = agility;
-        player.stamina = stamina;
-        player.luck = luck;
-
-        emit PlayerAttributesUpdated(playerId, strength, constitution, size, agility, stamina, luck);
+    /// @notice Awards an attribute swap charge to an address
+    /// @param to Address to receive the charge
+    /// @dev Requires ATTRIBUTES permission
+    function awardAttributeSwap(address to) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) {
+        if (to == address(0)) revert BadZeroAddress();
+        _attributeSwapCharges[to]++;
+        emit AttributeSwapAwarded(to, _attributeSwapCharges[to]);
     }
 
     // Admin Functions
@@ -779,54 +896,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         emit GameContractPermissionsUpdated(gameContract, permissions);
     }
 
-    /// @notice Purchase additional player slots
-    /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
-    /// @return Number of slots purchased
-    function purchasePlayerSlots() external payable returns (uint8) {
-        // Calculate current total slots
-        uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
-        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
-
-        // Ensure we don't exceed maximum
-        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
-
-        // Calculate cost based on current extra slots
-        // Cost increases by slotBatchCost for each batch already purchased
-        uint256 requiredPayment = getNextSlotBatchCost(msg.sender);
-        if (msg.value < requiredPayment) revert InsufficientFeeAmount();
-
-        // Calculate new slots to add (cap at MAX_TOTAL_SLOTS)
-        uint8 slotsToAdd = 5;
-        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
-            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
-        }
-
-        _extraPlayerSlots[msg.sender] += slotsToAdd;
-
-        emit PlayerSlotsPurchased(msg.sender, slotsToAdd, currentTotalSlots, msg.value);
-
-        return slotsToAdd;
-    }
-
     /// @notice Updates the cost for purchasing additional player slots
     /// @param newCost The new cost in ETH for each slot batch
     function setSlotBatchCost(uint256 newCost) external onlyOwner {
         uint256 oldCost = slotBatchCost;
         slotBatchCost = newCost;
         emit SlotBatchCostUpdated(oldCost, newCost);
-    }
-
-    /// @notice Sets the immortality status of a player
-    /// @param playerId The ID of the player to update
-    /// @param immortal The new immortality status
-    /// @dev Requires IMMORTAL permission. Reverts if player doesn't exist
-    function setPlayerImmortal(uint32 playerId, bool immortal)
-        external
-        hasPermission(IPlayer.GamePermission.IMMORTAL)
-        playerExists(playerId)
-    {
-        _immortalPlayers[playerId] = immortal;
-        emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
     }
 
     //==============================================================//
@@ -863,7 +938,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         _removeFromPendingRequests(pending.owner, requestId);
         delete _pendingPlayers[requestId];
 
-        emit PlayerCreationFulfilled(requestId, playerId, pending.owner);
+        emit PlayerCreationFulfilled(requestId, playerId, pending.owner, randomness);
         emit PlayerCreated(
             playerId,
             stats.firstNameIndex,
@@ -1117,5 +1192,31 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         if (_userPendingRequest[user] == requestId) {
             delete _userPendingRequest[user];
         }
+    }
+
+    /// @notice Gets the current value of a specified attribute
+    /// @param player The player stats storage reference
+    /// @param attr The attribute to get
+    /// @return The current value of the attribute
+    function _getAttributeValue(PlayerStats storage player, Attribute attr) internal view returns (uint8) {
+        if (attr == Attribute.STRENGTH) return player.strength;
+        if (attr == Attribute.CONSTITUTION) return player.constitution;
+        if (attr == Attribute.SIZE) return player.size;
+        if (attr == Attribute.AGILITY) return player.agility;
+        if (attr == Attribute.STAMINA) return player.stamina;
+        return player.luck;
+    }
+
+    /// @notice Sets the value of a specified attribute
+    /// @param player The player stats storage reference
+    /// @param attr The attribute to set
+    /// @param value The new value for the attribute
+    function _setAttributeValue(PlayerStats storage player, Attribute attr, uint8 value) internal {
+        if (attr == Attribute.STRENGTH) player.strength = value;
+        else if (attr == Attribute.CONSTITUTION) player.constitution = value;
+        else if (attr == Attribute.SIZE) player.size = value;
+        else if (attr == Attribute.AGILITY) player.agility = value;
+        else if (attr == Attribute.STAMINA) player.stamina = value;
+        else player.luck = value;
     }
 }

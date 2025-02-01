@@ -258,33 +258,54 @@ contract DuelGameTest is TestBase {
         assertFalse(game.userChallenges(challenger, challengeId));
     }
 
-    function testFailures() public {
-        // Try to create challenge with insufficient funds
+    function test_RevertWhen_InsufficientFunds() public {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        vm.expectRevert("Incorrect ETH amount sent");
-        game.initiateChallenge{value: wagerAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.deal(PLAYER_ONE, wagerAmount);
+        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
-        // Try to create challenge with default character
+        vm.expectRevert(bytes("Incorrect ETH amount sent"));
+        game.initiateChallenge{value: wagerAmount - 0.1 ether}(loadout, PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_UsingDefaultCharacter() public {
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        vm.deal(PLAYER_ONE, wagerAmount);
+
+        IGameEngine.PlayerLoadout memory loadout =
+            IGameEngine.PlayerLoadout({playerId: 999, skinIndex: 1, skinTokenId: 1});
+
         vm.expectRevert("Cannot use default character as challenger");
-        game.initiateChallenge{value: wagerAmount}(_createLoadout(999), PLAYER_TWO_ID, wagerAmount);
+        game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+    }
 
-        // Try to cancel non-existent challenge
+    function test_RevertWhen_CancellingNonExistentChallenge() public {
+        vm.startPrank(PLAYER_ONE);
         vm.expectRevert("Challenge does not exist");
         game.cancelChallenge(999);
+        vm.stopPrank();
+    }
 
-        // Try to cancel active challenge
-        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 challengeId =
-            game.initiateChallenge{value: wagerAmount + fee}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
-        vm.expectRevert("Challenge still active");
-        game.cancelChallenge(challengeId);
+    function test_RevertWhen_WrongDefenderAccepts() public {
+        // First create a valid challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        vm.deal(PLAYER_ONE, wagerAmount);
+
+        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+        uint256 challengeId = game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         // Try to accept with wrong defender
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert("Not defender");
-        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.deal(PLAYER_ONE, wagerAmount);
+        IGameEngine.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
+
+        vm.expectRevert(bytes("Not defender"));
+        game.acceptChallenge{value: wagerAmount}(challengeId, defenderLoadout);
         vm.stopPrank();
     }
 
