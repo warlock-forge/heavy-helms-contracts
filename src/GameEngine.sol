@@ -110,7 +110,6 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
     uint8 private immutable STAMINA_PARRY = 5;
     uint8 private constant ATTACK_ACTION_COST = 100;
-    uint8 private constant MAX_WEAPON_SPEED = 120;
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
@@ -124,6 +123,13 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         CombatResultType p2Result;
         uint16 p2Damage;
         uint8 p2StaminaLost;
+    }
+
+    struct CalculatedCombatStats {
+        CalculatedStats stats;
+        WeaponStats weapon;
+        ArmorStats armor;
+        StanceMultiplier stanceMultipliers;
     }
 
     struct CombatState {
@@ -195,28 +201,32 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         // Read condition
         condition = WinCondition(uint8(results[6]));
 
+        // Decode actions
         uint256 numActions = (results.length - 7) / 8;
         actions = new CombatAction[](numActions);
 
-        // Process actions in a more gas-efficient way
         unchecked {
             for (uint256 i = 0; i < numActions; i++) {
-                uint256 base = 7 + (i * 8);
-
-                // Bitwise operations are more gas efficient than multiplication
-                uint16 p1Damage = (uint16(uint8(results[base + 1])) << 8) | uint16(uint8(results[base + 2]));
-                uint16 p2Damage = (uint16(uint8(results[base + 5])) << 8) | uint16(uint8(results[base + 6]));
-
-                actions[i] = CombatAction({
-                    p1Result: CombatResultType(uint8(results[base + 0])),
-                    p1Damage: p1Damage,
-                    p1StaminaLost: uint8(results[base + 3]),
-                    p2Result: CombatResultType(uint8(results[base + 4])),
-                    p2Damage: p2Damage,
-                    p2StaminaLost: uint8(results[base + 7])
-                });
+                actions[i] = unpackCombatAction(results, 7 + (i * 8));
             }
         }
+    }
+
+    /**
+     * @dev Unpacks a single combat action from the byte array
+     * @param data The byte array containing all combat data
+     * @param offset Starting position of this action in the byte array
+     * @return action The unpacked CombatAction struct
+     */
+    function unpackCombatAction(bytes memory data, uint256 offset) private pure returns (CombatAction memory action) {
+        return CombatAction({
+            p1Result: CombatResultType(uint8(data[offset])),
+            p1Damage: (uint16(uint8(data[offset + 1])) << 8) | uint16(uint8(data[offset + 2])),
+            p1StaminaLost: uint8(data[offset + 3]),
+            p2Result: CombatResultType(uint8(data[offset + 4])),
+            p2Damage: (uint16(uint8(data[offset + 5])) << 8) | uint16(uint8(data[offset + 6])),
+            p2StaminaLost: uint8(data[offset + 7])
+        });
     }
 
     function calculateStats(IPlayer.PlayerStats memory player) public pure returns (CalculatedStats memory) {
@@ -239,8 +249,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
 
         // Safe defensive stats calculation
-        uint16 dodgeChance =
-            uint16(2 + (uint32(player.agility) * 8 / 10) + (uint32(21 - min(player.size, 21)) * 5 / 10));
+        uint16 dodgeChance = calculateBaseDodgeChance(player.agility, player.size);
         uint16 blockChance = uint16(5 + (uint32(player.constitution) * 8 / 10) + (uint32(player.size) * 5 / 10));
         uint16 parryChance = uint16(3 + (uint32(player.strength) * 6 / 10) + (uint32(player.agility) * 6 / 10));
 
@@ -278,6 +287,33 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         });
     }
 
+    // New function to calculate base dodge chance from attributes
+    function calculateBaseDodgeChance(uint8 agility, uint8 size) internal pure returns (uint16) {
+        uint16 agilityBonus = uint16(uint32(agility) * 4 / 10); // 0.4 multiplier
+
+        uint16 sizeModifier;
+        if (size <= 21) {
+            sizeModifier = uint16((21 - size) * 8 / 10); // 0.8 multiplier
+            return agilityBonus + sizeModifier;
+        } else {
+            sizeModifier = uint16(size - 21) * 6 / 10; // 0.6 multiplier for penalty
+            return sizeModifier >= agilityBonus ? 0 : agilityBonus - sizeModifier;
+        }
+    }
+
+    // New function to apply armor and stance to dodge chance
+    function calculateFinalDodgeChance(uint16 baseDodgeChance, ArmorStats memory armor, StanceMultiplier memory stance)
+        internal
+        pure
+        returns (uint16)
+    {
+        // Apply armor weight penalty
+        uint16 afterArmorDodge = uint16((uint32(baseDodgeChance) * (100 - armor.weight)) / 100);
+
+        // Apply stance modifier
+        return uint16((uint32(afterArmorDodge) * uint32(stance.dodgeChance)) / 100);
+    }
+
     /// @notice Process a game between two players
     /// @param player1 The first player's combat loadout
     /// @param player2 The second player's loadout
@@ -290,34 +326,27 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint256 randomSeed,
         uint16 lethalityFactor
     ) external pure returns (bytes memory) {
-        // Calculate stats directly
-        CalculatedStats memory p1CalcStats = calculateStats(player1.stats);
-        CalculatedStats memory p2CalcStats = calculateStats(player2.stats);
+        // Calculate all combat stats upfront
+        CalculatedCombatStats memory p1Calculated = CalculatedCombatStats({
+            stats: calculateStats(player1.stats),
+            weapon: getWeaponStats(player1.weapon),
+            armor: getArmorStats(player1.armor),
+            stanceMultipliers: getStanceMultiplier(player1.stance)
+        });
 
-        // Get full combat stats directly from loadout attributes
-        WeaponStats memory p1WeaponStats = getWeaponStats(player1.weapon);
-        ArmorStats memory p1ArmorStats = getArmorStats(player1.armor);
-        StanceMultiplier memory p1StanceStats = getStanceMultiplier(player1.stance);
+        CalculatedCombatStats memory p2Calculated = CalculatedCombatStats({
+            stats: calculateStats(player2.stats),
+            weapon: getWeaponStats(player2.weapon),
+            armor: getArmorStats(player2.armor),
+            stanceMultipliers: getStanceMultiplier(player2.stance)
+        });
 
-        WeaponStats memory p2WeaponStats = getWeaponStats(player2.weapon);
-        ArmorStats memory p2ArmorStats = getArmorStats(player2.armor);
-        StanceMultiplier memory p2StanceStats = getStanceMultiplier(player2.stance);
+        // Apply stance modifiers to stats
+        p1Calculated.stats = applyStanceModifiers(p1Calculated.stats, p1Calculated.stanceMultipliers);
+        p2Calculated.stats = applyStanceModifiers(p2Calculated.stats, p2Calculated.stanceMultipliers);
 
-        // Apply stance modifiers to calculated stats
-        p1CalcStats = applyStanceModifiers(p1CalcStats, p1StanceStats);
-        p2CalcStats = applyStanceModifiers(p2CalcStats, p2StanceStats);
-
-        CombatState memory state = initializeCombatState(
-            player1,
-            player2,
-            randomSeed,
-            p1CalcStats,
-            p2CalcStats,
-            p1WeaponStats,
-            p1ArmorStats,
-            p2WeaponStats,
-            p2ArmorStats
-        );
+        // Initialize combat with calculated stats
+        CombatState memory state = initializeCombatState(player1, player2, randomSeed, p1Calculated, p2Calculated);
 
         bytes memory results = new bytes(7);
         uint8 roundCount = 0;
@@ -325,14 +354,14 @@ contract GameEngine is IGameEngine, IGameDefinitions {
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
             // Check exhaustion first
-            if (checkExhaustion(state, currentSeed, player1.stance, player2.stance, p1WeaponStats, p2WeaponStats)) {
+            if (checkExhaustion(state, currentSeed, p1Calculated, p2Calculated)) {
                 break;
             }
 
             // Add action points for both players with overflow protection
             unchecked {
-                uint16 newP1Points = uint16(state.p1ActionPoints) + uint16(p1WeaponStats.attackSpeed);
-                uint16 newP2Points = uint16(state.p2ActionPoints) + uint16(p2WeaponStats.attackSpeed);
+                uint16 newP1Points = uint16(state.p1ActionPoints) + uint16(p1Calculated.weapon.attackSpeed);
+                uint16 newP2Points = uint16(state.p2ActionPoints) + uint16(p2Calculated.weapon.attackSpeed);
 
                 // Cap at uint8 max if overflow would occur
                 state.p1ActionPoints = newP1Points > type(uint8).max ? type(uint8).max : uint8(newP1Points);
@@ -352,19 +381,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
 
                 // Process round and update state
                 (currentSeed, results) = processRound(
-                    state,
-                    currentSeed,
-                    results,
-                    p1CalcStats,
-                    p2CalcStats,
-                    p1WeaponStats,
-                    p2WeaponStats,
-                    p1ArmorStats,
-                    p2ArmorStats,
-                    player1.stance,
-                    player2.stance,
-                    isPlayer1Attacking,
-                    lethalityFactor
+                    state, currentSeed, results, p1Calculated, p2Calculated, isPlayer1Attacking, lethalityFactor
                 );
 
                 // Safely deduct action points from attacker
@@ -392,73 +409,48 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         CombatLoadout memory player1,
         CombatLoadout memory player2,
         uint256 seed,
-        CalculatedStats memory p1CalcStats,
-        CalculatedStats memory p2CalcStats,
-        WeaponStats memory p1WeaponStats,
-        ArmorStats memory p1ArmorStats,
-        WeaponStats memory p2WeaponStats,
-        ArmorStats memory p2ArmorStats
+        CalculatedCombatStats memory p1Calculated,
+        CalculatedCombatStats memory p2Calculated
     ) private pure returns (CombatState memory state) {
-        // Safe downcasting
-        state.p1Health = uint96(p1CalcStats.maxHealth);
-        state.p2Health = uint96(p2CalcStats.maxHealth);
-        state.p1Stamina = uint32(p1CalcStats.maxEndurance);
-        state.p2Stamina = uint32(p2CalcStats.maxEndurance);
+        state = CombatState({
+            p1Health: uint96(p1Calculated.stats.maxHealth),
+            p2Health: uint96(p2Calculated.stats.maxHealth),
+            p1Stamina: uint32(p1Calculated.stats.maxEndurance),
+            p2Stamina: uint32(p2Calculated.stats.maxEndurance),
+            p1Id: uint32(player1.playerId),
+            p2Id: uint32(player2.playerId),
+            p1ActionPoints: 0,
+            p2ActionPoints: 0,
+            isPlayer1Turn: false,
+            winningPlayerId: 0,
+            condition: WinCondition.HEALTH
+        });
 
-        // Store the player IDs
-        state.p1Id = uint32(player1.playerId);
-        state.p2Id = uint32(player2.playerId);
+        // Calculate total initiative (90% equipment/weight ratio, 10% base initiative)
+        uint32 p1Initiative = calculateTotalInitiative(p1Calculated);
+        uint32 p2Initiative = calculateTotalInitiative(p2Calculated);
 
-        // Validate equipment stats
-        validateCombatStats(p1WeaponStats, p1ArmorStats);
-        validateCombatStats(p2WeaponStats, p2ArmorStats);
-
-        // Calculate effective initiative (90% equipment, 10% stats)
-        uint32 p1EquipmentInit = (p1WeaponStats.attackSpeed * 100) / p1ArmorStats.weight;
-        uint32 p2EquipmentInit = (p2WeaponStats.attackSpeed * 100) / p2ArmorStats.weight;
-
-        uint32 p1TotalInit = ((p1EquipmentInit * 90) + (uint32(p1CalcStats.initiative) * 10)) / 100;
-        uint32 p2TotalInit = ((p2EquipmentInit * 90) + (uint32(p2CalcStats.initiative) * 10)) / 100;
-
-        // Initialize action points based on initiative
-        if (p1TotalInit > p2TotalInit) {
-            state.p1ActionPoints = uint8(p1WeaponStats.attackSpeed);
-            state.p2ActionPoints = 0;
-        } else if (p2TotalInit > p1TotalInit) {
-            state.p1ActionPoints = 0;
-            state.p2ActionPoints = uint8(p2WeaponStats.attackSpeed);
-        } else {
-            // Tie breaker
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-            if (seed.uniform(2) == 0) {
-                state.p1ActionPoints = uint8(p1WeaponStats.attackSpeed);
-                state.p2ActionPoints = 0;
-            } else {
-                state.p1ActionPoints = 0;
-                state.p2ActionPoints = uint8(p2WeaponStats.attackSpeed);
-            }
-        }
+        // Set initial action points based on initiative
+        bool p1Starts = p1Initiative > p2Initiative || (p1Initiative == p2Initiative && seed.uniform(2) == 0);
+        state.p1ActionPoints = p1Starts ? uint8(p1Calculated.weapon.attackSpeed) : 0;
+        state.p2ActionPoints = p1Starts ? 0 : uint8(p2Calculated.weapon.attackSpeed);
 
         return state;
     }
 
-    function validateCombatStats(WeaponStats memory weapon, ArmorStats memory armor) private pure {
-        require(weapon.maxDamage >= weapon.minDamage, "Invalid weapon damage range");
-        require(weapon.staminaMultiplier > 0, "Invalid stamina multiplier");
-        require(weapon.attackSpeed > 0 && weapon.attackSpeed <= MAX_WEAPON_SPEED, "Invalid attack speed");
-        require(armor.weight > 0, "Invalid armor weight");
+    function calculateTotalInitiative(CalculatedCombatStats memory stats) private pure returns (uint32) {
+        uint32 equipmentInit = (stats.weapon.attackSpeed * 100) / stats.armor.weight;
+        return ((equipmentInit * 90) + (uint32(stats.stats.initiative) * 10)) / 100;
     }
 
     function checkExhaustion(
         CombatState memory state,
         uint256 seed,
-        FightingStance p1Stance,
-        FightingStance p2Stance,
-        WeaponStats memory p1WeaponStats,
-        WeaponStats memory p2WeaponStats
+        CalculatedCombatStats memory p1Calculated,
+        CalculatedCombatStats memory p2Calculated
     ) private pure returns (bool) {
-        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Stance, p1WeaponStats);
-        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Stance, p2WeaponStats);
+        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Calculated);
+        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Calculated);
 
         if ((state.p1Stamina < uint32(p1MinCost)) || (state.p2Stamina < uint32(p2MinCost))) {
             state.condition = WinCondition.EXHAUSTION;
@@ -477,14 +469,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         CombatState memory state,
         uint256 currentSeed,
         bytes memory results,
-        CalculatedStats memory p1CalcStats,
-        CalculatedStats memory p2CalcStats,
-        WeaponStats memory p1WeaponStats,
-        WeaponStats memory p2WeaponStats,
-        ArmorStats memory p1ArmorStats,
-        ArmorStats memory p2ArmorStats,
-        FightingStance p1Stance,
-        FightingStance p2Stance,
+        CalculatedCombatStats memory p1Calculated,
+        CalculatedCombatStats memory p2Calculated,
         bool isPlayer1Attacking,
         uint16 lethalityFactor
     ) private pure returns (uint256, bytes memory) {
@@ -496,16 +482,11 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             uint16 defenseDamage,
             uint8 defenseStaminaCost
         ) = processCombatTurn(
-            isPlayer1Attacking ? p1CalcStats : p2CalcStats,
-            isPlayer1Attacking ? p2CalcStats : p1CalcStats,
+            isPlayer1Attacking ? p1Calculated : p2Calculated,
+            isPlayer1Attacking ? p2Calculated : p1Calculated,
             isPlayer1Attacking ? state.p1Stamina : state.p2Stamina,
             isPlayer1Attacking ? state.p2Stamina : state.p1Stamina,
-            isPlayer1Attacking ? p1WeaponStats : p2WeaponStats,
-            isPlayer1Attacking ? p2WeaponStats : p1WeaponStats,
-            isPlayer1Attacking ? p2ArmorStats : p1ArmorStats,
-            currentSeed,
-            isPlayer1Attacking ? p1Stance : p2Stance,
-            isPlayer1Attacking ? p2Stance : p1Stance
+            currentSeed
         );
 
         // Update combat state based on results
@@ -516,12 +497,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             defenseResult,
             defenseDamage,
             defenseStaminaCost,
-            p1CalcStats,
-            p2CalcStats,
-            p1WeaponStats,
-            p2WeaponStats,
-            p1Stance,
-            p2Stance,
+            p1Calculated,
+            p2Calculated,
             currentSeed,
             lethalityFactor
         );
@@ -541,17 +518,57 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         return (currentSeed, results);
     }
 
+    function calculateHitChance(CalculatedCombatStats memory attacker) private pure returns (uint8) {
+        uint32 baseHitChance = uint32(attacker.stats.hitChance);
+        uint32 weaponSpeedMod = uint32(attacker.weapon.attackSpeed);
+        uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attacker.stanceMultipliers.hitChance) / 10000;
+        uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
+        uint32 withBothBounds = withMin > 95 ? 95 : withMin;
+        return uint8(withBothBounds);
+    }
+
+    function calculateCriticalDamage(CalculatedCombatStats memory attacker, uint16 baseDamage, uint256 seed)
+        private
+        pure
+        returns (uint16 damage, uint8 result, uint256 nextSeed)
+    {
+        seed = uint256(keccak256(abi.encodePacked(seed)));
+        uint8 critRoll = uint8(seed.uniform(100));
+        bool isCritical = critRoll < attacker.stats.critChance;
+
+        if (isCritical) {
+            damage = uint16((uint32(baseDamage) * uint32(attacker.stats.critMultiplier)) / 100);
+            result = uint8(CombatResultType.CRIT);
+        } else {
+            damage = baseDamage;
+            result = uint8(CombatResultType.ATTACK);
+        }
+        return (damage, result, seed);
+    }
+
+    function calculateDamage(CalculatedCombatStats memory attacker, uint256 seed)
+        private
+        pure
+        returns (uint16 damage, uint256 nextSeed)
+    {
+        uint64 damageRange = attacker.weapon.maxDamage >= attacker.weapon.minDamage
+            ? attacker.weapon.maxDamage - attacker.weapon.minDamage
+            : 0;
+        uint64 baseDamage = uint64(attacker.weapon.minDamage) + uint64(seed.uniform(damageRange + 1));
+
+        uint64 scaledBase = baseDamage * 100;
+        uint64 modifiedDamage = (scaledBase * uint64(attacker.stats.damageModifier)) / 10000;
+
+        nextSeed = uint256(keccak256(abi.encodePacked(seed)));
+        return (modifiedDamage > type(uint16).max ? type(uint16).max : uint16(modifiedDamage), nextSeed);
+    }
+
     function processCombatTurn(
-        CalculatedStats memory attacker,
-        CalculatedStats memory defender,
+        CalculatedCombatStats memory attacker,
+        CalculatedCombatStats memory defender,
         uint256 attackerStamina,
         uint256 defenderStamina,
-        WeaponStats memory attackerWeapon,
-        WeaponStats memory defenderWeapon,
-        ArmorStats memory defenderArmor,
-        uint256 seed,
-        FightingStance attackerStance,
-        FightingStance defenderStance
+        uint256 seed
     )
         private
         pure
@@ -564,69 +581,30 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             uint8 defenseStaminaCost
         )
     {
-        // Check stamina first
-        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon);
+        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attacker);
         if (attackerStamina < attackCost) {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0);
         }
 
-        // Calculate hit chance
-        uint32 baseHitChance = uint32(attacker.hitChance);
-        uint32 weaponSpeedMod = uint32(attackerWeapon.attackSpeed);
-        StanceMultiplier memory attackerStanceMods = getStanceMultiplier(attackerStance);
-        uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attackerStanceMods.hitChance) / 10000;
-        uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
-        uint32 withBothBounds = withMin > 95 ? 95 : withMin;
-        uint8 finalHitChance = uint8(withBothBounds);
-
+        uint8 finalHitChance = calculateHitChance(attacker);
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 hitRoll = uint8(seed.uniform(100));
 
-        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attackerStance, attackerWeapon);
+        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attacker);
 
         if (hitRoll >= finalHitChance) {
-            // Miss case - MUST return ATTACK for attacker and MISS for defender
-            return (
-                uint8(CombatResultType.ATTACK), // Attacker ALWAYS gets ATTACK
-                0, // No damage
-                uint8(modifiedStaminaCost), // Still costs stamina
-                uint8(CombatResultType.MISS), // Defender gets MISS
-                0, // No counter damage
-                0 // No defender stamina cost
-            );
+            return (uint8(CombatResultType.ATTACK), 0, uint8(modifiedStaminaCost), uint8(CombatResultType.MISS), 0, 0);
         }
 
-        // Calculate base damage first
         uint16 damage;
-        (damage, seed) = calculateDamage(attacker.damageModifier, attackerWeapon, seed);
-
-        seed = uint256(keccak256(abi.encodePacked(seed)));
-        uint8 critRoll = uint8(seed.uniform(100));
-        bool isCritical = critRoll < attacker.critChance;
-
-        if (isCritical) {
-            damage = uint16((uint32(damage) * uint32(attacker.critMultiplier)) / 100);
-            attackResult = uint8(CombatResultType.CRIT);
-        } else {
-            attackResult = uint8(CombatResultType.ATTACK);
-        }
-
-        attackDamage = damage;
+        (damage, seed) = calculateDamage(attacker, seed);
+        (attackDamage, attackResult, seed) = calculateCriticalDamage(attacker, damage, seed);
         attackStaminaCost = uint8(modifiedStaminaCost);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
-        (defenseResult, defenseDamage, defenseStaminaCost, seed) = processDefense(
-            defender,
-            defenderStamina,
-            defenderWeapon,
-            defenderArmor,
-            attackDamage,
-            attackerWeapon.damageType,
-            seed,
-            defenderStance
-        );
+        (defenseResult, defenseDamage, defenseStaminaCost, seed) =
+            processDefense(defender, defenderStamina, attackDamage, attacker.weapon.damageType, seed);
 
-        // Clear attack damage if defense was successful
         if (
             defenseResult == uint8(CombatResultType.DODGE) || defenseResult == uint8(CombatResultType.BLOCK)
                 || defenseResult == uint8(CombatResultType.PARRY)
@@ -638,43 +616,41 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     }
 
     function processDefense(
-        CalculatedStats memory defender,
+        CalculatedCombatStats memory defender,
         uint256 defenderStamina,
-        WeaponStats memory defenderWeapon,
-        ArmorStats memory defenderArmor,
         uint16 incomingDamage,
         DamageType damageType,
-        uint256 seed,
-        FightingStance stance
+        uint256 seed
     ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
-        // Get stance multipliers
-        StanceMultiplier memory stanceMods = getStanceMultiplier(stance);
-
-        // Calculate all stamina costs with stance modifiers
-        uint256 blockStaminaCost = calculateStaminaCost(STAMINA_BLOCK, stance, defenderWeapon);
-        uint256 parryStaminaCost = calculateStaminaCost(STAMINA_PARRY, stance, defenderWeapon);
-        uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, stance, defenderWeapon);
+        // Calculate all stamina costs with stance modifiers and defender's armor
+        uint256 blockStaminaCost = calculateStaminaCost(STAMINA_BLOCK, defender);
+        uint256 parryStaminaCost = calculateStaminaCost(STAMINA_PARRY, defender);
+        uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, defender);
 
         // Calculate all effective defensive chances with stance modifiers
-        uint16 effectiveBlockChance = uint16((uint32(defender.blockChance) * uint32(stanceMods.blockChance)) / 100);
+        uint16 effectiveBlockChance =
+            uint16((uint32(defender.stats.blockChance) * uint32(defender.stanceMultipliers.blockChance)) / 100);
         uint16 effectiveParryChance = uint16(
-            (uint32(defender.parryChance) * uint32(stanceMods.parryChance) * uint32(defenderWeapon.parryChance)) / 10000
+            (
+                uint32(defender.stats.parryChance) * uint32(defender.stanceMultipliers.parryChance)
+                    * uint32(defender.weapon.parryChance)
+            ) / 10000
         );
-        uint16 effectiveDodgeChance = uint16((uint32(defender.dodgeChance) * uint32(stanceMods.dodgeChance)) / 100);
+        // Calculate final dodge chance with armor and stance
+        uint16 finalDodgeChance =
+            calculateFinalDodgeChance(defender.stats.dodgeChance, defender.armor, defender.stanceMultipliers);
 
         // Block check - only allow if defender has a shield-type weapon
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 blockRoll = uint8(seed.uniform(100));
 
-        if (blockRoll < effectiveBlockChance && defenderStamina >= blockStaminaCost && defenderWeapon.hasShield) {
-            // Using hasShield from WeaponStats
+        if (blockRoll < effectiveBlockChance && defenderStamina >= blockStaminaCost && defender.weapon.hasShield) {
             seed = uint256(keccak256(abi.encodePacked(seed)));
             uint8 counterRoll = uint8(seed.uniform(100));
 
-            if (counterRoll < defender.counterChance) {
+            if (counterRoll < defender.stats.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                (result, damage, staminaCost, seed) =
-                    processCounterAttack(defender, defenderWeapon, seed, CounterType.COUNTER, stance);
+                (result, damage, staminaCost, seed) = processCounterAttack(defender, seed, CounterType.COUNTER);
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 return (result, damage, staminaCost, seed);
             }
@@ -689,9 +665,9 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             seed = uint256(keccak256(abi.encodePacked(seed)));
             uint8 riposteRoll = uint8(seed.uniform(100));
 
-            if (riposteRoll < defender.counterChance) {
+            if (riposteRoll < defender.stats.counterChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                return processCounterAttack(defender, defenderWeapon, seed, CounterType.PARRY, stance);
+                return processCounterAttack(defender, seed, CounterType.PARRY);
             }
             return (uint8(CombatResultType.PARRY), 0, uint8(parryStaminaCost), seed);
         }
@@ -699,37 +675,35 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         // Dodge check
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 dodgeRoll = uint8(seed.uniform(100));
-        if (dodgeRoll < effectiveDodgeChance && defenderStamina >= dodgeStaminaCost) {
+        if (dodgeRoll < finalDodgeChance && defenderStamina >= dodgeStaminaCost) {
             return (uint8(CombatResultType.DODGE), 0, uint8(dodgeStaminaCost), seed);
         }
 
         // If all defensive actions fail, apply armor reduction and return fresh seed
-        uint16 reducedDamage = applyDefensiveStats(incomingDamage, defenderArmor, damageType);
+        uint16 reducedDamage = applyDefensiveStats(incomingDamage, defender.armor, damageType);
         seed = uint256(keccak256(abi.encodePacked(seed))); // Fresh seed before return
         return (uint8(CombatResultType.HIT), reducedDamage, 0, seed);
     }
 
-    function processCounterAttack(
-        CalculatedStats memory defenderStats,
-        WeaponStats memory defenderWeapon,
-        uint256 seed,
-        CounterType counterType,
-        FightingStance stance
-    ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
+    function processCounterAttack(CalculatedCombatStats memory defender, uint256 seed, CounterType counterType)
+        private
+        pure
+        returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed)
+    {
         uint16 counterDamage;
-        (counterDamage, seed) = calculateDamage(defenderStats.damageModifier, defenderWeapon, seed);
+        (counterDamage, seed) = calculateDamage(defender, seed);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 critRoll = uint8(seed.uniform(100));
-        bool isCritical = critRoll < defenderStats.critChance;
+        bool isCritical = critRoll < defender.stats.critChance;
 
         if (isCritical) {
             uint32 totalMultiplier =
-                (uint32(defenderStats.critMultiplier) * uint32(defenderWeapon.critMultiplier)) / 100;
+                (uint32(defender.stats.critMultiplier) * uint32(defender.weapon.critMultiplier)) / 100;
             counterDamage = uint16((uint32(counterDamage) * totalMultiplier) / 100);
 
             uint256 critStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-            uint256 critModifiedStaminaCost = calculateStaminaCost(critStaminaCostBase, stance, defenderWeapon);
+            uint256 critModifiedStaminaCost = calculateStaminaCost(critStaminaCostBase, defender);
 
             seed = uint256(keccak256(abi.encodePacked(seed)));
             return (
@@ -741,7 +715,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         }
 
         uint256 normalStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-        uint256 normalModifiedStaminaCost = calculateStaminaCost(normalStaminaCostBase, stance, defenderWeapon);
+        uint256 normalModifiedStaminaCost = calculateStaminaCost(normalStaminaCostBase, defender);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         return (
@@ -760,25 +734,6 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         unchecked {
             return currentHealth > damage ? currentHealth - damage : 0;
         }
-    }
-
-    function calculateDamage(uint16 damageModifier, WeaponStats memory weapon, uint256 seed)
-        private
-        pure
-        returns (uint16 damage, uint256 nextSeed)
-    {
-        // Use uint64 for all intermediate calculations to prevent overflow
-        uint64 damageRange = weapon.maxDamage >= weapon.minDamage ? weapon.maxDamage - weapon.minDamage : 0;
-        uint64 baseDamage = uint64(weapon.minDamage) + uint64(seed.uniform(damageRange + 1));
-
-        // Scale up for precision, using uint64 to prevent overflow
-        uint64 scaledBase = baseDamage * 100;
-        uint64 modifiedDamage = (scaledBase * uint64(damageModifier)) / 10000;
-
-        seed = uint256(keccak256(abi.encodePacked(seed)));
-
-        // Safe downcast to uint16
-        return (modifiedDamage > type(uint16).max ? type(uint16).max : uint16(modifiedDamage), seed);
     }
 
     function applyDefensiveStats(uint16 incomingDamage, ArmorStats memory armor, DamageType damageType)
@@ -840,6 +795,51 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         });
     }
 
+    function applyDamageAndCheckLethality(
+        CombatState memory state,
+        uint16 damage,
+        CalculatedCombatStats memory attackerStats,
+        CalculatedCombatStats memory defenderStats,
+        bool isPlayer1Attacker,
+        uint256 seed,
+        uint16 lethalityFactor
+    ) private pure {
+        uint96 currentHealth = isPlayer1Attacker ? state.p2Health : state.p1Health;
+        currentHealth = applyDamage(currentHealth, damage);
+
+        if (isPlayer1Attacker) {
+            state.p2Health = currentHealth;
+        } else {
+            state.p1Health = currentHealth;
+        }
+
+        // Check for lethal damage
+        if (
+            currentHealth > 0
+                && isLethalDamage(
+                    damage,
+                    defenderStats.stats.maxHealth,
+                    defenderStats.stats,
+                    attackerStats.weapon,
+                    defenderStats.stanceMultipliers,
+                    seed,
+                    lethalityFactor
+                )
+        ) {
+            if (isPlayer1Attacker) {
+                state.p2Health = 0;
+                state.winningPlayerId = state.p1Id;
+            } else {
+                state.p1Health = 0;
+                state.winningPlayerId = state.p2Id;
+            }
+            state.condition = WinCondition.DEATH;
+        } else if (currentHealth == 0) {
+            state.winningPlayerId = isPlayer1Attacker ? state.p1Id : state.p2Id;
+            state.condition = WinCondition.HEALTH;
+        }
+    }
+
     function updateCombatState(
         CombatState memory state,
         uint16 attackDamage,
@@ -847,129 +847,66 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint8 defenseResult,
         uint16 defenseDamage,
         uint8 defenseStaminaCost,
-        CalculatedStats memory p1Stats,
-        CalculatedStats memory p2Stats,
-        WeaponStats memory p1Weapon,
-        WeaponStats memory p2Weapon,
-        FightingStance p1Stance,
-        FightingStance p2Stance,
+        CalculatedCombatStats memory p1Calculated,
+        CalculatedCombatStats memory p2Calculated,
         uint256 seed,
         uint16 lethalityFactor
     ) private pure {
+        // Apply stamina costs based on turn
+        uint32 attackerStamina = state.isPlayer1Turn ? state.p1Stamina : state.p2Stamina;
+        uint32 defenderStamina = state.isPlayer1Turn ? state.p2Stamina : state.p1Stamina;
+
+        attackerStamina = attackerStamina > attackStaminaCost ? attackerStamina - attackStaminaCost : 0;
+        defenderStamina = defenderStamina > defenseStaminaCost ? defenderStamina - defenseStaminaCost : 0;
+
         if (state.isPlayer1Turn) {
-            // Apply stamina costs
-            state.p1Stamina = state.p1Stamina > attackStaminaCost ? state.p1Stamina - attackStaminaCost : 0;
-            state.p2Stamina = state.p2Stamina > defenseStaminaCost ? state.p2Stamina - defenseStaminaCost : 0;
-
-            // Apply attack damage ONLY if defense wasn't successful
-            if (
-                defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
-                    && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
-                    && defenseResult != uint8(CombatResultType.COUNTER_CRIT)
-                    && defenseResult != uint8(CombatResultType.RIPOSTE)
-                    && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
-            ) {
-                state.p2Health = applyDamage(state.p2Health, attackDamage);
-
-                // Check for lethal damage
-                if (
-                    state.p2Health > 0
-                        && isLethalDamage(
-                            attackDamage, p2Stats.maxHealth, p2Stats, p1Weapon, p2Stance, seed, lethalityFactor
-                        )
-                ) {
-                    state.p2Health = 0;
-                    state.winningPlayerId = state.p1Id;
-                    state.condition = WinCondition.DEATH;
-                } else if (state.p2Health == 0) {
-                    state.winningPlayerId = state.p1Id;
-                    state.condition = WinCondition.HEALTH;
-                }
-            }
-
-            // Apply counter damage
-            if (defenseDamage > 0) {
-                state.p1Health = applyDamage(state.p1Health, defenseDamage);
-
-                // Check for lethal damage from counter
-                if (
-                    state.p1Health > 0
-                        && isLethalDamage(
-                            defenseDamage,
-                            p1Stats.maxHealth,
-                            p1Stats,
-                            p2Weapon,
-                            p1Stance,
-                            uint256(keccak256(abi.encodePacked(seed))),
-                            lethalityFactor
-                        )
-                ) {
-                    state.p1Health = 0;
-                    state.winningPlayerId = state.p2Id;
-                    state.condition = WinCondition.DEATH;
-                } else if (state.p1Health == 0) {
-                    state.winningPlayerId = state.p2Id;
-                    state.condition = WinCondition.HEALTH;
-                }
-            }
+            state.p1Stamina = attackerStamina;
+            state.p2Stamina = defenderStamina;
         } else {
-            // Mirror logic for Player 2's turn
-            state.p2Stamina = state.p2Stamina > attackStaminaCost ? state.p2Stamina - attackStaminaCost : 0;
-            state.p1Stamina = state.p1Stamina > defenseStaminaCost ? state.p1Stamina - defenseStaminaCost : 0;
+            state.p2Stamina = attackerStamina;
+            state.p1Stamina = defenderStamina;
+        }
 
-            if (
-                defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
-                    && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
-                    && defenseResult != uint8(CombatResultType.COUNTER_CRIT)
-                    && defenseResult != uint8(CombatResultType.RIPOSTE)
-                    && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
-            ) {
-                state.p1Health = applyDamage(state.p1Health, attackDamage);
+        // Apply attack damage if defense wasn't successful
+        if (
+            defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
+                && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
+                && defenseResult != uint8(CombatResultType.COUNTER_CRIT) && defenseResult != uint8(CombatResultType.RIPOSTE)
+                && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
+        ) {
+            applyDamageAndCheckLethality(
+                state,
+                attackDamage,
+                state.isPlayer1Turn ? p1Calculated : p2Calculated,
+                state.isPlayer1Turn ? p2Calculated : p1Calculated,
+                state.isPlayer1Turn,
+                seed,
+                lethalityFactor
+            );
+        }
 
-                // Check for lethal damage
-                if (
-                    state.p1Health > 0
-                        && isLethalDamage(
-                            attackDamage, p1Stats.maxHealth, p1Stats, p2Weapon, p1Stance, seed, lethalityFactor
-                        )
-                ) {
-                    state.p1Health = 0;
-                    state.winningPlayerId = state.p2Id;
-                    state.condition = WinCondition.DEATH;
-                } else if (state.p1Health == 0) {
-                    state.winningPlayerId = state.p2Id;
-                    state.condition = WinCondition.HEALTH;
-                }
-            }
-
-            // Apply counter damage
-            if (defenseDamage > 0) {
-                state.p2Health = applyDamage(state.p2Health, defenseDamage);
-
-                // Check for lethal damage from counter
-                if (
-                    state.p2Health > 0
-                        && isLethalDamage(
-                            defenseDamage,
-                            p2Stats.maxHealth,
-                            p2Stats,
-                            p1Weapon,
-                            p2Stance,
-                            uint256(keccak256(abi.encodePacked(seed))),
-                            lethalityFactor
-                        )
-                ) {
-                    state.p2Health = 0;
-                    state.winningPlayerId = state.p1Id;
-                    state.condition = WinCondition.DEATH;
-                } else if (state.p2Health == 0) {
-                    state.winningPlayerId = state.p1Id;
-                    state.condition = WinCondition.HEALTH;
-                }
-            }
+        // Apply counter damage if any
+        if (defenseDamage > 0) {
+            applyDamageAndCheckLethality(
+                state,
+                defenseDamage,
+                state.isPlayer1Turn ? p2Calculated : p1Calculated,
+                state.isPlayer1Turn ? p1Calculated : p2Calculated,
+                !state.isPlayer1Turn,
+                uint256(keccak256(abi.encodePacked(seed))),
+                lethalityFactor
+            );
         }
     }
 
+    /**
+     * @dev Combat action byte layout (8 bytes total):
+     * Player 1's data is always in bytes 0-3, Player 2's data in bytes 4-7
+     * For each player's 4-byte section:
+     * - Byte 0: Result type (attack/defense)
+     * - Bytes 1-2: Damage value (high byte, low byte)
+     * - Byte 3: Stamina cost
+     */
     function appendCombatAction(
         bytes memory results,
         uint8 attackResult,
@@ -982,28 +919,34 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     ) private pure returns (bytes memory) {
         bytes memory actionData = new bytes(8);
 
+        // Pack attacker and defender data into the correct player positions
         if (isPlayer1Attacking) {
-            // P1 attack info in bytes 0-3, P2 defense info in bytes 4-7
-            actionData[0] = bytes1(attackResult);
-            actionData[1] = bytes1(uint8(attackDamage >> 8));
-            actionData[2] = bytes1(uint8(attackDamage));
-            actionData[3] = bytes1(attackStaminaCost);
-            actionData[4] = bytes1(defenseResult);
-            actionData[5] = bytes1(uint8(defenseDamage >> 8));
-            actionData[6] = bytes1(uint8(defenseDamage));
-            actionData[7] = bytes1(defenseStaminaCost);
+            packPlayerData(actionData, 0, attackResult, attackDamage, attackStaminaCost); // P1 attack
+            packPlayerData(actionData, 4, defenseResult, defenseDamage, defenseStaminaCost); // P2 defense
         } else {
-            // P1 defense info in bytes 0-3, P2 attack info in bytes 4-7
-            actionData[0] = bytes1(defenseResult);
-            actionData[1] = bytes1(uint8(defenseDamage >> 8));
-            actionData[2] = bytes1(uint8(defenseDamage));
-            actionData[3] = bytes1(defenseStaminaCost);
-            actionData[4] = bytes1(attackResult);
-            actionData[5] = bytes1(uint8(attackDamage >> 8));
-            actionData[6] = bytes1(uint8(attackDamage));
-            actionData[7] = bytes1(attackStaminaCost);
+            packPlayerData(actionData, 0, defenseResult, defenseDamage, defenseStaminaCost); // P1 defense
+            packPlayerData(actionData, 4, attackResult, attackDamage, attackStaminaCost); // P2 attack
         }
+
         return bytes.concat(results, actionData);
+    }
+
+    /**
+     * @dev Packs a player's combat data into 4 bytes starting at the specified offset
+     * @param data The byte array to pack into
+     * @param offset Starting position in the byte array (0 or 4)
+     * @param result Action result type
+     * @param damage Damage value (packed into 2 bytes)
+     * @param staminaCost Stamina cost
+     */
+    function packPlayerData(bytes memory data, uint256 offset, uint8 result, uint16 damage, uint8 staminaCost)
+        private
+        pure
+    {
+        data[offset] = bytes1(result);
+        data[offset + 1] = bytes1(uint8(damage >> 8));
+        data[offset + 2] = bytes1(uint8(damage));
+        data[offset + 3] = bytes1(staminaCost);
     }
 
     /// @dev TODO: Potential optimization - Instead of allocating prefix bytes (winner, version, condition) upfront
@@ -1028,14 +971,12 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         return results;
     }
 
-    function calculateStaminaCost(uint256 baseCost, FightingStance stance, WeaponStats memory weapon)
+    function calculateStaminaCost(uint256 baseCost, CalculatedCombatStats memory stats)
         internal
         pure
         returns (uint256)
     {
-        uint256 stanceModifier = getStanceMultiplier(stance).staminaCostModifier;
-        // Apply both weapon and stance modifiers
-        return (baseCost * stanceModifier * weapon.staminaMultiplier) / 10000;
+        return (baseCost * stats.stanceMultipliers.staminaCostModifier * stats.weapon.staminaMultiplier) / 10000;
     }
 
     // =============================================
@@ -1209,7 +1150,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     // =============================================
 
     function CLOTH() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 2, weight: 25, slashResist: 70, pierceResist: 70, bluntResist: 80});
+        return ArmorStats({defense: 2, weight: 5, slashResist: 70, pierceResist: 70, bluntResist: 80});
     }
 
     function CLOTH_REQS() public pure returns (StatRequirements memory) {
@@ -1217,15 +1158,15 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 4, weight: 50, slashResist: 90, pierceResist: 85, bluntResist: 90});
+        return ArmorStats({defense: 4, weight: 25, slashResist: 90, pierceResist: 85, bluntResist: 90});
     }
 
     function LEATHER_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 6, constitution: 6, size: 0, agility: 0, stamina: 0, luck: 0});
+        return StatRequirements({strength: 5, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 6, weight: 75, slashResist: 110, pierceResist: 70, bluntResist: 100});
+        return ArmorStats({defense: 6, weight: 60, slashResist: 110, pierceResist: 70, bluntResist: 100});
     }
 
     function CHAIN_REQS() public pure returns (StatRequirements memory) {
@@ -1233,7 +1174,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 12, weight: 100, slashResist: 120, pierceResist: 90, bluntResist: 80});
+        return ArmorStats({defense: 12, weight: 90, slashResist: 120, pierceResist: 90, bluntResist: 80});
     }
 
     function PLATE_REQS() public pure returns (StatRequirements memory) {
@@ -1321,7 +1262,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         uint16 defenderMaxHealth,
         CalculatedStats memory defenderStats,
         WeaponStats memory weapon,
-        FightingStance defenderStance,
+        StanceMultiplier memory defenderStance,
         uint256 seed,
         uint16 lethalityFactor
     ) private pure returns (bool died) {
@@ -1344,8 +1285,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         survivalChance = uint16((uint32(survivalChance) * 100) / lethalityFactor);
 
         // Then apply defensive bonuses
-        StanceMultiplier memory stanceStats = getStanceMultiplier(defenderStance);
-        uint32 modifiedSurvival = (uint32(survivalChance) * weapon.survivalFactor * stanceStats.survivalFactor) / 10000;
+        uint32 modifiedSurvival =
+            (uint32(survivalChance) * weapon.survivalFactor * defenderStance.survivalFactor) / 10000;
 
         // Cap survival between MINIMUM_SURVIVAL_CHANCE and BASE_SURVIVAL_CHANCE
         survivalChance = uint16(
