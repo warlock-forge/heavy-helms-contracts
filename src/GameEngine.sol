@@ -289,29 +289,35 @@ contract GameEngine is IGameEngine, IGameDefinitions {
 
     // New function to calculate base dodge chance from attributes
     function calculateBaseDodgeChance(uint8 agility, uint8 size) internal pure returns (uint16) {
-        uint16 agilityBonus = uint16(uint32(agility) * 4 / 10); // 0.4 multiplier
+        uint16 agilityBonus = uint16(uint32(agility) * 35 / 100); // Increased from 0.3 to 0.35
 
         uint16 sizeModifier;
         if (size <= 21) {
-            sizeModifier = uint16((21 - size) * 8 / 10); // 0.8 multiplier
+            sizeModifier = uint16((21 - size) * 6 / 10); // Increased from 0.5 to 0.6
             return agilityBonus + sizeModifier;
         } else {
-            sizeModifier = uint16(size - 21) * 6 / 10; // 0.6 multiplier for penalty
+            sizeModifier = uint16(size - 21) * 6 / 10; // Keep same penalty for large sizes
             return sizeModifier >= agilityBonus ? 0 : agilityBonus - sizeModifier;
         }
     }
 
     // New function to apply armor and stance to dodge chance
-    function calculateFinalDodgeChance(uint16 baseDodgeChance, ArmorStats memory armor, StanceMultiplier memory stance)
+    function calculateFinalDodgeChance(uint16 baseDodgeChance, CalculatedCombatStats memory stats)
         internal
         pure
         returns (uint16)
     {
-        // Apply armor weight penalty
-        uint16 afterArmorDodge = uint16((uint32(baseDodgeChance) * (100 - armor.weight)) / 100);
+        // Convert stance modifier from percentage to modifier (e.g., 85% -> -15)
+        int256 stanceModifier = int256(uint256(stats.stanceMultipliers.dodgeChance)) - 100;
 
-        // Apply stance modifier
-        return uint16((uint32(afterArmorDodge) * uint32(stance.dodgeChance)) / 100);
+        // Convert armor weight to direct penalty
+        int256 armorPenalty = -int256(uint256(stats.armor.weight));
+
+        // Apply all modifiers to base (allowing it to go negative)
+        int256 finalDodge = int256(uint256(baseDodgeChance)) + stanceModifier + armorPenalty;
+
+        // Return 0 if negative, otherwise convert back to uint16
+        return finalDodge <= 0 ? 0 : uint16(uint256(finalDodge));
     }
 
     /// @notice Process a game between two players
@@ -637,8 +643,7 @@ contract GameEngine is IGameEngine, IGameDefinitions {
             ) / 10000
         );
         // Calculate final dodge chance with armor and stance
-        uint16 finalDodgeChance =
-            calculateFinalDodgeChance(defender.stats.dodgeChance, defender.armor, defender.stanceMultipliers);
+        uint16 finalDodgeChance = calculateFinalDodgeChance(defender.stats.dodgeChance, defender);
 
         // Block check - only allow if defender has a shield-type weapon
         seed = uint256(keccak256(abi.encodePacked(seed)));
