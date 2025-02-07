@@ -7,8 +7,8 @@ import "solmate/src/auth/Owned.sol";
 
 contract Monster is IMonster, Owned {
     // Constants for ID range
-    uint32 private constant MONSTER_ID_START = 500;
-    uint32 private constant MONSTER_ID_END = 999;
+    uint32 private constant MONSTER_ID_START = 2001;
+    uint32 private constant MONSTER_ID_END = 10000;
     uint32 private _nextMonsterId = MONSTER_ID_START;
 
     // Core state
@@ -74,53 +74,55 @@ contract Monster is IMonster, Owned {
         return monsterId;
     }
 
-    // Add helper method
-    function _monsterExists(uint32 monsterId) internal view returns (bool) {
-        return _monsters[monsterId].strength != 0;
+    /// @notice Ensures the monster ID is within valid range and exists
+    /// @param monsterId The ID of the monster to check
+    modifier monsterExists(uint32 monsterId) {
+        if (monsterId < MONSTER_ID_START || monsterId > MONSTER_ID_END) {
+            revert InvalidMonsterRange();
+        }
+        if (_monsters[monsterId].strength == 0) {
+            revert MonsterDoesNotExist();
+        }
+        _;
     }
 
-    // Update functions to use new helper
-    function getMonster(uint32 monsterId) external view returns (MonsterStats memory) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function getMonster(uint32 monsterId) external view monsterExists(monsterId) returns (MonsterStats memory) {
         return _monsters[monsterId];
     }
 
-    function isMonsterRetired(uint32 monsterId) external view returns (bool) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function isMonsterRetired(uint32 monsterId) external view monsterExists(monsterId) returns (bool) {
         return _isRetired[monsterId];
     }
 
-    function isMonsterImmortal(uint32 monsterId) external view returns (bool) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function isMonsterImmortal(uint32 monsterId) external view monsterExists(monsterId) returns (bool) {
         return _isImmortal[monsterId];
     }
 
-    function incrementWins(uint32 monsterId) external hasPermission(GamePermission.RECORD) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function incrementWins(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
         _monsters[monsterId].wins++;
         emit MonsterWinLossUpdated(monsterId, _monsters[monsterId].wins, _monsters[monsterId].losses);
     }
 
-    function incrementLosses(uint32 monsterId) external hasPermission(GamePermission.RECORD) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function incrementLosses(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
         _monsters[monsterId].losses++;
         emit MonsterWinLossUpdated(monsterId, _monsters[monsterId].wins, _monsters[monsterId].losses);
     }
 
-    function incrementKills(uint32 monsterId) external hasPermission(GamePermission.RECORD) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function incrementKills(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
         _monsters[monsterId].kills++;
         emit MonsterKillsUpdated(monsterId, _monsters[monsterId].kills);
     }
 
-    function setMonsterRetired(uint32 monsterId, bool retired) external onlyOwner {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function setMonsterRetired(uint32 monsterId, bool retired) external onlyOwner monsterExists(monsterId) {
         _isRetired[monsterId] = retired;
         emit MonsterRetired(monsterId);
     }
 
-    function setMonsterImmortal(uint32 monsterId, bool immortal) external hasPermission(GamePermission.IMMORTAL) {
-        if (!_monsterExists(monsterId)) revert MonsterDoesNotExist();
+    function setMonsterImmortal(uint32 monsterId, bool immortal)
+        external
+        hasPermission(GamePermission.IMMORTAL)
+        monsterExists(monsterId)
+    {
         _isImmortal[monsterId] = immortal;
         emit MonsterImmortalStatusUpdated(monsterId, immortal);
     }

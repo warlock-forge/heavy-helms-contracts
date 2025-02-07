@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "solmate/src/auth/Owned.sol";
+import "./interfaces/IPlayerNameRegistry.sol";
 
 error MaxNamesReached();
 error MaxSetBNamesReached();
@@ -13,7 +14,7 @@ error EmptyBatch();
 error BatchTooLarge();
 error InvalidNameLength();
 
-contract PlayerNameRegistry is Owned {
+contract PlayerNameRegistry is IPlayerNameRegistry, Owned {
     string[] public nameSetA;
     string[] public nameSetB;
     string[] public surnames;

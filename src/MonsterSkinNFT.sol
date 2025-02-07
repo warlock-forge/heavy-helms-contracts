@@ -14,7 +14,7 @@ contract MonsterSkinNFT is ERC721, Owned {
         IGameDefinitions.FightingStance stance;
     }
 
-    uint16 private constant _MAX_SUPPLY = 1000;
+    uint16 private constant _MAX_SUPPLY = 8000;
     uint16 private _currentTokenId = 1;
 
     // Core mappings from DefaultPlayerSkinNFT

@@ -30,11 +30,11 @@ contract PracticeGame is BaseGame {
         p2Stats.skinTokenId = player2.skinTokenId;
 
         // Get skin attributes for both players
-        PlayerSkinRegistry.SkinInfo memory p1SkinInfo = playerContract.skinRegistry().getSkin(player1.skinIndex);
+        IPlayerSkinRegistry.SkinInfo memory p1SkinInfo = playerContract.skinRegistry().getSkin(player1.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory p1Attrs =
             IPlayerSkinNFT(p1SkinInfo.contractAddress).getSkinAttributes(player1.skinTokenId);
 
-        PlayerSkinRegistry.SkinInfo memory p2SkinInfo = playerContract.skinRegistry().getSkin(player2.skinIndex);
+        IPlayerSkinRegistry.SkinInfo memory p2SkinInfo = playerContract.skinRegistry().getSkin(player2.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory p2Attrs =
             IPlayerSkinNFT(p2SkinInfo.contractAddress).getSkinAttributes(player2.skinTokenId);
 

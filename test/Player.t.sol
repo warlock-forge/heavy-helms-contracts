@@ -310,7 +310,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
 
         // Try to equip the skin (should fail)
-        vm.expectRevert(abi.encodeWithSignature("PlayerDoesNotExist(uint32)", 1000));
+        vm.expectRevert(abi.encodeWithSignature("PlayerDoesNotExist(uint32)", 10001));
         playerContract.equipSkin(playerId, skinIndex, tokenId);
         vm.stopPrank();
 
@@ -607,7 +607,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, false); // Only check first three indexed params
-        emit PlayerCreationFulfilled(requestId, 1000, PLAYER_ONE, 0); // Added 0 as placeholder
+        emit PlayerCreationFulfilled(requestId, 10001, PLAYER_ONE, 0); // Added 0 as placeholder
         _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
     }
 
@@ -748,7 +748,7 @@ contract PlayerTest is TestBase {
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Try to set immortal for non-existent player
-        uint32 nonExistentPlayerId = 999;
+        uint32 nonExistentPlayerId = 10999;
         vm.expectRevert(abi.encodeWithSelector(PlayerDoesNotExist.selector, nonExistentPlayerId));
         playerContract.setPlayerImmortal(nonExistentPlayerId, true);
     }

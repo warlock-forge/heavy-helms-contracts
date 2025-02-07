@@ -8,11 +8,13 @@ import "solmate/src/auth/Owned.sol";
 import "solmate/src/tokens/ERC20.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
+import "./interfaces/IPlayerSkinRegistry.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
 /// @notice Thrown when registration fee is insufficient
+
 error InsufficientRegistrationFee();
 /// @notice Thrown when attempting to collect with zero balance
 error NoTokensToCollect();
@@ -33,23 +35,8 @@ error ZeroAddressNotAllowed();
 //==============================================================//
 /// @title Player Skin Registry for Heavy Helms
 /// @notice Manages registration and verification of player skin collections
-contract PlayerSkinRegistry is Owned {
+contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     using SafeTransferLib for ERC20;
-
-    //==============================================================//
-    //                     TYPE DECLARATIONS                        //
-    //==============================================================//
-    /// @notice Information about a registered skin collection
-    /// @param contractAddress Address of the skin NFT contract
-    /// @param isVerified Whether the collection is verified
-    /// @param isDefaultCollection Whether it's a default collection
-    /// @param requiredNFTAddress Optional NFT required to use skins
-    struct SkinInfo {
-        address contractAddress;
-        bool isVerified;
-        bool isDefaultCollection;
-        address requiredNFTAddress;
-    }
 
     //==============================================================//
     //                    STATE VARIABLES                           //

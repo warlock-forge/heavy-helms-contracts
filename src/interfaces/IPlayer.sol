@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../PlayerSkinRegistry.sol";
-import "../PlayerNameRegistry.sol";
+import "../interfaces/IPlayerSkinRegistry.sol";
+import "../interfaces/IPlayerNameRegistry.sol";
 
 /// @title Player Interface for Heavy Helms
 /// @notice Defines the core functionality for player management and game interactions
@@ -82,11 +82,11 @@ interface IPlayer {
     // View Functions
     /// @notice Gets the skin registry contract reference
     /// @return The PlayerSkinRegistry contract instance
-    function skinRegistry() external view returns (PlayerSkinRegistry);
+    function skinRegistry() external view returns (IPlayerSkinRegistry);
 
     /// @notice Gets the name registry contract reference
     /// @return The PlayerNameRegistry contract instance
-    function nameRegistry() external view returns (PlayerNameRegistry);
+    function nameRegistry() external view returns (IPlayerNameRegistry);
 
     /// @notice Gets all player IDs owned by an address
     /// @param owner The address to query

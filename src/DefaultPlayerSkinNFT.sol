@@ -10,7 +10,7 @@ import "solmate/src/auth/Owned.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
 
 contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
-    uint16 private constant _MAX_SUPPLY = 1000;
+    uint16 private constant _MAX_SUPPLY = 2000;
     uint16 private _currentTokenId = 1;
 
     mapping(uint256 => string) private _tokenCIDs;

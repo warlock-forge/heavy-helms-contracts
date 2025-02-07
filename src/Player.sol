@@ -10,11 +10,12 @@ import "solmate/src/utils/SafeTransferLib.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
 import "./lib/UniformRandomNumber.sol";
+import "./lib/GameHelpers.sol";
 import "./interfaces/IPlayer.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
-import "./PlayerSkinRegistry.sol";
-import "./PlayerNameRegistry.sol";
+import "./interfaces/IPlayerNameRegistry.sol";
+import "./interfaces/IPlayerSkinRegistry.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -53,6 +54,10 @@ error InsufficientCharges();
 error InvalidAttributeSwap();
 /// @notice Thrown when attempting to use an invalid name index
 error InvalidNameIndex();
+/// @notice Thrown when user doesn't own required NFT
+error RequiredNFTNotOwned(address nftAddress);
+/// @notice Thrown when attempting to use an invalid player ID range
+error InvalidPlayerRange();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -93,6 +98,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     uint8 public constant BASE_PLAYER_SLOTS = 5;
     /// @notice Maximum total player slots an address can have (base + purchased)
     uint8 private constant MAX_TOTAL_SLOTS = 200;
+    /// @notice Starting ID for user-created players (1-2000 reserved for default characters)
+    uint32 private constant USER_PLAYER_START = 10001;
+    /// @notice End ID for user-created players (no upper limit for user players)
+    uint32 private constant USER_PLAYER_END = type(uint32).max;
 
     // Configuration
     /// @notice Fee amount in ETH required to create a new player
@@ -104,13 +113,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
 
     // Contract References
     /// @notice Registry contract for managing player skin collections and metadata
-    PlayerSkinRegistry public skinRegistry;
+    IPlayerSkinRegistry public skinRegistry;
     /// @notice Registry contract for managing player name sets and validation
-    PlayerNameRegistry public nameRegistry;
+    IPlayerNameRegistry public nameRegistry;
 
     // Player state tracking
-    /// @notice Starting ID for user-created players (1-999 reserved for default characters)
-    uint32 private nextPlayerId = 1000;
+    /// @notice Starting ID for user-created players (1-2000 reserved for default characters)
+    uint32 private nextPlayerId = USER_PLAYER_START;
     /// @notice Maps player ID to their stats and attributes
     mapping(uint32 => IPlayer.PlayerStats) private _players;
     /// @notice Maps player ID to their owner's address
@@ -306,11 +315,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         _;
     }
 
-    /// @notice Ensures the specified player exists
+    /// @notice Ensures the specified player exists and is within valid user player range
     /// @param playerId The ID of the player to check
     /// @dev Reverts with PlayerDoesNotExist if the player ID is invalid
     modifier playerExists(uint32 playerId) {
-        if (_players[playerId].strength == 0) revert PlayerDoesNotExist(playerId);
+        if (playerId < USER_PLAYER_START || playerId > USER_PLAYER_END) {
+            revert InvalidPlayerRange();
+        }
+        if (_players[playerId].strength == 0) {
+            revert PlayerDoesNotExist(playerId);
+        }
         _;
     }
 
@@ -330,8 +344,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param operator Address of the Gelato VRF operator
     /// @dev Sets initial configuration values and connects to required registries
     constructor(address skinRegistryAddress, address nameRegistryAddress, address operator) Owned(msg.sender) {
-        skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
-        nameRegistry = PlayerNameRegistry(nameRegistryAddress);
+        skinRegistry = IPlayerSkinRegistry(payable(skinRegistryAddress));
+        nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
         _operatorAddress = operator;
     }
 
@@ -442,16 +456,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @return PlayerStats struct containing all player data
     /// @dev Handles both default characters (1-999) and user-created players (1000+)
     function getPlayer(uint32 playerId) external view returns (PlayerStats memory) {
-        // If it's a default character (1-999)
-        if (playerId < 1000) {
-            // Get default skin registry
+        GameHelpers.PlayerType playerType = GameHelpers.getPlayerType(playerId);
+
+        // Handle default players (1-2000)
+        if (playerType == GameHelpers.PlayerType.DefaultPlayer) {
             uint32 defaultSkinIndex = skinRegistry.defaultSkinRegistryId();
-            PlayerSkinRegistry.SkinInfo memory defaultSkinInfo = skinRegistry.getSkin(defaultSkinIndex);
+            IPlayerSkinRegistry.SkinInfo memory defaultSkinInfo = skinRegistry.getSkin(defaultSkinIndex);
 
             try IDefaultPlayerSkinNFT(defaultSkinInfo.contractAddress).getDefaultPlayerStats(playerId) returns (
                 PlayerStats memory stats
             ) {
-                // Set the skin information for default characters
                 stats.skinIndex = defaultSkinIndex;
                 stats.skinTokenId = uint16(playerId);
                 return stats;
@@ -460,7 +474,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             }
         }
 
-        // For user characters, check existence
+        // Reject monster IDs (2001-10000)
+        if (playerType == GameHelpers.PlayerType.Monster) {
+            revert PlayerDoesNotExist(playerId);
+        }
+
+        // Handle user players (10001+)
         if (_playerOwners[playerId] == address(0)) {
             revert PlayerDoesNotExist(playerId);
         }
@@ -590,7 +609,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         }
 
         // Get skin info from registry
-        PlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndex);
+        IPlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndex);
 
         // Case 1: Default collection - anyone can equip
         if (skinInfo.isDefaultCollection) {

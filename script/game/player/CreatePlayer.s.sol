@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../../../src/Player.sol";
-import {PlayerNameRegistry} from "../../../src/PlayerNameRegistry.sol";
+import {IPlayerNameRegistry} from "../../../src/interfaces/IPlayerNameRegistry.sol";
 import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
 
 contract CreatePlayerScript is Script {
@@ -48,7 +48,7 @@ contract CreatePlayerScript is Script {
 
             // Get and display player name
             (string memory firstName, string memory surname) =
-                PlayerNameRegistry(player.nameRegistry()).getFullName(stats.firstNameIndex, stats.surnameIndex);
+                IPlayerNameRegistry(player.nameRegistry()).getFullName(stats.firstNameIndex, stats.surnameIndex);
             console2.log("\nPlayer Name:", firstName, surname);
         }
 
