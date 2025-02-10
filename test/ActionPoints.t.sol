@@ -3,8 +3,6 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {GameEngine} from "../src/GameEngine.sol";
-import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
-import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
 import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
@@ -25,8 +23,8 @@ contract ActionPointsTest is TestBase {
 
     function test_FastVsSlow() public {
         // Create two players with different loadouts
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create loadouts using TestBase helpers
         IGameEngine.PlayerLoadout memory fastLoadout = IGameEngine.PlayerLoadout({
@@ -41,8 +39,8 @@ contract ActionPointsTest is TestBase {
         });
 
         // Get combat loadouts
-        IGameEngine.CombatLoadout memory fast = _convertToLoadout(fastLoadout);
-        IGameEngine.CombatLoadout memory slow = _convertToLoadout(slowLoadout);
+        IGameEngine.FighterStats memory fast = _convertToLoadout(fastLoadout);
+        IGameEngine.FighterStats memory slow = _convertToLoadout(slowLoadout);
 
         // Run combat simulation
         uint256 seed = _generateGameSeed();
@@ -61,8 +59,8 @@ contract ActionPointsTest is TestBase {
 
     function test_EqualSpeed() public {
         // Create two players
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create loadouts with same speed weapons
         IGameEngine.PlayerLoadout memory p1Loadout =
@@ -71,8 +69,8 @@ contract ActionPointsTest is TestBase {
             IGameEngine.PlayerLoadout({playerId: player2Id, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
 
         // Convert to combat loadouts
-        IGameEngine.CombatLoadout memory p1 = _convertToLoadout(p1Loadout);
-        IGameEngine.CombatLoadout memory p2 = _convertToLoadout(p2Loadout);
+        IGameEngine.FighterStats memory p1 = _convertToLoadout(p1Loadout);
+        IGameEngine.FighterStats memory p2 = _convertToLoadout(p2Loadout);
 
         bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed(), 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
@@ -84,8 +82,8 @@ contract ActionPointsTest is TestBase {
 
     function test_VerySlowWeapons() public {
         // Create two players
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create loadouts with different slow weapons
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
@@ -100,8 +98,8 @@ contract ActionPointsTest is TestBase {
         });
 
         // Convert to combat loadouts
-        IGameEngine.CombatLoadout memory p1 = _convertToLoadout(p1Loadout);
-        IGameEngine.CombatLoadout memory p2 = _convertToLoadout(p2Loadout);
+        IGameEngine.FighterStats memory p1 = _convertToLoadout(p1Loadout);
+        IGameEngine.FighterStats memory p2 = _convertToLoadout(p2Loadout);
 
         bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed(), 0);
         (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =

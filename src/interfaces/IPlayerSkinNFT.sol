@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./IGameDefinitions.sol";
-
 interface IPlayerSkinNFT {
     struct SkinAttributes {
-        IGameDefinitions.WeaponType weapon;
-        IGameDefinitions.ArmorType armor;
-        IGameDefinitions.FightingStance stance;
+        uint8 weapon;
+        uint8 armor;
+        uint8 stance;
     }
 
     error TokenDoesNotExist();
@@ -15,9 +13,9 @@ interface IPlayerSkinNFT {
     // Core minting function
     function mintSkin(
         address to,
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance
+        uint8 weapon,
+        uint8 armor,
+        uint8 stance
     ) external payable returns (uint16 tokenId);
 
     // Required view functions
@@ -29,8 +27,8 @@ interface IPlayerSkinNFT {
     event SkinMinted(
         address indexed to,
         uint16 indexed tokenId,
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance
+        uint8 weapon,
+        uint8 armor,
+        uint8 stance
     );
 }

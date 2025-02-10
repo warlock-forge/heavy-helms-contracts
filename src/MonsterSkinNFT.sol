@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./interfaces/IGameDefinitions.sol";
 import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "solmate/src/auth/Owned.sol";
@@ -9,9 +8,9 @@ import "solmate/src/auth/Owned.sol";
 contract MonsterSkinNFT is ERC721, Owned {
     // Add the struct definition from IPlayerSkinNFT
     struct SkinAttributes {
-        IGameDefinitions.WeaponType weapon;
-        IGameDefinitions.ArmorType armor;
-        IGameDefinitions.FightingStance stance;
+        uint8 weapon;
+        uint8 armor;
+        uint8 stance;
     }
 
     uint16 private constant _MAX_SUPPLY = 8000;
@@ -26,13 +25,7 @@ contract MonsterSkinNFT is ERC721, Owned {
 
     // Events
     event MonsterSkinMinted(uint16 indexed tokenId, uint8 tier);
-    event SkinMinted(
-        address indexed owner,
-        uint16 indexed tokenId,
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance
-    );
+    event SkinMinted(address indexed owner, uint16 indexed tokenId, uint8 weapon, uint8 armor, uint8 stance);
     event MonsterTierUpdated(uint16 indexed tokenId, uint8 newTier);
 
     // Errors
@@ -44,9 +37,9 @@ contract MonsterSkinNFT is ERC721, Owned {
     constructor() ERC721("Heavy Helms Monster Skins", "HHMON") Owned(msg.sender) {}
 
     function mintMonsterSkin(
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance,
+        uint8 weapon,
+        uint8 armor,
+        uint8 stance,
         uint8 tier,
         string memory ipfsCID,
         uint16 desiredTokenId

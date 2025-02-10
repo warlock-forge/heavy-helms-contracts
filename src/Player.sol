@@ -10,7 +10,6 @@ import "solmate/src/utils/SafeTransferLib.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
 import "./lib/UniformRandomNumber.sol";
-import "./lib/GameHelpers.sol";
 import "./interfaces/IPlayer.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
@@ -58,6 +57,8 @@ error InvalidNameIndex();
 error RequiredNFTNotOwned(address nftAddress);
 /// @notice Thrown when attempting to use an invalid player ID range
 error InvalidPlayerRange();
+/// @notice Thrown when attempting to use an invalid skin type
+error InvalidSkinType();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -319,9 +320,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param playerId The ID of the player to check
     /// @dev Reverts with PlayerDoesNotExist if the player ID is invalid
     modifier playerExists(uint32 playerId) {
+        // First check if ID is in valid range for this contract
         if (playerId < USER_PLAYER_START || playerId > USER_PLAYER_END) {
             revert InvalidPlayerRange();
         }
+        // Then check if player exists
         if (_players[playerId].strength == 0) {
             revert PlayerDoesNotExist(playerId);
         }
@@ -455,35 +458,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param playerId The ID of the player to query
     /// @return PlayerStats struct containing all player data
     /// @dev Handles both default characters (1-999) and user-created players (1000+)
-    function getPlayer(uint32 playerId) external view returns (PlayerStats memory) {
-        GameHelpers.PlayerType playerType = GameHelpers.getPlayerType(playerId);
-
-        // Handle default players (1-2000)
-        if (playerType == GameHelpers.PlayerType.DefaultPlayer) {
-            uint32 defaultSkinIndex = skinRegistry.defaultSkinRegistryId();
-            IPlayerSkinRegistry.SkinInfo memory defaultSkinInfo = skinRegistry.getSkin(defaultSkinIndex);
-
-            try IDefaultPlayerSkinNFT(defaultSkinInfo.contractAddress).getDefaultPlayerStats(playerId) returns (
-                PlayerStats memory stats
-            ) {
-                stats.skinIndex = defaultSkinIndex;
-                stats.skinTokenId = uint16(playerId);
-                return stats;
-            } catch {
-                revert PlayerDoesNotExist(playerId);
-            }
-        }
-
-        // Reject monster IDs (2001-10000)
-        if (playerType == GameHelpers.PlayerType.Monster) {
-            revert PlayerDoesNotExist(playerId);
-        }
-
-        // Handle user players (10001+)
-        if (_playerOwners[playerId] == address(0)) {
-            revert PlayerDoesNotExist(playerId);
-        }
-
+    function getPlayer(uint32 playerId) external view playerExists(playerId) returns (PlayerStats memory) {
         return _players[playerId];
     }
 
@@ -608,34 +583,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
             revert PlayerIsRetired(playerId);
         }
 
-        // Get skin info from registry
-        IPlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndex);
-
-        // Case 1: Default collection - anyone can equip
-        if (skinInfo.isDefaultCollection) {
-            // Allow equip
-        }
-        // Case 2: Collection with required NFT - just check they own the required NFT
-        else if (skinInfo.requiredNFTAddress != address(0)) {
-            if (!_checkCollectionOwnership(msg.sender, skinInfo.requiredNFTAddress)) {
-                revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
-            }
-        }
-        // Case 3: Regular collection - check specific token ownership
-        else {
-            // Check if player owns the specific skin NFT
-            IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinInfo.contractAddress);
-            bool ownsSpecificNFT = false;
-            try skinContract.ownerOf(skinTokenId) returns (address owner) {
-                ownsSpecificNFT = (owner == msg.sender);
-            } catch {
-                revert InvalidTokenId(skinTokenId);
-            }
-
-            if (!ownsSpecificNFT) {
-                revert NotSkinOwner();
-            }
-        }
+        // Validate skin ownership through registry
+        skinRegistry.validateSkinOwnership(skinIndex, skinTokenId, msg.sender);
 
         // Update player's skin
         _players[playerId].skinIndex = skinIndex;
@@ -682,20 +631,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
 
         // Validate name indices
-        if (firstNameIndex < nameRegistry.SET_A_START()) {
-            // Set B name (0-999)
-            if (firstNameIndex >= nameRegistry.getNameSetBLength()) {
-                revert InvalidNameIndex();
-            }
-        } else {
-            // Set A name (1000+)
-            uint16 setAIndex = firstNameIndex - nameRegistry.SET_A_START();
-            if (setAIndex >= nameRegistry.getNameSetALength()) {
-                revert InvalidNameIndex();
-            }
-        }
-
-        if (surnameIndex >= nameRegistry.getSurnamesLength()) {
+        if (!nameRegistry.isValidFirstNameIndex(firstNameIndex) || surnameIndex >= nameRegistry.getSurnamesLength()) {
             revert InvalidNameIndex();
         }
 

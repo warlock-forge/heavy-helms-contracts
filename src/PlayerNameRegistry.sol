@@ -663,4 +663,16 @@ contract PlayerNameRegistry is IPlayerNameRegistry, Owned {
     function getSurnamesLength() external view returns (uint16) {
         return uint16(surnames.length);
     }
+
+    function isValidFirstNameIndex(uint256 index) external view returns (bool) {
+        // Check Set B (0-999)
+        if (index <= SET_B_MAX) {
+            return index < nameSetB.length;
+        }
+        // Check Set A (1000+)
+        if (index >= SET_A_START) {
+            return index < SET_A_START + nameSetA.length;
+        }
+        return false;
+    }
 }

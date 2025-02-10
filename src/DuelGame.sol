@@ -9,6 +9,7 @@ import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./lib/UniformRandomNumber.sol";
+import "./lib/GameHelpers.sol";
 
 contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
@@ -324,21 +325,36 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         IPlayerSkinNFT.SkinAttributes memory defenderAttrs =
             IPlayerSkinNFT(defenderSkinInfo.contractAddress).getSkinAttributes(challenge.defenderLoadout.skinTokenId);
 
-        // Create CombatLoadouts
-        IGameEngine.CombatLoadout memory challengerCombat = IGameEngine.CombatLoadout({
+        // Create FighterStats
+        IGameEngine.FighterStats memory challengerCombat = IGameEngine.FighterStats({
             playerId: challenge.challengerId,
             weapon: challengerAttrs.weapon,
             armor: challengerAttrs.armor,
             stance: challengerAttrs.stance,
-            stats: challengerStats
+            attributes: GameHelpers.Attributes(
+                challengerStats.strength,
+                challengerStats.constitution,
+                challengerStats.size,
+                challengerStats.agility,
+                challengerStats.stamina,
+                challengerStats.luck
+            )
         });
 
-        IGameEngine.CombatLoadout memory defenderCombat = IGameEngine.CombatLoadout({
+        // Create FighterStats
+        IGameEngine.FighterStats memory defenderCombat = IGameEngine.FighterStats({
             playerId: challenge.defenderId,
             weapon: defenderAttrs.weapon,
             armor: defenderAttrs.armor,
             stance: defenderAttrs.stance,
-            stats: defenderStats
+            attributes: GameHelpers.Attributes(
+                defenderStats.strength,
+                defenderStats.constitution,
+                defenderStats.size,
+                defenderStats.agility,
+                defenderStats.stamina,
+                defenderStats.luck
+            )
         });
 
         // Execute the duel with the random seed

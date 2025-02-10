@@ -4,9 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {DefaultPlayerSkinNFT} from "../../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../../src/lib/DefaultPlayerLibrary.sol";
-import {PlayerSkinRegistry} from "../../../src/PlayerSkinRegistry.sol";
-import {IGameDefinitions} from "../../../src/interfaces/IGameDefinitions.sol";
-import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
+import {IDefaultPlayer} from "../../../src/interfaces/IDefaultPlayer.sol";
 
 contract MintDefaultSkinScript is Script {
     function setUp() public {}
@@ -30,13 +28,8 @@ contract MintDefaultSkinScript is Script {
         uint16 tokenId = defaultSkin.CURRENT_TOKEN_ID();
 
         // Get the character data - replace getBalancedWarrior with your desired character type
-        (
-            IGameDefinitions.WeaponType weapon,
-            IGameDefinitions.ArmorType armor,
-            IGameDefinitions.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, tokenId);
+        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
+        = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, tokenId);
 
         // Mint the new skin
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, tokenId);

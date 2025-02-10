@@ -2,10 +2,14 @@
 pragma solidity ^0.8.13;
 
 import "./interfaces/IMonster.sol";
-import "./PlayerSkinRegistry.sol";
+import "./interfaces/IPlayerSkinRegistry.sol";
+import "./interfaces/IPlayerNameRegistry.sol";
 import "solmate/src/auth/Owned.sol";
 
 contract Monster is IMonster, Owned {
+    IPlayerSkinRegistry public immutable skinRegistry;
+    IPlayerNameRegistry public immutable nameRegistry;
+
     // Constants for ID range
     uint32 private constant MONSTER_ID_START = 2001;
     uint32 private constant MONSTER_ID_END = 10000;
@@ -16,13 +20,11 @@ contract Monster is IMonster, Owned {
     mapping(uint32 => bool) private _isRetired;
     mapping(uint32 => bool) private _isImmortal;
 
-    // Reference to skin registry
-    PlayerSkinRegistry public immutable skinRegistry;
-
     // Errors
     error InvalidMonsterRange();
     error MonsterDoesNotExist();
     error UnauthorizedCaller();
+    error BadZeroAddress();
 
     // Maps game contract address to their granted permissions
     mapping(address => GamePermissions) private _gameContractPermissions;
@@ -60,8 +62,12 @@ contract Monster is IMonster, Owned {
     event MonsterKillsUpdated(uint32 indexed monsterId, uint16 kills);
     event MonsterImmortalStatusUpdated(uint32 indexed monsterId, bool immortal);
 
-    constructor(address _skinRegistry) Owned(msg.sender) {
-        skinRegistry = PlayerSkinRegistry(payable(_skinRegistry));
+    constructor(address skinRegistryAddress, address nameRegistryAddress) Owned(msg.sender) {
+        if (skinRegistryAddress == address(0) || nameRegistryAddress == address(0)) {
+            revert BadZeroAddress();
+        }
+        skinRegistry = IPlayerSkinRegistry(skinRegistryAddress);
+        nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
     }
 
     function createMonster(MonsterStats memory stats) external onlyOwner returns (uint32) {

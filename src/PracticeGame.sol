@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "./BaseGame.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
+import "./lib/GameHelpers.sol";
 
 contract PracticeGame is BaseGame {
     constructor(address _gameEngine, address _playerContract) BaseGame(_gameEngine, _playerContract) {}
@@ -39,20 +40,24 @@ contract PracticeGame is BaseGame {
             IPlayerSkinNFT(p2SkinInfo.contractAddress).getSkinAttributes(player2.skinTokenId);
 
         // Create combat loadouts
-        IGameEngine.CombatLoadout memory p1Combat = IGameEngine.CombatLoadout({
+        IGameEngine.FighterStats memory p1Combat = IGameEngine.FighterStats({
             playerId: player1.playerId,
             weapon: p1Attrs.weapon,
             armor: p1Attrs.armor,
             stance: p1Attrs.stance,
-            stats: p1Stats
+            attributes: GameHelpers.Attributes(
+                p1Stats.strength, p1Stats.constitution, p1Stats.size, p1Stats.agility, p1Stats.stamina, p1Stats.luck
+            )
         });
 
-        IGameEngine.CombatLoadout memory p2Combat = IGameEngine.CombatLoadout({
+        IGameEngine.FighterStats memory p2Combat = IGameEngine.FighterStats({
             playerId: player2.playerId,
             weapon: p2Attrs.weapon,
             armor: p2Attrs.armor,
             stance: p2Attrs.stance,
-            stats: p2Stats
+            attributes: GameHelpers.Attributes(
+                p2Stats.strength, p2Stats.constitution, p2Stats.size, p2Stats.agility, p2Stats.stamina, p2Stats.luck
+            )
         });
 
         uint256 pseudoRandomSeed = _generatePseudoRandomSeed(uint32(player1.playerId), uint32(player2.playerId));

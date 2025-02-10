@@ -9,6 +9,7 @@ import "solmate/src/tokens/ERC20.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "./interfaces/IPlayerSkinRegistry.sol";
+import "./interfaces/IPlayerSkinNFT.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -25,9 +26,11 @@ error SkinRegistryDoesNotExist();
 /// @notice Thrown when user doesn't own required NFT
 error RequiredNFTNotOwned(address nftAddress);
 /// @notice Thrown when user doesn't own specific skin
-error SkinNotOwned(address skinContract);
+error SkinNotOwned(address skinContract, uint16 tokenId);
 /// @notice Thrown when attempting to set zero address for contract/NFT
 error ZeroAddressNotAllowed();
+/// @notice Thrown when attempting to validate a skin of an invalid type
+error InvalidSkinType();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -45,8 +48,6 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     SkinInfo[] public skins;
     /// @notice Fee required to register a new skin collection
     uint256 public registrationFee = 0.005 ether;
-    /// @notice Registry ID of the default skin collection
-    uint32 public defaultSkinRegistryId;
     /// @notice Next available registry ID for skin collections
     uint32 public nextSkinRegistryId;
 
@@ -55,8 +56,6 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     //==============================================================//
     /// @notice Emitted when a new skin collection is registered
     event SkinRegistered(uint32 indexed registryId, address indexed skinContract);
-    /// @notice Emitted when default skin registry is updated
-    event DefaultSkinRegistrySet(uint32 indexed registryId);
     /// @notice Emitted when registration fee is updated
     event RegistrationFeeUpdated(uint256 newFee);
     /// @notice Emitted when tokens are collected
@@ -65,8 +64,8 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     event SkinVerificationUpdated(uint32 indexed registryId, bool isVerified);
     /// @notice Emitted when required NFT is updated
     event RequiredNFTUpdated(uint32 indexed registryId, address requiredNFTAddress);
-    /// @notice Emitted when default collection status changes
-    event DefaultCollectionUpdated(uint32 indexed registryId, bool isDefault);
+    /// @notice Emitted when skin type is updated
+    event SkinTypeUpdated(uint32 indexed registryId, SkinType skinType);
 
     //==============================================================//
     //                       CONSTRUCTOR                            //
@@ -87,8 +86,15 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
             if (msg.value < registrationFee) revert InsufficientRegistrationFee();
         }
 
-        // Register the skin (unverified by default, not default collection)
-        skins.push(SkinInfo(contractAddress, false, false, address(0)));
+        // Register the skin (unverified by default, Player type by default)
+        skins.push(
+            SkinInfo({
+                contractAddress: contractAddress,
+                isVerified: false,
+                skinType: SkinType.Player,
+                requiredNFTAddress: address(0)
+            })
+        );
         uint32 registryId = nextSkinRegistryId++;
 
         emit SkinRegistered(registryId, contractAddress);
@@ -108,31 +114,33 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     /// @param tokenId Token ID of the specific skin
     /// @param owner Address to check ownership for
     function validateSkinOwnership(uint32 skinIndex, uint16 tokenId, address owner) external view {
-        if (skinIndex >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        if (skinIndex >= skins.length) {
+            revert SkinRegistryDoesNotExist();
+        }
+
         SkinInfo memory skinInfo = skins[skinIndex];
 
-        // Skip validation for default collections
-        if (skinInfo.isDefaultCollection) {
+        // Case 1: Default player skin - anyone can equip
+        if (skinInfo.skinType == SkinType.DefaultPlayer) {
             return;
         }
 
-        // If there's a required NFT, ONLY check that they own the required NFT
+        // Case 2: Monster skin - never allowed
+        if (skinInfo.skinType == SkinType.Monster) {
+            revert InvalidSkinType();
+        }
+
+        // Case 3: Collection with required NFT
         if (skinInfo.requiredNFTAddress != address(0)) {
-            try ERC721(skinInfo.requiredNFTAddress).balanceOf(owner) returns (uint256 balance) {
-                if (balance == 0) {
-                    revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
-                }
-            } catch {
+            if (ERC721(skinInfo.requiredNFTAddress).balanceOf(owner) == 0) {
                 revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
             }
-        } else {
-            // Only check specific token ownership if there's no required NFT
-            try ERC721(skinInfo.contractAddress).ownerOf(tokenId) returns (address skinOwner) {
-                if (skinOwner != owner) {
-                    revert SkinNotOwned(skinInfo.contractAddress);
-                }
-            } catch {
-                revert SkinNotOwned(skinInfo.contractAddress);
+        }
+        // Case 4: Regular collection - check specific token ownership
+        else {
+            IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinInfo.contractAddress);
+            if (skinContract.ownerOf(tokenId) != owner) {
+                revert SkinNotOwned(skinInfo.contractAddress, tokenId);
             }
         }
     }
@@ -201,28 +209,22 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
         emit RequiredNFTUpdated(registryId, requiredNFTAddress);
     }
 
-    /// @notice Updates default collection status
-    /// @param registryId Registry ID to update
-    /// @param isDefault New default collection status
-    function setDefaultCollection(uint32 registryId, bool isDefault) external onlyOwner {
-        if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
-        skins[registryId].isDefaultCollection = isDefault;
-        emit DefaultCollectionUpdated(registryId, isDefault);
-    }
-
-    /// @notice Sets the default skin collection
-    /// @param _id Registry ID to set as default
-    function setDefaultSkinRegistryId(uint32 _id) external onlyOwner {
-        if (_id >= nextSkinRegistryId) revert InvalidDefaultSkinRegistry();
-        defaultSkinRegistryId = _id;
-        emit DefaultSkinRegistrySet(_id);
-    }
-
     /// @notice Updates the registration fee
     /// @param newFee New fee amount in wei
     function setRegistrationFee(uint256 newFee) external onlyOwner {
         registrationFee = newFee;
         emit RegistrationFeeUpdated(newFee);
+    }
+
+    /// @notice Updates the skin type of a skin collection
+    /// @param registryId Registry ID to update
+    /// @param skinType New skin type
+    function setSkinType(uint32 registryId, SkinType skinType) external onlyOwner {
+        if (registryId >= skins.length) {
+            revert SkinRegistryDoesNotExist();
+        }
+        skins[registryId].skinType = skinType;
+        emit SkinTypeUpdated(registryId, skinType);
     }
 
     /// @notice Allows contract to receive ETH

@@ -4,16 +4,27 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {GelatoVRFConsumerBase} from "../../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+
+// Interfaces
 import {IPlayer} from "../../src/interfaces/IPlayer.sol";
+import {IDefaultPlayer} from "../../src/interfaces/IDefaultPlayer.sol";
+import {IMonster} from "../../src/interfaces/IMonster.sol";
+import {IGameEngine} from "../../src/interfaces/IGameEngine.sol";
+import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
+import {IPlayerSkinRegistry} from "../../src/interfaces/IPlayerSkinRegistry.sol";
+
+// Concrete implementations (needed for deployment)
 import {Player} from "../../src/Player.sol";
-import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
-import {IGameDefinitions} from "../../src/interfaces/IGameDefinitions.sol";
+import {DefaultPlayer} from "../../src/DefaultPlayer.sol";
+import {Monster} from "../../src/Monster.sol";
+import {GameEngine} from "../../src/GameEngine.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
-import {IGameEngine} from "../../src/interfaces/IGameEngine.sol";
-import {GameEngine} from "../../src/GameEngine.sol";
 import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
-import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
+
+// Libraries
+import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
+import {GameHelpers} from "../../src/lib/GameHelpers.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
@@ -21,6 +32,8 @@ abstract contract TestBase is Test {
     uint256 private constant VRF_ROUND = 335;
     address public operator;
     Player public playerContract;
+    DefaultPlayer public defaultPlayerContract;
+    Monster public monsterContract;
 
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
@@ -56,8 +69,7 @@ abstract contract TestBase is Test {
         // Register and configure default skin
         skinIndex = _registerSkin(address(defaultSkin));
         skinRegistry.setSkinVerification(skinIndex, true);
-        skinRegistry.setDefaultSkinRegistryId(skinIndex);
-        skinRegistry.setDefaultCollection(skinIndex, true);
+        skinRegistry.setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
 
         _mintDefaultCharacters();
 
@@ -66,8 +78,10 @@ abstract contract TestBase is Test {
 
         gameEngine = new GameEngine();
 
-        // Create the player contract with all required dependencies
+        // Create the player contracts with all required dependencies
         playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
+        defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));
+        monsterContract = new Monster(address(skinRegistry), address(nameRegistry));
 
         // Set up the test environment with a proper timestamp
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
@@ -107,19 +121,18 @@ abstract contract TestBase is Test {
 
         // Call fulfillRandomness as operator
         vm.prank(operator);
-        GelatoVRFConsumerBase(vrfConsumer).fulfillRandomness(
-            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, operator, VRF_ROUND))), dataWithRound
-        );
+        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
     }
 
     // Helper to create a player request, stopping before VRF fulfillment.
     // This is useful for testing VRF fulfillment mechanics separately,
     // such as testing operator permissions or invalid round IDs.
-    function _createPlayerRequest(address owner, Player contractInstance, bool useSetB) internal returns (uint256) {
+    function _createPlayerRequest(address owner, IPlayer contractInstance, bool useSetB) internal returns (uint256) {
         vm.deal(owner, contractInstance.createPlayerFeeAmount());
         vm.startPrank(owner);
-        uint256 requestId =
-            contractInstance.requestCreatePlayer{value: contractInstance.createPlayerFeeAmount()}(useSetB);
+        uint256 requestId = Player(address(contractInstance)).requestCreatePlayer{
+            value: Player(address(contractInstance)).createPlayerFeeAmount()
+        }(useSetB);
         vm.stopPrank();
         return requestId;
     }
@@ -161,20 +174,29 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to create a player loadout that supports both practice and duel game test cases
-    function _createLoadout(uint32 playerId, bool usePlayerIdAsTokenId, bool usePlayerStats, Player playerContractRef)
-        internal
-        view
-        returns (IGameEngine.PlayerLoadout memory)
-    {
+    function _createLoadout(uint32 fighterId) internal view returns (IGameEngine.PlayerLoadout memory) {
         uint32 loadoutSkinIndex = skinIndex; // Default to test's skinIndex
-        uint16 tokenId = usePlayerIdAsTokenId ? uint16(playerId) : 1;
+        uint16 tokenId = 1; // Default token ID
 
-        if (usePlayerStats) {
-            IPlayer.PlayerStats memory stats = playerContractRef.getPlayer(playerId);
+        GameHelpers.PlayerType fighterType = GameHelpers.getPlayerType(fighterId);
+
+        // Get skin index based on fighter type
+        if (fighterType == GameHelpers.PlayerType.DefaultPlayer) {
+            IDefaultPlayer.DefaultPlayerStats memory stats = defaultPlayerContract.getDefaultPlayer(fighterId);
             loadoutSkinIndex = stats.skinIndex;
+            tokenId = stats.skinTokenId;
+        } else if (fighterType == GameHelpers.PlayerType.Monster) {
+            IMonster.MonsterStats memory stats = monsterContract.getMonster(fighterId);
+            loadoutSkinIndex = stats.skinIndex;
+            tokenId = stats.skinTokenId;
+        } else {
+            // PlayerCharacter
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(fighterId);
+            loadoutSkinIndex = stats.skinIndex;
+            tokenId = stats.skinTokenId;
         }
 
-        return IGameEngine.PlayerLoadout({playerId: playerId, skinIndex: loadoutSkinIndex, skinTokenId: tokenId});
+        return IGameEngine.PlayerLoadout({playerId: fighterId, skinIndex: loadoutSkinIndex, skinTokenId: tokenId});
     }
 
     // Helper function to validate combat results
@@ -384,26 +406,61 @@ abstract contract TestBase is Test {
         assertTrue(foundEvent, "VRF request event not found");
     }
 
-    // Helper function to convert PlayerLoadout to CombatLoadout
+    // Helper function to convert PlayerLoadout to FighterStats
     function _convertToLoadout(IGameEngine.PlayerLoadout memory playerLoadout)
         internal
         view
-        returns (IGameEngine.CombatLoadout memory)
+        returns (IGameEngine.FighterStats memory)
     {
         // Get skin info and attributes
         PlayerSkinRegistry.SkinInfo memory skinInfo = playerContract.skinRegistry().getSkin(playerLoadout.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory attrs =
             IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(playerLoadout.skinTokenId);
 
-        // Get player stats
-        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerLoadout.playerId);
+        // Get base stats based on fighter type
+        uint8 strength;
+        uint8 constitution;
+        uint8 size;
+        uint8 agility;
+        uint8 stamina;
+        uint8 luck;
 
-        return IGameEngine.CombatLoadout({
+        GameHelpers.PlayerType fighterType = GameHelpers.getPlayerType(playerLoadout.playerId);
+
+        if (fighterType == GameHelpers.PlayerType.DefaultPlayer) {
+            IDefaultPlayer.DefaultPlayerStats memory stats =
+                defaultPlayerContract.getDefaultPlayer(playerLoadout.playerId);
+            strength = stats.strength;
+            constitution = stats.constitution;
+            size = stats.size;
+            agility = stats.agility;
+            stamina = stats.stamina;
+            luck = stats.luck;
+        } else if (fighterType == GameHelpers.PlayerType.Monster) {
+            IMonster.MonsterStats memory stats = monsterContract.getMonster(playerLoadout.playerId);
+            strength = stats.strength;
+            constitution = stats.constitution;
+            size = stats.size;
+            agility = stats.agility;
+            stamina = stats.stamina;
+            luck = stats.luck;
+        } else {
+            // PlayerCharacter
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerLoadout.playerId);
+            strength = stats.strength;
+            constitution = stats.constitution;
+            size = stats.size;
+            agility = stats.agility;
+            stamina = stats.stamina;
+            luck = stats.luck;
+        }
+
+        return IGameEngine.FighterStats({
             playerId: playerLoadout.playerId,
             weapon: attrs.weapon,
             armor: attrs.armor,
             stance: attrs.stance,
-            stats: stats
+            attributes: GameHelpers.Attributes(strength, constitution, size, agility, stamina, luck)
         });
     }
 
@@ -411,7 +468,7 @@ abstract contract TestBase is Test {
     /// @param owner Address to purchase slots for
     /// @param desiredSlots Total number of slots needed
     /// @param contractInstance Player contract instance
-    function _ensurePlayerSlots(address owner, uint256 desiredSlots, Player contractInstance) internal {
+    function _ensurePlayerSlots(address owner, uint256 desiredSlots, IPlayer contractInstance) internal {
         require(desiredSlots <= 200, "Cannot exceed MAX_TOTAL_SLOTS");
 
         uint256 currentSlots = contractInstance.getPlayerSlots(owner);
@@ -438,13 +495,8 @@ abstract contract TestBase is Test {
     /// @dev This creates a standard set of characters with different fighting styles
     function _mintDefaultCharacters() internal {
         // Mint default skin token ID 1
-        (
-            IGameDefinitions.WeaponType weapon,
-            IGameDefinitions.ArmorType armor,
-            IGameDefinitions.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
+        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
+        = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
         // Create offensive characters
         (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
@@ -483,7 +535,9 @@ abstract contract TestBase is Test {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        uint256 requestId = playerContract.requestCreatePlayer{
+            value: playerContract.createPlayerFeeAmount()
+        }(useSetB);
         vm.stopPrank();
 
         vm.expectRevert(bytes(expectedError));
@@ -499,7 +553,9 @@ abstract contract TestBase is Test {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        uint256 requestId = playerContract.requestCreatePlayer{
+            value: playerContract.createPlayerFeeAmount()
+        }(useSetB);
         vm.stopPrank();
 
         bytes memory extraData = "";
@@ -508,11 +564,39 @@ abstract contract TestBase is Test {
 
         vm.expectRevert(bytes(expectedError));
         vm.prank(operator);
-        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
+        playerContract.fulfillRandomness(
+            uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound
+        );
     }
 
     // Helper function for VRF fulfillment
     function _fulfillVRF(uint256 requestId, uint256 randomSeed) internal {
         _fulfillVRF(requestId, randomSeed, address(playerContract));
+    }
+
+    function getWeaponName(uint8 weapon) internal view returns (string memory) {
+        if (weapon == gameEngine.WEAPON_SWORD_AND_SHIELD()) return "SwordAndShield";
+        if (weapon == gameEngine.WEAPON_MACE_AND_SHIELD()) return "MaceAndShield";
+        if (weapon == gameEngine.WEAPON_RAPIER_AND_SHIELD()) return "RapierAndShield";
+        if (weapon == gameEngine.WEAPON_GREATSWORD()) return "Greatsword";
+        if (weapon == gameEngine.WEAPON_BATTLEAXE()) return "Battleaxe";
+        if (weapon == gameEngine.WEAPON_QUARTERSTAFF()) return "Quarterstaff";
+        if (weapon == gameEngine.WEAPON_SPEAR()) return "Spear";
+        return "Unknown";
+    }
+
+    function getArmorName(uint8 armor) internal view returns (string memory) {
+        if (armor == gameEngine.ARMOR_CLOTH()) return "Cloth";
+        if (armor == gameEngine.ARMOR_LEATHER()) return "Leather";
+        if (armor == gameEngine.ARMOR_CHAIN()) return "Chain";
+        if (armor == gameEngine.ARMOR_PLATE()) return "Plate";
+        return "Unknown";
+    }
+
+    function getStanceName(uint8 stance) internal view returns (string memory) {
+        if (stance == gameEngine.STANCE_DEFENSIVE()) return "Defensive";
+        if (stance == gameEngine.STANCE_BALANCED()) return "Balanced";
+        if (stance == gameEngine.STANCE_OFFENSIVE()) return "Offensive";
+        return "Unknown";
     }
 }

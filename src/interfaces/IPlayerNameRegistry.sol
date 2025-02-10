@@ -10,4 +10,8 @@ interface IPlayerNameRegistry {
         external
         view
         returns (string memory firstName, string memory surname);
+    /// @notice Check if a first name index is valid (exists in either Set A or Set B)
+    /// @param index The index to check
+    /// @return bool True if the index is valid
+    function isValidFirstNameIndex(uint256 index) external view returns (bool);
 }

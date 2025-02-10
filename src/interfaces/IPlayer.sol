@@ -129,6 +129,26 @@ interface IPlayer {
     /// @return The permissions granted to the contract
     function gameContractPermissions(address gameContract) external view returns (GamePermissions memory);
 
+    /// @notice Get the number of player slots an address has
+    /// @param owner The address to check slots for
+    /// @return The number of player slots the address has
+    function getPlayerSlots(address owner) external view returns (uint256);
+
+    /// @notice Calculate the cost for the next slot batch purchase for an address
+    /// @param user The address to calculate the cost for
+    /// @return Cost in ETH for the next slot batch purchase
+    function getNextSlotBatchCost(address user) external view returns (uint256);
+
+    /// @notice Gets the number of active players for an address
+    /// @param owner The address to check
+    /// @return Number of active players
+    function getActivePlayerCount(address owner) external view returns (uint256);
+
+    /// @notice Check if a player is immortal
+    /// @param playerId The ID of the player to check
+    /// @return True if the player is immortal, false otherwise
+    function isPlayerImmortal(uint32 playerId) external view returns (bool);
+
     // Pure Functions
     /// @notice Encodes player data into a compact bytes32 format
     /// @param playerId The ID of the player to encode
@@ -205,4 +225,14 @@ interface IPlayer {
     /// @param owner The address to check
     /// @return Number of attribute swap charges available
     function attributeSwapCharges(address owner) external view returns (uint256);
+
+    /// @notice Purchase additional player slots
+    /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
+    /// @return Number of slots purchased
+    function purchasePlayerSlots() external payable returns (uint8);
+
+    /// @notice Set a player's immortality status
+    /// @param playerId The ID of the player to update
+    /// @param isImmortal The new immortality status
+    function setPlayerImmortal(uint32 playerId, bool isImmortal) external;
 }

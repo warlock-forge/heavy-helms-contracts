@@ -2,23 +2,29 @@
 pragma solidity ^0.8.13;
 
 interface IPlayerSkinRegistry {
+    enum SkinType {
+        Player, // Regular player skins that need ownership
+        DefaultPlayer, // Default skins anyone can use
+        Monster // Monster-only skins
+
+    }
+
     //==============================================================//
     //                     TYPE DECLARATIONS                        //
     //==============================================================//
     /// @notice Information about a registered skin collection
     /// @param contractAddress Address of the skin NFT contract
     /// @param isVerified Whether the collection is verified
-    /// @param isDefaultCollection Whether it's a default collection
+    /// @param skinType Type of the skin
     /// @param requiredNFTAddress Optional NFT required to use skins
     struct SkinInfo {
         address contractAddress;
         bool isVerified;
-        bool isDefaultCollection;
-        address requiredNFTAddress;
+        SkinType skinType;
+        address requiredNFTAddress; // For collections requiring NFT ownership
     }
 
     function getSkin(uint32 index) external view returns (SkinInfo memory);
     function validateSkinOwnership(uint32 skinIndex, uint16 tokenId, address owner) external view;
     function getVerifiedSkins() external view returns (SkinInfo[] memory);
-    function defaultSkinRegistryId() external view returns (uint32);
 }

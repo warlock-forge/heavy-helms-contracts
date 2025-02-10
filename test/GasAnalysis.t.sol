@@ -24,13 +24,13 @@ contract GasAnalysisTest is TestBase {
         // Set permissions
         IPlayer.GamePermissions memory perms =
             IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
-        Player(address(playerContract)).setGameContractPermission(address(game), perms);
+        playerContract.setGameContractPermission(address(game), perms);
 
         // Setup test addresses and players
         PLAYER_ONE = address(0xdF);
         PLAYER_TWO = address(0xeF);
-        PLAYER_ONE_ID = _createPlayerAndFulfillVRF(PLAYER_ONE, Player(address(playerContract)), false);
-        PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, Player(address(playerContract)), false);
+        PLAYER_ONE_ID = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
 
         vm.deal(PLAYER_ONE, 100 ether);
         vm.deal(PLAYER_TWO, 100 ether);
@@ -73,9 +73,5 @@ contract GasAnalysisTest is TestBase {
         uint256 averageGas = totalGas / gasCosts.length;
 
         console2.log("\nAverage gas used across", gasCosts.length, "fights:", averageGas);
-    }
-
-    function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
-        return _createLoadout(playerId, false, true, Player(address(playerContract)));
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "./IPlayer.sol";
-import "./IGameDefinitions.sol";
+import "../lib/GameHelpers.sol";
 
 interface IGameEngine {
     // Used by game modes for validation and tracking
@@ -12,20 +12,19 @@ interface IGameEngine {
         uint16 skinTokenId;
     }
 
-    // Used internally by GameEngine for combat
-    struct CombatLoadout {
-        uint32 playerId;
-        IGameDefinitions.WeaponType weapon;
-        IGameDefinitions.ArmorType armor;
-        IGameDefinitions.FightingStance stance;
-        IPlayer.PlayerStats stats;
+    struct FighterStats {
+        uint32 playerId; // Temporary until we can remove this dependency
+        uint8 weapon;
+        uint8 armor;
+        uint8 stance;
+        GameHelpers.Attributes attributes;
     }
 
     function decodeVersion(uint16 _version) external pure returns (uint8 major, uint8 minor);
 
     function processGame(
-        CombatLoadout calldata player1,
-        CombatLoadout calldata player2,
+        FighterStats calldata player1,
+        FighterStats calldata player2,
         uint256 randomSeed,
         uint16 lethalityFactor
     ) external view returns (bytes memory);

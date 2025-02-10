@@ -35,7 +35,7 @@ contract PlayerChargesTest is TestBase {
 
     function testNameChangeCharges() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant name permission to test contract
         IPlayer.GamePermissions memory permissions =
@@ -65,7 +65,7 @@ contract PlayerChargesTest is TestBase {
     }
 
     function testCannotChangeNameWithoutCharge() public {
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         vm.startPrank(PLAYER_ONE);
         vm.expectRevert(InsufficientCharges.selector);
@@ -74,7 +74,7 @@ contract PlayerChargesTest is TestBase {
     }
 
     function testCannotChangeNameForNonOwnedPlayer() public {
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant permission and award charge to PLAYER_TWO
         IPlayer.GamePermissions memory permissions =
@@ -90,7 +90,7 @@ contract PlayerChargesTest is TestBase {
 
     function testAttributeSwapCharges() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant attribute permission to test contract
         IPlayer.GamePermissions memory permissions =
@@ -127,7 +127,7 @@ contract PlayerChargesTest is TestBase {
 
     function testMultipleCharges() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant both permissions
         IPlayer.GamePermissions memory permissions =
@@ -158,7 +158,7 @@ contract PlayerChargesTest is TestBase {
     }
 
     function testInvalidAttributeSwap() public {
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant permission and award charge
         IPlayer.GamePermissions memory permissions =
@@ -183,7 +183,7 @@ contract PlayerChargesTest is TestBase {
         playerContract.awardAttributeSwap(PLAYER_ONE);
 
         // Create player owned by PLAYER_TWO
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Try to use PLAYER_ONE's charges on PLAYER_TWO's character
         vm.startPrank(PLAYER_ONE);
@@ -197,7 +197,7 @@ contract PlayerChargesTest is TestBase {
 
     function testAttributeSwapMinMaxLimits() public skipInCI {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant attribute permission to test contract
         IPlayer.GamePermissions memory permissions =
@@ -265,7 +265,7 @@ contract PlayerChargesTest is TestBase {
 
     function testInvalidNameIndices() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant name permission and award charge
         IPlayer.GamePermissions memory permissions =
@@ -275,20 +275,18 @@ contract PlayerChargesTest is TestBase {
 
         vm.startPrank(PLAYER_ONE);
 
-        // Get invalid indices before testing
-        uint16 invalidSetBIndex = uint16(nameRegistry.getNameSetBLength());
-        uint16 invalidSetAIndex = uint16(nameRegistry.SET_A_START() + nameRegistry.getNameSetALength());
+        // Test invalid name indices
+        uint16 invalidSetBIndex = 999; // Last index in Set B range (which we know doesn't exist)
+        uint16 invalidSetAIndex = 2000; // High index in Set A range (which we know doesn't exist)
         uint16 invalidSurnameIndex = uint16(nameRegistry.getSurnamesLength());
 
-        // Test invalid Set B name index (0-999)
+        // Test invalid indices
         vm.expectRevert(InvalidNameIndex.selector);
         playerContract.changeName(playerId, invalidSetBIndex, 0);
 
-        // Test invalid Set A name index (1000+)
         vm.expectRevert(InvalidNameIndex.selector);
         playerContract.changeName(playerId, invalidSetAIndex, 0);
 
-        // Test invalid surname index
         vm.expectRevert(InvalidNameIndex.selector);
         playerContract.changeName(playerId, 0, invalidSurnameIndex);
 

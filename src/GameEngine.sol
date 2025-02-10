@@ -4,9 +4,8 @@ pragma solidity ^0.8.13;
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 import "./interfaces/IGameEngine.sol";
-import "./interfaces/IGameDefinitions.sol";
 
-contract GameEngine is IGameEngine, IGameDefinitions {
+contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
     uint16 public constant version = 1;
@@ -151,6 +150,26 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         COUNTER
     }
 
+    // Weapon Types
+    uint8 public constant WEAPON_SWORD_AND_SHIELD = 0;
+    uint8 public constant WEAPON_MACE_AND_SHIELD = 1;
+    uint8 public constant WEAPON_RAPIER_AND_SHIELD = 2;
+    uint8 public constant WEAPON_GREATSWORD = 3;
+    uint8 public constant WEAPON_BATTLEAXE = 4;
+    uint8 public constant WEAPON_QUARTERSTAFF = 5;
+    uint8 public constant WEAPON_SPEAR = 6;
+
+    // Armor Types
+    uint8 public constant ARMOR_CLOTH = 0;
+    uint8 public constant ARMOR_LEATHER = 1;
+    uint8 public constant ARMOR_CHAIN = 2;
+    uint8 public constant ARMOR_PLATE = 3;
+
+    // Stance Types
+    uint8 public constant STANCE_DEFENSIVE = 0;
+    uint8 public constant STANCE_BALANCED = 1;
+    uint8 public constant STANCE_OFFENSIVE = 2;
+
     /// @notice Decodes a version number into major and minor components
     /// @param _version The version number to decode
     /// @return major The major version number (0-255)
@@ -229,47 +248,51 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         });
     }
 
-    function calculateStats(IPlayer.PlayerStats memory player) public pure returns (CalculatedStats memory) {
+    function calculateStats(FighterStats memory player) public pure returns (CalculatedStats memory) {
         // Safe health calculation using uint32 for intermediate values
         uint32 healthBase = 75;
-        uint32 healthFromCon = uint32(player.constitution) * 12;
-        uint32 healthFromSize = uint32(player.size) * 6;
+        uint32 healthFromCon = uint32(player.attributes.constitution) * 12;
+        uint32 healthFromSize = uint32(player.attributes.size) * 6;
         uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize);
 
         // Safe endurance calculation
         uint32 enduranceBase = 45;
-        uint32 enduranceFromStamina = uint32(player.stamina) * 8;
-        uint32 enduranceFromSize = uint32(player.size) * 2;
+        uint32 enduranceFromStamina = uint32(player.attributes.stamina) * 8;
+        uint32 enduranceFromSize = uint32(player.attributes.size) * 2;
         uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize);
 
         // Safe initiative calculation
         uint32 initiativeBase = 20;
-        uint32 initiativeFromAgility = uint32(player.agility) * 3;
-        uint32 initiativeFromLuck = uint32(player.luck) * 2;
+        uint32 initiativeFromAgility = uint32(player.attributes.agility) * 3;
+        uint32 initiativeFromLuck = uint32(player.attributes.luck) * 2;
         uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
 
         // Safe defensive stats calculation
-        uint16 dodgeChance = calculateBaseDodgeChance(player.agility, player.size);
-        uint16 blockChance = uint16(5 + (uint32(player.constitution) * 8 / 10) + (uint32(player.size) * 5 / 10));
-        uint16 parryChance = uint16(3 + (uint32(player.strength) * 6 / 10) + (uint32(player.agility) * 6 / 10));
+        uint16 dodgeChance = calculateBaseDodgeChance(player.attributes.agility, player.attributes.size);
+        uint16 blockChance =
+            uint16(5 + (uint32(player.attributes.constitution) * 8 / 10) + (uint32(player.attributes.size) * 5 / 10));
+        uint16 parryChance =
+            uint16(3 + (uint32(player.attributes.strength) * 6 / 10) + (uint32(player.attributes.agility) * 6 / 10));
 
         // Safe hit chance calculation
-        uint16 hitChance = uint16(30 + (uint32(player.agility) * 2) + uint32(player.luck));
+        uint16 hitChance = uint16(30 + (uint32(player.attributes.agility) * 2) + uint32(player.attributes.luck));
 
         // Safe crit calculations
-        uint16 critChance = uint16(2 + uint32(player.agility) + uint32(player.luck));
-        uint16 critMultiplier = uint16(150 + (uint32(player.strength) * 3) + (uint32(player.luck) * 2));
+        uint16 critChance = uint16(2 + uint32(player.attributes.agility) + uint32(player.attributes.luck));
+        uint16 critMultiplier =
+            uint16(150 + (uint32(player.attributes.strength) * 3) + (uint32(player.attributes.luck) * 2));
 
         // Safe counter chance
-        uint16 counterChance = uint16(3 + uint32(player.agility) + uint32(player.luck));
+        uint16 counterChance = uint16(3 + uint32(player.attributes.agility) + uint32(player.attributes.luck));
 
         // Physical power calculation
-        uint32 combinedStats = uint32(player.strength) + uint32(player.size);
+        uint32 combinedStats = uint32(player.attributes.strength) + uint32(player.attributes.size);
         uint32 tempPowerMod = 25 + ((combinedStats * 4167) / 1000);
         uint16 physicalPowerMod = uint16(min(tempPowerMod, type(uint16).max));
 
         // Calculate base survival rate
-        uint16 baseSurvivalRate = BASE_SURVIVAL_CHANCE + (uint16(player.luck) * 2) + uint16(player.constitution);
+        uint16 baseSurvivalRate =
+            BASE_SURVIVAL_CHANCE + (uint16(player.attributes.luck) * 2) + uint16(player.attributes.constitution);
 
         return CalculatedStats({
             maxHealth: maxHealth,
@@ -327,21 +350,21 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     /// @param lethalityFactor The lethality factor for the game
     /// @return A byte array containing the encoded combat log
     function processGame(
-        CombatLoadout calldata player1,
-        CombatLoadout calldata player2,
+        FighterStats calldata player1,
+        FighterStats calldata player2,
         uint256 randomSeed,
         uint16 lethalityFactor
     ) external pure returns (bytes memory) {
         // Calculate all combat stats upfront
         CalculatedCombatStats memory p1Calculated = CalculatedCombatStats({
-            stats: calculateStats(player1.stats),
+            stats: calculateStats(player1),
             weapon: getWeaponStats(player1.weapon),
             armor: getArmorStats(player1.armor),
             stanceMultipliers: getStanceMultiplier(player1.stance)
         });
 
         CalculatedCombatStats memory p2Calculated = CalculatedCombatStats({
-            stats: calculateStats(player2.stats),
+            stats: calculateStats(player2),
             weapon: getWeaponStats(player2.weapon),
             armor: getArmorStats(player2.armor),
             stanceMultipliers: getStanceMultiplier(player2.stance)
@@ -412,8 +435,8 @@ contract GameEngine is IGameEngine, IGameDefinitions {
     }
 
     function initializeCombatState(
-        CombatLoadout memory player1,
-        CombatLoadout memory player2,
+        FighterStats memory player1,
+        FighterStats memory player2,
         uint256 seed,
         CalculatedCombatStats memory p1Calculated,
         CalculatedCombatStats memory p2Calculated
@@ -1128,25 +1151,25 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         return StatRequirements({strength: 8, constitution: 0, size: 8, agility: 10, stamina: 0, luck: 0});
     }
 
-    function getWeaponStats(IGameDefinitions.WeaponType weapon) public pure returns (WeaponStats memory) {
-        if (weapon == IGameDefinitions.WeaponType.SwordAndShield) return SWORD_AND_SHIELD();
-        if (weapon == IGameDefinitions.WeaponType.MaceAndShield) return MACE_AND_SHIELD();
-        if (weapon == IGameDefinitions.WeaponType.RapierAndShield) return RAPIER_AND_SHIELD();
-        if (weapon == IGameDefinitions.WeaponType.Greatsword) return GREATSWORD();
-        if (weapon == IGameDefinitions.WeaponType.Battleaxe) return BATTLEAXE();
-        if (weapon == IGameDefinitions.WeaponType.Quarterstaff) return QUARTERSTAFF();
-        if (weapon == IGameDefinitions.WeaponType.Spear) return SPEAR();
+    function getWeaponStats(uint8 weapon) public pure returns (WeaponStats memory) {
+        if (weapon == WEAPON_SWORD_AND_SHIELD) return SWORD_AND_SHIELD();
+        if (weapon == WEAPON_MACE_AND_SHIELD) return MACE_AND_SHIELD();
+        if (weapon == WEAPON_RAPIER_AND_SHIELD) return RAPIER_AND_SHIELD();
+        if (weapon == WEAPON_GREATSWORD) return GREATSWORD();
+        if (weapon == WEAPON_BATTLEAXE) return BATTLEAXE();
+        if (weapon == WEAPON_QUARTERSTAFF) return QUARTERSTAFF();
+        if (weapon == WEAPON_SPEAR) return SPEAR();
         revert("Invalid weapon type");
     }
 
-    function getWeaponRequirements(IGameDefinitions.WeaponType weapon) public pure returns (StatRequirements memory) {
-        if (weapon == IGameDefinitions.WeaponType.SwordAndShield) return SWORD_AND_SHIELD_REQS();
-        if (weapon == IGameDefinitions.WeaponType.MaceAndShield) return MACE_AND_SHIELD_REQS();
-        if (weapon == IGameDefinitions.WeaponType.RapierAndShield) return RAPIER_AND_SHIELD_REQS();
-        if (weapon == IGameDefinitions.WeaponType.Greatsword) return GREATSWORD_REQS();
-        if (weapon == IGameDefinitions.WeaponType.Battleaxe) return BATTLEAXE_REQS();
-        if (weapon == IGameDefinitions.WeaponType.Quarterstaff) return QUARTERSTAFF_REQS();
-        if (weapon == IGameDefinitions.WeaponType.Spear) return SPEAR_REQS();
+    function getWeaponRequirements(uint8 weapon) public pure returns (StatRequirements memory) {
+        if (weapon == WEAPON_SWORD_AND_SHIELD) return SWORD_AND_SHIELD_REQS();
+        if (weapon == WEAPON_MACE_AND_SHIELD) return MACE_AND_SHIELD_REQS();
+        if (weapon == WEAPON_RAPIER_AND_SHIELD) return RAPIER_AND_SHIELD_REQS();
+        if (weapon == WEAPON_GREATSWORD) return GREATSWORD_REQS();
+        if (weapon == WEAPON_BATTLEAXE) return BATTLEAXE_REQS();
+        if (weapon == WEAPON_QUARTERSTAFF) return QUARTERSTAFF_REQS();
+        if (weapon == WEAPON_SPEAR) return SPEAR_REQS();
         revert("Invalid weapon type");
     }
 
@@ -1186,19 +1209,19 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         return StatRequirements({strength: 10, constitution: 10, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
-    function getArmorStats(IGameDefinitions.ArmorType armor) public pure returns (ArmorStats memory) {
-        if (armor == IGameDefinitions.ArmorType.Cloth) return CLOTH();
-        if (armor == IGameDefinitions.ArmorType.Leather) return LEATHER();
-        if (armor == IGameDefinitions.ArmorType.Chain) return CHAIN();
-        if (armor == IGameDefinitions.ArmorType.Plate) return PLATE();
+    function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
+        if (armor == ARMOR_CLOTH) return CLOTH();
+        if (armor == ARMOR_LEATHER) return LEATHER();
+        if (armor == ARMOR_CHAIN) return CHAIN();
+        if (armor == ARMOR_PLATE) return PLATE();
         revert("Invalid armor type");
     }
 
-    function getArmorRequirements(IGameDefinitions.ArmorType armor) public pure returns (StatRequirements memory) {
-        if (armor == IGameDefinitions.ArmorType.Cloth) return CLOTH_REQS();
-        if (armor == IGameDefinitions.ArmorType.Leather) return LEATHER_REQS();
-        if (armor == IGameDefinitions.ArmorType.Chain) return CHAIN_REQS();
-        if (armor == IGameDefinitions.ArmorType.Plate) return PLATE_REQS();
+    function getArmorRequirements(uint8 armor) public pure returns (StatRequirements memory) {
+        if (armor == ARMOR_CLOTH) return CLOTH_REQS();
+        if (armor == ARMOR_LEATHER) return LEATHER_REQS();
+        if (armor == ARMOR_CHAIN) return CHAIN_REQS();
+        if (armor == ARMOR_PLATE) return PLATE_REQS();
         revert("Invalid armor type");
     }
 
@@ -1251,14 +1274,10 @@ contract GameEngine is IGameEngine, IGameDefinitions {
         });
     }
 
-    function getStanceMultiplier(IGameDefinitions.FightingStance stance)
-        public
-        pure
-        returns (StanceMultiplier memory)
-    {
-        if (stance == IGameDefinitions.FightingStance.Defensive) return DEFENSIVE_STANCE();
-        if (stance == IGameDefinitions.FightingStance.Balanced) return BALANCED_STANCE();
-        if (stance == IGameDefinitions.FightingStance.Offensive) return OFFENSIVE_STANCE();
+    function getStanceMultiplier(uint8 stance) public pure returns (StanceMultiplier memory) {
+        if (stance == STANCE_DEFENSIVE) return DEFENSIVE_STANCE();
+        if (stance == STANCE_BALANCED) return BALANCED_STANCE();
+        if (stance == STANCE_OFFENSIVE) return OFFENSIVE_STANCE();
         revert("Invalid stance type");
     }
 

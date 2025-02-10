@@ -17,10 +17,10 @@ import {
     PendingRequestExists
 } from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
-import {PlayerSkinRegistry, SkinRegistryDoesNotExist} from "../src/PlayerSkinRegistry.sol";
+import {IPlayerSkinRegistry} from "../src/interfaces/IPlayerSkinRegistry.sol";
+import {SkinNotOwned, SkinRegistryDoesNotExist} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
 import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 import "./utils/TestBase.sol";
 import "./mocks/UnlockNFT.sol";
@@ -65,7 +65,7 @@ contract PlayerTest is TestBase {
 
     function testCreatePlayerWithVRF() public skipInCI {
         // Create player and verify ownership
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Verify player state
         _assertPlayerState(playerContract, playerId, PLAYER_ONE, true);
@@ -104,7 +104,7 @@ contract PlayerTest is TestBase {
 
         // Fill up default slots
         for (uint256 i = 0; i < defaultSlots; i++) {
-            _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, i % 2 == 0);
+            _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         }
 
         // Keep purchasing and filling slots until we hit max
@@ -120,7 +120,7 @@ contract PlayerTest is TestBase {
             // Fill up all new slots
             uint256 newSlotCount = playerContract.getPlayerSlots(PLAYER_ONE);
             while (playerContract.getActivePlayerCount(PLAYER_ONE) < newSlotCount) {
-                _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, true);
+                _createPlayerAndFulfillVRF(PLAYER_ONE, false);
             }
 
             // Verify slot count matches active players
@@ -132,7 +132,7 @@ contract PlayerTest is TestBase {
         // Fill up default slots first
         uint256 defaultSlots = playerContract.getPlayerSlots(PLAYER_ONE);
         for (uint256 i = 0; i < defaultSlots; i++) {
-            _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+            _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         }
 
         // Verify we hit the default slots limit
@@ -161,7 +161,7 @@ contract PlayerTest is TestBase {
             // Fill new slots
             uint256 newSlotCount = playerContract.getPlayerSlots(PLAYER_ONE);
             while (playerContract.getActivePlayerCount(PLAYER_ONE) < newSlotCount) {
-                _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, true);
+                _createPlayerAndFulfillVRF(PLAYER_ONE, false);
             }
         }
 
@@ -186,8 +186,8 @@ contract PlayerTest is TestBase {
         address playerTwo = address(0x2);
 
         // Create players
-        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 playerId2 = _createPlayerAndFulfillVRF(playerTwo, playerContract, false);
+        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 playerId2 = _createPlayerAndFulfillVRF(playerTwo, false);
 
         // Verify both players were created with correct owners
         _assertPlayerState(playerContract, playerId1, PLAYER_ONE, true);
@@ -253,7 +253,7 @@ contract PlayerTest is TestBase {
 
     function testEquipSkin() public {
         // First create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Register a new skin collection
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
@@ -267,10 +267,7 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            IGameDefinitions.WeaponType.SwordAndShield,
-            IGameDefinitions.ArmorType.Leather,
-            IGameDefinitions.FightingStance.Balanced
+            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_LEATHER(), gameEngine.STANCE_BALANCED()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -286,7 +283,7 @@ contract PlayerTest is TestBase {
 
     function testCannotEquipToUnownedPlayer() public {
         // First create a player owned by PLAYER_ONE
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Register a new skin collection
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
@@ -301,10 +298,7 @@ contract PlayerTest is TestBase {
         vm.deal(otherAddress, 0.01 ether);
         vm.startPrank(otherAddress);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            otherAddress,
-            IGameDefinitions.WeaponType.SwordAndShield,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Defensive
+            otherAddress, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_DEFENSIVE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -316,14 +310,14 @@ contract PlayerTest is TestBase {
 
         // Now try to equip the same skin as PLAYER_ONE (who owns the player but not the skin)
         vm.startPrank(PLAYER_ONE);
-        vm.expectRevert(abi.encodeWithSignature("NotSkinOwner()"));
+        vm.expectRevert(abi.encodeWithSelector(SkinNotOwned.selector, address(skinNFT), tokenId));
         playerContract.equipSkin(playerId, skinIndex, tokenId);
         vm.stopPrank();
     }
 
     function testCannotEquipInvalidSkinIndex() public {
         // First create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Try to equip a non-existent skin collection
         vm.startPrank(PLAYER_ONE);
@@ -442,7 +436,7 @@ contract PlayerTest is TestBase {
         uint256 lowStatCount = 0;
 
         for (uint256 i = 0; i < numPlayers; i++) {
-            uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+            uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
 
             // Check each stat
@@ -479,7 +473,7 @@ contract PlayerTest is TestBase {
 
     function testRetireOwnPlayer() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Retire the player
         vm.startPrank(PLAYER_ONE);
@@ -493,7 +487,7 @@ contract PlayerTest is TestBase {
     function testCannotRetireOtherPlayerCharacter() public {
         // Create a player owned by address(1)
         vm.prank(address(1));
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Try to retire it from address(2)
         vm.prank(address(2));
@@ -508,7 +502,7 @@ contract PlayerTest is TestBase {
         // Create multiple players for PLAYER_ONE
         uint32[] memory playerIds = new uint32[](3);
         for (uint256 i = 0; i < 3; i++) {
-            playerIds[i] = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+            playerIds[i] = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         }
 
         // Get all player IDs for PLAYER_ONE
@@ -523,7 +517,7 @@ contract PlayerTest is TestBase {
 
     function testEquipUnlockableCollection() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Create unlock NFT
         UnlockNFT unlockNFT = new UnlockNFT();
@@ -537,16 +531,13 @@ contract PlayerTest is TestBase {
         uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
         skinRegistry.setSkinVerification(skinIndex, true);
         skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
-        skinRegistry.setDefaultCollection(skinIndex, false); // Make sure it's not a default collection
+        skinRegistry.setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.Player);
 
         // Try to equip without owning unlock NFT (should fail)
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            IGameDefinitions.WeaponType.Greatsword,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Offensive
+            PLAYER_ONE, gameEngine.WEAPON_GREATSWORD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_OFFENSIVE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -564,7 +555,7 @@ contract PlayerTest is TestBase {
 
     function testEquipOwnedSkin() public {
         // Create player and equip skin
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Deploy and register a new skin NFT
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("TestSkin", "TEST", 0.01 ether);
@@ -579,10 +570,7 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            IGameDefinitions.WeaponType.SwordAndShield,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Offensive
+            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_OFFENSIVE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -614,7 +602,7 @@ contract PlayerTest is TestBase {
     function testWithdrawFees() public {
         // Create a player and pay the fee
         uint256 initialBalance = address(this).balance;
-        _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Verify fees were collected
         uint256 collectedFees = address(playerContract).balance;
@@ -630,7 +618,7 @@ contract PlayerTest is TestBase {
 
     function testEquipCollectionBasedSkin() public {
         // Create player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Create unlock NFT (like Shapecraft Key)
         PlayerSkinNFT unlockNFT = new PlayerSkinNFT("Unlock NFT", "UNLOCK", 0);
@@ -644,24 +632,21 @@ contract PlayerTest is TestBase {
         uint32 skinIndex = _registerSkin(address(skinNFT));
         skinRegistry.setRequiredNFT(skinIndex, address(unlockNFT));
         skinRegistry.setSkinVerification(skinIndex, true);
-        skinRegistry.setDefaultCollection(skinIndex, false); // Make sure it's not a default collection
+        skinRegistry.setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.Player);
 
         // Mint unlock NFT to player
         vm.startPrank(PLAYER_ONE);
         unlockNFT.mintSkin(
-            PLAYER_ONE,
-            IGameDefinitions.WeaponType.SwordAndShield,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Balanced
+            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_BALANCED()
         );
         vm.stopPrank();
 
         // Mint skin but keep it in contract
         skinNFT.mintSkin(
             address(skinNFT), // Mint to contract itself, not PLAYER_ONE
-            IGameDefinitions.WeaponType.SwordAndShield,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Balanced
+            gameEngine.WEAPON_SWORD_AND_SHIELD(),
+            gameEngine.ARMOR_PLATE(),
+            gameEngine.STANCE_BALANCED()
         );
         uint16 tokenId = 1;
 
@@ -679,11 +664,11 @@ contract PlayerTest is TestBase {
         assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 0);
 
         // Create first player and verify count
-        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
 
         // Create second player and verify count
-        uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 2);
 
         // Retire first player as owner
@@ -713,7 +698,7 @@ contract PlayerTest is TestBase {
 
     function testImmortalityStatus() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Check initial state - should not be immortal
         assertFalse(playerContract.isPlayerImmortal(playerId));
@@ -734,7 +719,7 @@ contract PlayerTest is TestBase {
 
     function testCannotSetImmortalWithoutPermission() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Try to set immortal without permission
         vm.expectRevert(abi.encodeWithSelector(NoPermission.selector));
@@ -755,7 +740,7 @@ contract PlayerTest is TestBase {
 
     function testImmortalityEventEmission() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant immortal permission
         IPlayer.GamePermissions memory permissions =
@@ -775,8 +760,8 @@ contract PlayerTest is TestBase {
 
     function testMultiplePlayersImmortalityIndependence() public {
         // Create two players
-        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 playerId1 = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Grant immortal permission
         IPlayer.GamePermissions memory permissions =
@@ -793,7 +778,7 @@ contract PlayerTest is TestBase {
 
     function testImmortalityPermissionRevocation() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant immortal permission
         IPlayer.GamePermissions memory permissions =
@@ -814,7 +799,7 @@ contract PlayerTest is TestBase {
 
     function testOwnerCannotBypassImmortalityPermission() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Even as owner, should not be able to set immortality without permission
         vm.startPrank(playerContract.owner());
@@ -881,10 +866,7 @@ contract PlayerTest is TestBase {
 
                 // Verify name indices are within valid ranges
                 // For Set A names
-                bool validFirstName = firstNameIndex >= nameRegistry.SET_A_START()
-                    && firstNameIndex < (nameRegistry.SET_A_START() + nameRegistry.getNameSetALength())
-                // For Set B names
-                || firstNameIndex < nameRegistry.getNameSetBLength();
+                bool validFirstName = nameRegistry.isValidFirstNameIndex(firstNameIndex);
 
                 assertTrue(validFirstName, "First name index out of range");
                 assertTrue(surnameIndex < nameRegistry.getSurnamesLength(), "Surname index out of range");
@@ -896,7 +878,7 @@ contract PlayerTest is TestBase {
 
     function testWinLossKillEvents() public {
         // Create a player
-        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant RECORD permission to test contract
         IPlayer.GamePermissions memory permissions =
@@ -971,7 +953,8 @@ contract PlayerTest is TestBase {
             assertEq(stats.skinIndex, skinIndexToEquip);
             assertEq(stats.skinTokenId, tokenId);
         } else {
-            vm.expectRevert(InvalidPlayerStats.selector);
+            IPlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndexToEquip);
+            vm.expectRevert(abi.encodeWithSelector(SkinNotOwned.selector, skinInfo.contractAddress, tokenId));
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
         }
         vm.stopPrank();

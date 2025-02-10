@@ -50,10 +50,6 @@ interface IMonster {
     //                    EXTERNAL FUNCTIONS                        //
     //==============================================================//
 
-    /// @notice Gets the skin registry contract reference
-    /// @return The PlayerSkinRegistry contract instance
-    function skinRegistry() external view returns (PlayerSkinRegistry);
-
     /// @notice Gets the complete stats for a monster
     /// @param monsterId The ID of the monster to query
     /// @return The monster's complete stats and attributes

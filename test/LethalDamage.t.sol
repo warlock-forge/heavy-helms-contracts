@@ -3,8 +3,6 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {GameEngine} from "../src/GameEngine.sol";
-import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
-import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
 import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
@@ -24,8 +22,8 @@ contract LethalDamageTest is TestBase {
     }
 
     function test_NonLethalMode() public {
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
@@ -54,8 +52,8 @@ contract LethalDamageTest is TestBase {
     }
 
     function test_BaseLethalMode() public {
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
@@ -100,8 +98,8 @@ contract LethalDamageTest is TestBase {
     }
 
     function test_HighLethalityMode() public {
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
@@ -146,8 +144,8 @@ contract LethalDamageTest is TestBase {
     }
 
     function test_MixedLoadoutLethalMode() public {
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive vs defensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
@@ -193,8 +191,8 @@ contract LethalDamageTest is TestBase {
     }
 
     function test_ExtraBrutalLethalityMode() public {
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
+        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({

@@ -2,12 +2,11 @@
 pragma solidity ^0.8.13;
 
 import "./interfaces/IPlayerSkinNFT.sol";
-import "./interfaces/IPlayer.sol";
-import "./interfaces/IGameDefinitions.sol";
 import "./PlayerSkinRegistry.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "solmate/src/auth/Owned.sol";
 import "./interfaces/IDefaultPlayerSkinNFT.sol";
+import "./interfaces/IDefaultPlayer.sol";
 
 contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     uint16 private constant _MAX_SUPPLY = 2000;
@@ -15,7 +14,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
 
     mapping(uint256 => string) private _tokenCIDs;
     mapping(uint256 => SkinAttributes) private _skinAttributes;
-    mapping(uint256 => IPlayer.PlayerStats) private _characterStats;
+    mapping(uint256 => IDefaultPlayer.DefaultPlayerStats) private _characterStats;
     mapping(uint256 => uint256) private _defaultPlayerToToken;
 
     error InvalidCID();
@@ -24,20 +23,15 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
     error MaxSupplyReached();
     error NotPlayerContract();
 
-    event SkinAttributesUpdated(
-        uint16 indexed tokenId,
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance
-    );
+    event SkinAttributesUpdated(uint16 indexed tokenId, uint8 weapon, uint8 armor, uint8 stance);
 
     constructor() ERC721("Heavy Helms Default Player Skins", "HHSKIN") Owned(msg.sender) {}
 
     function mintDefaultPlayerSkin(
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance,
-        IPlayer.PlayerStats memory stats,
+        uint8 weapon,
+        uint8 armor,
+        uint8 stance,
+        IDefaultPlayer.DefaultPlayerStats memory stats,
         string memory ipfsCID,
         uint16 desiredTokenId
     ) external override onlyOwner returns (uint16) {
@@ -82,18 +76,23 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         return string(abi.encodePacked("ipfs://", _tokenCIDs[id]));
     }
 
-    function getDefaultPlayerStats(uint32 playerId) external view override returns (IPlayer.PlayerStats memory) {
+    function getDefaultPlayerStats(uint32 playerId)
+        external
+        view
+        override
+        returns (IDefaultPlayer.DefaultPlayerStats memory)
+    {
         uint256 tokenId = _defaultPlayerToToken[playerId];
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
         return _characterStats[tokenId];
     }
 
-    function mintSkin(
-        address, /* _to */
-        IGameDefinitions.WeaponType, /* _weapon */
-        IGameDefinitions.ArmorType, /* _armor */
-        IGameDefinitions.FightingStance /* _stance */
-    ) external payable override returns (uint16) {
+    function mintSkin(address, /* _to */ uint8, /* _weapon */ uint8, /* _armor */ uint8 /* _stance */ )
+        external
+        payable
+        override
+        returns (uint16)
+    {
         revert MintingDisabled();
     }
 
@@ -115,12 +114,7 @@ contract DefaultPlayerSkinNFT is ERC721, Owned, IDefaultPlayerSkinNFT {
         payable(owner).transfer(address(this).balance);
     }
 
-    function updateSkinAttributes(
-        uint256 tokenId,
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance
-    ) external onlyOwner {
+    function updateSkinAttributes(uint256 tokenId, uint8 weapon, uint8 armor, uint8 stance) external onlyOwner {
         if (tokenId >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
 

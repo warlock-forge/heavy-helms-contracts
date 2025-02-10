@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import "solmate/src/tokens/ERC721.sol";
 import "solmate/src/auth/Owned.sol";
 import "../interfaces/IPlayerSkinNFT.sol";
-import "../interfaces/IGameDefinitions.sol";
 
 contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
     uint16 private constant _MAX_SUPPLY = 10000;
@@ -46,12 +45,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
         mintPrice = _mintPrice;
     }
 
-    function mintSkin(
-        address to,
-        IGameDefinitions.WeaponType weapon,
-        IGameDefinitions.ArmorType armor,
-        IGameDefinitions.FightingStance stance
-    ) external payable override returns (uint16) {
+    function mintSkin(address to, uint8 weapon, uint8 armor, uint8 stance) external payable override returns (uint16) {
         // Owner can mint for free, others must pay
         if (msg.sender != owner) {
             if (!mintingEnabled) revert MintingDisabled();

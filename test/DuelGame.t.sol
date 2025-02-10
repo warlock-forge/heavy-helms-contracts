@@ -5,13 +5,13 @@ import {Test, console2} from "forge-std/Test.sol";
 import {DuelGame} from "../src/DuelGame.sol";
 import {Player} from "../src/Player.sol";
 import {GameEngine} from "../src/GameEngine.sol";
-import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
+import {IPlayerSkinRegistry} from "../src/interfaces/IPlayerSkinRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
-import {IGameDefinitions} from "../src/interfaces/IGameDefinitions.sol";
 import {UnlockNFT} from "./mocks/UnlockNFT.sol";
 import "./utils/TestBase.sol";
+import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;
@@ -46,15 +46,15 @@ contract DuelGameTest is TestBase {
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms =
             IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
-        Player(address(playerContract)).setGameContractPermission(address(game), perms);
+        playerContract.setGameContractPermission(address(game), perms);
 
         // Setup test addresses
         PLAYER_ONE = address(0xdF);
         PLAYER_TWO = address(0xeF);
 
         // Create actual players using VRF
-        PLAYER_ONE_ID = _createPlayerAndFulfillVRF(PLAYER_ONE, Player(address(playerContract)), false);
-        PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, Player(address(playerContract)), false);
+        PLAYER_ONE_ID = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, playerContract, false);
 
         // Give them ETH
         vm.deal(PLAYER_ONE, 100 ether);
@@ -156,7 +156,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         // Get challenger's address
-        address challenger = Player(address(playerContract)).getPlayerOwner(PLAYER_ONE_ID);
+        address challenger = playerContract.getPlayerOwner(PLAYER_ONE_ID);
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
@@ -236,7 +236,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         // Get challenger's address
-        address challenger = Player(address(playerContract)).getPlayerOwner(PLAYER_ONE_ID);
+        address challenger = playerContract.getPlayerOwner(PLAYER_ONE_ID);
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
@@ -458,10 +458,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         vm.deal(PLAYER_ONE, 0.01 ether);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            IGameDefinitions.WeaponType.Greatsword,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Offensive
+            PLAYER_ONE, gameEngine.WEAPON_GREATSWORD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_OFFENSIVE()
         );
         uint16 tokenId = 1;
 
@@ -494,10 +491,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         vm.deal(PLAYER_ONE, 0.01 ether);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            IGameDefinitions.WeaponType.Greatsword,
-            IGameDefinitions.ArmorType.Plate,
-            IGameDefinitions.FightingStance.Offensive
+            PLAYER_ONE, gameEngine.WEAPON_GREATSWORD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_OFFENSIVE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -525,20 +519,23 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        // Create a loadout with a default collection skin
-        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
-            playerId: PLAYER_ONE_ID,
-            skinIndex: skinRegistry.defaultSkinRegistryId(),
-            skinTokenId: 1
-        });
+        // Get a skin with DefaultPlayer type
+        uint32 defaultSkinIndex;
+        for (uint32 i = 0; i < skinRegistry.nextSkinRegistryId(); i++) {
+            IPlayerSkinRegistry.SkinInfo memory skin = skinRegistry.getSkin(i);
+            if (skin.skinType == IPlayerSkinRegistry.SkinType.DefaultPlayer) {
+                defaultSkinIndex = i;
+                break;
+            }
+        }
+
+        // Create a loadout with a default player skin
+        IGameEngine.PlayerLoadout memory loadout =
+            IGameEngine.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: defaultSkinIndex, skinTokenId: 1});
 
         // This should not revert since default skins don't require ownership
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
-    }
-
-    function _createLoadout(uint32 playerId) internal view returns (IGameEngine.PlayerLoadout memory) {
-        return _createLoadout(playerId, false, true, Player(address(playerContract)));
     }
 
     receive() external payable {}

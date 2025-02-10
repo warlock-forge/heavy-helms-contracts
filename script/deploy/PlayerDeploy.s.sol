@@ -5,9 +5,10 @@ import "forge-std/Script.sol";
 import {Player} from "../../src/Player.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
-import {IGameDefinitions} from "../../src/interfaces/IGameDefinitions.sol";
 import {IPlayer} from "../../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
+import {IPlayerSkinRegistry} from "../../src/interfaces/IPlayerSkinRegistry.sol";
+import {IDefaultPlayer} from "../../src/interfaces/IDefaultPlayer.sol";
 
 contract PlayerDeployScript is Script {
     function setUp() public {}
@@ -29,22 +30,21 @@ contract PlayerDeployScript is Script {
         // 2. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
 
-        // Register default skin collection and set it as default
+        // Register default skin collection
         uint32 skinIndex = PlayerSkinRegistry(payable(skinRegistryAddr)).registerSkin(address(defaultSkin));
-        PlayerSkinRegistry(payable(skinRegistryAddr)).setDefaultSkinRegistryId(skinIndex);
-        PlayerSkinRegistry(payable(skinRegistryAddr)).setDefaultCollection(skinIndex, true); // Mark as default collection
+
+        // Set as DefaultPlayer type
+        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
+
+        // Set verification
+        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(skinIndex, true);
 
         // 3. Mint initial default characters
         console2.log("\n=== Minting Default Characters ===");
 
         // Balanced Warrior (ID 1)
-        (
-            IGameDefinitions.WeaponType weapon,
-            IGameDefinitions.ArmorType armor,
-            IGameDefinitions.FightingStance stance,
-            IPlayer.PlayerStats memory stats,
-            string memory ipfsCID
-        ) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
+        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
+        = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
 
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
 
