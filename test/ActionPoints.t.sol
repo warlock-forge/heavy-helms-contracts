@@ -10,103 +10,119 @@ import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {Player} from "../src/Player.sol";
 
 contract ActionPointsTest is TestBase {
-    address public PLAYER_ONE;
-    address public PLAYER_TWO;
-
     function setUp() public override {
         super.setUp();
-
-        // Set up test addresses
-        PLAYER_ONE = address(0x1111);
-        PLAYER_TWO = address(0x2222);
     }
 
-    function test_FastVsSlow() public {
-        // Create two players with different loadouts
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
+    function test_QuarterstaffDoubleAttack() public view {
+        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
+        uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        // Create loadouts using TestBase helpers
-        IGameEngine.PlayerLoadout memory fastLoadout = IGameEngine.PlayerLoadout({
-            playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.greatswordOffensive
-        });
-        IGameEngine.PlayerLoadout memory slowLoadout = IGameEngine.PlayerLoadout({
-            playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.swordAndShieldDefensive
-        });
+        IGameEngine.PlayerLoadout memory fastLoadout =
+            IGameEngine.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
 
-        // Get combat loadouts
-        IGameEngine.FighterStats memory fast = _convertToLoadout(fastLoadout);
-        IGameEngine.FighterStats memory slow = _convertToLoadout(slowLoadout);
+        IGameEngine.PlayerLoadout memory slowLoadout =
+            IGameEngine.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
 
-        // Run combat simulation
-        uint256 seed = _generateGameSeed();
-        bytes memory results = gameEngine.processGame(fast, slow, seed, 0);
+        bytes memory results = gameEngine.processGame(
+            _convertToLoadout(fastLoadout), _convertToLoadout(slowLoadout), _generateGameSeed(), 0
+        );
 
-        // Decode and verify results
-        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
+        (,,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
-        // Validate combat results
-        _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
+        uint256 fastAttacks = 0;
+        uint256 slowAttacks = 0;
 
-        // Additional action point specific assertions can go here
-        assertTrue(actions.length > 0, "Should have recorded combat actions");
+        for (uint256 i = 0; i < actions.length; i++) {
+            if (!_isDefensiveResult(actions[i].p1Result)) {
+                fastAttacks++;
+            }
+            if (!_isDefensiveResult(actions[i].p2Result)) {
+                slowAttacks++;
+            }
+        }
+
+        // Assert ratio is between 1.5 and 3.0 (using integer math)
+        // 15/10 = 1.5, 30/10 = 3.0
+        require(
+            fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
+            "Fast weapon should attack roughly twice as often as slow weapon"
+        );
     }
 
-    function test_EqualSpeed() public {
-        // Create two players
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
+    function test_QuarterstaffDoubleAttackPlayerBias() public view {
+        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
+        uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        // Create loadouts with same speed weapons
+        IGameEngine.PlayerLoadout memory fastLoadout =
+            IGameEngine.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
+
+        IGameEngine.PlayerLoadout memory slowLoadout =
+            IGameEngine.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
+
+        bytes memory results = gameEngine.processGame(
+            _convertToLoadout(slowLoadout), _convertToLoadout(fastLoadout), _generateGameSeed(), 0
+        );
+
+        (,,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+
+        uint256 fastAttacks = 0;
+        uint256 slowAttacks = 0;
+
+        for (uint256 i = 0; i < actions.length; i++) {
+            if (!_isDefensiveResult(actions[i].p2Result)) {
+                fastAttacks++;
+            }
+            if (!_isDefensiveResult(actions[i].p1Result)) {
+                slowAttacks++;
+            }
+        }
+
+        // Assert ratio is between 1.5 and 3.0 (using integer math)
+        // 15/10 = 1.5, 30/10 = 3.0
+        require(
+            fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
+            "Fast weapon should attack roughly twice as often as slow weapon"
+        );
+    }
+
+    function test_SameWeaponInitiative() public view {
+        uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
+
         IGameEngine.PlayerLoadout memory p1Loadout =
-            IGameEngine.PlayerLoadout({playerId: player1Id, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
+            IGameEngine.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
+
         IGameEngine.PlayerLoadout memory p2Loadout =
-            IGameEngine.PlayerLoadout({playerId: player2Id, skinIndex: skinIndex, skinTokenId: chars.spearBalanced});
+            IGameEngine.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
 
-        // Convert to combat loadouts
-        IGameEngine.FighterStats memory p1 = _convertToLoadout(p1Loadout);
-        IGameEngine.FighterStats memory p2 = _convertToLoadout(p2Loadout);
+        bytes memory results =
+            gameEngine.processGame(_convertToLoadout(p1Loadout), _convertToLoadout(p2Loadout), _generateGameSeed(), 0);
 
-        bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed(), 0);
-        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
+        (,,, GameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
-        // Validate combat results
-        _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-    }
+        uint256 p1Attacks = 0;
+        uint256 p2Attacks = 0;
 
-    function test_VerySlowWeapons() public {
-        // Create two players
-        uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
-        uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
+        for (uint256 i = 0; i < actions.length; i++) {
+            if (!_isDefensiveResult(actions[i].p1Result)) {
+                p1Attacks++;
+            }
+            if (!_isDefensiveResult(actions[i].p2Result)) {
+                p2Attacks++;
+            }
+        }
 
-        // Create loadouts with different slow weapons
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
-            playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.swordAndShieldDefensive
-        });
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
-            playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.rapierAndShieldDefensive
-        });
+        // Assert attack counts differ by at most 1
+        require(
+            p1Attacks == p2Attacks || p1Attacks == p2Attacks + 1 || p1Attacks + 1 == p2Attacks,
+            "Attack counts should differ by at most 1"
+        );
 
-        // Convert to combat loadouts
-        IGameEngine.FighterStats memory p1 = _convertToLoadout(p1Loadout);
-        IGameEngine.FighterStats memory p2 = _convertToLoadout(p2Loadout);
-
-        bytes memory results = gameEngine.processGame(p1, p2, _generateGameSeed(), 0);
-        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
-
-        // Validate combat results
-        _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-        assertTrue(actions.length > 0, "Combat should have at least one action");
+        // Assert perfect alternating pattern between P1 and P2
+        for (uint256 i = 0; i < actions.length; i++) {
+            bool p1Attacked = !_isDefensiveResult(actions[i].p1Result);
+            bool p2Attacked = !_isDefensiveResult(actions[i].p2Result);
+            require(p1Attacked != p2Attacked, "Each round should have exactly one attacker");
+        }
     }
 }

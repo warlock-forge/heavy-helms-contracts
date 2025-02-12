@@ -61,6 +61,8 @@ contract Monster is IMonster, Owned {
     event MonsterWinLossUpdated(uint32 indexed monsterId, uint16 wins, uint16 losses);
     event MonsterKillsUpdated(uint32 indexed monsterId, uint16 kills);
     event MonsterImmortalStatusUpdated(uint32 indexed monsterId, bool immortal);
+    event MonsterTierUpdated(uint16 indexed tokenId, uint8 newTier);
+    event MonsterStatsUpdated(uint32 indexed monsterId, MonsterStats stats);
 
     constructor(address skinRegistryAddress, address nameRegistryAddress) Owned(msg.sender) {
         if (skinRegistryAddress == address(0) || nameRegistryAddress == address(0)) {
@@ -135,5 +137,18 @@ contract Monster is IMonster, Owned {
 
     function setGameContractPermissions(address gameContract, GamePermissions memory permissions) external onlyOwner {
         _gameContractPermissions[gameContract] = permissions;
+    }
+
+    function updateMonsterStats(uint32 monsterId, MonsterStats memory newStats)
+        external
+        onlyOwner
+        monsterExists(monsterId)
+    {
+        if (_isRetired[monsterId]) revert("Cannot update retired monster");
+        if (_isImmortal[monsterId]) revert("Cannot update immortal monster");
+
+        _monsters[monsterId] = newStats;
+
+        emit MonsterStatsUpdated(monsterId, newStats);
     }
 }

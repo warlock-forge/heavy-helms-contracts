@@ -34,6 +34,11 @@ abstract contract TestBase is Test {
     Player public playerContract;
     DefaultPlayer public defaultPlayerContract;
     Monster public monsterContract;
+    DefaultPlayerSkinNFT public defaultSkin;
+    PlayerSkinRegistry public skinRegistry;
+    PlayerNameRegistry public nameRegistry;
+    uint32 public defaultSkinIndex;
+    GameEngine public gameEngine;
 
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
@@ -43,23 +48,6 @@ abstract contract TestBase is Test {
         }
     }
 
-    /// @notice Struct to hold default character IDs
-    struct DefaultCharacters {
-        uint16 greatswordOffensive;
-        uint16 battleaxeOffensive;
-        uint16 spearBalanced;
-        uint16 swordAndShieldDefensive;
-        uint16 rapierAndShieldDefensive;
-        uint16 quarterstaffDefensive;
-    }
-
-    DefaultCharacters public chars;
-    DefaultPlayerSkinNFT public defaultSkin;
-    PlayerSkinRegistry public skinRegistry;
-    PlayerNameRegistry public nameRegistry;
-    uint32 public skinIndex;
-    GameEngine public gameEngine;
-
     function setUp() public virtual {
         operator = address(0x42);
         setupRandomness();
@@ -67,11 +55,9 @@ abstract contract TestBase is Test {
         defaultSkin = new DefaultPlayerSkinNFT();
 
         // Register and configure default skin
-        skinIndex = _registerSkin(address(defaultSkin));
-        skinRegistry.setSkinVerification(skinIndex, true);
-        skinRegistry.setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
-
-        _mintDefaultCharacters();
+        defaultSkinIndex = _registerSkin(address(defaultSkin));
+        skinRegistry.setSkinVerification(defaultSkinIndex, true);
+        skinRegistry.setSkinType(defaultSkinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
 
         // Create name registry
         nameRegistry = new PlayerNameRegistry();
@@ -85,6 +71,9 @@ abstract contract TestBase is Test {
 
         // Set up the test environment with a proper timestamp
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
+
+        // Mint default characters after all contracts are initialized
+        _mintDefaultCharacters();
     }
 
     function _registerSkin(address skinContract) internal returns (uint32) {
@@ -175,7 +164,7 @@ abstract contract TestBase is Test {
 
     // Helper function to create a player loadout that supports both practice and duel game test cases
     function _createLoadout(uint32 fighterId) internal view returns (IGameEngine.PlayerLoadout memory) {
-        uint32 loadoutSkinIndex = skinIndex; // Default to test's skinIndex
+        uint32 loadoutSkinIndex = defaultSkinIndex; // Default to test's defaultSkinIndex
         uint16 tokenId = 1; // Default token ID
 
         GameHelpers.PlayerType fighterType = GameHelpers.getPlayerType(fighterId);
@@ -299,42 +288,13 @@ abstract contract TestBase is Test {
         assertEq(actualLuck2, expectedLuck2, "Player 2 luck mismatch");
     }
 
-    // Helper function to check if a combat action is offensive
-    function _isOffensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
-        return action.p1Result == GameEngine.CombatResultType.ATTACK
-            || action.p1Result == GameEngine.CombatResultType.CRIT || action.p1Result == GameEngine.CombatResultType.COUNTER
-            || action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT
-            || action.p2Result == GameEngine.CombatResultType.ATTACK || action.p2Result == GameEngine.CombatResultType.CRIT
-            || action.p2Result == GameEngine.CombatResultType.COUNTER
-            || action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
-    }
-
-    // Helper function to check if a combat action is defensive
-    function _isDefensiveAction(GameEngine.CombatAction memory action) internal pure returns (bool) {
-        return action.p1Result == GameEngine.CombatResultType.BLOCK
-            || action.p1Result == GameEngine.CombatResultType.DODGE || action.p1Result == GameEngine.CombatResultType.PARRY
-            || action.p1Result == GameEngine.CombatResultType.HIT || action.p1Result == GameEngine.CombatResultType.MISS
-            || action.p1Result == GameEngine.CombatResultType.COUNTER
-            || action.p1Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p1Result == GameEngine.CombatResultType.RIPOSTE_CRIT
-            || action.p2Result == GameEngine.CombatResultType.BLOCK || action.p2Result == GameEngine.CombatResultType.DODGE
-            || action.p2Result == GameEngine.CombatResultType.PARRY || action.p2Result == GameEngine.CombatResultType.HIT
-            || action.p2Result == GameEngine.CombatResultType.MISS || action.p2Result == GameEngine.CombatResultType.COUNTER
-            || action.p2Result == GameEngine.CombatResultType.COUNTER_CRIT
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE
-            || action.p2Result == GameEngine.CombatResultType.RIPOSTE_CRIT;
-    }
-
     // Helper function to check if a combat result is defensive
     function _isDefensiveResult(GameEngine.CombatResultType result) internal pure returns (bool) {
         return result == GameEngine.CombatResultType.PARRY || result == GameEngine.CombatResultType.BLOCK
             || result == GameEngine.CombatResultType.DODGE || result == GameEngine.CombatResultType.MISS
-            || result == GameEngine.CombatResultType.HIT;
+            || result == GameEngine.CombatResultType.HIT || result == GameEngine.CombatResultType.COUNTER
+            || result == GameEngine.CombatResultType.COUNTER_CRIT || result == GameEngine.CombatResultType.RIPOSTE
+            || result == GameEngine.CombatResultType.RIPOSTE_CRIT;
     }
 
     // Helper function to generate a deterministic but unpredictable seed for game actions
@@ -494,36 +454,7 @@ abstract contract TestBase is Test {
     /// @notice Mints default characters for testing
     /// @dev This creates a standard set of characters with different fighting styles
     function _mintDefaultCharacters() internal {
-        // Mint default skin token ID 1
-        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
-        = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
-        // Create offensive characters
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 2);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
-        chars.greatswordOffensive = 2;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getOffensiveTestWarrior(skinIndex, 3);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
-        chars.battleaxeOffensive = 3;
-
-        // Create balanced character
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 4);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
-        chars.spearBalanced = 4;
-
-        // Create defensive characters
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getSwordAndShieldUser(skinIndex, 5);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 5);
-        chars.swordAndShieldDefensive = 5;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 6);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 6);
-        chars.rapierAndShieldDefensive = 6;
-
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getQuarterstaffUser(skinIndex, 7);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 7);
-        chars.quarterstaffDefensive = 7;
+        DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
     }
 
     // Helper functions
@@ -535,9 +466,7 @@ abstract contract TestBase is Test {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{
-            value: playerContract.createPlayerFeeAmount()
-        }(useSetB);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
         vm.expectRevert(bytes(expectedError));
@@ -553,9 +482,7 @@ abstract contract TestBase is Test {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
-        uint256 requestId = playerContract.requestCreatePlayer{
-            value: playerContract.createPlayerFeeAmount()
-        }(useSetB);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
         bytes memory extraData = "";
@@ -564,9 +491,7 @@ abstract contract TestBase is Test {
 
         vm.expectRevert(bytes(expectedError));
         vm.prank(operator);
-        playerContract.fulfillRandomness(
-            uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound
-        );
+        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
     }
 
     // Helper function for VRF fulfillment

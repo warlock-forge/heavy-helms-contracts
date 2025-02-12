@@ -5,6 +5,13 @@ import "solmate/src/tokens/ERC721.sol";
 import "solmate/src/auth/Owned.sol";
 import "../interfaces/IPlayerSkinNFT.sol";
 
+error TokenDoesNotExist();
+error InvalidBaseURI();
+error MaxSupplyReached();
+error InvalidTokenId();
+error InvalidMintPrice();
+error MintingDisabled();
+
 contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
     uint16 private constant _MAX_SUPPLY = 10000;
     uint16 private _currentTokenId = 1;
@@ -14,12 +21,6 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
 
     mapping(uint256 => SkinAttributes) private _skinAttributes;
     string public baseURI;
-
-    error InvalidBaseURI();
-    error MaxSupplyReached();
-    error InvalidTokenId();
-    error InvalidMintPrice();
-    error MintingDisabled();
 
     constructor(string memory _name, string memory _symbol, uint256 _mintPrice)
         ERC721(_name, _symbol)
@@ -45,7 +46,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
         mintPrice = _mintPrice;
     }
 
-    function mintSkin(address to, uint8 weapon, uint8 armor, uint8 stance) external payable override returns (uint16) {
+    function mintSkin(address to, uint8 weapon, uint8 armor, uint8 stance) external payable returns (uint16) {
         // Owner can mint for free, others must pay
         if (msg.sender != owner) {
             if (!mintingEnabled) revert MintingDisabled();

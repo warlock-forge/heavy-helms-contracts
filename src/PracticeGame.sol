@@ -4,9 +4,12 @@ pragma solidity ^0.8.13;
 import "./BaseGame.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./lib/GameHelpers.sol";
+import "./interfaces/IDefaultPlayer.sol";
 
 contract PracticeGame is BaseGame {
-    constructor(address _gameEngine, address _playerContract) BaseGame(_gameEngine, _playerContract) {}
+    constructor(address _gameEngine, address _playerContract, address _defaultPlayerContract, address _monsterContract)
+        BaseGame(_gameEngine, _playerContract, _defaultPlayerContract, _monsterContract)
+    {}
 
     function _generatePseudoRandomSeed(uint32 player1Id, uint32 player2Id) private view returns (uint256) {
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, player1Id, player2Id)));
@@ -21,44 +24,13 @@ contract PracticeGame is BaseGame {
         require(!playerContract.isPlayerRetired(player1.playerId), "Player 1 is retired");
         require(!playerContract.isPlayerRetired(player2.playerId), "Player 2 is retired");
 
-        // Get player stats
-        IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(player1.playerId);
-        p1Stats.skinIndex = player1.skinIndex;
-        p1Stats.skinTokenId = player1.skinTokenId;
+        IGameEngine.FighterStats memory p1Combat = GameHelpers.convertToFighterStats(
+            player1, playerContract, defaultPlayerContract, monsterContract, playerContract.skinRegistry()
+        );
 
-        IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(player2.playerId);
-        p2Stats.skinIndex = player2.skinIndex;
-        p2Stats.skinTokenId = player2.skinTokenId;
-
-        // Get skin attributes for both players
-        IPlayerSkinRegistry.SkinInfo memory p1SkinInfo = playerContract.skinRegistry().getSkin(player1.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory p1Attrs =
-            IPlayerSkinNFT(p1SkinInfo.contractAddress).getSkinAttributes(player1.skinTokenId);
-
-        IPlayerSkinRegistry.SkinInfo memory p2SkinInfo = playerContract.skinRegistry().getSkin(player2.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory p2Attrs =
-            IPlayerSkinNFT(p2SkinInfo.contractAddress).getSkinAttributes(player2.skinTokenId);
-
-        // Create combat loadouts
-        IGameEngine.FighterStats memory p1Combat = IGameEngine.FighterStats({
-            playerId: player1.playerId,
-            weapon: p1Attrs.weapon,
-            armor: p1Attrs.armor,
-            stance: p1Attrs.stance,
-            attributes: GameHelpers.Attributes(
-                p1Stats.strength, p1Stats.constitution, p1Stats.size, p1Stats.agility, p1Stats.stamina, p1Stats.luck
-            )
-        });
-
-        IGameEngine.FighterStats memory p2Combat = IGameEngine.FighterStats({
-            playerId: player2.playerId,
-            weapon: p2Attrs.weapon,
-            armor: p2Attrs.armor,
-            stance: p2Attrs.stance,
-            attributes: GameHelpers.Attributes(
-                p2Stats.strength, p2Stats.constitution, p2Stats.size, p2Stats.agility, p2Stats.stamina, p2Stats.luck
-            )
-        });
+        IGameEngine.FighterStats memory p2Combat = GameHelpers.convertToFighterStats(
+            player2, playerContract, defaultPlayerContract, monsterContract, playerContract.skinRegistry()
+        );
 
         uint256 pseudoRandomSeed = _generatePseudoRandomSeed(uint32(player1.playerId), uint32(player2.playerId));
 

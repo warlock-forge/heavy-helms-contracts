@@ -19,6 +19,8 @@ contract DefaultPlayer is IDefaultPlayer, Owned {
     // Maps default player ID to their stats
     mapping(uint32 => DefaultPlayerStats) private _defaultPlayers;
 
+    event DefaultPlayerStatsUpdated(uint32 indexed playerId, DefaultPlayerStats stats);
+
     // Constants
     uint32 private constant DEFAULT_PLAYER_START = 1;
     uint32 private constant DEFAULT_PLAYER_END = 2000;
@@ -69,5 +71,26 @@ contract DefaultPlayer is IDefaultPlayer, Owned {
         }
 
         _defaultPlayers[playerId] = stats;
+    }
+
+    function updateDefaultPlayerStats(uint32 playerId, DefaultPlayerStats memory newStats)
+        external
+        onlyOwner
+        defaultPlayerExists(playerId)
+    {
+        // Verify skin exists and is valid
+        skinRegistry.getSkin(newStats.skinIndex);
+
+        // Validate name indices
+        if (
+            !nameRegistry.isValidFirstNameIndex(newStats.firstNameIndex)
+                || newStats.surnameIndex >= nameRegistry.getSurnamesLength()
+        ) {
+            revert InvalidNameIndex();
+        }
+
+        _defaultPlayers[playerId] = newStats;
+
+        emit DefaultPlayerStatsUpdated(playerId, newStats);
     }
 }

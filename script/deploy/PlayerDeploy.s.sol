@@ -9,6 +9,8 @@ import {IPlayer} from "../../src/interfaces/IPlayer.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/IPlayerSkinRegistry.sol";
 import {IDefaultPlayer} from "../../src/interfaces/IDefaultPlayer.sol";
+import {DefaultPlayer} from "../../src/DefaultPlayer.sol";
+import {Monster} from "../../src/Monster.sol";
 
 contract PlayerDeployScript is Script {
     function setUp() public {}
@@ -27,43 +29,34 @@ contract PlayerDeployScript is Script {
         // 1. Deploy Player contract with Gelato VRF operator
         Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, operator);
 
-        // 2. Deploy and setup DefaultPlayerSkinNFT
+        // 2. Deploy DefaultPlayer and Monster contracts
+        DefaultPlayer defaultPlayerContract = new DefaultPlayer(skinRegistryAddr, nameRegistryAddr);
+        Monster monsterContract = new Monster(skinRegistryAddr, nameRegistryAddr);
+
+        // 3. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
 
         // Register default skin collection
-        uint32 skinIndex = PlayerSkinRegistry(payable(skinRegistryAddr)).registerSkin(address(defaultSkin));
+        uint32 defaultSkinIndex = PlayerSkinRegistry(payable(skinRegistryAddr)).registerSkin(address(defaultSkin));
 
         // Set as DefaultPlayer type
-        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
+        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinType(
+            defaultSkinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer
+        );
 
         // Set verification
-        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(skinIndex, true);
+        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(defaultSkinIndex, true);
 
-        // 3. Mint initial default characters
+        // 4. Mint initial default characters using DefaultPlayerLibrary
         console2.log("\n=== Minting Default Characters ===");
-
-        // Balanced Warrior (ID 1)
-        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
-        = DefaultPlayerLibrary.getDefaultWarrior(skinIndex, 1);
-
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 1);
-
-        // Sword and Shield User (ID 2)
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getBalancedWarrior(skinIndex, 2);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 2);
-
-        // Greatsword User (ID 3)
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getGreatswordUser(skinIndex, 3);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 3);
-
-        // Rapier and Shield User (ID 4)
-        (weapon, armor, stance, stats, ipfsCID) = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, 4);
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, 4);
+        DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
 
         console2.log("\n=== Deployed Addresses ===");
         console2.log("Player:", address(playerContract));
+        console2.log("DefaultPlayer:", address(defaultPlayerContract));
+        console2.log("Monster:", address(monsterContract));
         console2.log("DefaultPlayerSkinNFT:", address(defaultSkin));
-        console2.log("Default Skin Registry Index:", skinIndex);
+        console2.log("Default Skin Registry Index:", defaultSkinIndex);
 
         vm.stopBroadcast();
     }

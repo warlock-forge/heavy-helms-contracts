@@ -16,6 +16,7 @@ interface IMonster {
     /// @param agility Speed and dexterity stat (3-50)
     /// @param stamina Endurance stat (3-50)
     /// @param luck Fortune and critical chance stat (3-50)
+    /// @param tier Tier of the monster
     /// @param skinIndex Index of monster skin/type
     /// @param skinTokenId Token ID of monster skin/type
     /// @param wins Total victories
@@ -28,6 +29,7 @@ interface IMonster {
         uint8 agility;
         uint8 stamina;
         uint8 luck;
+        uint8 tier;
         uint32 skinIndex;
         uint16 skinTokenId;
         uint16 wins;

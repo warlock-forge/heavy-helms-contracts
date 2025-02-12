@@ -5,12 +5,14 @@ import "forge-std/Script.sol";
 import {DefaultPlayerSkinNFT} from "../../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../../src/lib/DefaultPlayerLibrary.sol";
 import {IDefaultPlayer} from "../../../src/interfaces/IDefaultPlayer.sol";
+import {DefaultPlayer} from "../../../src/DefaultPlayer.sol";
 
 contract MintDefaultSkinScript is Script {
-    function setUp() public {}
-
-    function run(address defaultSkinAddr) public {
+    function run(address defaultSkinAddr, address defaultPlayerAddr, DefaultPlayerLibrary.CharacterType characterType)
+        public
+    {
         require(defaultSkinAddr != address(0), "DefaultSkin address cannot be zero");
+        require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");
 
         // Get private key from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
@@ -22,19 +24,18 @@ contract MintDefaultSkinScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         DefaultPlayerSkinNFT defaultSkin = DefaultPlayerSkinNFT(defaultSkinAddr);
+        DefaultPlayer defaultPlayer = DefaultPlayer(defaultPlayerAddr);
 
-        // Skin Index Always 0 for default collection
-        uint32 skinIndex = 0;
-        uint16 tokenId = defaultSkin.CURRENT_TOKEN_ID();
+        uint32 defaultSkinIndex = 0; // Default collection is always index 0
+        uint16 tokenId = uint16(characterType) + 1;
 
-        // Get the character data - replace getBalancedWarrior with your desired character type
-        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
-        = DefaultPlayerLibrary.getRapierAndShieldUser(skinIndex, tokenId);
+        // Create the default character using the library's public interface
+        DefaultPlayerLibrary.createDefaultCharacter(
+            defaultSkin, defaultPlayer, defaultSkinIndex, tokenId, characterType
+        );
 
-        // Mint the new skin
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, stats, ipfsCID, tokenId);
-
-        console2.log("Minted new default skin with ID:", tokenId);
+        console2.log("Created default character type:", uint8(characterType));
+        console2.log("Token ID:", tokenId);
 
         vm.stopBroadcast();
     }

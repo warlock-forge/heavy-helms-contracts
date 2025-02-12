@@ -2,8 +2,21 @@
 pragma solidity ^0.8.13;
 
 import "../interfaces/IDefaultPlayer.sol";
+import "../DefaultPlayerSkinNFT.sol";
 
 library DefaultPlayerLibrary {
+    enum CharacterType {
+        DefaultWarrior, // ID 1
+        BalancedWarrior, // ID 2
+        GreatswordOffensive, // ID 3
+        BattleaxeOffensive, // ID 4
+        SpearBalanced, // ID 5
+        SwordAndShieldDefensive, // ID 6
+        RapierAndShieldDefensive, // ID 7
+        QuarterstaffDefensive // ID 8
+
+    }
+
     function getDefaultWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
@@ -294,5 +307,70 @@ library DefaultPlayerLibrary {
             surnameIndex: 1
         });
         ipfsCID = "QmSwordAndShieldUserCIDHere";
+    }
+
+    function createDefaultCharacter(
+        DefaultPlayerSkinNFT defaultSkin,
+        IDefaultPlayer defaultPlayer,
+        uint32 skinIndex,
+        uint16 tokenId,
+        CharacterType characterType
+    ) internal returns (uint16) {
+        // Get character data based on type
+        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
+        = _getCharacterData(characterType, skinIndex, tokenId);
+
+        // Create the default player first
+        defaultPlayer.setDefaultPlayer(tokenId, stats);
+        // Then mint the skin
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, ipfsCID, tokenId);
+
+        return tokenId;
+    }
+
+    function _getCharacterData(CharacterType charType, uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (
+            uint8 weapon,
+            uint8 armor,
+            uint8 stance,
+            IDefaultPlayer.DefaultPlayerStats memory stats,
+            string memory ipfsCID
+        )
+    {
+        if (charType == CharacterType.DefaultWarrior) {
+            return getDefaultWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.GreatswordOffensive) {
+            return getGreatswordUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.BattleaxeOffensive) {
+            return getBattleaxeUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.SpearBalanced) {
+            return getSpearUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.SwordAndShieldDefensive) {
+            return getSwordAndShieldUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.RapierAndShieldDefensive) {
+            return getRapierAndShieldUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.QuarterstaffDefensive) {
+            return getQuarterstaffUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.BalancedWarrior) {
+            return getBalancedWarrior(skinIndex, tokenId);
+        }
+    }
+
+    function createAllDefaultCharacters(
+        DefaultPlayerSkinNFT defaultSkin,
+        IDefaultPlayer defaultPlayer,
+        uint32 defaultSkinIndex
+    ) internal {
+        for (uint16 i = 1; i <= 8; i++) {
+            createDefaultCharacter(
+                defaultSkin,
+                defaultPlayer,
+                defaultSkinIndex,
+                i,
+                CharacterType(i - 1) // TokenId 1 = DefaultWarrior (0), TokenId 2 = BalancedWarrior (1), etc.
+            );
+        }
     }
 }

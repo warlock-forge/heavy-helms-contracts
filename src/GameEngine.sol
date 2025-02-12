@@ -108,7 +108,7 @@ contract GameEngine is IGameEngine {
     uint8 private immutable MINIMUM_ACTION_COST = 3;
     uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
     uint8 private immutable STAMINA_PARRY = 5;
-    uint8 private constant ATTACK_ACTION_COST = 100;
+    uint8 private constant ATTACK_ACTION_COST = 149;
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
@@ -141,8 +141,9 @@ contract GameEngine is IGameEngine {
         uint96 p2Health;
         uint32 p1Stamina;
         uint32 p2Stamina;
-        uint8 p1ActionPoints;
-        uint8 p2ActionPoints;
+        uint16 p1ActionPoints;
+        uint16 p2ActionPoints;
+        bool p1HasInitiative;
     }
 
     enum CounterType {
@@ -387,43 +388,45 @@ contract GameEngine is IGameEngine {
                 break;
             }
 
-            // Add action points for both players with overflow protection
-            unchecked {
-                uint16 newP1Points = uint16(state.p1ActionPoints) + uint16(p1Calculated.weapon.attackSpeed);
-                uint16 newP2Points = uint16(state.p2ActionPoints) + uint16(p2Calculated.weapon.attackSpeed);
-
-                // Cap at uint8 max if overflow would occur
-                state.p1ActionPoints = newP1Points > type(uint8).max ? type(uint8).max : uint8(newP1Points);
-                state.p2ActionPoints = newP2Points > type(uint8).max ? type(uint8).max : uint8(newP2Points);
-            }
-
             // Determine if anyone can attack this round
             bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST;
             bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST;
 
+            // Only process combat if someone can attack
             if (canP1Attack || canP2Attack) {
-                // Get new random seed
-                currentSeed = uint256(keccak256(abi.encodePacked(currentSeed)));
+                bool isPlayer1Attacking;
+                if (canP1Attack && canP2Attack) {
+                    // Both can attack, strictly compare points
+                    isPlayer1Attacking = (state.p1ActionPoints > state.p2ActionPoints)
+                        || (state.p1ActionPoints == state.p2ActionPoints && state.p1HasInitiative);
+                } else {
+                    // Only one can attack
+                    isPlayer1Attacking = canP1Attack;
+                }
 
-                // Determine attacker - if both can attack, one with more points goes first
-                bool isPlayer1Attacking = canP1Attack && (!canP2Attack || state.p1ActionPoints >= state.p2ActionPoints);
+                state.isPlayer1Turn = isPlayer1Attacking;
 
-                // Process round and update state
-                (currentSeed, results) = processRound(
-                    state, currentSeed, results, p1Calculated, p2Calculated, isPlayer1Attacking, lethalityFactor
-                );
-
-                // Safely deduct action points from attacker
+                // Deduct points BEFORE processing round
                 if (isPlayer1Attacking) {
-                    require(state.p1ActionPoints >= ATTACK_ACTION_COST, "Insufficient action points");
                     state.p1ActionPoints -= ATTACK_ACTION_COST;
                 } else {
-                    require(state.p2ActionPoints >= ATTACK_ACTION_COST, "Insufficient action points");
                     state.p2ActionPoints -= ATTACK_ACTION_COST;
                 }
+
+                // Process round and update state - only if an attack happened
+                (currentSeed, results) =
+                    processRound(state, currentSeed, results, p1Calculated, p2Calculated, lethalityFactor);
             }
 
             roundCount++;
+
+            // Add action points for both players AFTER everything else
+            unchecked {
+                uint16 newP1Points = uint16(state.p1ActionPoints) + uint16(p1Calculated.weapon.attackSpeed);
+                uint16 newP2Points = uint16(state.p2ActionPoints) + uint16(p2Calculated.weapon.attackSpeed);
+                state.p1ActionPoints = newP1Points;
+                state.p2ActionPoints = newP2Points;
+            }
         }
 
         if (roundCount >= MAX_ROUNDS) {
@@ -452,17 +455,14 @@ contract GameEngine is IGameEngine {
             p2ActionPoints: 0,
             isPlayer1Turn: false,
             winningPlayerId: 0,
-            condition: WinCondition.HEALTH
+            condition: WinCondition.HEALTH,
+            p1HasInitiative: false
         });
 
-        // Calculate total initiative (90% equipment/weight ratio, 10% base initiative)
+        // Calculate initiative but only store it in state for tiebreakers
         uint32 p1Initiative = calculateTotalInitiative(p1Calculated);
         uint32 p2Initiative = calculateTotalInitiative(p2Calculated);
-
-        // Set initial action points based on initiative
-        bool p1Starts = p1Initiative > p2Initiative || (p1Initiative == p2Initiative && seed.uniform(2) == 0);
-        state.p1ActionPoints = p1Starts ? uint8(p1Calculated.weapon.attackSpeed) : 0;
-        state.p2ActionPoints = p1Starts ? 0 : uint8(p2Calculated.weapon.attackSpeed);
+        state.p1HasInitiative = p1Initiative > p2Initiative || (p1Initiative == p2Initiative && seed.uniform(2) == 0);
 
         return state;
     }
@@ -500,7 +500,6 @@ contract GameEngine is IGameEngine {
         bytes memory results,
         CalculatedCombatStats memory p1Calculated,
         CalculatedCombatStats memory p2Calculated,
-        bool isPlayer1Attacking,
         uint16 lethalityFactor
     ) private pure returns (uint256, bytes memory) {
         (
@@ -511,10 +510,10 @@ contract GameEngine is IGameEngine {
             uint16 defenseDamage,
             uint8 defenseStaminaCost
         ) = processCombatTurn(
-            isPlayer1Attacking ? p1Calculated : p2Calculated,
-            isPlayer1Attacking ? p2Calculated : p1Calculated,
-            isPlayer1Attacking ? state.p1Stamina : state.p2Stamina,
-            isPlayer1Attacking ? state.p2Stamina : state.p1Stamina,
+            state.isPlayer1Turn ? p1Calculated : p2Calculated,
+            state.isPlayer1Turn ? p2Calculated : p1Calculated,
+            state.isPlayer1Turn ? state.p1Stamina : state.p2Stamina,
+            state.isPlayer1Turn ? state.p2Stamina : state.p1Stamina,
             currentSeed
         );
 
@@ -541,7 +540,7 @@ contract GameEngine is IGameEngine {
             defenseResult,
             defenseDamage,
             defenseStaminaCost,
-            isPlayer1Attacking
+            state.isPlayer1Turn
         );
 
         return (currentSeed, results);
@@ -1015,7 +1014,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 18,
             maxDamage: 26,
-            attackSpeed: 100,
+            attackSpeed: 80,
             parryChance: 110,
             riposteChance: 120,
             critMultiplier: 220,
@@ -1035,7 +1034,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 22,
             maxDamage: 34,
-            attackSpeed: 80,
+            attackSpeed: 70,
             parryChance: 80,
             riposteChance: 70,
             critMultiplier: 240,
@@ -1055,7 +1054,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 16,
             maxDamage: 24,
-            attackSpeed: 110,
+            attackSpeed: 90,
             parryChance: 120,
             riposteChance: 130,
             critMultiplier: 200,
@@ -1075,7 +1074,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 28,
             maxDamage: 46,
-            attackSpeed: 80,
+            attackSpeed: 50,
             parryChance: 100,
             riposteChance: 110,
             critMultiplier: 280,
@@ -1095,7 +1094,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 32,
             maxDamage: 48,
-            attackSpeed: 60,
+            attackSpeed: 50,
             parryChance: 60,
             riposteChance: 70,
             critMultiplier: 300,
@@ -1115,7 +1114,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 22,
             maxDamage: 37,
-            attackSpeed: 120,
+            attackSpeed: 100,
             parryChance: 120,
             riposteChance: 130,
             critMultiplier: 200,
@@ -1135,7 +1134,7 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 30,
             maxDamage: 40,
-            attackSpeed: 90,
+            attackSpeed: 85,
             parryChance: 80,
             riposteChance: 90,
             critMultiplier: 260,

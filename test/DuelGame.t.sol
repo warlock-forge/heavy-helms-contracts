@@ -41,7 +41,13 @@ contract DuelGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        game = new DuelGame(address(gameEngine), address(playerContract), operator);
+        game = new DuelGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            address(monsterContract),
+            operator
+        );
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms =

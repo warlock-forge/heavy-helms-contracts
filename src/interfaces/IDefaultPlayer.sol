@@ -16,4 +16,5 @@ interface IDefaultPlayer {
     }
 
     function getDefaultPlayer(uint32 playerId) external view returns (DefaultPlayerStats memory);
+    function setDefaultPlayer(uint32 playerId, DefaultPlayerStats memory stats) external;
 }

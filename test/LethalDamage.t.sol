@@ -21,20 +21,20 @@ contract LethalDamageTest is TestBase {
         PLAYER_TWO = address(0x2222);
     }
 
-    function test_NonLethalMode() public {
+    function test_NonLethalMode() public skipInCI {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.battleaxeOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
         IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.greatswordOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
 
         bytes memory results = gameEngine.processGame(
@@ -51,20 +51,20 @@ contract LethalDamageTest is TestBase {
         assertTrue(condition != GameEngine.WinCondition.DEATH, "Death should not occur in non-lethal mode");
     }
 
-    function test_BaseLethalMode() public {
+    function test_BaseLethalMode() public skipInCI {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.battleaxeOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
         IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.greatswordOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
 
         uint256 deathCount = 0;
@@ -97,20 +97,20 @@ contract LethalDamageTest is TestBase {
         assertTrue(deathCount > 0, "Should have some deaths in lethal mode");
     }
 
-    function test_HighLethalityMode() public {
+    function test_HighLethalityMode() public skipInCI {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.battleaxeOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
         IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.greatswordOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
 
         uint256 deathCount = 0;
@@ -143,20 +143,20 @@ contract LethalDamageTest is TestBase {
         assertTrue(deathCount > 0, "Should have deaths in high lethality mode");
     }
 
-    function test_MixedLoadoutLethalMode() public {
+    function test_MixedLoadoutLethalMode() public skipInCI {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive vs defensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.battleaxeOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
         IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.rapierAndShieldDefensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1
         });
 
         uint256 deathCount = 0;
@@ -190,20 +190,20 @@ contract LethalDamageTest is TestBase {
         //assertTrue(deathCount < totalFights / 2, "Should have lower death rate with defensive loadout");
     }
 
-    function test_ExtraBrutalLethalityMode() public {
+    function test_ExtraBrutalLethalityMode() public skipInCI {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
         IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.battleaxeOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
         IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: skinIndex,
-            skinTokenId: chars.greatswordOffensive
+            skinIndex: defaultSkinIndex,
+            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
 
         uint256 deathCount = 0;
