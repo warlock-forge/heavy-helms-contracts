@@ -25,6 +25,8 @@ import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
 // Libraries
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
 import {GameHelpers} from "../../src/lib/GameHelpers.sol";
+import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
+import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
@@ -39,6 +41,8 @@ abstract contract TestBase is Test {
     PlayerNameRegistry public nameRegistry;
     uint32 public defaultSkinIndex;
     GameEngine public gameEngine;
+    MonsterSkinNFT public monsterSkin;
+    uint32 public monsterSkinIndex;
 
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
@@ -53,11 +57,16 @@ abstract contract TestBase is Test {
         setupRandomness();
         skinRegistry = new PlayerSkinRegistry();
         defaultSkin = new DefaultPlayerSkinNFT();
+        monsterSkin = new MonsterSkinNFT();
 
-        // Register and configure default skin
+        // Register and configure skins
         defaultSkinIndex = _registerSkin(address(defaultSkin));
         skinRegistry.setSkinVerification(defaultSkinIndex, true);
         skinRegistry.setSkinType(defaultSkinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
+
+        monsterSkinIndex = _registerSkin(address(monsterSkin));
+        skinRegistry.setSkinVerification(monsterSkinIndex, true);
+        skinRegistry.setSkinType(monsterSkinIndex, IPlayerSkinRegistry.SkinType.Monster);
 
         // Create name registry
         nameRegistry = new PlayerNameRegistry();
@@ -72,8 +81,9 @@ abstract contract TestBase is Test {
         // Set up the test environment with a proper timestamp
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
-        // Mint default characters after all contracts are initialized
+        // Mint default characters and monsters
         _mintDefaultCharacters();
+        _mintMonsters();
     }
 
     function _registerSkin(address skinContract) internal returns (uint32) {
@@ -455,6 +465,10 @@ abstract contract TestBase is Test {
     /// @dev This creates a standard set of characters with different fighting styles
     function _mintDefaultCharacters() internal {
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
+    }
+
+    function _mintMonsters() internal {
+        MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
     }
 
     // Helper functions

@@ -47,14 +47,13 @@ library MonsterLibrary {
     {
         if (monsterType == MonsterType.Goblin) {
             return _getGoblinData(skinIndex, tokenId);
+        } else if (monsterType == MonsterType.Orc) {
+            return _getOrcData(skinIndex, tokenId);
+        } else if (monsterType == MonsterType.Troll) {
+            return _getTrollData(skinIndex, tokenId);
+        } else {
+            return _getGiantData(skinIndex, tokenId);
         }
-        // } else if (monsterType == MonsterType.Orc) {
-        //     return _getOrcData(skinIndex, tokenId);
-        // } else if (monsterType == MonsterType.Troll) {
-        //     return _getTrollData(skinIndex, tokenId);
-        // } else {
-        //     return _getGiantData(skinIndex, tokenId);
-        // }
     }
 
     // Individual monster type data functions...
@@ -82,6 +81,93 @@ library MonsterLibrary {
             1, // weapon (dagger)
             1, // armor (light)
             1, // stance (agile)
+            stats,
+            "Qm..." // Add actual IPFS CID
+        );
+    }
+
+    function _getOrcData(uint32 skinIndex, uint16 tokenId)
+        private
+        pure
+        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+    {
+        IMonster.MonsterStats memory stats = IMonster.MonsterStats({
+            strength: 14,
+            constitution: 14,
+            size: 14,
+            agility: 8,
+            stamina: 12,
+            luck: 8,
+            tier: 2,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId,
+            wins: 0,
+            losses: 0,
+            kills: 0
+        });
+
+        return (
+            4, // weapon (battleaxe)
+            2, // armor (chain)
+            2, // stance (offensive)
+            stats,
+            "Qm..." // Add actual IPFS CID
+        );
+    }
+
+    function _getTrollData(uint32 skinIndex, uint16 tokenId)
+        private
+        pure
+        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+    {
+        IMonster.MonsterStats memory stats = IMonster.MonsterStats({
+            strength: 16,
+            constitution: 16,
+            size: 16,
+            agility: 6,
+            stamina: 14,
+            luck: 6,
+            tier: 3,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId,
+            wins: 0,
+            losses: 0,
+            kills: 0
+        });
+
+        return (
+            3, // weapon (greatsword)
+            3, // armor (plate)
+            1, // stance (balanced)
+            stats,
+            "Qm..." // Add actual IPFS CID
+        );
+    }
+
+    function _getGiantData(uint32 skinIndex, uint16 tokenId)
+        private
+        pure
+        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+    {
+        IMonster.MonsterStats memory stats = IMonster.MonsterStats({
+            strength: 18,
+            constitution: 18,
+            size: 18,
+            agility: 4,
+            stamina: 16,
+            luck: 4,
+            tier: 4,
+            skinIndex: skinIndex,
+            skinTokenId: tokenId,
+            wins: 0,
+            losses: 0,
+            kills: 0
+        });
+
+        return (
+            4, // weapon (battleaxe)
+            3, // armor (plate)
+            2, // stance (offensive)
             stats,
             "Qm..." // Add actual IPFS CID
         );
