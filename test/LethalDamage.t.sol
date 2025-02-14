@@ -44,11 +44,10 @@ contract LethalDamageTest is TestBase {
             0 // lethalityFactor = 0
         );
 
-        (uint256 winner, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
-
-        _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-        assertTrue(condition != GameEngine.WinCondition.DEATH, "Death should not occur in non-lethal mode");
+        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
+        = gameEngine.decodeCombatLog(results);
+        _assertValidCombatResult(version, condition, actions);
+        assertTrue(condition != IGameEngine.WinCondition.DEATH, "Death should not occur in non-lethal mode");
     }
 
     function test_BaseLethalMode() public skipInCI {
@@ -79,15 +78,14 @@ contract LethalDamageTest is TestBase {
             );
 
             (
-                uint256 winner,
+                bool player1Won,
                 uint16 version,
-                GameEngine.WinCondition condition,
-                GameEngine.CombatAction[] memory actions
+                IGameEngine.WinCondition condition,
+                IGameEngine.CombatAction[] memory actions
             ) = gameEngine.decodeCombatLog(results);
+            _assertValidCombatResult(version, condition, actions);
 
-            _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-
-            if (condition == GameEngine.WinCondition.DEATH) {
+            if (condition == IGameEngine.WinCondition.DEATH) {
                 deathCount++;
             }
         }
@@ -125,15 +123,14 @@ contract LethalDamageTest is TestBase {
             );
 
             (
-                uint256 winner,
+                bool player1Won,
                 uint16 version,
-                GameEngine.WinCondition condition,
-                GameEngine.CombatAction[] memory actions
+                IGameEngine.WinCondition condition,
+                IGameEngine.CombatAction[] memory actions
             ) = gameEngine.decodeCombatLog(results);
+            _assertValidCombatResult(version, condition, actions);
 
-            _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-
-            if (condition == GameEngine.WinCondition.DEATH) {
+            if (condition == IGameEngine.WinCondition.DEATH) {
                 deathCount++;
             }
         }
@@ -171,15 +168,14 @@ contract LethalDamageTest is TestBase {
             );
 
             (
-                uint256 winner,
+                bool player1Won,
                 uint16 version,
-                GameEngine.WinCondition condition,
-                GameEngine.CombatAction[] memory actions
+                IGameEngine.WinCondition condition,
+                IGameEngine.CombatAction[] memory actions
             ) = gameEngine.decodeCombatLog(results);
+            _assertValidCombatResult(version, condition, actions);
 
-            _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-
-            if (condition == GameEngine.WinCondition.DEATH) {
+            if (condition == IGameEngine.WinCondition.DEATH) {
                 deathCount++;
             }
         }
@@ -218,15 +214,14 @@ contract LethalDamageTest is TestBase {
             );
 
             (
-                uint256 winner,
+                bool player1Won,
                 uint16 version,
-                GameEngine.WinCondition condition,
-                GameEngine.CombatAction[] memory actions
+                IGameEngine.WinCondition condition,
+                IGameEngine.CombatAction[] memory actions
             ) = gameEngine.decodeCombatLog(results);
+            _assertValidCombatResult(version, condition, actions);
 
-            _assertValidCombatResult(winner, version, condition, actions, player1Id, player2Id);
-
-            if (condition == GameEngine.WinCondition.DEATH) {
+            if (condition == IGameEngine.WinCondition.DEATH) {
                 deathCount++;
             }
         }

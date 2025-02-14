@@ -10,6 +10,7 @@ import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./lib/GameHelpers.sol";
+import "./GameEngine.sol";
 
 contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
@@ -330,7 +331,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Create FighterStats
         IGameEngine.FighterStats memory challengerCombat = IGameEngine.FighterStats({
-            playerId: challenge.challengerId,
             weapon: challengerAttrs.weapon,
             armor: challengerAttrs.armor,
             stance: challengerAttrs.stance,
@@ -346,7 +346,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Create FighterStats
         IGameEngine.FighterStats memory defenderCombat = IGameEngine.FighterStats({
-            playerId: challenge.defenderId,
             weapon: defenderAttrs.weapon,
             armor: defenderAttrs.armor,
             stance: defenderAttrs.stance,
@@ -363,15 +362,13 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Execute the duel with the random seed
         bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed, 0);
 
-        // Unpack winner ID from bytes
-        uint32 winnerId;
-        unchecked {
-            winnerId = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
-                | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
-        }
+        // Use GameEngine's decode method instead of manual unpacking
+        (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
-        // Determine loser ID
-        uint32 loserId = winnerId == challenge.challengerId ? challenge.defenderId : challenge.challengerId;
+        // Determine winner and loser IDs based on player1Won
+        uint32 winnerId = player1Won ? challenge.challengerId : challenge.defenderId;
+        uint32 loserId = player1Won ? challenge.defenderId : challenge.challengerId;
 
         // Emit combat results with packed player data
         emit CombatResult(

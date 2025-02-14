@@ -84,7 +84,6 @@ library GameHelpers {
             IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(playerLoadout.skinTokenId);
 
         return IGameEngine.FighterStats({
-            playerId: playerLoadout.playerId,
             weapon: attrs.weapon,
             armor: attrs.armor,
             stance: attrs.stance,

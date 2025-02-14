@@ -215,16 +215,12 @@ abstract contract TestBase is Test {
 
     // Helper function to validate combat results
     function _assertValidCombatResult(
-        uint256 winner,
         uint16 version,
-        GameEngine.WinCondition condition,
-        GameEngine.CombatAction[] memory actions,
-        uint256 player1Id,
-        uint256 player2Id
+        IGameEngine.WinCondition condition,
+        IGameEngine.CombatAction[] memory actions
     ) internal pure {
-        assertTrue(winner == player1Id || winner == player2Id, "Invalid winner");
         assertTrue(actions.length > 0, "No actions recorded");
-        assertTrue(uint8(condition) <= uint8(type(GameEngine.WinCondition).max), "Invalid win condition");
+        assertTrue(uint8(condition) <= uint8(type(IGameEngine.WinCondition).max), "Invalid win condition");
         assertTrue(version > 0, "Invalid version");
     }
 
@@ -314,12 +310,12 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to check if a combat result is defensive
-    function _isDefensiveResult(GameEngine.CombatResultType result) internal pure returns (bool) {
-        return result == GameEngine.CombatResultType.PARRY || result == GameEngine.CombatResultType.BLOCK
-            || result == GameEngine.CombatResultType.DODGE || result == GameEngine.CombatResultType.MISS
-            || result == GameEngine.CombatResultType.HIT || result == GameEngine.CombatResultType.COUNTER
-            || result == GameEngine.CombatResultType.COUNTER_CRIT || result == GameEngine.CombatResultType.RIPOSTE
-            || result == GameEngine.CombatResultType.RIPOSTE_CRIT;
+    function _isDefensiveResult(IGameEngine.CombatResultType result) internal pure returns (bool) {
+        return result == IGameEngine.CombatResultType.PARRY || result == IGameEngine.CombatResultType.BLOCK
+            || result == IGameEngine.CombatResultType.DODGE || result == IGameEngine.CombatResultType.MISS
+            || result == IGameEngine.CombatResultType.HIT || result == IGameEngine.CombatResultType.COUNTER
+            || result == IGameEngine.CombatResultType.COUNTER_CRIT || result == IGameEngine.CombatResultType.RIPOSTE
+            || result == IGameEngine.CombatResultType.RIPOSTE_CRIT;
     }
 
     // Helper function to generate a deterministic but unpredictable seed for game actions
@@ -441,7 +437,6 @@ abstract contract TestBase is Test {
         }
 
         return IGameEngine.FighterStats({
-            playerId: playerLoadout.playerId,
             weapon: attrs.weapon,
             armor: attrs.armor,
             stance: attrs.stance,

@@ -75,28 +75,29 @@ contract GameEngine is IGameEngine {
         uint8 luck;
     }
 
-    enum CombatResultType {
-        MISS, // 0 - Complete miss, some stamina cost
-        ATTACK, // 1 - Normal successful attack
-        CRIT, // 2 - Critical hit
-        BLOCK, // 3 - Successfully blocked attack
-        COUNTER, // 4 - Counter attack after block/dodge
-        COUNTER_CRIT, // 5 - Critical counter attack
-        DODGE, // 6 - Successfully dodged attack
-        PARRY, // 7 - Successfully parried attack
-        RIPOSTE, // 8 - Counter attack after parry
-        RIPOSTE_CRIT, // 9 - Critical counter after parry
-        EXHAUSTED, // 10 - Failed due to stamina
-        HIT // 11 - Taking full damage (failed defense)
-
+    struct CalculatedCombatStats {
+        CalculatedStats stats;
+        WeaponStats weapon;
+        ArmorStats armor;
+        StanceMultiplier stanceMultipliers;
     }
 
-    enum WinCondition {
-        HEALTH, // KO
-        EXHAUSTION, // Won because opponent couldn't attack (low stamina)
-        MAX_ROUNDS, // Won by having more health after max rounds
-        DEATH // RIP
+    struct CombatState {
+        bool isPlayer1Turn;
+        WinCondition condition;
+        uint96 p1Health;
+        uint96 p2Health;
+        uint32 p1Stamina;
+        uint32 p2Stamina;
+        uint16 p1ActionPoints;
+        uint16 p2ActionPoints;
+        bool p1HasInitiative;
+        bool player1Won;
+    }
 
+    enum CounterType {
+        PARRY,
+        COUNTER
     }
 
     // Combat-related constants
@@ -114,42 +115,6 @@ contract GameEngine is IGameEngine {
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
     uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
     uint8 private constant MAX_DAMAGE_OVERAGE = 60;
-
-    struct CombatAction {
-        CombatResultType p1Result;
-        uint16 p1Damage;
-        uint8 p1StaminaLost;
-        CombatResultType p2Result;
-        uint16 p2Damage;
-        uint8 p2StaminaLost;
-    }
-
-    struct CalculatedCombatStats {
-        CalculatedStats stats;
-        WeaponStats weapon;
-        ArmorStats armor;
-        StanceMultiplier stanceMultipliers;
-    }
-
-    struct CombatState {
-        uint32 p1Id;
-        uint32 p2Id;
-        uint32 winningPlayerId;
-        bool isPlayer1Turn;
-        WinCondition condition;
-        uint96 p1Health;
-        uint96 p2Health;
-        uint32 p1Stamina;
-        uint32 p2Stamina;
-        uint16 p1ActionPoints;
-        uint16 p2ActionPoints;
-        bool p1HasInitiative;
-    }
-
-    enum CounterType {
-        PARRY,
-        COUNTER
-    }
 
     // Weapon Types
     uint8 public constant WEAPON_SWORD_AND_SHIELD = 0;
@@ -182,15 +147,15 @@ contract GameEngine is IGameEngine {
 
     /// @notice Decodes a combat log byte array into structured data
     /// @param results The byte array containing the encoded combat log
-    /// @return winningPlayerId The ID of the winning player (32 bits)
+    /// @return player1Won True if player1 won, false if player2 won
     /// @return gameEngineVersion The version of the game engine that generated this log (16 bits)
     /// @return condition The win condition that ended the combat
     /// @return actions Array of combat actions containing results for both players
     /// @dev Format:
-    ///   - Bytes 0-3: Winner ID (32 bits)
-    ///   - Bytes 4-5: Game Engine Version (16 bits)
-    ///   - Byte 6: Win Condition
-    ///   - Bytes 7+: Combat actions (8 bytes each):
+    ///   - Byte 0: Winner (1 for player1, 0 for player2)
+    ///   - Bytes 1-2: Game Engine Version (16 bits)
+    ///   - Byte 3: Win Condition
+    ///   - Bytes 4+: Combat actions (8 bytes each):
     ///     - Byte 0: Player 1 Result
     ///     - Bytes 1-2: Player 1 Damage
     ///     - Byte 3: Player 1 Stamina Lost
@@ -200,34 +165,26 @@ contract GameEngine is IGameEngine {
     function decodeCombatLog(bytes memory results)
         public
         pure
-        returns (
-            uint32 winningPlayerId,
-            uint16 gameEngineVersion,
-            WinCondition condition,
-            CombatAction[] memory actions
-        )
+        returns (bool player1Won, uint16 gameEngineVersion, WinCondition condition, CombatAction[] memory actions)
     {
-        require(results.length >= 7, "Results too short");
+        require(results.length >= 4, "Results too short");
 
-        // Single operation for winner ID, saves gas over separate shifts
-        unchecked {
-            winningPlayerId = uint32(uint8(results[0])) << 24 | uint32(uint8(results[1])) << 16
-                | uint32(uint8(results[2])) << 8 | uint32(uint8(results[3]));
-        }
+        // Read winner (1 byte) - 0 means player1 won, 1 means player2 won
+        player1Won = uint8(results[0]) == 0;
 
         // Read version (2 bytes)
-        gameEngineVersion = uint16(uint8(results[4])) << 8 | uint16(uint8(results[5]));
+        gameEngineVersion = uint16(uint8(results[1])) << 8 | uint16(uint8(results[2]));
 
         // Read condition
-        condition = WinCondition(uint8(results[6]));
+        condition = WinCondition(uint8(results[3]));
 
         // Decode actions
-        uint256 numActions = (results.length - 7) / 8;
+        uint256 numActions = (results.length - 4) / 8;
         actions = new CombatAction[](numActions);
 
         unchecked {
             for (uint256 i = 0; i < numActions; i++) {
-                actions[i] = unpackCombatAction(results, 7 + (i * 8));
+                actions[i] = unpackCombatAction(results, 4 + (i * 8));
             }
         }
     }
@@ -378,7 +335,7 @@ contract GameEngine is IGameEngine {
         // Initialize combat with calculated stats
         CombatState memory state = initializeCombatState(player1, player2, randomSeed, p1Calculated, p2Calculated);
 
-        bytes memory results = new bytes(7);
+        bytes memory results = new bytes(4);
         uint8 roundCount = 0;
         uint256 currentSeed = randomSeed;
 
@@ -431,7 +388,7 @@ contract GameEngine is IGameEngine {
 
         if (roundCount >= MAX_ROUNDS) {
             state.condition = WinCondition.MAX_ROUNDS;
-            state.winningPlayerId = state.p1Health >= state.p2Health ? state.p1Id : state.p2Id;
+            state.player1Won = state.p1Health >= state.p2Health;
         }
 
         return encodeCombatResults(state, results);
@@ -449,12 +406,10 @@ contract GameEngine is IGameEngine {
             p2Health: uint96(p2Calculated.stats.maxHealth),
             p1Stamina: uint32(p1Calculated.stats.maxEndurance),
             p2Stamina: uint32(p2Calculated.stats.maxEndurance),
-            p1Id: uint32(player1.playerId),
-            p2Id: uint32(player2.playerId),
             p1ActionPoints: 0,
             p2ActionPoints: 0,
             isPlayer1Turn: false,
-            winningPlayerId: 0,
+            player1Won: false,
             condition: WinCondition.HEALTH,
             p1HasInitiative: false
         });
@@ -485,9 +440,9 @@ contract GameEngine is IGameEngine {
             state.condition = WinCondition.EXHAUSTION;
             if (state.p1Stamina < uint32(p1MinCost) && state.p2Stamina < uint32(p2MinCost)) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                state.winningPlayerId = seed.uniform(2) == 0 ? state.p2Id : state.p1Id;
+                state.player1Won = seed.uniform(2) == 0;
             } else {
-                state.winningPlayerId = state.p1Stamina < uint32(p1MinCost) ? state.p2Id : state.p1Id;
+                state.player1Won = state.p1Stamina < uint32(p1MinCost);
             }
             return true;
         }
@@ -855,14 +810,14 @@ contract GameEngine is IGameEngine {
         ) {
             if (isPlayer1Attacker) {
                 state.p2Health = 0;
-                state.winningPlayerId = state.p1Id;
+                state.player1Won = true; // Player 1 killed Player 2
             } else {
                 state.p1Health = 0;
-                state.winningPlayerId = state.p2Id;
+                state.player1Won = false; // Player 2 killed Player 1
             }
             state.condition = WinCondition.DEATH;
         } else if (currentHealth == 0) {
-            state.winningPlayerId = isPlayer1Attacker ? state.p1Id : state.p2Id;
+            state.player1Won = isPlayer1Attacker; // If P1 is attacking, they won; if P2 is attacking, they won
             state.condition = WinCondition.HEALTH;
         }
     }
@@ -933,6 +888,15 @@ contract GameEngine is IGameEngine {
      * - Byte 0: Result type (attack/defense)
      * - Bytes 1-2: Damage value (high byte, low byte)
      * - Byte 3: Stamina cost
+     * @param results The existing combat log to append to
+     * @param attackResult The result type of the attack action
+     * @param attackDamage The damage dealt by the attack
+     * @param attackStaminaCost The stamina cost of the attack
+     * @param defenseResult The result type of the defense action
+     * @param defenseDamage The damage dealt by any counter-attack
+     * @param defenseStaminaCost The stamina cost of the defense
+     * @param isPlayer1Attacking Whether Player 1 is the attacker in this action
+     * @return The updated combat log with the new action appended
      */
     function appendCombatAction(
         bytes memory results,
@@ -980,20 +944,17 @@ contract GameEngine is IGameEngine {
     /// and carrying them through combat, consider only storing combat actions during the fight and concatenating
     /// the prefix at the end. This would reduce memory copying in appendCombatAction and be more gas efficient.
     function encodeCombatResults(CombatState memory state, bytes memory results) private pure returns (bytes memory) {
-        require(results.length >= 7, "Invalid results length");
+        require(results.length >= 4, "Invalid results length");
 
-        // Write uint32 winner ID as 4 separate bytes
-        results[0] = bytes1(uint8(state.winningPlayerId >> 24));
-        results[1] = bytes1(uint8(state.winningPlayerId >> 16));
-        results[2] = bytes1(uint8(state.winningPlayerId >> 8));
-        results[3] = bytes1(uint8(state.winningPlayerId));
+        // Write single byte for winner (0 for player1, 1 for player2)
+        results[0] = bytes1(state.player1Won ? uint8(0) : uint8(1));
 
         // Write version (2 bytes)
-        results[4] = bytes1(uint8(version >> 8));
-        results[5] = bytes1(uint8(version));
+        results[1] = bytes1(uint8(version >> 8));
+        results[2] = bytes1(uint8(version));
 
         // Write condition
-        results[6] = bytes1(uint8(state.condition));
+        results[3] = bytes1(uint8(state.condition));
 
         return results;
     }
