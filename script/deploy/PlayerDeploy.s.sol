@@ -17,12 +17,7 @@ import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
 contract PlayerDeployScript is Script {
     function setUp() public {}
 
-    function run(
-        address skinRegistryAddr,
-        address nameRegistryAddr,
-        address monsterNameRegistryAddr,
-        address equipmentStatsAddr
-    ) public {
+    function run(address skinRegistryAddr, address nameRegistryAddr, address monsterNameRegistryAddr) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
