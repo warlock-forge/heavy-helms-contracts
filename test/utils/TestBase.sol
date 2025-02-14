@@ -21,12 +21,14 @@ import {GameEngine} from "../../src/GameEngine.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
+import {MonsterNameRegistry} from "../../src/MonsterNameRegistry.sol";
 
 // Libraries
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
 import {GameHelpers} from "../../src/lib/GameHelpers.sol";
 import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
+import {NameLibrary} from "../../src/lib/NameLibrary.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
@@ -43,6 +45,7 @@ abstract contract TestBase is Test {
     GameEngine public gameEngine;
     MonsterSkinNFT public monsterSkin;
     uint32 public monsterSkinIndex;
+    MonsterNameRegistry public monsterNameRegistry;
 
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
@@ -68,8 +71,20 @@ abstract contract TestBase is Test {
         skinRegistry.setSkinVerification(monsterSkinIndex, true);
         skinRegistry.setSkinType(monsterSkinIndex, IPlayerSkinRegistry.SkinType.Monster);
 
-        // Create name registry
+        // Create name registries and initialize names
         nameRegistry = new PlayerNameRegistry();
+        string[] memory setANames = NameLibrary.getInitialNameSetA();
+        string[] memory setBNames = NameLibrary.getInitialNameSetB();
+        string[] memory surnameList = NameLibrary.getInitialSurnames();
+
+        nameRegistry.addNamesToSetA(setANames);
+        nameRegistry.addNamesToSetB(setBNames);
+        nameRegistry.addSurnames(surnameList);
+
+        // Initialize monster name registry
+        monsterNameRegistry = new MonsterNameRegistry();
+        string[] memory monsterNames = NameLibrary.getInitialMonsterNames();
+        monsterNameRegistry.addMonsterNames(monsterNames);
 
         gameEngine = new GameEngine();
 

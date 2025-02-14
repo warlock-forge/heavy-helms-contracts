@@ -3,12 +3,12 @@ pragma solidity ^0.8.13;
 
 import "./interfaces/IMonster.sol";
 import "./interfaces/IPlayerSkinRegistry.sol";
-import "./interfaces/IPlayerNameRegistry.sol";
+import "./interfaces/IMonsterNameRegistry.sol";
 import "solmate/src/auth/Owned.sol";
 
 contract Monster is IMonster, Owned {
     IPlayerSkinRegistry public immutable skinRegistry;
-    IPlayerNameRegistry public immutable nameRegistry;
+    IMonsterNameRegistry public immutable nameRegistry;
 
     // Constants for ID range
     uint32 private constant MONSTER_ID_START = 2001;
@@ -69,7 +69,7 @@ contract Monster is IMonster, Owned {
             revert BadZeroAddress();
         }
         skinRegistry = IPlayerSkinRegistry(skinRegistryAddress);
-        nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
+        nameRegistry = IMonsterNameRegistry(nameRegistryAddress);
     }
 
     function createMonster(MonsterStats memory stats) external onlyOwner returns (uint32) {
