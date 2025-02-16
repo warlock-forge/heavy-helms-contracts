@@ -10,6 +10,7 @@ import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
+import {Fighter} from "../src/Fighter.sol";
 
 contract PracticeGameTest is TestBase {
     PracticeGame public practiceGame;
@@ -25,9 +26,9 @@ contract PracticeGameTest is TestBase {
         // Test basic combat functionality with pseudo-random seed
         uint256 seed = _generateGameSeed();
 
-        GameEngine.PlayerLoadout memory player1 =
+        Fighter.PlayerLoadout memory player1 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        GameEngine.PlayerLoadout memory player2 =
+        Fighter.PlayerLoadout memory player2 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1);
 
         bytes memory results = practiceGame.play(player1, player2);
@@ -40,14 +41,23 @@ contract PracticeGameTest is TestBase {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
         uint256 seed = _generateGameSeed();
 
-        GameEngine.PlayerLoadout memory attackerLoadout =
+        Fighter.PlayerLoadout memory attackerLoadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        GameEngine.PlayerLoadout memory defenderLoadout =
+        Fighter.PlayerLoadout memory defenderLoadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
 
+        // Get the appropriate Fighter contracts
+        Fighter attackerFighter = _getFighterContract(attackerLoadout.playerId);
+        Fighter defenderFighter = _getFighterContract(defenderLoadout.playerId);
+
         // Run combat with seed and verify mechanics
-        bytes memory results =
-            gameEngine.processGame(_convertToLoadout(attackerLoadout), _convertToLoadout(defenderLoadout), seed, 0);
+        bytes memory results = gameEngine.processGame(
+            attackerFighter.convertToFighterStats(attackerLoadout),
+            defenderFighter.convertToFighterStats(defenderLoadout),
+            seed,
+            0
+        );
+
         (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
@@ -55,13 +65,20 @@ contract PracticeGameTest is TestBase {
 
     function testFuzz_Combat(uint256 seed) public {
         // Create loadouts for fuzz testing
-        GameEngine.PlayerLoadout memory player1 =
+        Fighter.PlayerLoadout memory player1 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        GameEngine.PlayerLoadout memory player2 =
+        Fighter.PlayerLoadout memory player2 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1);
 
+        // Get the appropriate Fighter contracts
+        Fighter p1Fighter = _getFighterContract(player1.playerId);
+        Fighter p2Fighter = _getFighterContract(player2.playerId);
+
         // Run game with fuzzed seed
-        bytes memory results = gameEngine.processGame(_convertToLoadout(player1), _convertToLoadout(player2), seed, 0);
+        bytes memory results = gameEngine.processGame(
+            p1Fighter.convertToFighterStats(player1), p2Fighter.convertToFighterStats(player2), seed, 0
+        );
+
         (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -91,36 +108,36 @@ contract PracticeGameTest is TestBase {
         GameEngine.CombatAction[] memory actions;
 
         // Scenario 1: Greatsword vs Sword and Shield (Offensive vs Defensive)
-        GameEngine.PlayerLoadout memory loadout1A =
+        Fighter.PlayerLoadout memory loadout1A =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        GameEngine.PlayerLoadout memory loadout1B =
+        Fighter.PlayerLoadout memory loadout1B =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1);
         results = practiceGame.play(loadout1A, loadout1B);
         (player1Won, version, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
 
         // Scenario 2: Battleaxe vs Rapier and Shield (Offensive vs Defensive)
-        GameEngine.PlayerLoadout memory loadout2A =
+        Fighter.PlayerLoadout memory loadout2A =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1);
-        GameEngine.PlayerLoadout memory loadout2B =
+        Fighter.PlayerLoadout memory loadout2B =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1);
         results = practiceGame.play(loadout2A, loadout2B);
         (player1Won, version, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
 
         // Scenario 3: Spear vs Quarterstaff (Balanced vs Defensive)
-        GameEngine.PlayerLoadout memory loadout3A =
+        Fighter.PlayerLoadout memory loadout3A =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SpearBalanced) + 1);
-        GameEngine.PlayerLoadout memory loadout3B =
+        Fighter.PlayerLoadout memory loadout3B =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
         results = practiceGame.play(loadout3A, loadout3B);
         (player1Won, version, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
 
         // Scenario 4: Greatsword vs Rapier and Shield (Offensive vs Defensive)
-        GameEngine.PlayerLoadout memory loadout4A =
+        Fighter.PlayerLoadout memory loadout4A =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        GameEngine.PlayerLoadout memory loadout4B =
+        Fighter.PlayerLoadout memory loadout4B =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1);
         results = practiceGame.play(loadout4A, loadout4B);
         (player1Won, version, condition, actions) = gameEngine.decodeCombatLog(results);
@@ -129,11 +146,12 @@ contract PracticeGameTest is TestBase {
 
     function testParryChanceCalculation() public {
         // Create a loadout for a defensive character
-        GameEngine.PlayerLoadout memory defenderLoadout =
+        Fighter.PlayerLoadout memory defenderLoadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1);
 
-        // Convert to FighterStats using the helper which knows to use defaultPlayerContract
-        IGameEngine.FighterStats memory fighterStats = _convertToLoadout(defenderLoadout);
+        // Get the appropriate Fighter contract and convert to FighterStats
+        Fighter defender = _getFighterContract(defenderLoadout.playerId);
+        IGameEngine.FighterStats memory fighterStats = defender.convertToFighterStats(defenderLoadout);
 
         // Calculate stats using the proper FighterStats
         GameEngine.CalculatedStats memory calcStats = gameEngine.calculateStats(fighterStats);
@@ -145,9 +163,9 @@ contract PracticeGameTest is TestBase {
 
     function testCombatLogStructure() public {
         // Test the structure and decoding of combat logs
-        IGameEngine.PlayerLoadout memory p1Loadout =
+        Fighter.PlayerLoadout memory p1Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        IGameEngine.PlayerLoadout memory p2Loadout =
+        Fighter.PlayerLoadout memory p2Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
@@ -166,9 +184,9 @@ contract PracticeGameTest is TestBase {
 
     function testStanceInteractions() public {
         // Test how different stances interact with each other
-        GameEngine.PlayerLoadout memory p1Loadout =
+        Fighter.PlayerLoadout memory p1Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        GameEngine.PlayerLoadout memory p2Loadout =
+        Fighter.PlayerLoadout memory p2Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
@@ -224,8 +242,12 @@ contract PracticeGameTest is TestBase {
     }
 
     function runStanceScenario(uint16 attackerType, uint16 defenderType, uint256 rounds) internal {
-        GameEngine.PlayerLoadout memory attacker = _createLoadout(attackerType);
-        GameEngine.PlayerLoadout memory defender = _createLoadout(defenderType);
+        Fighter.PlayerLoadout memory attacker = _createLoadout(attackerType);
+        Fighter.PlayerLoadout memory defender = _createLoadout(defenderType);
+
+        // Get the appropriate Fighter contracts
+        Fighter attackerFighter = _getFighterContract(attacker.playerId);
+        Fighter defenderFighter = _getFighterContract(defender.playerId);
 
         uint256 p1Wins = 0;
         uint256 p2Wins = 0;
@@ -246,13 +268,18 @@ contract PracticeGameTest is TestBase {
             vm.warp(block.timestamp + 12); // ~12 second blocks
 
             // Run game with seed from forked chain
-            bytes memory results =
-                gameEngine.processGame(_convertToLoadout(attacker), _convertToLoadout(defender), seed, 0);
+            bytes memory results = gameEngine.processGame(
+                attackerFighter.convertToFighterStats(attacker),
+                defenderFighter.convertToFighterStats(defender),
+                seed,
+                0
+            );
+
             (
                 bool player1Won,
                 uint16 version,
-                GameEngine.WinCondition condition,
-                GameEngine.CombatAction[] memory actions
+                IGameEngine.WinCondition condition,
+                IGameEngine.CombatAction[] memory actions
             ) = gameEngine.decodeCombatLog(results);
 
             if (player1Won) p1Wins++;

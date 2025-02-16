@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "../Fighter.sol";
+
 interface IDefaultPlayer {
+    /// @notice Contains all stats and attributes for a default player
+    /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
+    /// @param skinIndex Index of player skin/type
+    /// @param skinTokenId Token ID of player skin/type
+    /// @param firstNameIndex Index for first name in name registry
+    /// @param surnameIndex Index for surname in name registry
     struct DefaultPlayerStats {
-        uint8 strength;
-        uint8 constitution;
-        uint8 size;
-        uint8 agility;
-        uint8 stamina;
-        uint8 luck;
+        Fighter.Attributes attributes;
         uint32 skinIndex;
         uint16 skinTokenId;
         uint16 firstNameIndex;

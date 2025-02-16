@@ -66,4 +66,17 @@ abstract contract BaseGame is Owned {
         monsterContract = IMonster(_newContract);
         emit MonsterContractUpdated(oldContract, _newContract);
     }
+
+    /// @notice Returns the appropriate Fighter contract for a given player ID
+    /// @param playerId The ID to check
+    /// @return The Fighter contract implementation for this ID
+    function _getFighterContract(uint32 playerId) internal view returns (Fighter) {
+        if (playerId <= 2000) {
+            return Fighter(address(defaultPlayerContract));
+        } else if (playerId <= 10000) {
+            return Fighter(address(monsterContract));
+        } else {
+            return Fighter(address(playerContract));
+        }
+    }
 }

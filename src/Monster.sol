@@ -2,12 +2,16 @@
 pragma solidity ^0.8.13;
 
 import "./interfaces/IMonster.sol";
-import "./interfaces/IPlayerSkinRegistry.sol";
 import "./interfaces/IMonsterNameRegistry.sol";
 import "solmate/src/auth/Owned.sol";
+import "./Fighter.sol";
 
-contract Monster is IMonster, Owned {
-    IPlayerSkinRegistry public immutable skinRegistry;
+error InvalidMonsterRange();
+error MonsterDoesNotExist();
+error UnauthorizedCaller();
+error BadZeroAddress();
+
+contract Monster is IMonster, Owned, Fighter {
     IMonsterNameRegistry public immutable nameRegistry;
 
     // Constants for ID range
@@ -19,12 +23,6 @@ contract Monster is IMonster, Owned {
     mapping(uint32 => MonsterStats) private _monsters;
     mapping(uint32 => bool) private _isRetired;
     mapping(uint32 => bool) private _isImmortal;
-
-    // Errors
-    error InvalidMonsterRange();
-    error MonsterDoesNotExist();
-    error UnauthorizedCaller();
-    error BadZeroAddress();
 
     // Maps game contract address to their granted permissions
     mapping(address => GamePermissions) private _gameContractPermissions;
@@ -64,11 +62,13 @@ contract Monster is IMonster, Owned {
     event MonsterTierUpdated(uint16 indexed tokenId, uint8 newTier);
     event MonsterStatsUpdated(uint32 indexed monsterId, MonsterStats stats);
 
-    constructor(address skinRegistryAddress, address nameRegistryAddress) Owned(msg.sender) {
-        if (skinRegistryAddress == address(0) || nameRegistryAddress == address(0)) {
+    constructor(address skinRegistryAddress, address nameRegistryAddress)
+        Owned(msg.sender)
+        Fighter(skinRegistryAddress)
+    {
+        if (nameRegistryAddress == address(0)) {
             revert BadZeroAddress();
         }
-        skinRegistry = IPlayerSkinRegistry(skinRegistryAddress);
         nameRegistry = IMonsterNameRegistry(nameRegistryAddress);
     }
 
@@ -85,10 +85,10 @@ contract Monster is IMonster, Owned {
     /// @notice Ensures the monster ID is within valid range and exists
     /// @param monsterId The ID of the monster to check
     modifier monsterExists(uint32 monsterId) {
-        if (monsterId < MONSTER_ID_START || monsterId > MONSTER_ID_END) {
+        if (!isValidId(monsterId)) {
             revert InvalidMonsterRange();
         }
-        if (_monsters[monsterId].strength == 0) {
+        if (_monsters[monsterId].attributes.strength == 0) {
             revert MonsterDoesNotExist();
         }
         _;
@@ -150,5 +150,29 @@ contract Monster is IMonster, Owned {
         _monsters[monsterId] = newStats;
 
         emit MonsterStatsUpdated(monsterId, newStats);
+    }
+
+    /// @notice Check if a monster ID is valid
+    /// @param monsterId The ID to check
+    /// @return bool True if the ID is within valid monster range
+    function isValidId(uint32 monsterId) public pure override returns (bool) {
+        return monsterId >= MONSTER_ID_START && monsterId <= MONSTER_ID_END;
+    }
+
+    /// @notice Get the current skin for a monster
+    /// @param monsterId The ID of the monster
+    /// @return skinIndex The index of the equipped skin
+    /// @return skinTokenId The token ID of the equipped skin
+    function getCurrentSkin(uint32 monsterId) public view override returns (uint32 skinIndex, uint16 skinTokenId) {
+        MonsterStats memory stats = _monsters[monsterId];
+        return (stats.skinIndex, stats.skinTokenId);
+    }
+
+    /// @notice Get the base attributes for a monster
+    /// @param monsterId The ID of the monster
+    /// @return attributes The monster's base attributes
+    function getFighterAttributes(uint32 monsterId) internal view override returns (Attributes memory) {
+        MonsterStats memory stats = _monsters[monsterId];
+        return stats.attributes;
     }
 }

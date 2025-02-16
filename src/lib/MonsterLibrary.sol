@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "../Monster.sol";
 import "../MonsterSkinNFT.sol";
 import "../interfaces/IMonster.sol";
+import "../GameEngine.sol";
 
 library MonsterLibrary {
     enum MonsterType {
@@ -43,7 +44,7 @@ library MonsterLibrary {
     function _getMonsterData(MonsterType monsterType, uint32 skinIndex, uint16 tokenId)
         private
         pure
-        returns (uint8 weapon, uint8 armor, uint8 stance, IMonster.MonsterStats memory stats, string memory ipfsCID)
+        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         if (monsterType == MonsterType.Goblin) {
             return _getGoblinData(skinIndex, tokenId);
@@ -63,12 +64,7 @@ library MonsterLibrary {
         returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            strength: 8,
-            constitution: 8,
-            size: 6,
-            agility: 14,
-            stamina: 10,
-            luck: 12,
+            attributes: Fighter.Attributes({strength: 8, constitution: 8, size: 6, agility: 14, stamina: 10, luck: 12}),
             tier: 1,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
@@ -78,9 +74,9 @@ library MonsterLibrary {
         });
 
         return (
-            1, // weapon (dagger)
-            1, // armor (light)
-            1, // stance (agile)
+            0, // WEAPON_SWORD_AND_SHIELD
+            0, // ARMOR_CLOTH
+            0, // STANCE_DEFENSIVE
             stats,
             "Qm..." // Add actual IPFS CID
         );
@@ -92,12 +88,7 @@ library MonsterLibrary {
         returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            strength: 14,
-            constitution: 14,
-            size: 14,
-            agility: 8,
-            stamina: 12,
-            luck: 8,
+            attributes: Fighter.Attributes({strength: 14, constitution: 14, size: 14, agility: 8, stamina: 12, luck: 8}),
             tier: 2,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
@@ -107,9 +98,9 @@ library MonsterLibrary {
         });
 
         return (
-            4, // weapon (battleaxe)
-            2, // armor (chain)
-            2, // stance (offensive)
+            4, // WEAPON_BATTLEAXE
+            2, // ARMOR_CHAIN
+            2, // STANCE_OFFENSIVE
             stats,
             "Qm..." // Add actual IPFS CID
         );
@@ -121,12 +112,7 @@ library MonsterLibrary {
         returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            strength: 16,
-            constitution: 16,
-            size: 16,
-            agility: 6,
-            stamina: 14,
-            luck: 6,
+            attributes: Fighter.Attributes({strength: 16, constitution: 16, size: 16, agility: 6, stamina: 14, luck: 6}),
             tier: 3,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
@@ -136,9 +122,9 @@ library MonsterLibrary {
         });
 
         return (
-            3, // weapon (greatsword)
-            3, // armor (plate)
-            1, // stance (balanced)
+            3, // WEAPON_GREATSWORD
+            3, // ARMOR_PLATE
+            1, // STANCE_BALANCED
             stats,
             "Qm..." // Add actual IPFS CID
         );
@@ -150,12 +136,7 @@ library MonsterLibrary {
         returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            strength: 18,
-            constitution: 18,
-            size: 18,
-            agility: 4,
-            stamina: 16,
-            luck: 4,
+            attributes: Fighter.Attributes({strength: 18, constitution: 18, size: 18, agility: 4, stamina: 16, luck: 4}),
             tier: 4,
             skinIndex: skinIndex,
             skinTokenId: tokenId,
@@ -165,9 +146,9 @@ library MonsterLibrary {
         });
 
         return (
-            4, // weapon (battleaxe)
-            3, // armor (plate)
-            2, // stance (offensive)
+            4, // WEAPON_BATTLEAXE
+            3, // ARMOR_PLATE
+            2, // STANCE_OFFENSIVE
             stats,
             "Qm..." // Add actual IPFS CID
         );

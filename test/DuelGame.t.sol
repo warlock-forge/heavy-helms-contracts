@@ -12,6 +12,7 @@ import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
 import {UnlockNFT} from "./mocks/UnlockNFT.sol";
 import "./utils/TestBase.sol";
 import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
+import {Fighter} from "../src/Fighter.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;
@@ -85,7 +86,7 @@ contract DuelGameTest is TestBase {
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
 
-        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         vm.expectEmit(true, true, true, true);
         emit ChallengeCreated(0, PLAYER_ONE_ID, PLAYER_TWO_ID, wagerAmount, block.number);
@@ -139,10 +140,21 @@ contract DuelGameTest is TestBase {
         game.fulfillRandomness(0, dataWithRound);
 
         // Get loadouts from challenge
-        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
+        (,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
-        bytes memory results =
-            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0, 0);
+
+        // Get the appropriate Fighter contracts
+        Fighter challengerFighter = _getFighterContract(challengerLoadout.playerId);
+        Fighter defenderFighter = _getFighterContract(defenderLoadout.playerId);
+
+        // Process game using Fighter contract conversions
+        bytes memory results = gameEngine.processGame(
+            challengerFighter.convertToFighterStats(challengerLoadout),
+            defenderFighter.convertToFighterStats(defenderLoadout),
+            0,
+            0
+        );
+
         (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
@@ -219,10 +231,21 @@ contract DuelGameTest is TestBase {
         game.fulfillRandomness(0, dataWithRound);
 
         // Get loadouts from challenge
-        (,,,, IGameEngine.PlayerLoadout memory challengerLoadout, IGameEngine.PlayerLoadout memory defenderLoadout,) =
+        (,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
-        bytes memory results =
-            gameEngine.processGame(_convertToLoadout(challengerLoadout), _convertToLoadout(defenderLoadout), 0, 0);
+
+        // Get the appropriate Fighter contracts
+        Fighter challengerFighter = _getFighterContract(challengerLoadout.playerId);
+        Fighter defenderFighter = _getFighterContract(defenderLoadout.playerId);
+
+        // Process game using Fighter contract conversions
+        bytes memory results = gameEngine.processGame(
+            challengerFighter.convertToFighterStats(challengerLoadout),
+            defenderFighter.convertToFighterStats(defenderLoadout),
+            0,
+            0
+        );
+
         (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
@@ -268,7 +291,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
         vm.deal(PLAYER_ONE, wagerAmount);
-        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         vm.expectRevert(bytes("Incorrect ETH amount sent"));
         game.initiateChallenge{value: wagerAmount - 0.1 ether}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -280,8 +303,7 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
         vm.deal(PLAYER_ONE, wagerAmount);
 
-        IGameEngine.PlayerLoadout memory loadout =
-            IGameEngine.PlayerLoadout({playerId: 999, skinIndex: 1, skinTokenId: 1});
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({playerId: 999, skinIndex: 1, skinTokenId: 1});
 
         vm.expectRevert("Cannot use default character as challenger");
         game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -301,14 +323,14 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
         vm.deal(PLAYER_ONE, wagerAmount);
 
-        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
         uint256 challengeId = game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         // Try to accept with wrong defender
         vm.startPrank(PLAYER_ONE);
         vm.deal(PLAYER_ONE, wagerAmount);
-        IGameEngine.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
+        Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
 
         vm.expectRevert(bytes("Not defender"));
         game.acceptChallenge{value: wagerAmount}(challengeId, defenderLoadout);
@@ -345,7 +367,7 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
 
         vm.startPrank(PLAYER_ONE);
-        IGameEngine.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
         vm.expectRevert("Game is disabled");
         game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
@@ -411,7 +433,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         // Create a loadout with an unowned skin
-        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID,
             skinIndex: 2, // Non-default skin index
             skinTokenId: 999 // Token ID we don't own
@@ -437,7 +459,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_TWO);
         vm.deal(PLAYER_TWO, wagerAmount);
 
-        IGameEngine.PlayerLoadout memory loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_TWO_ID,
             skinIndex: 2, // Non-default skin index
             skinTokenId: 999 // Token ID we don't own
@@ -473,8 +495,8 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        IGameEngine.PlayerLoadout memory loadout =
-            IGameEngine.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
+        Fighter.PlayerLoadout memory loadout =
+            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
 
         vm.expectRevert("Challenger skin validation failed");
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -511,8 +533,8 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        IGameEngine.PlayerLoadout memory loadout =
-            IGameEngine.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
+        Fighter.PlayerLoadout memory loadout =
+            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
 
         // This should not revert
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -536,8 +558,8 @@ contract DuelGameTest is TestBase {
         }
 
         // Create a loadout with a default player skin
-        IGameEngine.PlayerLoadout memory loadout =
-            IGameEngine.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: defaultSkinIndex, skinTokenId: 1});
+        Fighter.PlayerLoadout memory loadout =
+            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: defaultSkinIndex, skinTokenId: 1});
 
         // This should not revert since default skins don't require ownership
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);

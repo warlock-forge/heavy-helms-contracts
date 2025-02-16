@@ -2,18 +2,16 @@
 pragma solidity ^0.8.13;
 
 import "./interfaces/IDefaultPlayer.sol";
-import "./interfaces/IPlayerSkinRegistry.sol";
 import "./interfaces/IPlayerNameRegistry.sol";
-import "./lib/GameHelpers.sol";
 import "solmate/src/auth/Owned.sol";
+import "./Fighter.sol";
 
 error PlayerDoesNotExist(uint32 playerId);
 error InvalidDefaultPlayerRange();
 error BadZeroAddress();
 error InvalidNameIndex();
 
-contract DefaultPlayer is IDefaultPlayer, Owned {
-    IPlayerSkinRegistry public immutable skinRegistry;
+contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     IPlayerNameRegistry public immutable nameRegistry;
 
     // Maps default player ID to their stats
@@ -25,21 +23,47 @@ contract DefaultPlayer is IDefaultPlayer, Owned {
     uint32 private constant DEFAULT_PLAYER_START = 1;
     uint32 private constant DEFAULT_PLAYER_END = 2000;
 
-    constructor(address skinRegistryAddress, address nameRegistryAddress) Owned(msg.sender) {
-        if (skinRegistryAddress == address(0) || nameRegistryAddress == address(0)) {
+    constructor(address skinRegistryAddress, address nameRegistryAddress)
+        Owned(msg.sender)
+        Fighter(skinRegistryAddress)
+    {
+        if (nameRegistryAddress == address(0)) {
             revert BadZeroAddress();
         }
-        skinRegistry = IPlayerSkinRegistry(skinRegistryAddress);
         nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
+    }
+
+    /// @notice Check if a default player ID is valid
+    /// @param playerId The ID to check
+    /// @return bool True if the ID is within valid default player range
+    function isValidId(uint32 playerId) public pure override returns (bool) {
+        return playerId >= DEFAULT_PLAYER_START && playerId <= DEFAULT_PLAYER_END;
+    }
+
+    /// @notice Get the current skin for a default player
+    /// @param playerId The ID of the default player
+    /// @return skinIndex The index of the equipped skin
+    /// @return skinTokenId The token ID of the equipped skin
+    function getCurrentSkin(uint32 playerId) public view override returns (uint32 skinIndex, uint16 skinTokenId) {
+        DefaultPlayerStats memory stats = _defaultPlayers[playerId];
+        return (stats.skinIndex, stats.skinTokenId);
+    }
+
+    /// @notice Get the base attributes for a default player
+    /// @param playerId The ID of the default player
+    /// @return attributes The default player's base attributes
+    function getFighterAttributes(uint32 playerId) internal view override returns (Attributes memory) {
+        DefaultPlayerStats memory stats = _defaultPlayers[playerId];
+        return stats.attributes;
     }
 
     /// @notice Ensures the default player ID is within valid range and exists
     /// @param playerId The ID of the default player to check
     modifier defaultPlayerExists(uint32 playerId) {
-        if (playerId < DEFAULT_PLAYER_START || playerId > DEFAULT_PLAYER_END) {
+        if (!isValidId(playerId)) {
             revert InvalidDefaultPlayerRange();
         }
-        if (_defaultPlayers[playerId].strength == 0) {
+        if (_defaultPlayers[playerId].attributes.strength == 0) {
             revert PlayerDoesNotExist(playerId);
         }
         _;
@@ -55,12 +79,12 @@ contract DefaultPlayer is IDefaultPlayer, Owned {
     }
 
     function setDefaultPlayer(uint32 playerId, DefaultPlayerStats memory stats) external onlyOwner {
-        if (playerId < DEFAULT_PLAYER_START || playerId > DEFAULT_PLAYER_END) {
+        if (!isValidId(playerId)) {
             revert InvalidDefaultPlayerRange();
         }
 
         // Verify skin exists and is valid
-        skinRegistry.getSkin(stats.skinIndex);
+        skinRegistry().getSkin(stats.skinIndex);
 
         // Validate name indices
         if (
@@ -79,7 +103,7 @@ contract DefaultPlayer is IDefaultPlayer, Owned {
         defaultPlayerExists(playerId)
     {
         // Verify skin exists and is valid
-        skinRegistry.getSkin(newStats.skinIndex);
+        skinRegistry().getSkin(newStats.skinIndex);
 
         // Validate name indices
         if (

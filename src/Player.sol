@@ -11,10 +11,8 @@ import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
-import "./interfaces/IDefaultPlayerSkinNFT.sol";
 import "./interfaces/IPlayerNameRegistry.sol";
-import "./interfaces/IPlayerSkinRegistry.sol";
+import "./Fighter.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -67,7 +65,7 @@ error InvalidSkinType();
 /// @title Player Contract for Heavy Helms
 /// @notice Manages player creation, attributes, skins, and persistent player data
 /// @dev Integrates with VRF for random stat generation and interfaces with skin/name registries
-contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
+contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     using UniformRandomNumber for uint256;
 
     //==============================================================//
@@ -113,8 +111,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     bool public isPaused;
 
     // Contract References
-    /// @notice Registry contract for managing player skin collections and metadata
-    IPlayerSkinRegistry public skinRegistry;
     /// @notice Registry contract for managing player name sets and validation
     IPlayerNameRegistry public nameRegistry;
 
@@ -320,11 +316,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param playerId The ID of the player to check
     /// @dev Reverts with PlayerDoesNotExist if the player ID is invalid
     modifier playerExists(uint32 playerId) {
-        // First check if ID is in valid range for this contract
-        if (playerId < USER_PLAYER_START || playerId > USER_PLAYER_END) {
+        if (!isValidId(playerId)) {
             revert InvalidPlayerRange();
         }
-        // Then check if player exists
         if (_players[playerId].strength == 0) {
             revert PlayerDoesNotExist(playerId);
         }
@@ -346,8 +340,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
     /// @param nameRegistryAddress Address of the PlayerNameRegistry contract
     /// @param operator Address of the Gelato VRF operator
     /// @dev Sets initial configuration values and connects to required registries
-    constructor(address skinRegistryAddress, address nameRegistryAddress, address operator) Owned(msg.sender) {
-        skinRegistry = IPlayerSkinRegistry(payable(skinRegistryAddress));
+    constructor(address skinRegistryAddress, address nameRegistryAddress, address operator)
+        Owned(msg.sender)
+        Fighter(skinRegistryAddress)
+    {
         nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
         _operatorAddress = operator;
     }
@@ -549,6 +545,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         return slotBatchCost * (batchesPurchased + 1);
     }
 
+    /// @notice Gets the skin registry contract reference
+    /// @return The PlayerSkinRegistry contract instance
+    function skinRegistry() public view virtual override(Fighter, IPlayer) returns (IPlayerSkinRegistry) {
+        return super.skinRegistry();
+    }
+
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
@@ -584,7 +586,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         }
 
         // Validate skin ownership through registry
-        skinRegistry.validateSkinOwnership(skinIndex, skinTokenId, msg.sender);
+        skinRegistry().validateSkinOwnership(skinIndex, skinTokenId, msg.sender);
 
         // Update player's skin
         _players[playerId].skinIndex = skinIndex;
@@ -1173,5 +1175,36 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase {
         else if (attr == Attribute.AGILITY) player.agility = value;
         else if (attr == Attribute.STAMINA) player.stamina = value;
         else player.luck = value;
+    }
+
+    /// @notice Check if a player ID is valid
+    /// @param playerId The ID to check
+    /// @return bool True if the ID is within valid user player range
+    function isValidId(uint32 playerId) public pure override returns (bool) {
+        return playerId >= USER_PLAYER_START && playerId <= USER_PLAYER_END;
+    }
+
+    /// @notice Get the current skin for a player
+    /// @param playerId The ID of the player
+    /// @return skinIndex The index of the equipped skin
+    /// @return skinTokenId The token ID of the equipped skin
+    function getCurrentSkin(uint32 playerId) public view override returns (uint32 skinIndex, uint16 skinTokenId) {
+        PlayerStats memory stats = _players[playerId];
+        return (stats.skinIndex, stats.skinTokenId);
+    }
+
+    /// @notice Get the base attributes for a player
+    /// @param playerId The ID of the player
+    /// @return attributes The player's base attributes
+    function getFighterAttributes(uint32 playerId) internal view override returns (Attributes memory) {
+        PlayerStats memory stats = _players[playerId];
+        return Attributes({
+            strength: stats.strength,
+            constitution: stats.constitution,
+            size: stats.size,
+            agility: stats.agility,
+            stamina: stats.stamina,
+            luck: stats.luck
+        });
     }
 }

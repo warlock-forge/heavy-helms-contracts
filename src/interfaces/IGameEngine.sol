@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./IPlayer.sol";
-import "../lib/GameHelpers.sol";
+import "../Fighter.sol";
 
 interface IGameEngine {
     enum WinCondition {
@@ -38,18 +37,11 @@ interface IGameEngine {
         uint8 p2StaminaLost;
     }
 
-    // Used by game modes for validation and tracking
-    struct PlayerLoadout {
-        uint32 playerId;
-        uint32 skinIndex;
-        uint16 skinTokenId;
-    }
-
     struct FighterStats {
         uint8 weapon;
         uint8 armor;
         uint8 stance;
-        GameHelpers.Attributes attributes;
+        Fighter.Attributes attributes;
     }
 
     function decodeVersion(uint16 _version) external pure returns (uint8 major, uint8 minor);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../PlayerSkinRegistry.sol";
+import "../Fighter.sol";
 
 /// @title Monster Interface for Heavy Helms
 /// @notice Defines the core functionality for monster management and game interactions
@@ -10,12 +10,7 @@ interface IMonster {
     //                          STRUCTS                             //
     //==============================================================//
     /// @notice Contains all stats and attributes for a monster
-    /// @param strength Physical power stat (3-50)
-    /// @param constitution Health and durability stat (3-50)
-    /// @param size Physical size stat (3-50)
-    /// @param agility Speed and dexterity stat (3-50)
-    /// @param stamina Endurance stat (3-50)
-    /// @param luck Fortune and critical chance stat (3-50)
+    /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
     /// @param tier Tier of the monster
     /// @param skinIndex Index of monster skin/type
     /// @param skinTokenId Token ID of monster skin/type
@@ -23,12 +18,7 @@ interface IMonster {
     /// @param losses Total defeats
     /// @param kills Total kills
     struct MonsterStats {
-        uint8 strength;
-        uint8 constitution;
-        uint8 size;
-        uint8 agility;
-        uint8 stamina;
-        uint8 luck;
+        Fighter.Attributes attributes;
         uint8 tier;
         uint32 skinIndex;
         uint16 skinTokenId;

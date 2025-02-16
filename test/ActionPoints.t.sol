@@ -7,6 +7,7 @@ import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {Player} from "../src/Player.sol";
+import {Fighter} from "../src/Fighter.sol";
 
 contract ActionPointsTest is TestBase {
     function setUp() public override {
@@ -17,14 +18,17 @@ contract ActionPointsTest is TestBase {
         uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
         uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        IGameEngine.PlayerLoadout memory fastLoadout =
-            IGameEngine.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
+        Fighter.PlayerLoadout memory fastLoadout =
+            Fighter.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
 
-        IGameEngine.PlayerLoadout memory slowLoadout =
-            IGameEngine.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
+        Fighter.PlayerLoadout memory slowLoadout =
+            Fighter.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
 
         bytes memory results = gameEngine.processGame(
-            _convertToLoadout(fastLoadout), _convertToLoadout(slowLoadout), _generateGameSeed(), 0
+            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
+            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
+            _generateGameSeed(),
+            0
         );
 
         // Add before decoding:
@@ -75,14 +79,17 @@ contract ActionPointsTest is TestBase {
         uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
         uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        IGameEngine.PlayerLoadout memory fastLoadout =
-            IGameEngine.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
+        Fighter.PlayerLoadout memory fastLoadout =
+            Fighter.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
 
-        IGameEngine.PlayerLoadout memory slowLoadout =
-            IGameEngine.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
+        Fighter.PlayerLoadout memory slowLoadout =
+            Fighter.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
 
         bytes memory results = gameEngine.processGame(
-            _convertToLoadout(slowLoadout), _convertToLoadout(fastLoadout), _generateGameSeed(), 0
+            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
+            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
+            _generateGameSeed(),
+            0
         );
 
         // Add before decoding:
@@ -132,14 +139,18 @@ contract ActionPointsTest is TestBase {
     function test_SameWeaponInitiative() public view {
         uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
 
-        IGameEngine.PlayerLoadout memory p1Loadout =
-            IGameEngine.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
+        Fighter.PlayerLoadout memory p1Loadout =
+            Fighter.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
 
-        IGameEngine.PlayerLoadout memory p2Loadout =
-            IGameEngine.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
+        Fighter.PlayerLoadout memory p2Loadout =
+            Fighter.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
 
-        bytes memory results =
-            gameEngine.processGame(_convertToLoadout(p1Loadout), _convertToLoadout(p2Loadout), _generateGameSeed(), 0);
+        bytes memory results = gameEngine.processGame(
+            _getFighterContract(p1Loadout.playerId).convertToFighterStats(p1Loadout),
+            _getFighterContract(p2Loadout.playerId).convertToFighterStats(p2Loadout),
+            _generateGameSeed(),
+            0
+        );
 
         // Add before decoding:
         console2.log("Raw Results Length:", results.length);

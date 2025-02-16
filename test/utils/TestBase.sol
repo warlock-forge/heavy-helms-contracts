@@ -22,10 +22,10 @@ import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
 import {MonsterNameRegistry} from "../../src/MonsterNameRegistry.sol";
+import {Fighter} from "../../src/Fighter.sol";
 
 // Libraries
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
-import {GameHelpers} from "../../src/lib/GameHelpers.sol";
 import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
 import {NameLibrary} from "../../src/lib/NameLibrary.sol";
@@ -188,29 +188,10 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to create a player loadout that supports both practice and duel game test cases
-    function _createLoadout(uint32 fighterId) internal view returns (IGameEngine.PlayerLoadout memory) {
-        uint32 loadoutSkinIndex = defaultSkinIndex; // Default to test's defaultSkinIndex
-        uint16 tokenId = 1; // Default token ID
-
-        GameHelpers.PlayerType fighterType = GameHelpers.getPlayerType(fighterId);
-
-        // Get skin index based on fighter type
-        if (fighterType == GameHelpers.PlayerType.DefaultPlayer) {
-            IDefaultPlayer.DefaultPlayerStats memory stats = defaultPlayerContract.getDefaultPlayer(fighterId);
-            loadoutSkinIndex = stats.skinIndex;
-            tokenId = stats.skinTokenId;
-        } else if (fighterType == GameHelpers.PlayerType.Monster) {
-            IMonster.MonsterStats memory stats = monsterContract.getMonster(fighterId);
-            loadoutSkinIndex = stats.skinIndex;
-            tokenId = stats.skinTokenId;
-        } else {
-            // PlayerCharacter
-            IPlayer.PlayerStats memory stats = playerContract.getPlayer(fighterId);
-            loadoutSkinIndex = stats.skinIndex;
-            tokenId = stats.skinTokenId;
-        }
-
-        return IGameEngine.PlayerLoadout({playerId: fighterId, skinIndex: loadoutSkinIndex, skinTokenId: tokenId});
+    function _createLoadout(uint32 fighterId) internal view returns (Fighter.PlayerLoadout memory) {
+        Fighter fighter = _getFighterContract(fighterId);
+        (uint32 skinIndex, uint16 tokenId) = fighter.getCurrentSkin(fighterId);
+        return Fighter.PlayerLoadout({playerId: fighterId, skinIndex: skinIndex, skinTokenId: tokenId});
     }
 
     // Helper function to validate combat results
@@ -387,63 +368,6 @@ abstract contract TestBase is Test {
         assertTrue(foundEvent, "VRF request event not found");
     }
 
-    // Helper function to convert PlayerLoadout to FighterStats
-    function _convertToLoadout(IGameEngine.PlayerLoadout memory playerLoadout)
-        internal
-        view
-        returns (IGameEngine.FighterStats memory)
-    {
-        // Get skin info and attributes
-        PlayerSkinRegistry.SkinInfo memory skinInfo = playerContract.skinRegistry().getSkin(playerLoadout.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory attrs =
-            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(playerLoadout.skinTokenId);
-
-        // Get base stats based on fighter type
-        uint8 strength;
-        uint8 constitution;
-        uint8 size;
-        uint8 agility;
-        uint8 stamina;
-        uint8 luck;
-
-        GameHelpers.PlayerType fighterType = GameHelpers.getPlayerType(playerLoadout.playerId);
-
-        if (fighterType == GameHelpers.PlayerType.DefaultPlayer) {
-            IDefaultPlayer.DefaultPlayerStats memory stats =
-                defaultPlayerContract.getDefaultPlayer(playerLoadout.playerId);
-            strength = stats.strength;
-            constitution = stats.constitution;
-            size = stats.size;
-            agility = stats.agility;
-            stamina = stats.stamina;
-            luck = stats.luck;
-        } else if (fighterType == GameHelpers.PlayerType.Monster) {
-            IMonster.MonsterStats memory stats = monsterContract.getMonster(playerLoadout.playerId);
-            strength = stats.strength;
-            constitution = stats.constitution;
-            size = stats.size;
-            agility = stats.agility;
-            stamina = stats.stamina;
-            luck = stats.luck;
-        } else {
-            // PlayerCharacter
-            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerLoadout.playerId);
-            strength = stats.strength;
-            constitution = stats.constitution;
-            size = stats.size;
-            agility = stats.agility;
-            stamina = stats.stamina;
-            luck = stats.luck;
-        }
-
-        return IGameEngine.FighterStats({
-            weapon: attrs.weapon,
-            armor: attrs.armor,
-            stance: attrs.stance,
-            attributes: GameHelpers.Attributes(strength, constitution, size, agility, stamina, luck)
-        });
-    }
-
     /// @notice Helper to ensure an address has enough slots for desired player count
     /// @param owner Address to purchase slots for
     /// @param desiredSlots Total number of slots needed
@@ -547,5 +471,16 @@ abstract contract TestBase is Test {
         if (stance == gameEngine.STANCE_BALANCED()) return "Balanced";
         if (stance == gameEngine.STANCE_OFFENSIVE()) return "Offensive";
         return "Unknown";
+    }
+
+    // Helper function to get the appropriate Fighter contract
+    function _getFighterContract(uint32 playerId) internal view returns (Fighter) {
+        if (playerId <= 2000) {
+            return Fighter(address(defaultPlayerContract));
+        } else if (playerId <= 10000) {
+            return Fighter(address(monsterContract));
+        } else {
+            return Fighter(address(playerContract));
+        }
     }
 }

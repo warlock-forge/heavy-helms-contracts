@@ -6,6 +6,7 @@ import {GameEngine} from "../src/GameEngine.sol";
 import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
 import "./utils/TestBase.sol";
 import "../src/lib/DefaultPlayerLibrary.sol";
+import {Fighter} from "../src/Fighter.sol";
 
 contract LethalDamageTest is TestBase {
     address public PLAYER_ONE;
@@ -26,20 +27,24 @@ contract LethalDamageTest is TestBase {
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
 
+        // Get the appropriate Fighter contracts
+        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
+        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+
         bytes memory results = gameEngine.processGame(
-            _convertToLoadout(p1Loadout),
-            _convertToLoadout(p2Loadout),
+            p1Fighter.convertToFighterStats(p1Loadout),
+            p2Fighter.convertToFighterStats(p2Loadout),
             _generateGameSeed(),
             0 // lethalityFactor = 0
         );
@@ -55,24 +60,28 @@ contract LethalDamageTest is TestBase {
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
+
+        // Get the appropriate Fighter contracts
+        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
+        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 50;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                _convertToLoadout(p1Loadout),
-                _convertToLoadout(p2Loadout),
+                p1Fighter.convertToFighterStats(p1Loadout),
+                p2Fighter.convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 50 // Base lethality (0.5x)
             );
@@ -100,24 +109,28 @@ contract LethalDamageTest is TestBase {
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
+
+        // Get the appropriate Fighter contracts
+        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
+        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 20;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                _convertToLoadout(p1Loadout),
-                _convertToLoadout(p2Loadout),
+                p1Fighter.convertToFighterStats(p1Loadout),
+                p2Fighter.convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 100 // Base lethality (1x)
             );
@@ -145,24 +158,28 @@ contract LethalDamageTest is TestBase {
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive vs defensive loadouts
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1
         });
+
+        // Get the appropriate Fighter contracts
+        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
+        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 100;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                _convertToLoadout(p1Loadout),
-                _convertToLoadout(p2Loadout),
+                p1Fighter.convertToFighterStats(p1Loadout),
+                p2Fighter.convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 100 // Base lethality (1x)
             );
@@ -191,24 +208,28 @@ contract LethalDamageTest is TestBase {
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Create offensive loadouts
-        IGameEngine.PlayerLoadout memory p1Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
         });
-        IGameEngine.PlayerLoadout memory p2Loadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skinIndex: defaultSkinIndex,
             skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
         });
+
+        // Get the appropriate Fighter contracts
+        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
+        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 20;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                _convertToLoadout(p1Loadout),
-                _convertToLoadout(p2Loadout),
+                p1Fighter.convertToFighterStats(p1Loadout),
+                p2Fighter.convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 200 // Extra brutal lethality (2x brutal)
             );

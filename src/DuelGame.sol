@@ -9,8 +9,8 @@ import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./lib/UniformRandomNumber.sol";
-import "./lib/GameHelpers.sol";
-import "./GameEngine.sol";
+import "./interfaces/IGameEngine.sol";
+import "./Fighter.sol";
 
 contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
@@ -33,8 +33,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint32 defenderId;
         uint256 wagerAmount;
         uint256 createdBlock;
-        IGameEngine.PlayerLoadout challengerLoadout;
-        IGameEngine.PlayerLoadout defenderLoadout;
+        Fighter.PlayerLoadout challengerLoadout;
+        Fighter.PlayerLoadout defenderLoadout;
         bool fulfilled;
     }
 
@@ -115,11 +115,13 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         isGameEnabled = enabled;
     }
 
-    function initiateChallenge(
-        IGameEngine.PlayerLoadout calldata challengerLoadout,
-        uint32 defenderId,
-        uint256 wagerAmount
-    ) external payable whenGameEnabled nonReentrant returns (uint256) {
+    function initiateChallenge(Fighter.PlayerLoadout calldata challengerLoadout, uint32 defenderId, uint256 wagerAmount)
+        external
+        payable
+        whenGameEnabled
+        nonReentrant
+        returns (uint256)
+    {
         require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
         require(challengerLoadout.playerId >= 1000, "Cannot use default character as challenger");
         require(defenderId >= 1000, "Cannot use default character as defender");
@@ -176,7 +178,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             wagerAmount: wagerAmount,
             createdBlock: block.number,
             challengerLoadout: challengerLoadout,
-            defenderLoadout: IGameEngine.PlayerLoadout(0, 0, 0),
+            defenderLoadout: Fighter.PlayerLoadout(0, 0, 0),
             fulfilled: false
         });
 
@@ -200,7 +202,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             && block.number <= challenge.createdBlock + BLOCKS_UNTIL_EXPIRE;
     }
 
-    function acceptChallenge(uint256 challengeId, IGameEngine.PlayerLoadout calldata defenderLoadout)
+    function acceptChallenge(uint256 challengeId, Fighter.PlayerLoadout calldata defenderLoadout)
         external
         payable
         nonReentrant
@@ -334,7 +336,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             weapon: challengerAttrs.weapon,
             armor: challengerAttrs.armor,
             stance: challengerAttrs.stance,
-            attributes: GameHelpers.Attributes(
+            attributes: Fighter.Attributes(
                 challengerStats.strength,
                 challengerStats.constitution,
                 challengerStats.size,
@@ -349,7 +351,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             weapon: defenderAttrs.weapon,
             armor: defenderAttrs.armor,
             stance: defenderAttrs.stance,
-            attributes: GameHelpers.Attributes(
+            attributes: Fighter.Attributes(
                 defenderStats.strength,
                 defenderStats.constitution,
                 defenderStats.size,
@@ -363,8 +365,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed, 0);
 
         // Use GameEngine's decode method instead of manual unpacking
-        (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
+        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
+        = gameEngine.decodeCombatLog(results);
 
         // Determine winner and loser IDs based on player1Won
         uint32 winnerId = player1Won ? challenge.challengerId : challenge.defenderId;

@@ -3,8 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {DuelGame} from "../../../src/DuelGame.sol";
-import {GameEngine} from "../../../src/GameEngine.sol";
-import {IGameEngine} from "../../../src/interfaces/IGameEngine.sol";
+import {Fighter} from "../../../src/Fighter.sol";
 import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
 
 contract DuelPlayersScript is Script {
@@ -28,14 +27,14 @@ contract DuelPlayersScript is Script {
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(defenderId);
 
         // Create loadout for challenger using their current skin
-        GameEngine.PlayerLoadout memory challengerLoadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory challengerLoadout = Fighter.PlayerLoadout({
             playerId: challengerId,
             skinIndex: challengerStats.skinIndex,
             skinTokenId: challengerStats.skinTokenId
         });
 
         // Create loadout for defender using their current skin
-        GameEngine.PlayerLoadout memory defenderLoadout = IGameEngine.PlayerLoadout({
+        Fighter.PlayerLoadout memory defenderLoadout = Fighter.PlayerLoadout({
             playerId: defenderId,
             skinIndex: defenderStats.skinIndex,
             skinTokenId: defenderStats.skinTokenId

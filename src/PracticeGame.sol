@@ -3,8 +3,9 @@ pragma solidity ^0.8.13;
 
 import "./BaseGame.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
-import "./lib/GameHelpers.sol";
 import "./interfaces/IDefaultPlayer.sol";
+import "./interfaces/IGameEngine.sol";
+import "./Fighter.sol";
 
 contract PracticeGame is BaseGame {
     constructor(address _gameEngine, address _playerContract, address _defaultPlayerContract, address _monsterContract)
@@ -15,7 +16,7 @@ contract PracticeGame is BaseGame {
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, player1Id, player2Id)));
     }
 
-    function play(IGameEngine.PlayerLoadout memory player1, IGameEngine.PlayerLoadout memory player2)
+    function play(Fighter.PlayerLoadout memory player1, Fighter.PlayerLoadout memory player2)
         public
         view
         returns (bytes memory)
@@ -24,13 +25,13 @@ contract PracticeGame is BaseGame {
         require(!playerContract.isPlayerRetired(player1.playerId), "Player 1 is retired");
         require(!playerContract.isPlayerRetired(player2.playerId), "Player 2 is retired");
 
-        IGameEngine.FighterStats memory p1Combat = GameHelpers.convertToFighterStats(
-            player1, playerContract, defaultPlayerContract, monsterContract, playerContract.skinRegistry()
-        );
+        // Get the appropriate Fighter contract for each player
+        Fighter p1Fighter = _getFighterContract(player1.playerId);
+        Fighter p2Fighter = _getFighterContract(player2.playerId);
 
-        IGameEngine.FighterStats memory p2Combat = GameHelpers.convertToFighterStats(
-            player2, playerContract, defaultPlayerContract, monsterContract, playerContract.skinRegistry()
-        );
+        // Convert loadouts using the appropriate Fighter implementations
+        IGameEngine.FighterStats memory p1Combat = p1Fighter.convertToFighterStats(player1);
+        IGameEngine.FighterStats memory p2Combat = p2Fighter.convertToFighterStats(player2);
 
         uint256 pseudoRandomSeed = _generatePseudoRandomSeed(uint32(player1.playerId), uint32(player2.playerId));
 
