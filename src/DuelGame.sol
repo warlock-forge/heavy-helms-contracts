@@ -336,14 +336,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             weapon: challengerAttrs.weapon,
             armor: challengerAttrs.armor,
             stance: challengerAttrs.stance,
-            attributes: Fighter.Attributes(
-                challengerStats.strength,
-                challengerStats.constitution,
-                challengerStats.size,
-                challengerStats.agility,
-                challengerStats.stamina,
-                challengerStats.luck
-            )
+            attributes: challengerStats.attributes
         });
 
         // Create FighterStats
@@ -351,14 +344,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             weapon: defenderAttrs.weapon,
             armor: defenderAttrs.armor,
             stance: defenderAttrs.stance,
-            attributes: Fighter.Attributes(
-                defenderStats.strength,
-                defenderStats.constitution,
-                defenderStats.size,
-                defenderStats.agility,
-                defenderStats.stamina,
-                defenderStats.luck
-            )
+            attributes: defenderStats.attributes
         });
 
         // Execute the duel with the random seed

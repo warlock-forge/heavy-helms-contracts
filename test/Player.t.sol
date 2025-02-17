@@ -412,16 +412,13 @@ contract PlayerTest is TestBase {
         // Get and validate player stats
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
 
-        assertTrue(stats.strength >= 3 && stats.strength <= 21, "Invalid strength");
-        assertTrue(stats.constitution >= 3 && stats.constitution <= 21, "Invalid constitution");
-        assertTrue(stats.size >= 3 && stats.size <= 21, "Invalid size");
-        assertTrue(stats.agility >= 3 && stats.agility <= 21, "Invalid agility");
-        assertTrue(stats.stamina >= 3 && stats.stamina <= 21, "Invalid stamina");
-        assertTrue(stats.luck >= 3 && stats.luck <= 21, "Invalid luck");
+        // Use the helper method instead of repeating validation logic
+        _assertStatRanges(stats);
 
         // Verify total points are within expected range
-        uint256 totalPoints = uint256(stats.strength) + uint256(stats.constitution) + uint256(stats.size)
-            + uint256(stats.agility) + uint256(stats.stamina) + uint256(stats.luck);
+        uint256 totalPoints = uint256(stats.attributes.strength) + uint256(stats.attributes.constitution)
+            + uint256(stats.attributes.size) + uint256(stats.attributes.agility) + uint256(stats.attributes.stamina)
+            + uint256(stats.attributes.luck);
         assertTrue(totalPoints >= 18 && totalPoints <= 126, "Total points out of range");
     }
 
@@ -440,8 +437,14 @@ contract PlayerTest is TestBase {
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
 
             // Check each stat
-            uint8[6] memory statArray =
-                [stats.strength, stats.constitution, stats.size, stats.agility, stats.stamina, stats.luck];
+            uint8[6] memory statArray = [
+                stats.attributes.strength,
+                stats.attributes.constitution,
+                stats.attributes.size,
+                stats.attributes.agility,
+                stats.attributes.stamina,
+                stats.attributes.luck
+            ];
 
             for (uint256 j = 0; j < 6; j++) {
                 if (statArray[j] >= 19) maxStatCount++; // 19-21
@@ -853,12 +856,12 @@ contract PlayerTest is TestBase {
                 // Verify stats match stored data
                 assertEq(storedStats.firstNameIndex, firstNameIndex, "First name index mismatch");
                 assertEq(storedStats.surnameIndex, surnameIndex, "Surname index mismatch");
-                assertEq(storedStats.strength, strength, "Strength mismatch");
-                assertEq(storedStats.constitution, constitution, "Constitution mismatch");
-                assertEq(storedStats.size, size, "Size mismatch");
-                assertEq(storedStats.agility, agility, "Agility mismatch");
-                assertEq(storedStats.stamina, stamina, "Stamina mismatch");
-                assertEq(storedStats.luck, luck, "Luck mismatch");
+                assertEq(storedStats.attributes.strength, strength, "Strength mismatch");
+                assertEq(storedStats.attributes.constitution, constitution, "Constitution mismatch");
+                assertEq(storedStats.attributes.size, size, "Size mismatch");
+                assertEq(storedStats.attributes.agility, agility, "Agility mismatch");
+                assertEq(storedStats.attributes.stamina, stamina, "Stamina mismatch");
+                assertEq(storedStats.attributes.luck, luck, "Luck mismatch");
 
                 // Verify total stats equal 72
                 uint16 totalStats = uint16(strength) + constitution + size + agility + stamina + luck;

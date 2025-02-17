@@ -8,6 +8,7 @@ import "../src/lib/DefaultPlayerLibrary.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {Player} from "../src/Player.sol";
 import {Fighter} from "../src/Fighter.sol";
+import "../src/interfaces/IGameEngine.sol";
 
 contract ActionPointsTest is TestBase {
     function setUp() public override {
@@ -24,20 +25,19 @@ contract ActionPointsTest is TestBase {
         Fighter.PlayerLoadout memory slowLoadout =
             Fighter.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
 
-        bytes memory results = gameEngine.processGame(
-            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
-            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
-            _generateGameSeed(),
-            0
-        );
+        IGameEngine.FighterStats memory fastStats =
+            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout);
+        IGameEngine.FighterStats memory slowStats =
+            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout);
 
-        // Add before decoding:
-        console2.log("Raw Results Length:", results.length);
-        for (uint256 i = 0; i < (results.length < 20 ? results.length : 20); i++) {
-            console2.log("Byte", i, ":", uint8(results[i]));
-        }
+        bytes memory results = gameEngine.processGame(fastStats, slowStats, _generateGameSeed(), 0);
 
-        (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+        (
+            bool player1Won,
+            uint16 gameEngineVersion,
+            IGameEngine.WinCondition condition,
+            IGameEngine.CombatAction[] memory actions
+        ) = gameEngine.decodeCombatLog(results);
 
         uint256 fastAttacks = 0;
         uint256 slowAttacks = 0;
@@ -57,22 +57,6 @@ contract ActionPointsTest is TestBase {
             fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
             "Fast weapon should attack roughly twice as often as slow weapon"
         );
-
-        console2.log("---Combat Summary---");
-        console2.log("Total Rounds:", actions.length);
-        console2.log("P1 Total Attacks:", fastAttacks);
-        console2.log("P2 Total Attacks:", slowAttacks);
-        console2.log("\n---Round Details---");
-        for (uint256 i = 0; i < actions.length; i++) {
-            console2.log("\nRound", i);
-            console2.log("P1 Result Type:", uint8(actions[i].p1Result));
-            console2.log("P1 Damage:", actions[i].p1Damage);
-            console2.log("P1 Stamina Lost:", actions[i].p1StaminaLost);
-            console2.log("P2 Result Type:", uint8(actions[i].p2Result));
-            console2.log("P2 Damage:", actions[i].p2Damage);
-            console2.log("P2 Stamina Lost:", actions[i].p2StaminaLost);
-            console2.log("---");
-        }
     }
 
     function test_QuarterstaffDoubleAttackPlayerBias() public view {
@@ -92,12 +76,6 @@ contract ActionPointsTest is TestBase {
             0
         );
 
-        // Add before decoding:
-        console2.log("Raw Results Length:", results.length);
-        for (uint256 i = 0; i < (results.length < 20 ? results.length : 20); i++) {
-            console2.log("Byte", i, ":", uint8(results[i]));
-        }
-
         (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
         uint256 fastAttacks = 0;
@@ -118,22 +96,6 @@ contract ActionPointsTest is TestBase {
             fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
             "Fast weapon should attack roughly twice as often as slow weapon"
         );
-
-        console2.log("---Combat Summary---");
-        console2.log("Total Rounds:", actions.length);
-        console2.log("P1 Total Attacks:", fastAttacks);
-        console2.log("P2 Total Attacks:", slowAttacks);
-        console2.log("\n---Round Details---");
-        for (uint256 i = 0; i < actions.length; i++) {
-            console2.log("\nRound", i);
-            console2.log("P1 Result Type:", uint8(actions[i].p1Result));
-            console2.log("P1 Damage:", actions[i].p1Damage);
-            console2.log("P1 Stamina Lost:", actions[i].p1StaminaLost);
-            console2.log("P2 Result Type:", uint8(actions[i].p2Result));
-            console2.log("P2 Damage:", actions[i].p2Damage);
-            console2.log("P2 Stamina Lost:", actions[i].p2StaminaLost);
-            console2.log("---");
-        }
     }
 
     function test_SameWeaponInitiative() public view {
@@ -151,12 +113,6 @@ contract ActionPointsTest is TestBase {
             _generateGameSeed(),
             0
         );
-
-        // Add before decoding:
-        console2.log("Raw Results Length:", results.length);
-        for (uint256 i = 0; i < (results.length < 20 ? results.length : 20); i++) {
-            console2.log("Byte", i, ":", uint8(results[i]));
-        }
 
         (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 

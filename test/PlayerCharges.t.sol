@@ -108,8 +108,8 @@ contract PlayerChargesTest is TestBase {
         // Find a stat > MIN_STAT to decrease and a stat < MAX_STAT to increase
         IPlayer.Attribute decreaseAttr = IPlayer.Attribute.STRENGTH;
         IPlayer.Attribute increaseAttr = IPlayer.Attribute.AGILITY;
-        uint8 decreaseVal = initialStats.strength;
-        uint8 increaseVal = initialStats.agility;
+        uint8 decreaseVal = initialStats.attributes.strength;
+        uint8 increaseVal = initialStats.attributes.agility;
 
         require(decreaseVal > 3 && increaseVal < 21, "Could not find valid stats to swap");
 
@@ -120,8 +120,8 @@ contract PlayerChargesTest is TestBase {
 
         // Verify stats were modified correctly (-1/+1)
         IPlayer.PlayerStats memory newStats = playerContract.getPlayer(playerId);
-        assertEq(newStats.strength, decreaseVal - 1, "Strength should decrease by 1");
-        assertEq(newStats.agility, increaseVal + 1, "Agility should increase by 1");
+        assertEq(newStats.attributes.strength, decreaseVal - 1, "Strength should decrease by 1");
+        assertEq(newStats.attributes.agility, increaseVal + 1, "Agility should increase by 1");
         assertEq(playerContract.attributeSwapCharges(PLAYER_ONE), 0, "Should have 0 charges remaining");
     }
 
@@ -150,7 +150,10 @@ contract PlayerChargesTest is TestBase {
 
         // Get initial stats to find valid attributes to swap
         IPlayer.PlayerStats memory initialStats = playerContract.getPlayer(playerId);
-        require(initialStats.strength > 3 && initialStats.agility < 21, "Could not find valid stats to swap");
+        require(
+            initialStats.attributes.strength > 3 && initialStats.attributes.agility < 21,
+            "Could not find valid stats to swap"
+        );
 
         playerContract.swapAttributes(playerId, IPlayer.Attribute.STRENGTH, IPlayer.Attribute.AGILITY);
         assertEq(playerContract.attributeSwapCharges(PLAYER_ONE), 1, "Should have 1 attribute charge remaining");
@@ -209,8 +212,8 @@ contract PlayerChargesTest is TestBase {
         // Find a stat > MIN_STAT to decrease and a stat < MAX_STAT to increase
         IPlayer.Attribute decreaseAttr = IPlayer.Attribute.STRENGTH;
         IPlayer.Attribute increaseAttr = IPlayer.Attribute.AGILITY;
-        uint8 decreaseVal = stats.strength;
-        uint8 increaseVal = stats.agility;
+        uint8 decreaseVal = stats.attributes.strength;
+        uint8 increaseVal = stats.attributes.agility;
 
         // Try each combination until we find one where:
         // 1. decreaseVal > 3 (so we can decrease it)
@@ -218,29 +221,41 @@ contract PlayerChargesTest is TestBase {
         // 3. decreaseVal - 3 <= 21 - increaseVal (so we won't hit MAX before MIN)
         bool foundValidPair = false;
 
-        if (stats.strength > 3 && stats.agility < 21 && (stats.strength - 3 <= 21 - stats.agility)) {
+        if (
+            stats.attributes.strength > 3 && stats.attributes.agility < 21
+                && (stats.attributes.strength - 3 <= 21 - stats.attributes.agility)
+        ) {
             decreaseAttr = IPlayer.Attribute.STRENGTH;
             increaseAttr = IPlayer.Attribute.AGILITY;
-            decreaseVal = stats.strength;
-            increaseVal = stats.agility;
+            decreaseVal = stats.attributes.strength;
+            increaseVal = stats.attributes.agility;
             foundValidPair = true;
-        } else if (stats.constitution > 3 && stats.size < 21 && (stats.constitution - 3 <= 21 - stats.size)) {
+        } else if (
+            stats.attributes.constitution > 3 && stats.attributes.size < 21
+                && (stats.attributes.constitution - 3 <= 21 - stats.attributes.size)
+        ) {
             decreaseAttr = IPlayer.Attribute.CONSTITUTION;
             increaseAttr = IPlayer.Attribute.SIZE;
-            decreaseVal = stats.constitution;
-            increaseVal = stats.size;
+            decreaseVal = stats.attributes.constitution;
+            increaseVal = stats.attributes.size;
             foundValidPair = true;
-        } else if (stats.size > 3 && stats.stamina < 21 && (stats.size - 3 <= 21 - stats.stamina)) {
+        } else if (
+            stats.attributes.size > 3 && stats.attributes.stamina < 21
+                && (stats.attributes.size - 3 <= 21 - stats.attributes.stamina)
+        ) {
             decreaseAttr = IPlayer.Attribute.SIZE;
             increaseAttr = IPlayer.Attribute.STAMINA;
-            decreaseVal = stats.size;
-            increaseVal = stats.stamina;
+            decreaseVal = stats.attributes.size;
+            increaseVal = stats.attributes.stamina;
             foundValidPair = true;
-        } else if (stats.agility > 3 && stats.luck < 21 && (stats.agility - 3 <= 21 - stats.luck)) {
+        } else if (
+            stats.attributes.agility > 3 && stats.attributes.luck < 21
+                && (stats.attributes.agility - 3 <= 21 - stats.attributes.luck)
+        ) {
             decreaseAttr = IPlayer.Attribute.AGILITY;
             increaseAttr = IPlayer.Attribute.LUCK;
-            decreaseVal = stats.agility;
-            increaseVal = stats.luck;
+            decreaseVal = stats.attributes.agility;
+            increaseVal = stats.attributes.luck;
             foundValidPair = true;
         }
 
@@ -317,11 +332,11 @@ contract PlayerChargesTest is TestBase {
         pure
         returns (uint8)
     {
-        if (attr == IPlayer.Attribute.STRENGTH) return stats.strength;
-        if (attr == IPlayer.Attribute.CONSTITUTION) return stats.constitution;
-        if (attr == IPlayer.Attribute.SIZE) return stats.size;
-        if (attr == IPlayer.Attribute.AGILITY) return stats.agility;
-        if (attr == IPlayer.Attribute.STAMINA) return stats.stamina;
-        return stats.luck;
+        if (attr == IPlayer.Attribute.STRENGTH) return stats.attributes.strength;
+        if (attr == IPlayer.Attribute.CONSTITUTION) return stats.attributes.constitution;
+        if (attr == IPlayer.Attribute.SIZE) return stats.attributes.size;
+        if (attr == IPlayer.Attribute.AGILITY) return stats.attributes.agility;
+        if (attr == IPlayer.Attribute.STAMINA) return stats.attributes.stamina;
+        return stats.attributes.luck;
     }
 }

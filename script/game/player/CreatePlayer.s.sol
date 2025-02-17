@@ -39,12 +39,12 @@ contract CreatePlayerScript is Script {
             // Get and display player stats
             IPlayer.PlayerStats memory stats = player.getPlayer(playerId);
             console2.log("\nPlayer Stats:");
-            console2.log("Strength:", stats.strength);
-            console2.log("Constitution:", stats.constitution);
-            console2.log("Size:", stats.size);
-            console2.log("Agility:", stats.agility);
-            console2.log("Stamina:", stats.stamina);
-            console2.log("Luck:", stats.luck);
+            console2.log("Strength:", stats.attributes.strength);
+            console2.log("Constitution:", stats.attributes.constitution);
+            console2.log("Size:", stats.attributes.size);
+            console2.log("Agility:", stats.attributes.agility);
+            console2.log("Stamina:", stats.attributes.stamina);
+            console2.log("Luck:", stats.attributes.luck);
 
             // Get and display player name
             (string memory firstName, string memory surname) =

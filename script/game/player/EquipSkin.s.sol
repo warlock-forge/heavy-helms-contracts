@@ -33,12 +33,12 @@ contract EquipSkinScript is Script {
         // Get and display player stats
         IPlayer.PlayerStats memory stats = player.getPlayer(playerId);
         console2.log("\nUpdated Player Stats:");
-        console2.log("Strength:", stats.strength);
-        console2.log("Constitution:", stats.constitution);
-        console2.log("Size:", stats.size);
-        console2.log("Agility:", stats.agility);
-        console2.log("Stamina:", stats.stamina);
-        console2.log("Luck:", stats.luck);
+        console2.log("Strength:", stats.attributes.strength);
+        console2.log("Constitution:", stats.attributes.constitution);
+        console2.log("Size:", stats.attributes.size);
+        console2.log("Agility:", stats.attributes.agility);
+        console2.log("Stamina:", stats.attributes.stamina);
+        console2.log("Luck:", stats.attributes.luck);
         console2.log("Skin Index:", stats.skinIndex);
         console2.log("Skin Token ID:", stats.skinTokenId);
 

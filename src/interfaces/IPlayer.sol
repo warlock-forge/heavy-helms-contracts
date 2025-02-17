@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "../interfaces/IPlayerNameRegistry.sol";
 import "../interfaces/IPlayerSkinRegistry.sol";
+import "../Fighter.sol";
 
 /// @title Player Interface for Heavy Helms
 /// @notice Defines the core functionality for player management and game interactions
@@ -11,12 +12,7 @@ interface IPlayer {
     //                          STRUCTS                             //
     //==============================================================//
     /// @notice Contains all stats and attributes for a player
-    /// @param strength Physical power stat (3-21)
-    /// @param constitution Health and durability stat (3-21)
-    /// @param size Physical size stat (3-21)
-    /// @param agility Speed and dexterity stat (3-21)
-    /// @param stamina Endurance stat (3-21)
-    /// @param luck Fortune and critical chance stat (3-21)
+    /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
     /// @param skinIndex Index of equipped skin collection
     /// @param skinTokenId Token ID of equipped skin
     /// @param firstNameIndex Index of player's first name
@@ -25,12 +21,7 @@ interface IPlayer {
     /// @param losses Total defeats
     /// @param kills Total kills
     struct PlayerStats {
-        uint8 strength;
-        uint8 constitution;
-        uint8 size;
-        uint8 agility;
-        uint8 stamina;
-        uint8 luck;
+        Fighter.Attributes attributes;
         uint32 skinIndex;
         uint16 skinTokenId;
         uint16 firstNameIndex;

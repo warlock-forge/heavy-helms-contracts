@@ -319,7 +319,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (!isValidId(playerId)) {
             revert InvalidPlayerRange();
         }
-        if (_players[playerId].strength == 0) {
+        if (_players[playerId].attributes.strength == 0) {
             revert PlayerDoesNotExist(playerId);
         }
         _;
@@ -367,12 +367,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         packed[3] = bytes1(uint8(playerId));
 
         // Pack uint8 stats (6 bytes)
-        packed[4] = bytes1(stats.strength);
-        packed[5] = bytes1(stats.constitution);
-        packed[6] = bytes1(stats.size);
-        packed[7] = bytes1(stats.agility);
-        packed[8] = bytes1(stats.stamina);
-        packed[9] = bytes1(stats.luck);
+        packed[4] = bytes1(stats.attributes.strength);
+        packed[5] = bytes1(stats.attributes.constitution);
+        packed[6] = bytes1(stats.attributes.size);
+        packed[7] = bytes1(stats.attributes.agility);
+        packed[8] = bytes1(stats.attributes.stamina);
+        packed[9] = bytes1(stats.attributes.luck);
 
         // Pack skinIndex (4 bytes)
         packed[10] = bytes1(uint8(stats.skinIndex >> 24));
@@ -420,12 +420,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             | uint32(uint8(packed[3]));
 
         // Decode uint8 stats
-        stats.strength = uint8(packed[4]);
-        stats.constitution = uint8(packed[5]);
-        stats.size = uint8(packed[6]);
-        stats.agility = uint8(packed[7]);
-        stats.stamina = uint8(packed[8]);
-        stats.luck = uint8(packed[9]);
+        stats.attributes.strength = uint8(packed[4]);
+        stats.attributes.constitution = uint8(packed[5]);
+        stats.attributes.size = uint8(packed[6]);
+        stats.attributes.agility = uint8(packed[7]);
+        stats.attributes.stamina = uint8(packed[8]);
+        stats.attributes.luck = uint8(packed[9]);
 
         // Decode skinIndex
         stats.skinIndex = uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16
@@ -900,12 +900,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             playerId,
             stats.firstNameIndex,
             stats.surnameIndex,
-            stats.strength,
-            stats.constitution,
-            stats.size,
-            stats.agility,
-            stats.stamina,
-            stats.luck
+            stats.attributes.strength,
+            stats.attributes.constitution,
+            stats.attributes.size,
+            stats.attributes.agility,
+            stats.attributes.stamina,
+            stats.attributes.luck
         );
     }
 
@@ -927,16 +927,17 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @dev Checks each stat is between MIN_STAT and MAX_STAT and total equals TOTAL_STATS
     function _validateStats(IPlayer.PlayerStats memory player) private pure returns (bool) {
         // Check stat bounds
-        if (player.strength < MIN_STAT || player.strength > MAX_STAT) return false;
-        if (player.constitution < MIN_STAT || player.constitution > MAX_STAT) return false;
-        if (player.size < MIN_STAT || player.size > MAX_STAT) return false;
-        if (player.agility < MIN_STAT || player.agility > MAX_STAT) return false;
-        if (player.stamina < MIN_STAT || player.stamina > MAX_STAT) return false;
-        if (player.luck < MIN_STAT || player.luck > MAX_STAT) return false;
+        if (player.attributes.strength < MIN_STAT || player.attributes.strength > MAX_STAT) return false;
+        if (player.attributes.constitution < MIN_STAT || player.attributes.constitution > MAX_STAT) return false;
+        if (player.attributes.size < MIN_STAT || player.attributes.size > MAX_STAT) return false;
+        if (player.attributes.agility < MIN_STAT || player.attributes.agility > MAX_STAT) return false;
+        if (player.attributes.stamina < MIN_STAT || player.attributes.stamina > MAX_STAT) return false;
+        if (player.attributes.luck < MIN_STAT || player.attributes.luck > MAX_STAT) return false;
 
         // Calculate total stat points
-        uint256 total = uint256(player.strength) + uint256(player.constitution) + uint256(player.size)
-            + uint256(player.agility) + uint256(player.stamina) + uint256(player.luck);
+        uint256 total = uint256(player.attributes.strength) + uint256(player.attributes.constitution)
+            + uint256(player.attributes.size) + uint256(player.attributes.agility) + uint256(player.attributes.stamina)
+            + uint256(player.attributes.luck);
 
         // Total should be exactly 72 (6 stats * 3 minimum = 18, plus 54 points to distribute)
         return total == TOTAL_STATS;
@@ -952,12 +953,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         pure
         returns (IPlayer.PlayerStats memory)
     {
-        uint16 total = uint16(player.strength) + uint16(player.constitution) + uint16(player.size)
-            + uint16(player.agility) + uint16(player.stamina) + uint16(player.luck);
+        uint16 total = uint16(player.attributes.strength) + uint16(player.attributes.constitution)
+            + uint16(player.attributes.size) + uint16(player.attributes.agility) + uint16(player.attributes.stamina)
+            + uint16(player.attributes.luck);
 
         // First ensure all stats are within 3-21 range
-        uint8[6] memory stats =
-            [player.strength, player.constitution, player.size, player.agility, player.stamina, player.luck];
+        uint8[6] memory stats = [
+            player.attributes.strength,
+            player.attributes.constitution,
+            player.attributes.size,
+            player.attributes.agility,
+            player.attributes.stamina,
+            player.attributes.luck
+        ];
 
         for (uint256 i = 0; i < 6; i++) {
             if (stats[i] < 3) {
@@ -990,12 +998,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         }
 
         return IPlayer.PlayerStats({
-            strength: stats[0],
-            constitution: stats[1],
-            size: stats[2],
-            agility: stats[3],
-            stamina: stats[4],
-            luck: stats[5],
+            attributes: Fighter.Attributes({
+                strength: stats[0],
+                constitution: stats[1],
+                size: stats[2],
+                agility: stats[3],
+                stamina: stats[4],
+                luck: stats[5]
+            }),
             skinIndex: player.skinIndex,
             skinTokenId: player.skinTokenId,
             firstNameIndex: player.firstNameIndex,
@@ -1112,14 +1122,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
         // Create stats struct
         stats = IPlayer.PlayerStats({
-            strength: statArray[0],
-            constitution: statArray[1],
-            size: statArray[2],
-            agility: statArray[3],
-            stamina: statArray[4],
-            luck: statArray[5],
-            skinIndex: 0, // Updated to use index 0 for default skin
-            skinTokenId: 1, // Keep this as 1 since NFT token IDs start at 1
+            attributes: Attributes({
+                strength: statArray[0],
+                constitution: statArray[1],
+                size: statArray[2],
+                agility: statArray[3],
+                stamina: statArray[4],
+                luck: statArray[5]
+            }),
+            skinIndex: 0,
+            skinTokenId: 1,
             firstNameIndex: firstNameIndex,
             surnameIndex: surnameIndex,
             wins: 0,
@@ -1156,12 +1168,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param attr The attribute to get
     /// @return The current value of the attribute
     function _getAttributeValue(PlayerStats storage player, Attribute attr) internal view returns (uint8) {
-        if (attr == Attribute.STRENGTH) return player.strength;
-        if (attr == Attribute.CONSTITUTION) return player.constitution;
-        if (attr == Attribute.SIZE) return player.size;
-        if (attr == Attribute.AGILITY) return player.agility;
-        if (attr == Attribute.STAMINA) return player.stamina;
-        return player.luck;
+        if (attr == Attribute.STRENGTH) return player.attributes.strength;
+        if (attr == Attribute.CONSTITUTION) return player.attributes.constitution;
+        if (attr == Attribute.SIZE) return player.attributes.size;
+        if (attr == Attribute.AGILITY) return player.attributes.agility;
+        if (attr == Attribute.STAMINA) return player.attributes.stamina;
+        return player.attributes.luck;
     }
 
     /// @notice Sets the value of a specified attribute
@@ -1169,12 +1181,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param attr The attribute to set
     /// @param value The new value for the attribute
     function _setAttributeValue(PlayerStats storage player, Attribute attr, uint8 value) internal {
-        if (attr == Attribute.STRENGTH) player.strength = value;
-        else if (attr == Attribute.CONSTITUTION) player.constitution = value;
-        else if (attr == Attribute.SIZE) player.size = value;
-        else if (attr == Attribute.AGILITY) player.agility = value;
-        else if (attr == Attribute.STAMINA) player.stamina = value;
-        else player.luck = value;
+        if (attr == Attribute.STRENGTH) player.attributes.strength = value;
+        else if (attr == Attribute.CONSTITUTION) player.attributes.constitution = value;
+        else if (attr == Attribute.SIZE) player.attributes.size = value;
+        else if (attr == Attribute.AGILITY) player.attributes.agility = value;
+        else if (attr == Attribute.STAMINA) player.attributes.stamina = value;
+        else player.attributes.luck = value;
     }
 
     /// @notice Check if a player ID is valid
@@ -1198,13 +1210,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @return attributes The player's base attributes
     function getFighterAttributes(uint32 playerId) internal view override returns (Attributes memory) {
         PlayerStats memory stats = _players[playerId];
-        return Attributes({
-            strength: stats.strength,
-            constitution: stats.constitution,
-            size: stats.size,
-            agility: stats.agility,
-            stamina: stats.stamina,
-            luck: stats.luck
-        });
+        return stats.attributes;
     }
 }

@@ -179,12 +179,14 @@ abstract contract TestBase is Test {
     // Helper function to assert stat ranges
     function _assertStatRanges(IPlayer.PlayerStats memory stats) internal pure virtual {
         // Basic stat bounds
-        assertTrue(stats.strength >= 3 && stats.strength <= 21, "Strength out of range");
-        assertTrue(stats.constitution >= 3 && stats.constitution <= 21, "Constitution out of range");
-        assertTrue(stats.size >= 3 && stats.size <= 21, "Size out of range");
-        assertTrue(stats.agility >= 3 && stats.agility <= 21, "Agility out of range");
-        assertTrue(stats.stamina >= 3 && stats.stamina <= 21, "Stamina out of range");
-        assertTrue(stats.luck >= 3 && stats.luck <= 21, "Luck out of range");
+        assertTrue(stats.attributes.strength >= 3 && stats.attributes.strength <= 21, "Strength out of range");
+        assertTrue(
+            stats.attributes.constitution >= 3 && stats.attributes.constitution <= 21, "Constitution out of range"
+        );
+        assertTrue(stats.attributes.size >= 3 && stats.attributes.size <= 21, "Size out of range");
+        assertTrue(stats.attributes.agility >= 3 && stats.attributes.agility <= 21, "Agility out of range");
+        assertTrue(stats.attributes.stamina >= 3 && stats.attributes.stamina <= 21, "Stamina out of range");
+        assertTrue(stats.attributes.luck >= 3 && stats.attributes.luck <= 21, "Luck out of range");
     }
 
     // Helper function to create a player loadout that supports both practice and duel game test cases
@@ -336,7 +338,7 @@ abstract contract TestBase is Test {
         if (shouldExist) {
             assertEq(contractInstance.getPlayerOwner(playerId), expectedOwner, "Incorrect player owner");
             IPlayer.PlayerStats memory stats = contractInstance.getPlayer(playerId);
-            assertTrue(stats.strength != 0, "Player should exist");
+            assertTrue(stats.attributes.strength != 0, "Player should exist");
             assertFalse(contractInstance.isPlayerRetired(playerId), "Player should not be retired");
         } else {
             vm.expectRevert();
