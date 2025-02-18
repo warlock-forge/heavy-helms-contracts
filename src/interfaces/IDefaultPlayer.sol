@@ -12,8 +12,7 @@ interface IDefaultPlayer {
     /// @param surnameIndex Index for surname in name registry
     struct DefaultPlayerStats {
         Fighter.Attributes attributes;
-        uint32 skinIndex;
-        uint16 skinTokenId;
+        Fighter.SkinInfo skin;
         uint16 firstNameIndex;
         uint16 surnameIndex;
     }

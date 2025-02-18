@@ -27,18 +27,12 @@ contract DuelPlayersScript is Script {
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(defenderId);
 
         // Create loadout for challenger using their current skin
-        Fighter.PlayerLoadout memory challengerLoadout = Fighter.PlayerLoadout({
-            playerId: challengerId,
-            skinIndex: challengerStats.skinIndex,
-            skinTokenId: challengerStats.skinTokenId
-        });
+        Fighter.PlayerLoadout memory challengerLoadout =
+            Fighter.PlayerLoadout({playerId: challengerId, skin: challengerStats.skin});
 
         // Create loadout for defender using their current skin
-        Fighter.PlayerLoadout memory defenderLoadout = Fighter.PlayerLoadout({
-            playerId: defenderId,
-            skinIndex: defenderStats.skinIndex,
-            skinTokenId: defenderStats.skinTokenId
-        });
+        Fighter.PlayerLoadout memory defenderLoadout =
+            Fighter.PlayerLoadout({playerId: defenderId, skin: defenderStats.skin});
 
         // Get minimum duel fee
         uint256 minDuelFee = duelGame.minDuelFee();

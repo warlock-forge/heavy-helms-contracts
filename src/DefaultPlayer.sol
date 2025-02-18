@@ -10,6 +10,7 @@ error PlayerDoesNotExist(uint32 playerId);
 error InvalidDefaultPlayerRange();
 error BadZeroAddress();
 error InvalidNameIndex();
+error InvalidDefaultPlayerSkinType(uint32 skinIndex);
 
 contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     IPlayerNameRegistry public immutable nameRegistry;
@@ -40,13 +41,12 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         return playerId >= DEFAULT_PLAYER_START && playerId <= DEFAULT_PLAYER_END;
     }
 
-    /// @notice Get the current skin for a default player
+    /// @notice Get the current skin information for a default player
     /// @param playerId The ID of the default player
-    /// @return skinIndex The index of the equipped skin
-    /// @return skinTokenId The token ID of the equipped skin
-    function getCurrentSkin(uint32 playerId) public view override returns (uint32 skinIndex, uint16 skinTokenId) {
+    /// @return The default player's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 playerId) public view override returns (SkinInfo memory) {
         DefaultPlayerStats memory stats = _defaultPlayers[playerId];
-        return (stats.skinIndex, stats.skinTokenId);
+        return stats.skin;
     }
 
     /// @notice Get the base attributes for a default player
@@ -83,8 +83,11 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
             revert InvalidDefaultPlayerRange();
         }
 
-        // Verify skin exists and is valid
-        skinRegistry().getSkin(stats.skinIndex);
+        // Verify skin exists and is valid for default players
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection = skinRegistry().getSkin(stats.skin.skinIndex);
+        if (skinCollection.skinType != IPlayerSkinRegistry.SkinType.DefaultPlayer) {
+            revert InvalidDefaultPlayerSkinType(stats.skin.skinIndex);
+        }
 
         // Validate name indices
         if (
@@ -102,8 +105,11 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         onlyOwner
         defaultPlayerExists(playerId)
     {
-        // Verify skin exists and is valid
-        skinRegistry().getSkin(newStats.skinIndex);
+        // Verify skin exists and is valid for default players
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection = skinRegistry().getSkin(newStats.skin.skinIndex);
+        if (skinCollection.skinType != IPlayerSkinRegistry.SkinType.DefaultPlayer) {
+            revert InvalidDefaultPlayerSkinType(newStats.skin.skinIndex);
+        }
 
         // Validate name indices
         if (

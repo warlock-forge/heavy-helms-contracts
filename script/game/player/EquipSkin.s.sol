@@ -39,8 +39,8 @@ contract EquipSkinScript is Script {
         console2.log("Agility:", stats.attributes.agility);
         console2.log("Stamina:", stats.attributes.stamina);
         console2.log("Luck:", stats.attributes.luck);
-        console2.log("Skin Index:", stats.skinIndex);
-        console2.log("Skin Token ID:", stats.skinTokenId);
+        console2.log("Skin Index:", stats.skin.skinIndex);
+        console2.log("Skin Token ID:", stats.skin.skinTokenId);
 
         vm.stopBroadcast();
     }

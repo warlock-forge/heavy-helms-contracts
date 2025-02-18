@@ -19,11 +19,15 @@ contract ActionPointsTest is TestBase {
         uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
         uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        Fighter.PlayerLoadout memory fastLoadout =
-            Fighter.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
+        Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
+            playerId: fastWeaponId,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
+        });
 
-        Fighter.PlayerLoadout memory slowLoadout =
-            Fighter.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
+        Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
+            playerId: slowWeaponId,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
+        });
 
         IGameEngine.FighterStats memory fastStats =
             _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout);
@@ -63,11 +67,15 @@ contract ActionPointsTest is TestBase {
         uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
         uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        Fighter.PlayerLoadout memory fastLoadout =
-            Fighter.PlayerLoadout({playerId: fastWeaponId, skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId});
+        Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
+            playerId: fastWeaponId,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
+        });
 
-        Fighter.PlayerLoadout memory slowLoadout =
-            Fighter.PlayerLoadout({playerId: slowWeaponId, skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId});
+        Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
+            playerId: slowWeaponId,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
+        });
 
         bytes memory results = gameEngine.processGame(
             _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
@@ -101,11 +109,15 @@ contract ActionPointsTest is TestBase {
     function test_SameWeaponInitiative() public view {
         uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
 
-        Fighter.PlayerLoadout memory p1Loadout =
-            Fighter.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
+        Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
+            playerId: weaponId,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId})
+        });
 
-        Fighter.PlayerLoadout memory p2Loadout =
-            Fighter.PlayerLoadout({playerId: weaponId, skinIndex: defaultSkinIndex, skinTokenId: weaponId});
+        Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
+            playerId: weaponId,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId})
+        });
 
         bytes memory results = gameEngine.processGame(
             _getFighterContract(p1Loadout.playerId).convertToFighterStats(p1Loadout),

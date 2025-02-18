@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "./BaseGame.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
-import "./PlayerSkinRegistry.sol";
+import "./interfaces/IPlayerSkinRegistry.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
@@ -160,10 +160,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
 
         // Verify skin ownership if a skin is being used
-        if (challengerLoadout.skinIndex > 0) {
-            try playerContract.skinRegistry().validateSkinOwnership(
-                challengerLoadout.skinIndex, challengerLoadout.skinTokenId, msg.sender
-            ) {} catch Error(string memory reason) {
+        if (challengerLoadout.skin.skinIndex > 0) {
+            try playerContract.skinRegistry().validateSkinOwnership(challengerLoadout.skin, msg.sender) {}
+            catch Error(string memory reason) {
                 revert(string.concat("Challenger skin validation failed: ", reason));
             } catch {
                 revert("Challenger skin validation failed");
@@ -178,7 +177,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             wagerAmount: wagerAmount,
             createdBlock: block.number,
             challengerLoadout: challengerLoadout,
-            defenderLoadout: Fighter.PlayerLoadout(0, 0, 0),
+            defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0)),
             fulfilled: false
         });
 
@@ -223,10 +222,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         require(defenderLoadout.playerId == challenge.defenderId, "Wrong defender ID");
 
         // Verify skin ownership if a skin is being used
-        if (defenderLoadout.skinIndex > 0) {
-            try playerContract.skinRegistry().validateSkinOwnership(
-                defenderLoadout.skinIndex, defenderLoadout.skinTokenId, msg.sender
-            ) {} catch Error(string memory reason) {
+        if (defenderLoadout.skin.skinIndex > 0) {
+            try playerContract.skinRegistry().validateSkinOwnership(defenderLoadout.skin, msg.sender) {}
+            catch Error(string memory reason) {
                 revert(string.concat("Defender skin validation failed: ", reason));
             } catch {
                 revert("Defender skin validation failed");
@@ -312,24 +310,28 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Get player stats and update with loadout-specific skin choices
         IPlayer.PlayerStats memory challengerStats = playerContract.getPlayer(challenge.challengerId);
-        challengerStats.skinIndex = challenge.challengerLoadout.skinIndex;
-        challengerStats.skinTokenId = challenge.challengerLoadout.skinTokenId;
+        challengerStats.skin = Fighter.SkinInfo({
+            skinIndex: challenge.challengerLoadout.skin.skinIndex,
+            skinTokenId: challenge.challengerLoadout.skin.skinTokenId
+        });
 
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(challenge.defenderId);
-        defenderStats.skinIndex = challenge.defenderLoadout.skinIndex;
-        defenderStats.skinTokenId = challenge.defenderLoadout.skinTokenId;
+        defenderStats.skin = Fighter.SkinInfo({
+            skinIndex: challenge.defenderLoadout.skin.skinIndex,
+            skinTokenId: challenge.defenderLoadout.skin.skinTokenId
+        });
 
         // Get challenger skin attributes
-        PlayerSkinRegistry.SkinInfo memory challengerSkinInfo =
-            playerContract.skinRegistry().getSkin(challenge.challengerLoadout.skinIndex);
+        IPlayerSkinRegistry.SkinCollectionInfo memory challengerSkinInfo =
+            playerContract.skinRegistry().getSkin(challenge.challengerLoadout.skin.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory challengerAttrs = IPlayerSkinNFT(challengerSkinInfo.contractAddress)
-            .getSkinAttributes(challenge.challengerLoadout.skinTokenId);
+            .getSkinAttributes(challenge.challengerLoadout.skin.skinTokenId);
 
         // Get defender skin attributes
-        PlayerSkinRegistry.SkinInfo memory defenderSkinInfo =
-            playerContract.skinRegistry().getSkin(challenge.defenderLoadout.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory defenderAttrs =
-            IPlayerSkinNFT(defenderSkinInfo.contractAddress).getSkinAttributes(challenge.defenderLoadout.skinTokenId);
+        IPlayerSkinRegistry.SkinCollectionInfo memory defenderSkinInfo =
+            playerContract.skinRegistry().getSkin(challenge.defenderLoadout.skin.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory defenderAttrs = IPlayerSkinNFT(defenderSkinInfo.contractAddress)
+            .getSkinAttributes(challenge.defenderLoadout.skin.skinTokenId);
 
         // Create FighterStats
         IGameEngine.FighterStats memory challengerCombat = IGameEngine.FighterStats({

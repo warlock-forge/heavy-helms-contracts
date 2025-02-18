@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+import "../Fighter.sol";
+
 interface IPlayerSkinRegistry {
     enum SkinType {
         Player, // Regular player skins that need ownership
@@ -17,14 +19,14 @@ interface IPlayerSkinRegistry {
     /// @param isVerified Whether the collection is verified
     /// @param skinType Type of the skin
     /// @param requiredNFTAddress Optional NFT required to use skins
-    struct SkinInfo {
+    struct SkinCollectionInfo {
         address contractAddress;
         bool isVerified;
         SkinType skinType;
         address requiredNFTAddress; // For collections requiring NFT ownership
     }
 
-    function getSkin(uint32 index) external view returns (SkinInfo memory);
-    function validateSkinOwnership(uint32 skinIndex, uint16 tokenId, address owner) external view;
-    function getVerifiedSkins() external view returns (SkinInfo[] memory);
+    function getSkin(uint32 index) external view returns (SkinCollectionInfo memory);
+    function validateSkinOwnership(Fighter.SkinInfo memory skin, address owner) external view;
+    function getVerifiedSkins() external view returns (SkinCollectionInfo[] memory);
 }

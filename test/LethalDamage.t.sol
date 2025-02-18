@@ -29,13 +29,17 @@ contract LethalDamageTest is TestBase {
         // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            })
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            })
         });
 
         // Get the appropriate Fighter contracts
@@ -62,13 +66,17 @@ contract LethalDamageTest is TestBase {
         // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            })
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            })
         });
 
         // Get the appropriate Fighter contracts
@@ -111,13 +119,17 @@ contract LethalDamageTest is TestBase {
         // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            })
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            })
         });
 
         // Get the appropriate Fighter contracts
@@ -125,7 +137,7 @@ contract LethalDamageTest is TestBase {
         Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
-        uint256 totalFights = 20;
+        uint256 totalFights = 50;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
@@ -160,13 +172,17 @@ contract LethalDamageTest is TestBase {
         // Create offensive vs defensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            })
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1
+            })
         });
 
         // Get the appropriate Fighter contracts
@@ -210,13 +226,17 @@ contract LethalDamageTest is TestBase {
         // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+            })
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
-            skinIndex: defaultSkinIndex,
-            skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+            })
         });
 
         // Get the appropriate Fighter contracts
@@ -224,7 +244,7 @@ contract LethalDamageTest is TestBase {
         Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
-        uint256 totalFights = 20;
+        uint256 totalFights = 50;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(

@@ -34,8 +34,7 @@ library DefaultPlayerLibrary {
         stance = 1; // STANCE_BALANCED
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 0,
             surnameIndex: 155
         });
@@ -58,8 +57,7 @@ library DefaultPlayerLibrary {
         stance = 1; // STANCE_BALANCED
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1015,
             surnameIndex: 97
         });
@@ -82,8 +80,7 @@ library DefaultPlayerLibrary {
         stance = 2; // STANCE_OFFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 10, size: 14, agility: 10, stamina: 10, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1062,
             surnameIndex: 131
         });
@@ -106,8 +103,7 @@ library DefaultPlayerLibrary {
         stance = 2; // STANCE_OFFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 12, size: 14, agility: 10, stamina: 10, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1,
             surnameIndex: 1
         });
@@ -130,8 +126,7 @@ library DefaultPlayerLibrary {
         stance = 1; // STANCE_BALANCED
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 14, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1,
             surnameIndex: 1
         });
@@ -154,8 +149,7 @@ library DefaultPlayerLibrary {
         stance = 0; // STANCE_DEFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 10, constitution: 14, size: 12, agility: 12, stamina: 14, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1,
             surnameIndex: 1
         });
@@ -178,8 +172,7 @@ library DefaultPlayerLibrary {
         stance = 1; // STANCE_BALANCED
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 10, constitution: 12, size: 8, agility: 16, stamina: 12, luck: 14}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 38,
             surnameIndex: 15
         });
@@ -202,8 +195,7 @@ library DefaultPlayerLibrary {
         stance = 0; // STANCE_DEFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 14, size: 12, agility: 12, stamina: 12, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1,
             surnameIndex: 1
         });
@@ -226,8 +218,7 @@ library DefaultPlayerLibrary {
         stance = 2; // STANCE_OFFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 8, size: 16, agility: 10, stamina: 10, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1,
             surnameIndex: 1
         });
@@ -250,8 +241,7 @@ library DefaultPlayerLibrary {
         stance = 0; // STANCE_DEFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 10, constitution: 16, size: 10, agility: 10, stamina: 16, luck: 10}),
-            skinIndex: skinIndex,
-            skinTokenId: tokenId,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1,
             surnameIndex: 1
         });

@@ -375,14 +375,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         packed[9] = bytes1(stats.attributes.luck);
 
         // Pack skinIndex (4 bytes)
-        packed[10] = bytes1(uint8(stats.skinIndex >> 24));
-        packed[11] = bytes1(uint8(stats.skinIndex >> 16));
-        packed[12] = bytes1(uint8(stats.skinIndex >> 8));
-        packed[13] = bytes1(uint8(stats.skinIndex));
+        packed[10] = bytes1(uint8(stats.skin.skinIndex >> 24));
+        packed[11] = bytes1(uint8(stats.skin.skinIndex >> 16));
+        packed[12] = bytes1(uint8(stats.skin.skinIndex >> 8));
+        packed[13] = bytes1(uint8(stats.skin.skinIndex));
 
         // Pack uint16 values (14 bytes)
-        packed[14] = bytes1(uint8(stats.skinTokenId >> 8));
-        packed[15] = bytes1(uint8(stats.skinTokenId));
+        packed[14] = bytes1(uint8(stats.skin.skinTokenId >> 8));
+        packed[15] = bytes1(uint8(stats.skin.skinTokenId));
 
         packed[16] = bytes1(uint8(stats.firstNameIndex >> 8));
         packed[17] = bytes1(uint8(stats.firstNameIndex));
@@ -428,16 +428,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         stats.attributes.luck = uint8(packed[9]);
 
         // Decode skinIndex
-        stats.skinIndex = uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16
+        uint32 skinIndex = uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16
             | uint32(uint8(packed[12])) << 8 | uint32(uint8(packed[13]));
+        uint16 skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
 
         // Decode uint16 values
-        stats.skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
         stats.firstNameIndex = uint16(uint8(packed[16])) << 8 | uint16(uint8(packed[17]));
         stats.surnameIndex = uint16(uint8(packed[18])) << 8 | uint16(uint8(packed[19]));
         stats.wins = uint16(uint8(packed[20])) << 8 | uint16(uint8(packed[21]));
         stats.losses = uint16(uint8(packed[22])) << 8 | uint16(uint8(packed[23]));
         stats.kills = uint16(uint8(packed[24])) << 8 | uint16(uint8(packed[25]));
+
+        // Construct skin
+        stats.skin = SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId});
 
         return (playerId, stats);
     }
@@ -586,11 +589,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         }
 
         // Validate skin ownership through registry
-        skinRegistry().validateSkinOwnership(skinIndex, skinTokenId, msg.sender);
+        skinRegistry().validateSkinOwnership(
+            Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}), msg.sender
+        );
 
         // Update player's skin
-        _players[playerId].skinIndex = skinIndex;
-        _players[playerId].skinTokenId = skinTokenId;
+        _players[playerId].skin.skinIndex = skinIndex;
+        _players[playerId].skin.skinTokenId = skinTokenId;
 
         emit PlayerSkinEquipped(playerId, skinIndex, skinTokenId);
     }
@@ -1006,8 +1011,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                 stamina: stats[4],
                 luck: stats[5]
             }),
-            skinIndex: player.skinIndex,
-            skinTokenId: player.skinTokenId,
+            skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             firstNameIndex: player.firstNameIndex,
             surnameIndex: player.surnameIndex,
             wins: player.wins,
@@ -1130,8 +1134,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                 stamina: statArray[4],
                 luck: statArray[5]
             }),
-            skinIndex: 0,
-            skinTokenId: 1,
+            skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             firstNameIndex: firstNameIndex,
             surnameIndex: surnameIndex,
             wins: 0,
@@ -1196,13 +1199,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return playerId >= USER_PLAYER_START && playerId <= USER_PLAYER_END;
     }
 
-    /// @notice Get the current skin for a player
+    /// @notice Get the current skin information for a player
     /// @param playerId The ID of the player
-    /// @return skinIndex The index of the equipped skin
-    /// @return skinTokenId The token ID of the equipped skin
-    function getCurrentSkin(uint32 playerId) public view override returns (uint32 skinIndex, uint16 skinTokenId) {
+    /// @return The player's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 playerId) public view override returns (SkinInfo memory) {
         PlayerStats memory stats = _players[playerId];
-        return (stats.skinIndex, stats.skinTokenId);
+        return stats.skin;
     }
 
     /// @notice Get the base attributes for a player

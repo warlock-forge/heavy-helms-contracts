@@ -19,9 +19,8 @@ interface IMonster {
     /// @param kills Total kills
     struct MonsterStats {
         Fighter.Attributes attributes;
+        Fighter.SkinInfo skin;
         uint8 tier;
-        uint32 skinIndex;
-        uint16 skinTokenId;
         uint16 wins;
         uint16 losses;
         uint16 kills;

@@ -22,8 +22,7 @@ interface IPlayer {
     /// @param kills Total kills
     struct PlayerStats {
         Fighter.Attributes attributes;
-        uint32 skinIndex;
-        uint16 skinTokenId;
+        Fighter.SkinInfo skin;
         uint16 firstNameIndex;
         uint16 surnameIndex;
         uint16 wins;

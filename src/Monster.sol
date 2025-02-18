@@ -159,13 +159,12 @@ contract Monster is IMonster, Owned, Fighter {
         return monsterId >= MONSTER_ID_START && monsterId <= MONSTER_ID_END;
     }
 
-    /// @notice Get the current skin for a monster
+    /// @notice Get the current skin information for a monster
     /// @param monsterId The ID of the monster
-    /// @return skinIndex The index of the equipped skin
-    /// @return skinTokenId The token ID of the equipped skin
-    function getCurrentSkin(uint32 monsterId) public view override returns (uint32 skinIndex, uint16 skinTokenId) {
+    /// @return The monster's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 monsterId) public view override returns (SkinInfo memory) {
         MonsterStats memory stats = _monsters[monsterId];
-        return (stats.skinIndex, stats.skinTokenId);
+        return stats.skin;
     }
 
     /// @notice Get the base attributes for a monster

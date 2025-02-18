@@ -10,7 +10,7 @@ import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "./interfaces/IPlayerSkinRegistry.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
-
+import "./Fighter.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
@@ -45,7 +45,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     //                    STATE VARIABLES                           //
     //==============================================================//
     /// @notice Array of all registered skin collections
-    SkinInfo[] public skins;
+    SkinCollectionInfo[] public skins;
     /// @notice Fee required to register a new skin collection
     uint256 public registrationFee = 0.005 ether;
     /// @notice Next available registry ID for skin collections
@@ -88,7 +88,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
 
         // Register the skin (unverified by default, Player type by default)
         skins.push(
-            SkinInfo({
+            SkinCollectionInfo({
                 contractAddress: contractAddress,
                 isVerified: false,
                 skinType: SkinType.Player,
@@ -103,51 +103,50 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
 
     /// @notice Gets information about a specific skin collection
     /// @param index Registry ID to query
-    /// @return SkinInfo struct containing collection details
-    function getSkin(uint32 index) external view returns (SkinInfo memory) {
+    /// @return SkinCollectionInfo struct containing collection details
+    function getSkin(uint32 index) external view returns (SkinCollectionInfo memory) {
         if (index >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
         return skins[index];
     }
 
     /// @notice Validates ownership of a skin or required NFT
-    /// @param skinIndex Registry ID of the skin collection
-    /// @param tokenId Token ID of the specific skin
+    /// @param skin The skin information (index and token ID)
     /// @param owner Address to check ownership for
-    function validateSkinOwnership(uint32 skinIndex, uint16 tokenId, address owner) external view {
-        if (skinIndex >= skins.length) {
+    function validateSkinOwnership(Fighter.SkinInfo memory skin, address owner) external view {
+        if (skin.skinIndex >= skins.length) {
             revert SkinRegistryDoesNotExist();
         }
 
-        SkinInfo memory skinInfo = skins[skinIndex];
+        SkinCollectionInfo memory skinCollectionInfo = skins[skin.skinIndex];
 
         // Case 1: Default player skin - anyone can equip
-        if (skinInfo.skinType == SkinType.DefaultPlayer) {
+        if (skinCollectionInfo.skinType == SkinType.DefaultPlayer) {
             return;
         }
 
         // Case 2: Monster skin - never allowed
-        if (skinInfo.skinType == SkinType.Monster) {
+        if (skinCollectionInfo.skinType == SkinType.Monster) {
             revert InvalidSkinType();
         }
 
         // Case 3: Collection with required NFT
-        if (skinInfo.requiredNFTAddress != address(0)) {
-            if (ERC721(skinInfo.requiredNFTAddress).balanceOf(owner) == 0) {
-                revert RequiredNFTNotOwned(skinInfo.requiredNFTAddress);
+        if (skinCollectionInfo.requiredNFTAddress != address(0)) {
+            if (ERC721(skinCollectionInfo.requiredNFTAddress).balanceOf(owner) == 0) {
+                revert RequiredNFTNotOwned(skinCollectionInfo.requiredNFTAddress);
             }
         }
         // Case 4: Regular collection - check specific token ownership
         else {
-            IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinInfo.contractAddress);
-            if (skinContract.ownerOf(tokenId) != owner) {
-                revert SkinNotOwned(skinInfo.contractAddress, tokenId);
+            IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinCollectionInfo.contractAddress);
+            if (skinContract.ownerOf(skin.skinTokenId) != owner) {
+                revert SkinNotOwned(skinCollectionInfo.contractAddress, skin.skinTokenId);
             }
         }
     }
 
     /// @notice Gets all verified skin collections
-    /// @return Array of verified SkinInfo structs
-    function getVerifiedSkins() external view returns (SkinInfo[] memory) {
+    /// @return Array of verified SkinCollectionInfo structs
+    function getVerifiedSkins() external view returns (SkinCollectionInfo[] memory) {
         unchecked {
             uint256 len = skins.length;
 
@@ -160,7 +159,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
             }
 
             // Create correctly sized array and fill it
-            SkinInfo[] memory result = new SkinInfo[](verifiedCount);
+            SkinCollectionInfo[] memory result = new SkinCollectionInfo[](verifiedCount);
             uint256 currentIndex = 0;
             for (uint256 i = 0; i < len; i++) {
                 if (skins[i].isVerified) {

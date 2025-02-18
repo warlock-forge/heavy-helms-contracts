@@ -277,8 +277,8 @@ contract PlayerTest is TestBase {
 
         // Verify the skin was equipped
         IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
-        assertEq(player.skinIndex, skinIndex, "Skin index should be updated");
-        assertEq(player.skinTokenId, tokenId, "Token ID should be updated");
+        assertEq(player.skin.skinIndex, skinIndex, "Skin index should be updated");
+        assertEq(player.skin.skinTokenId, tokenId, "Token ID should be updated");
     }
 
     function testCannotEquipToUnownedPlayer() public {
@@ -552,8 +552,8 @@ contract PlayerTest is TestBase {
 
         // Verify skin was equipped
         IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
-        assertEq(player.skinIndex, skinIndex);
-        assertEq(player.skinTokenId, tokenId);
+        assertEq(player.skin.skinIndex, skinIndex);
+        assertEq(player.skin.skinTokenId, tokenId);
     }
 
     function testEquipOwnedSkin() public {
@@ -583,8 +583,8 @@ contract PlayerTest is TestBase {
 
         // Verify the skin was equipped
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.skinIndex, skinIndex);
-        assertEq(stats.skinTokenId, tokenId);
+        assertEq(stats.skin.skinIndex, skinIndex);
+        assertEq(stats.skin.skinTokenId, tokenId);
     }
 
     function testPlayerCreationEvents() public {
@@ -658,8 +658,8 @@ contract PlayerTest is TestBase {
 
         // Verify the skin was equipped
         IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
-        assertEq(player.skinIndex, skinIndex, "Skin index should be updated");
-        assertEq(player.skinTokenId, tokenId, "Token ID should be updated");
+        assertEq(player.skin.skinIndex, skinIndex, "Skin index should be updated");
+        assertEq(player.skin.skinTokenId, tokenId, "Token ID should be updated");
     }
 
     function testActivePlayerCountTracking() public {
@@ -953,10 +953,10 @@ contract PlayerTest is TestBase {
         if (shouldSucceed) {
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-            assertEq(stats.skinIndex, skinIndexToEquip);
-            assertEq(stats.skinTokenId, tokenId);
+            assertEq(stats.skin.skinIndex, skinIndexToEquip);
+            assertEq(stats.skin.skinTokenId, tokenId);
         } else {
-            IPlayerSkinRegistry.SkinInfo memory skinInfo = skinRegistry.getSkin(skinIndexToEquip);
+            IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo = skinRegistry.getSkin(skinIndexToEquip);
             vm.expectRevert(abi.encodeWithSelector(SkinNotOwned.selector, skinInfo.contractAddress, tokenId));
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
         }

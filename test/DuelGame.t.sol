@@ -303,7 +303,8 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
         vm.deal(PLAYER_ONE, wagerAmount);
 
-        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({playerId: 999, skinIndex: 1, skinTokenId: 1});
+        Fighter.PlayerLoadout memory loadout =
+            Fighter.PlayerLoadout({playerId: 999, skin: Fighter.SkinInfo({skinIndex: 1, skinTokenId: 1})});
 
         vm.expectRevert("Cannot use default character as challenger");
         game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -433,11 +434,8 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, totalAmount);
 
         // Create a loadout with an unowned skin
-        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-            playerId: PLAYER_ONE_ID,
-            skinIndex: 2, // Non-default skin index
-            skinTokenId: 999 // Token ID we don't own
-        });
+        Fighter.PlayerLoadout memory loadout =
+            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skin: Fighter.SkinInfo({skinIndex: 2, skinTokenId: 999})});
 
         vm.expectRevert("Challenger skin validation failed");
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -459,11 +457,8 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_TWO);
         vm.deal(PLAYER_TWO, wagerAmount);
 
-        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-            playerId: PLAYER_TWO_ID,
-            skinIndex: 2, // Non-default skin index
-            skinTokenId: 999 // Token ID we don't own
-        });
+        Fighter.PlayerLoadout memory loadout =
+            Fighter.PlayerLoadout({playerId: PLAYER_TWO_ID, skin: Fighter.SkinInfo({skinIndex: 2, skinTokenId: 999})});
 
         vm.expectRevert("Defender skin validation failed");
         game.acceptChallenge{value: wagerAmount}(challengeId, loadout);
@@ -495,8 +490,10 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        Fighter.PlayerLoadout memory loadout =
-            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId})
+        });
 
         vm.expectRevert("Challenger skin validation failed");
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -533,8 +530,10 @@ contract DuelGameTest is TestBase {
         uint256 totalAmount = wagerAmount;
         vm.deal(PLAYER_ONE, totalAmount);
 
-        Fighter.PlayerLoadout memory loadout =
-            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: skinIndex, skinTokenId: tokenId});
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId})
+        });
 
         // This should not revert
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
@@ -550,7 +549,7 @@ contract DuelGameTest is TestBase {
         // Get a skin with DefaultPlayer type
         uint32 defaultSkinIndex;
         for (uint32 i = 0; i < skinRegistry.nextSkinRegistryId(); i++) {
-            IPlayerSkinRegistry.SkinInfo memory skin = skinRegistry.getSkin(i);
+            IPlayerSkinRegistry.SkinCollectionInfo memory skin = skinRegistry.getSkin(i);
             if (skin.skinType == IPlayerSkinRegistry.SkinType.DefaultPlayer) {
                 defaultSkinIndex = i;
                 break;
@@ -558,8 +557,10 @@ contract DuelGameTest is TestBase {
         }
 
         // Create a loadout with a default player skin
-        Fighter.PlayerLoadout memory loadout =
-            Fighter.PlayerLoadout({playerId: PLAYER_ONE_ID, skinIndex: defaultSkinIndex, skinTokenId: 1});
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: 1})
+        });
 
         // This should not revert since default skins don't require ownership
         game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);

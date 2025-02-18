@@ -8,8 +8,7 @@ import "./interfaces/IPlayerSkinNFT.sol";
 abstract contract Fighter {
     struct PlayerLoadout {
         uint32 playerId;
-        uint32 skinIndex;
-        uint16 skinTokenId;
+        SkinInfo skin;
     }
 
     struct Attributes {
@@ -19,6 +18,11 @@ abstract contract Fighter {
         uint8 agility;
         uint8 stamina;
         uint8 luck;
+    }
+
+    struct SkinInfo {
+        uint32 skinIndex;
+        uint16 skinTokenId;
     }
 
     IPlayerSkinRegistry private immutable _skinRegistry;
@@ -46,13 +50,13 @@ abstract contract Fighter {
         Attributes memory attributes = getFighterAttributes(playerId);
 
         // Get current skin info
-        (uint32 skinIndex, uint16 skinTokenId) = getCurrentSkin(playerId);
+        SkinInfo memory skinInfo = getCurrentSkin(playerId);
 
         // Get skin attributes
         IPlayerSkinRegistry skinReg = skinRegistry(); // Get the registry instance first
-        IPlayerSkinRegistry.SkinInfo memory skinInfo = skinReg.getSkin(skinIndex);
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfoFromRegistry = skinReg.getSkin(skinInfo.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(skinTokenId);
+            IPlayerSkinNFT(skinInfoFromRegistry.contractAddress).getSkinAttributes(skinInfo.skinTokenId);
 
         return IGameEngine.FighterStats({
             weapon: skinAttrs.weapon,
@@ -75,9 +79,9 @@ abstract contract Fighter {
 
         // Get skin data from loadout
         IPlayerSkinRegistry skinReg = skinRegistry();
-        IPlayerSkinRegistry.SkinInfo memory skinInfo = skinReg.getSkin(loadout.skinIndex);
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo = skinReg.getSkin(loadout.skin.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(loadout.skinTokenId);
+            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(loadout.skin.skinTokenId);
 
         return IGameEngine.FighterStats({
             weapon: skinAttrs.weapon,
@@ -87,8 +91,10 @@ abstract contract Fighter {
         });
     }
 
-    // Base implementation that forces children to override
-    function getCurrentSkin(uint32 playerId) public view virtual returns (uint32 skinIndex, uint16 skinTokenId) {
+    /// @notice Get the current skin information for a fighter
+    /// @param playerId The ID of the fighter
+    /// @return The fighter's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 playerId) public view virtual returns (SkinInfo memory) {
         revert("Fighter: getCurrentSkin must be implemented");
     }
 }

@@ -192,8 +192,8 @@ abstract contract TestBase is Test {
     // Helper function to create a player loadout that supports both practice and duel game test cases
     function _createLoadout(uint32 fighterId) internal view returns (Fighter.PlayerLoadout memory) {
         Fighter fighter = _getFighterContract(fighterId);
-        (uint32 skinIndex, uint16 tokenId) = fighter.getCurrentSkin(fighterId);
-        return Fighter.PlayerLoadout({playerId: fighterId, skinIndex: skinIndex, skinTokenId: tokenId});
+        Fighter.SkinInfo memory skin = fighter.getCurrentSkin(fighterId);
+        return Fighter.PlayerLoadout({playerId: fighterId, skin: skin});
     }
 
     // Helper function to validate combat results
