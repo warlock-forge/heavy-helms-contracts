@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../../src/Player.sol";
+import {DefaultPlayer} from "../../src/DefaultPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
 import {IPlayer} from "../../src/interfaces/IPlayer.sol";
@@ -13,6 +14,7 @@ import {DefaultPlayer} from "../../src/DefaultPlayer.sol";
 import {Monster} from "../../src/Monster.sol";
 import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
+import {EquipmentRequirements} from "../../src/EquipmentRequirements.sol";
 
 contract PlayerDeployScript is Script {
     function setUp() public {}
@@ -28,14 +30,17 @@ contract PlayerDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy Player contract with Gelato VRF operator
-        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, operator);
+        // 1. Deploy EquipmentRequirements contract
+        EquipmentRequirements equipmentRequirements = new EquipmentRequirements();
 
-        // 2. Deploy DefaultPlayer and Monster contracts
+        // 2. Deploy Player contract with Gelato VRF operator and equipment requirements
+        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, address(equipmentRequirements), operator);
+
+        // 3. Deploy DefaultPlayer and Monster contracts
         DefaultPlayer defaultPlayerContract = new DefaultPlayer(skinRegistryAddr, nameRegistryAddr);
         Monster monsterContract = new Monster(skinRegistryAddr, monsterNameRegistryAddr);
 
-        // 3. Deploy and setup DefaultPlayerSkinNFT
+        // 4. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
         MonsterSkinNFT monsterSkin = new MonsterSkinNFT();
 
@@ -55,7 +60,7 @@ contract PlayerDeployScript is Script {
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(defaultSkinIndex, true);
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(monsterSkinIndex, true);
 
-        // 4. Mint initial characters
+        // 5. Mint initial characters
         console2.log("\n=== Minting Default Characters ===");
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
 
@@ -63,6 +68,7 @@ contract PlayerDeployScript is Script {
         MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
 
         console2.log("\n=== Deployed Addresses ===");
+        console2.log("EquipmentRequirements:", address(equipmentRequirements));
         console2.log("Player:", address(playerContract));
         console2.log("DefaultPlayer:", address(defaultPlayerContract));
         console2.log("Monster:", address(monsterContract));

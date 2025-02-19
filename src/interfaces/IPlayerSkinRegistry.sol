@@ -2,6 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "../Fighter.sol";
+import "./IEquipmentRequirements.sol";
 
 interface IPlayerSkinRegistry {
     enum SkinType {
@@ -29,4 +30,9 @@ interface IPlayerSkinRegistry {
     function getSkin(uint32 index) external view returns (SkinCollectionInfo memory);
     function validateSkinOwnership(Fighter.SkinInfo memory skin, address owner) external view;
     function getVerifiedSkins() external view returns (SkinCollectionInfo[] memory);
+    function validateSkinRequirements(
+        Fighter.SkinInfo memory skin,
+        Fighter.Attributes memory attributes,
+        IEquipmentRequirements equipmentRequirements
+    ) external view;
 }

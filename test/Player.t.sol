@@ -18,6 +18,7 @@ import {
 } from "../src/Player.sol";
 import {IPlayer} from "../src/interfaces/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../src/interfaces/IPlayerSkinRegistry.sol";
+import {EquipmentRequirementsNotMet} from "../src/PlayerSkinRegistry.sol";
 import {SkinNotOwned, SkinRegistryDoesNotExist} from "../src/PlayerSkinRegistry.sol";
 import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
 import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
@@ -540,7 +541,10 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, gameEngine.WEAPON_GREATSWORD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_OFFENSIVE()
+            PLAYER_ONE,
+            equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
+            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
+            gameEngine.STANCE_OFFENSIVE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -569,11 +573,14 @@ contract PlayerTest is TestBase {
         uint32 skinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(skinNFT));
         skinRegistry.setSkinVerification(skinIndex, true);
 
-        // Mint skin to player
+        // Mint skin to player with low requirement equipment
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_OFFENSIVE()
+            PLAYER_ONE,
+            equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
+            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
+            gameEngine.STANCE_OFFENSIVE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -637,18 +644,21 @@ contract PlayerTest is TestBase {
         skinRegistry.setSkinVerification(skinIndex, true);
         skinRegistry.setSkinType(skinIndex, IPlayerSkinRegistry.SkinType.Player);
 
-        // Mint unlock NFT to player
+        // Mint unlock NFT to player with low requirements
         vm.startPrank(PLAYER_ONE);
         unlockNFT.mintSkin(
-            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_BALANCED()
+            PLAYER_ONE,
+            equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
+            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
+            gameEngine.STANCE_BALANCED()
         );
         vm.stopPrank();
 
         // Mint skin but keep it in contract
         skinNFT.mintSkin(
             address(skinNFT), // Mint to contract itself, not PLAYER_ONE
-            gameEngine.WEAPON_SWORD_AND_SHIELD(),
-            gameEngine.ARMOR_PLATE(),
+            equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
+            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
             gameEngine.STANCE_BALANCED()
         );
         uint16 tokenId = 1;
@@ -943,6 +953,53 @@ contract PlayerTest is TestBase {
             }
         }
         assertTrue(foundKillEvent, "PlayerKillUpdated event not emitted");
+    }
+
+    function testCannotEquipSkinWithoutMeetingRequirements() public {
+        // Create a player with minimum stats
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+
+        // Verify initial state has default skin
+        IPlayer.PlayerStats memory initialStats = playerContract.getPlayer(playerId);
+        assertEq(initialStats.skin.skinIndex, 0, "Initial skin index should be 0");
+        assertEq(initialStats.skin.skinTokenId, 1, "Initial skin token should be 1");
+
+        // Create a skin collection with high requirements
+        PlayerSkinNFT skinNFT = new PlayerSkinNFT("High Req Skin", "HRS", 0.01 ether);
+        skinNFT.setMintingEnabled(true);
+
+        // Register the skin
+        uint32 skinIndex = _registerSkin(address(skinNFT));
+        skinRegistry.setSkinVerification(skinIndex, true);
+
+        // Mint a skin with high requirement weapon (e.g., greatsword) and heavy armor
+        vm.startPrank(PLAYER_ONE);
+        vm.deal(PLAYER_ONE, skinNFT.mintPrice());
+        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
+            PLAYER_ONE,
+            equipmentRequirements.WEAPON_GREATSWORD(),
+            equipmentRequirements.ARMOR_PLATE(),
+            gameEngine.STANCE_OFFENSIVE()
+        );
+        uint16 tokenId = 1;
+
+        // Get the player's stats to verify they're too low
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+        console2.log("Player Strength:", stats.attributes.strength);
+        console2.log("Player Constitution:", stats.attributes.constitution);
+        console2.log("Player Size:", stats.attributes.size);
+        console2.log("Player Agility:", stats.attributes.agility);
+
+        // Expect the requirements not met error
+        vm.expectRevert(EquipmentRequirementsNotMet.selector);
+        playerContract.equipSkin(playerId, skinIndex, tokenId);
+
+        // Verify the skin was not equipped
+        stats = playerContract.getPlayer(playerId);
+        assertEq(stats.skin.skinIndex, 0, "Should still have default skin index");
+        assertEq(stats.skin.skinTokenId, 1, "Should still have default token ID");
+
+        vm.stopPrank();
     }
 
     // Skin Equipment Helper

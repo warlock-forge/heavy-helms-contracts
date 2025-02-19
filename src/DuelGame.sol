@@ -123,8 +123,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         returns (uint256)
     {
         require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
-        require(challengerLoadout.playerId >= 1000, "Cannot use default character as challenger");
-        require(defenderId >= 1000, "Cannot use default character as defender");
+        require(
+            address(_getFighterContract(challengerLoadout.playerId)) == address(playerContract),
+            "Challenger must be a Player"
+        );
+        require(address(_getFighterContract(defenderId)) == address(playerContract), "Defender must be a Player");
+        require(
+            IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId) == msg.sender,
+            "Must own challenger player"
+        );
 
         // Check player existence by calling getPlayer (will revert if player doesn't exist)
         IPlayer(playerContract).getPlayer(challengerLoadout.playerId);
@@ -145,29 +152,18 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Check for overflow when total wager is calculated
         require(wagerAmount <= type(uint256).max / 2, "Wager would overflow");
 
-        // Verify players are not default characters
-        require(challengerLoadout.playerId >= 1000, "Cannot use default character as challenger");
-        require(defenderId >= 1000, "Cannot use default character as defender");
-
-        // Verify challenger owns the player
-        require(
-            IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId) == msg.sender,
-            "Must own challenger player"
-        );
-
         // Verify players are not retired
         require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
         require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
 
-        // Verify skin ownership if a skin is being used
-        if (challengerLoadout.skin.skinIndex > 0) {
-            try playerContract.skinRegistry().validateSkinOwnership(challengerLoadout.skin, msg.sender) {}
-            catch Error(string memory reason) {
-                revert(string.concat("Challenger skin validation failed: ", reason));
-            } catch {
-                revert("Challenger skin validation failed");
-            }
-        }
+        // Validate skin ownership and requirements
+        address owner = IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId);
+        IPlayer(playerContract).skinRegistry().validateSkinOwnership(challengerLoadout.skin, owner);
+        IPlayer(playerContract).skinRegistry().validateSkinRequirements(
+            challengerLoadout.skin,
+            IPlayer(playerContract).getPlayer(challengerLoadout.playerId).attributes,
+            IPlayer(playerContract).equipmentRequirements()
+        );
 
         // Create challenge
         uint256 challengeId = nextChallengeId++;
@@ -221,16 +217,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         require(msg.sender == defender, "Not defender");
         require(defenderLoadout.playerId == challenge.defenderId, "Wrong defender ID");
 
-        // Verify skin ownership if a skin is being used
-        if (defenderLoadout.skin.skinIndex > 0) {
-            try playerContract.skinRegistry().validateSkinOwnership(defenderLoadout.skin, msg.sender) {}
-            catch Error(string memory reason) {
-                revert(string.concat("Defender skin validation failed: ", reason));
-            } catch {
-                revert("Defender skin validation failed");
-            }
-        }
-
         // Validate player ownership and stats
         require(IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId) == msg.sender, "Not player owner");
         require(!IPlayer(playerContract).isPlayerRetired(defenderLoadout.playerId), "Player retired");
@@ -242,6 +228,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 requestId = _requestRandomness("");
         requestToChallengeId[requestId] = challengeId;
         hasPendingRequest[challengeId] = true;
+
+        // Validate ownership and requirements
+        address owner = IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId);
+        IPlayer(playerContract).skinRegistry().validateSkinOwnership(defenderLoadout.skin, owner);
+        IPlayer(playerContract).skinRegistry().validateSkinRequirements(
+            defenderLoadout.skin,
+            IPlayer(playerContract).getPlayer(defenderLoadout.playerId).attributes,
+            IPlayer(playerContract).equipmentRequirements()
+        );
 
         emit ChallengeAccepted(challengeId, defenderLoadout.playerId);
     }

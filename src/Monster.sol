@@ -12,7 +12,11 @@ error UnauthorizedCaller();
 error BadZeroAddress();
 
 contract Monster is IMonster, Owned, Fighter {
-    IMonsterNameRegistry public immutable nameRegistry;
+    IMonsterNameRegistry private immutable _nameRegistry;
+
+    function nameRegistry() public view returns (IMonsterNameRegistry) {
+        return _nameRegistry;
+    }
 
     // Constants for ID range
     uint32 private constant MONSTER_ID_START = 2001;
@@ -69,7 +73,7 @@ contract Monster is IMonster, Owned, Fighter {
         if (nameRegistryAddress == address(0)) {
             revert BadZeroAddress();
         }
-        nameRegistry = IMonsterNameRegistry(nameRegistryAddress);
+        _nameRegistry = IMonsterNameRegistry(nameRegistryAddress);
     }
 
     function createMonster(MonsterStats memory stats) external onlyOwner returns (uint32) {

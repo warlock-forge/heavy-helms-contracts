@@ -13,7 +13,7 @@ error InvalidNameIndex();
 error InvalidDefaultPlayerSkinType(uint32 skinIndex);
 
 contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
-    IPlayerNameRegistry public immutable nameRegistry;
+    IPlayerNameRegistry private immutable _nameRegistry;
 
     // Maps default player ID to their stats
     mapping(uint32 => DefaultPlayerStats) private _defaultPlayers;
@@ -24,6 +24,10 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     uint32 private constant DEFAULT_PLAYER_START = 1;
     uint32 private constant DEFAULT_PLAYER_END = 2000;
 
+    function nameRegistry() public view returns (IPlayerNameRegistry) {
+        return _nameRegistry;
+    }
+
     constructor(address skinRegistryAddress, address nameRegistryAddress)
         Owned(msg.sender)
         Fighter(skinRegistryAddress)
@@ -31,7 +35,7 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         if (nameRegistryAddress == address(0)) {
             revert BadZeroAddress();
         }
-        nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
+        _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
     }
 
     /// @notice Check if a default player ID is valid
@@ -91,8 +95,8 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
 
         // Validate name indices
         if (
-            !nameRegistry.isValidFirstNameIndex(stats.firstNameIndex)
-                || stats.surnameIndex >= nameRegistry.getSurnamesLength()
+            !nameRegistry().isValidFirstNameIndex(stats.firstNameIndex)
+                || stats.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
             revert InvalidNameIndex();
         }
@@ -113,8 +117,8 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
 
         // Validate name indices
         if (
-            !nameRegistry.isValidFirstNameIndex(newStats.firstNameIndex)
-                || newStats.surnameIndex >= nameRegistry.getSurnamesLength()
+            !nameRegistry().isValidFirstNameIndex(newStats.firstNameIndex)
+                || newStats.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
             revert InvalidNameIndex();
         }

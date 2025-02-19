@@ -29,6 +29,7 @@ import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
 import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
 import {NameLibrary} from "../../src/lib/NameLibrary.sol";
+import {EquipmentRequirements} from "../../src/EquipmentRequirements.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
@@ -41,6 +42,7 @@ abstract contract TestBase is Test {
     DefaultPlayerSkinNFT public defaultSkin;
     PlayerSkinRegistry public skinRegistry;
     PlayerNameRegistry public nameRegistry;
+    EquipmentRequirements public equipmentRequirements;
     uint32 public defaultSkinIndex;
     GameEngine public gameEngine;
     MonsterSkinNFT public monsterSkin;
@@ -61,6 +63,7 @@ abstract contract TestBase is Test {
         skinRegistry = new PlayerSkinRegistry();
         defaultSkin = new DefaultPlayerSkinNFT();
         monsterSkin = new MonsterSkinNFT();
+        equipmentRequirements = new EquipmentRequirements();
 
         // Register and configure skins
         defaultSkinIndex = _registerSkin(address(defaultSkin));
@@ -89,7 +92,8 @@ abstract contract TestBase is Test {
         gameEngine = new GameEngine();
 
         // Create the player contracts with all required dependencies
-        playerContract = new Player(address(skinRegistry), address(nameRegistry), operator);
+        playerContract =
+            new Player(address(skinRegistry), address(nameRegistry), address(equipmentRequirements), operator);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));
         monsterContract = new Monster(address(skinRegistry), address(nameRegistry));
 

@@ -12,12 +12,13 @@ import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "./lib/UniformRandomNumber.sol";
 import "./interfaces/IPlayer.sol";
 import "./interfaces/IPlayerNameRegistry.sol";
+import "./interfaces/IEquipmentRequirements.sol";
 import "./Fighter.sol";
-
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
 /// @notice Thrown when a player ID doesn't exist
+
 error PlayerDoesNotExist(uint32 playerId);
 /// @notice Thrown when caller doesn't own the NFT skin they're trying to equip
 error NotSkinOwner();
@@ -112,7 +113,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
     // Contract References
     /// @notice Registry contract for managing player name sets and validation
-    IPlayerNameRegistry public nameRegistry;
+    IPlayerNameRegistry private immutable _nameRegistry;
+    /// @notice Interface for equipment requirements validation
+    IEquipmentRequirements private _equipmentRequirements;
 
     // Player state tracking
     /// @notice Starting ID for user-created players (1-2000 reserved for default characters)
@@ -291,6 +294,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         uint8 newIncreaseValue
     );
 
+    /// @notice Emitted when the equipment requirements contract is updated
+    /// @param oldAddress The previous contract address
+    /// @param newAddress The new contract address
+    event EquipmentRequirementsUpdated(address indexed oldAddress, address indexed newAddress);
+
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
@@ -340,11 +348,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param nameRegistryAddress Address of the PlayerNameRegistry contract
     /// @param operator Address of the Gelato VRF operator
     /// @dev Sets initial configuration values and connects to required registries
-    constructor(address skinRegistryAddress, address nameRegistryAddress, address operator)
-        Owned(msg.sender)
-        Fighter(skinRegistryAddress)
-    {
-        nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
+    constructor(
+        address skinRegistryAddress,
+        address nameRegistryAddress,
+        address equipmentRequirementsAddress,
+        address operator
+    ) Owned(msg.sender) Fighter(skinRegistryAddress) {
+        _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
+        _equipmentRequirements = IEquipmentRequirements(equipmentRequirementsAddress);
         _operatorAddress = operator;
     }
 
@@ -554,6 +565,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return super.skinRegistry();
     }
 
+    function nameRegistry() public view returns (IPlayerNameRegistry) {
+        return _nameRegistry;
+    }
+
+    function equipmentRequirements() public view returns (IEquipmentRequirements) {
+        return _equipmentRequirements;
+    }
+
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
@@ -591,6 +610,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         // Validate skin ownership through registry
         skinRegistry().validateSkinOwnership(
             Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}), msg.sender
+        );
+
+        // Validate stat requirements
+        skinRegistry().validateSkinRequirements(
+            Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}),
+            _players[playerId].attributes,
+            _equipmentRequirements
         );
 
         // Update player's skin
@@ -638,7 +664,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
 
         // Validate name indices
-        if (!nameRegistry.isValidFirstNameIndex(firstNameIndex) || surnameIndex >= nameRegistry.getSurnamesLength()) {
+        if (!nameRegistry().isValidFirstNameIndex(firstNameIndex) || surnameIndex >= nameRegistry().getSurnamesLength())
+        {
             revert InvalidNameIndex();
         }
 
@@ -864,6 +891,15 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         uint256 oldCost = slotBatchCost;
         slotBatchCost = newCost;
         emit SlotBatchCostUpdated(oldCost, newCost);
+    }
+
+    /// @notice Sets the contract address for equipment requirements validation
+    /// @param newAddress The address of the new equipment requirements contract
+    /// @dev Used to update equipment requirements logic if needed
+    function setEquipmentRequirements(address newAddress) external onlyOwner {
+        if (newAddress == address(0)) revert BadZeroAddress();
+        _equipmentRequirements = IEquipmentRequirements(newAddress);
+        emit EquipmentRequirementsUpdated(address(_equipmentRequirements), newAddress);
     }
 
     //==============================================================//
@@ -1117,12 +1153,13 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         // Generate name indices based on player preference
         uint16 firstNameIndex;
         if (useNameSetB) {
-            firstNameIndex = uint16(randomSeed.uniform(nameRegistry.getNameSetBLength()));
+            firstNameIndex = uint16(randomSeed.uniform(nameRegistry().getNameSetBLength()));
         } else {
-            firstNameIndex = uint16(randomSeed.uniform(nameRegistry.getNameSetALength())) + nameRegistry.SET_A_START();
+            firstNameIndex =
+                uint16(randomSeed.uniform(nameRegistry().getNameSetALength())) + nameRegistry().SET_A_START();
         }
 
-        uint16 surnameIndex = uint16(randomSeed.uniform(nameRegistry.getSurnamesLength()));
+        uint16 surnameIndex = uint16(randomSeed.uniform(nameRegistry().getSurnamesLength()));
 
         // Create stats struct
         stats = IPlayer.PlayerStats({

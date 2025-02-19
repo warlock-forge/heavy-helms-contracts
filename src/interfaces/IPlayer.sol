@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "../interfaces/IPlayerNameRegistry.sol";
 import "../interfaces/IPlayerSkinRegistry.sol";
 import "../Fighter.sol";
+import "../interfaces/IEquipmentRequirements.sol";
 
 /// @title Player Interface for Heavy Helms
 /// @notice Defines the core functionality for player management and game interactions
@@ -138,6 +139,10 @@ interface IPlayer {
     /// @param playerId The ID of the player to check
     /// @return True if the player is immortal, false otherwise
     function isPlayerImmortal(uint32 playerId) external view returns (bool);
+
+    /// @notice Gets the equipment requirements contract reference
+    /// @return The EquipmentRequirements contract instance
+    function equipmentRequirements() external view returns (IEquipmentRequirements);
 
     // Pure Functions
     /// @notice Encodes player data into a compact bytes32 format

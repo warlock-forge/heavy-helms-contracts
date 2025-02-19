@@ -11,6 +11,8 @@ import "solmate/src/tokens/ERC721.sol";
 import "./interfaces/IPlayerSkinRegistry.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./Fighter.sol";
+import "./interfaces/IGameEngine.sol";
+import "./interfaces/IEquipmentRequirements.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
@@ -31,6 +33,8 @@ error SkinNotOwned(address skinContract, uint16 tokenId);
 error ZeroAddressNotAllowed();
 /// @notice Thrown when attempting to validate a skin of an invalid type
 error InvalidSkinType();
+/// @notice Thrown when equipment requirements are not met
+error EquipmentRequirementsNotMet();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -224,6 +228,47 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
         }
         skins[registryId].skinType = skinType;
         emit SkinTypeUpdated(registryId, skinType);
+    }
+
+    /// @notice Validates skin requirements
+    /// @param skin The skin information (index and token ID)
+    /// @param attributes The attributes of the player
+    /// @param equipmentRequirements The EquipmentRequirements contract
+    function validateSkinRequirements(
+        Fighter.SkinInfo memory skin,
+        Fighter.Attributes memory attributes,
+        IEquipmentRequirements equipmentRequirements
+    ) external view {
+        if (skin.skinIndex >= skins.length) {
+            revert SkinRegistryDoesNotExist();
+        }
+
+        SkinCollectionInfo memory skinCollectionInfo = skins[skin.skinIndex];
+
+        // Default skins and monster skins have their own validation
+        if (skinCollectionInfo.skinType == SkinType.DefaultPlayer || skinCollectionInfo.skinType == SkinType.Monster) {
+            return;
+        }
+
+        // Get skin attributes
+        IPlayerSkinNFT skinContract = IPlayerSkinNFT(skinCollectionInfo.contractAddress);
+        IPlayerSkinNFT.SkinAttributes memory skinAttrs = skinContract.getSkinAttributes(skin.skinTokenId);
+
+        // Get requirements from EquipmentRequirements
+        Fighter.Attributes memory weaponReqs = equipmentRequirements.getWeaponRequirements(skinAttrs.weapon);
+        Fighter.Attributes memory armorReqs = equipmentRequirements.getArmorRequirements(skinAttrs.armor);
+
+        // Check all requirements at once
+        if (
+            attributes.strength < weaponReqs.strength || attributes.constitution < weaponReqs.constitution
+                || attributes.size < weaponReqs.size || attributes.agility < weaponReqs.agility
+                || attributes.stamina < weaponReqs.stamina || attributes.luck < weaponReqs.luck
+                || attributes.strength < armorReqs.strength || attributes.constitution < armorReqs.constitution
+                || attributes.size < armorReqs.size || attributes.agility < armorReqs.agility
+                || attributes.stamina < armorReqs.stamina || attributes.luck < armorReqs.luck
+        ) {
+            revert EquipmentRequirementsNotMet();
+        }
     }
 
     /// @notice Allows contract to receive ETH

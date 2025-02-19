@@ -66,15 +66,6 @@ contract GameEngine is IGameEngine {
         uint16 survivalFactor; // Base 100, higher means better survival chance
     }
 
-    struct StatRequirements {
-        uint8 strength;
-        uint8 constitution;
-        uint8 size;
-        uint8 agility;
-        uint8 stamina;
-        uint8 luck;
-    }
-
     struct CalculatedCombatStats {
         CalculatedStats stats;
         WeaponStats weapon;
@@ -968,7 +959,7 @@ contract GameEngine is IGameEngine {
     }
 
     // =============================================
-    // WEAPON STATS AND REQUIREMENTS
+    // WEAPON STATS
     // =============================================
 
     function SWORD_AND_SHIELD() public pure returns (WeaponStats memory) {
@@ -987,10 +978,6 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function SWORD_AND_SHIELD_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 10, constitution: 0, size: 0, agility: 6, stamina: 0, luck: 0});
-    }
-
     function MACE_AND_SHIELD() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 22,
@@ -1005,10 +992,6 @@ contract GameEngine is IGameEngine {
             isTwoHanded: false,
             hasShield: true
         });
-    }
-
-    function MACE_AND_SHIELD_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 12, constitution: 0, size: 0, agility: 0, stamina: 8, luck: 0});
     }
 
     function RAPIER_AND_SHIELD() public pure returns (WeaponStats memory) {
@@ -1027,10 +1010,6 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function RAPIER_AND_SHIELD_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 6, constitution: 0, size: 0, agility: 12, stamina: 0, luck: 0});
-    }
-
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 28,
@@ -1045,10 +1024,6 @@ contract GameEngine is IGameEngine {
             isTwoHanded: true,
             hasShield: false
         });
-    }
-
-    function GREATSWORD_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 12, constitution: 0, size: 10, agility: 8, stamina: 0, luck: 0});
     }
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
@@ -1067,10 +1042,6 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function BATTLEAXE_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 15, constitution: 0, size: 12, agility: 0, stamina: 0, luck: 0});
-    }
-
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 22,
@@ -1085,10 +1056,6 @@ contract GameEngine is IGameEngine {
             isTwoHanded: true,
             hasShield: false
         });
-    }
-
-    function QUARTERSTAFF_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
     function SPEAR() public pure returns (WeaponStats memory) {
@@ -1107,10 +1074,6 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function SPEAR_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 8, constitution: 0, size: 8, agility: 10, stamina: 0, luck: 0});
-    }
-
     function getWeaponStats(uint8 weapon) public pure returns (WeaponStats memory) {
         if (weapon == WEAPON_SWORD_AND_SHIELD) return SWORD_AND_SHIELD();
         if (weapon == WEAPON_MACE_AND_SHIELD) return MACE_AND_SHIELD();
@@ -1122,51 +1085,24 @@ contract GameEngine is IGameEngine {
         revert("Invalid weapon type");
     }
 
-    function getWeaponRequirements(uint8 weapon) public pure returns (StatRequirements memory) {
-        if (weapon == WEAPON_SWORD_AND_SHIELD) return SWORD_AND_SHIELD_REQS();
-        if (weapon == WEAPON_MACE_AND_SHIELD) return MACE_AND_SHIELD_REQS();
-        if (weapon == WEAPON_RAPIER_AND_SHIELD) return RAPIER_AND_SHIELD_REQS();
-        if (weapon == WEAPON_GREATSWORD) return GREATSWORD_REQS();
-        if (weapon == WEAPON_BATTLEAXE) return BATTLEAXE_REQS();
-        if (weapon == WEAPON_QUARTERSTAFF) return QUARTERSTAFF_REQS();
-        if (weapon == WEAPON_SPEAR) return SPEAR_REQS();
-        revert("Invalid weapon type");
-    }
-
     // =============================================
-    // ARMOR STATS AND REQUIREMENTS
+    // ARMOR STATS
     // =============================================
 
     function CLOTH() public pure returns (ArmorStats memory) {
         return ArmorStats({defense: 2, weight: 5, slashResist: 70, pierceResist: 70, bluntResist: 80});
     }
 
-    function CLOTH_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 0, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
-    }
-
     function LEATHER() public pure returns (ArmorStats memory) {
         return ArmorStats({defense: 4, weight: 25, slashResist: 90, pierceResist: 85, bluntResist: 90});
-    }
-
-    function LEATHER_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 5, constitution: 0, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
         return ArmorStats({defense: 6, weight: 60, slashResist: 110, pierceResist: 70, bluntResist: 100});
     }
 
-    function CHAIN_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 8, constitution: 8, size: 0, agility: 0, stamina: 0, luck: 0});
-    }
-
     function PLATE() public pure returns (ArmorStats memory) {
         return ArmorStats({defense: 12, weight: 90, slashResist: 120, pierceResist: 90, bluntResist: 80});
-    }
-
-    function PLATE_REQS() public pure returns (StatRequirements memory) {
-        return StatRequirements({strength: 10, constitution: 10, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
@@ -1174,14 +1110,6 @@ contract GameEngine is IGameEngine {
         if (armor == ARMOR_LEATHER) return LEATHER();
         if (armor == ARMOR_CHAIN) return CHAIN();
         if (armor == ARMOR_PLATE) return PLATE();
-        revert("Invalid armor type");
-    }
-
-    function getArmorRequirements(uint8 armor) public pure returns (StatRequirements memory) {
-        if (armor == ARMOR_CLOTH) return CLOTH_REQS();
-        if (armor == ARMOR_LEATHER) return LEATHER_REQS();
-        if (armor == ARMOR_CHAIN) return CHAIN_REQS();
-        if (armor == ARMOR_PLATE) return PLATE_REQS();
         revert("Invalid armor type");
     }
 

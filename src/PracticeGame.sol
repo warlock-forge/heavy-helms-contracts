@@ -5,6 +5,7 @@ import "./BaseGame.sol";
 import "./interfaces/IPlayerSkinNFT.sol";
 import "./interfaces/IDefaultPlayer.sol";
 import "./interfaces/IGameEngine.sol";
+import "./interfaces/IPlayer.sol";
 import "./Fighter.sol";
 
 contract PracticeGame is BaseGame {
@@ -25,9 +26,29 @@ contract PracticeGame is BaseGame {
         require(!playerContract.isPlayerRetired(player1.playerId), "Player 1 is retired");
         require(!playerContract.isPlayerRetired(player2.playerId), "Player 2 is retired");
 
-        // Get the appropriate Fighter contract for each player
+        // Get the appropriate Fighter contracts
         Fighter p1Fighter = _getFighterContract(player1.playerId);
         Fighter p2Fighter = _getFighterContract(player2.playerId);
+
+        // For player skins, validate ownership and requirements
+        if (address(p1Fighter) == address(playerContract)) {
+            address owner = IPlayer(playerContract).getPlayerOwner(player1.playerId);
+            IPlayer(playerContract).skinRegistry().validateSkinOwnership(player1.skin, owner);
+            IPlayer(playerContract).skinRegistry().validateSkinRequirements(
+                player1.skin,
+                IPlayer(playerContract).getPlayer(player1.playerId).attributes,
+                IPlayer(playerContract).equipmentRequirements()
+            );
+        }
+        if (address(p2Fighter) == address(playerContract)) {
+            address owner = IPlayer(playerContract).getPlayerOwner(player2.playerId);
+            IPlayer(playerContract).skinRegistry().validateSkinOwnership(player2.skin, owner);
+            IPlayer(playerContract).skinRegistry().validateSkinRequirements(
+                player2.skin,
+                IPlayer(playerContract).getPlayer(player2.playerId).attributes,
+                IPlayer(playerContract).equipmentRequirements()
+            );
+        }
 
         // Convert loadouts using the appropriate Fighter implementations
         IGameEngine.FighterStats memory p1Combat = p1Fighter.convertToFighterStats(player1);
