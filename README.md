@@ -204,15 +204,15 @@ forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,addres
 ```bash
 forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
 ```
-9. Deploy PracticeGame *(add --broadcast to send tx)*
+8. Deploy PracticeGame *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
+forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
 ```
-10. Deploy DuelGame *(add --broadcast to send tx)*
+9. Deploy DuelGame *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
+forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
 ```
-11. Setup VRF
+10. Setup VRF
 ```bash
 Use Gelato dashboard to add VRF tasks for Player + Duel Game contracts
 ```
