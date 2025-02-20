@@ -448,22 +448,27 @@ contract GameEngine is IGameEngine {
         CalculatedCombatStats memory p2Calculated,
         uint16 lethalityFactor
     ) private pure returns (uint256, bytes memory) {
+        uint256 seed = currentSeed;
+
+        // Process combat turn with seed updates
         (
             uint8 attackResult,
             uint16 attackDamage,
             uint8 attackStaminaCost,
             uint8 defenseResult,
             uint16 defenseDamage,
-            uint8 defenseStaminaCost
+            uint8 defenseStaminaCost,
+            uint256 newSeed
         ) = processCombatTurn(
             state.isPlayer1Turn ? p1Calculated : p2Calculated,
             state.isPlayer1Turn ? p2Calculated : p1Calculated,
             state.isPlayer1Turn ? state.p1Stamina : state.p2Stamina,
             state.isPlayer1Turn ? state.p2Stamina : state.p1Stamina,
-            currentSeed
+            seed
         );
 
-        // Update combat state based on results
+        // Update combat state with new seed
+        seed = uint256(keccak256(abi.encodePacked(newSeed)));
         updateCombatState(
             state,
             attackDamage,
@@ -473,11 +478,11 @@ contract GameEngine is IGameEngine {
             defenseStaminaCost,
             p1Calculated,
             p2Calculated,
-            currentSeed,
+            seed,
             lethalityFactor
         );
 
-        // Append results to combat log
+        // Append results and return new seed
         results = appendCombatAction(
             results,
             attackResult,
@@ -489,7 +494,7 @@ contract GameEngine is IGameEngine {
             state.isPlayer1Turn
         );
 
-        return (currentSeed, results);
+        return (seed, results);
     }
 
     function calculateHitChance(CalculatedCombatStats memory attacker) private pure returns (uint8) {
@@ -552,12 +557,13 @@ contract GameEngine is IGameEngine {
             uint8 attackStaminaCost,
             uint8 defenseResult,
             uint16 defenseDamage,
-            uint8 defenseStaminaCost
+            uint8 defenseStaminaCost,
+            uint256 newSeed
         )
     {
         uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attacker);
         if (attackerStamina < attackCost) {
-            return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0);
+            return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0, seed);
         }
 
         uint8 finalHitChance = calculateHitChance(attacker);
@@ -567,7 +573,9 @@ contract GameEngine is IGameEngine {
         uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attacker);
 
         if (hitRoll >= finalHitChance) {
-            return (uint8(CombatResultType.ATTACK), 0, uint8(modifiedStaminaCost), uint8(CombatResultType.MISS), 0, 0);
+            return (
+                uint8(CombatResultType.ATTACK), 0, uint8(modifiedStaminaCost), uint8(CombatResultType.MISS), 0, 0, seed
+            );
         }
 
         uint16 damage;
@@ -586,7 +594,7 @@ contract GameEngine is IGameEngine {
             attackDamage = 0;
         }
 
-        return (attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost);
+        return (attackResult, attackDamage, attackStaminaCost, defenseResult, defenseDamage, defenseStaminaCost, seed);
     }
 
     function processDefense(
