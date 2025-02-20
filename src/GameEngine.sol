@@ -324,7 +324,7 @@ contract GameEngine is IGameEngine {
         p2Calculated.stats = applyStanceModifiers(p2Calculated.stats, p2Calculated.stanceMultipliers);
 
         // Initialize combat with calculated stats
-        CombatState memory state = initializeCombatState(player1, player2, randomSeed, p1Calculated, p2Calculated);
+        CombatState memory state = initializeCombatState(randomSeed, p1Calculated, p2Calculated);
 
         bytes memory results = new bytes(4);
         uint8 roundCount = 0;
@@ -386,8 +386,6 @@ contract GameEngine is IGameEngine {
     }
 
     function initializeCombatState(
-        FighterStats memory player1,
-        FighterStats memory player2,
         uint256 seed,
         CalculatedCombatStats memory p1Calculated,
         CalculatedCombatStats memory p2Calculated
@@ -408,6 +406,7 @@ contract GameEngine is IGameEngine {
         // Calculate initiative but only store it in state for tiebreakers
         uint32 p1Initiative = calculateTotalInitiative(p1Calculated);
         uint32 p2Initiative = calculateTotalInitiative(p2Calculated);
+        seed = uint256(keccak256(abi.encodePacked(seed)));
         state.p1HasInitiative = p1Initiative > p2Initiative || (p1Initiative == p2Initiative && seed.uniform(2) == 0);
 
         return state;
@@ -430,6 +429,7 @@ contract GameEngine is IGameEngine {
         if ((state.p1Stamina < uint32(p1MinCost)) || (state.p2Stamina < uint32(p2MinCost))) {
             state.condition = WinCondition.EXHAUSTION;
             if (state.p1Stamina < uint32(p1MinCost) && state.p2Stamina < uint32(p2MinCost)) {
+                // Before random winner selection
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 state.player1Won = seed.uniform(2) == 0;
             } else {
@@ -533,6 +533,7 @@ contract GameEngine is IGameEngine {
         uint64 damageRange = attacker.weapon.maxDamage >= attacker.weapon.minDamage
             ? attacker.weapon.maxDamage - attacker.weapon.minDamage
             : 0;
+        seed = uint256(keccak256(abi.encodePacked(seed)));
         uint64 baseDamage = uint64(attacker.weapon.minDamage) + uint64(seed.uniform(damageRange + 1));
 
         uint64 scaledBase = baseDamage * 100;
@@ -1215,6 +1216,7 @@ contract GameEngine is IGameEngine {
                 : modifiedSurvival > BASE_SURVIVAL_CHANCE ? BASE_SURVIVAL_CHANCE : modifiedSurvival
         );
 
+        seed = uint256(keccak256(abi.encodePacked(seed)));
         return uint8(seed.uniform(100)) >= survivalChance;
     }
 }
