@@ -192,29 +192,25 @@ forge script script/deploy/GameEngineDeploy.s.sol
 ```bash
 forge script script/deploy/PlayerSkinRegistryDeploy.s.sol
 ```
-5. Deploy PlayerNameRegistry: *(add --broadcast to send tx)*
+5. Deploy NameRegistry: *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/PlayerNameRegistryDeploy.s.sol
+forge script script/deploy/NameRegistryDeploy.s.sol
 ```
-6. Deploy PlayerEquipmentStats: *(add --broadcast to send tx)*
+6. Deploy Fighter: *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/PlayerEquipmentStatsDeploy.s.sol
+forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,address)" <SKIN_REGISTRY_ADDRESS> <PLAYER_NAME_REGISTRY_ADDRESS> <MONSTER_NAME_REGISTRY_ADDRESS>
 ```
-7. Deploy Player: *(add --broadcast to send tx)*
-```bash
-forge script script/deploy/PlayerDeploy.s.sol --sig "run(address,address,address)" <SKIN_REGISTRY_ADDRESS> <NAME_REGISTRY_ADDRESS> <EQUIPMENT_STATS_ADDRESS>
-```
-8. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
+7. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
 ```
 9. Deploy PracticeGame *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
+forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
 ```
 10. Deploy DuelGame *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
+forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
 ```
 11. Setup VRF
 ```bash

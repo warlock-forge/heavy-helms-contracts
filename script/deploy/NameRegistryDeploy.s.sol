@@ -6,7 +6,7 @@ import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
 import {MonsterNameRegistry} from "../../src/MonsterNameRegistry.sol";
 import {NameLibrary} from "../../src/lib/NameLibrary.sol";
 
-contract PlayerNameRegistryDeploy is Script {
+contract NameRegistryDeploy is Script {
     function run() public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");

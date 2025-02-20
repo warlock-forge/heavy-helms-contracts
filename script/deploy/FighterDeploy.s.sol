@@ -16,7 +16,7 @@ import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
 import {EquipmentRequirements} from "../../src/EquipmentRequirements.sol";
 
-contract PlayerDeployScript is Script {
+contract FighterDeployScript is Script {
     function setUp() public {}
 
     function run(address skinRegistryAddr, address nameRegistryAddr, address monsterNameRegistryAddr) public {
