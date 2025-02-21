@@ -16,7 +16,7 @@ contract ActionPointsTest is TestBase {
     }
 
     function test_QuarterstaffDoubleAttack() public view {
-        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
+        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
         uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
         Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
@@ -64,7 +64,7 @@ contract ActionPointsTest is TestBase {
     }
 
     function test_QuarterstaffDoubleAttackPlayerBias() public view {
-        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
+        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
         uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
         Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
@@ -107,7 +107,7 @@ contract ActionPointsTest is TestBase {
     }
 
     function test_SameWeaponInitiative() public view {
-        uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1;
+        uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
 
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: weaponId,

@@ -29,7 +29,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory player1 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
         Fighter.PlayerLoadout memory player2 =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1);
 
         bytes memory results = practiceGame.play(player1, player2);
         (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
@@ -44,7 +44,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory attackerLoadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
         Fighter.PlayerLoadout memory defenderLoadout =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
 
         // Get the appropriate Fighter contracts
         Fighter attackerFighter = _getFighterContract(attackerLoadout.playerId);
@@ -68,7 +68,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory player1 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
         Fighter.PlayerLoadout memory player2 =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1);
 
         // Get the appropriate Fighter contracts
         Fighter p1Fighter = _getFighterContract(player1.playerId);
@@ -111,7 +111,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout1A =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
         Fighter.PlayerLoadout memory loadout1B =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1);
         results = practiceGame.play(loadout1A, loadout1B);
         (player1Won, version, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
@@ -129,7 +129,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout3A =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.SpearBalanced) + 1);
         Fighter.PlayerLoadout memory loadout3B =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
         results = practiceGame.play(loadout3A, loadout3B);
         (player1Won, version, condition, actions) = gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
@@ -166,7 +166,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory p1Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
         Fighter.PlayerLoadout memory p2Loadout =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
         (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
@@ -187,7 +187,7 @@ contract PracticeGameTest is TestBase {
         Fighter.PlayerLoadout memory p1Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
         Fighter.PlayerLoadout memory p2Loadout =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.QuarterstaffDefensive) + 1);
+            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
         (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
@@ -212,7 +212,7 @@ contract PracticeGameTest is TestBase {
         console2.log("Offensive: Greatsword vs Defensive: SwordAndShield");
         runStanceScenario(
             uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1,
-            uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1,
+            uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1,
             20
         );
 
@@ -224,7 +224,7 @@ contract PracticeGameTest is TestBase {
         console2.log("Offensive: Battleaxe vs Defensive: SwordAndShield");
         runStanceScenario(
             uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1,
-            uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1,
+            uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1,
             20
         );
 
@@ -236,7 +236,7 @@ contract PracticeGameTest is TestBase {
         console2.log("Offensive: Spear vs Defensive: SwordAndShield");
         runStanceScenario(
             uint16(DefaultPlayerLibrary.CharacterType.SpearBalanced) + 1,
-            uint16(DefaultPlayerLibrary.CharacterType.SwordAndShieldDefensive) + 1,
+            uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1,
             20
         );
     }

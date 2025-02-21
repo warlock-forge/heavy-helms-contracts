@@ -75,11 +75,11 @@ contract EquipmentRequirements is IEquipmentRequirements {
     }
 
     function CHAIN_REQS() public pure returns (Fighter.Attributes memory) {
-        return Fighter.Attributes({strength: 8, constitution: 8, size: 0, agility: 0, stamina: 0, luck: 0});
+        return Fighter.Attributes({strength: 10, constitution: 10, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
     function PLATE_REQS() public pure returns (Fighter.Attributes memory) {
-        return Fighter.Attributes({strength: 10, constitution: 10, size: 0, agility: 0, stamina: 0, luck: 0});
+        return Fighter.Attributes({strength: 12, constitution: 12, size: 0, agility: 0, stamina: 0, luck: 0});
     }
 
     /// @notice Get the minimum stat requirements for an armor type

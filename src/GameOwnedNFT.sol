@@ -32,10 +32,6 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
         if (bytes(ipfsCID).length == 0) revert InvalidCID();
         if (_ownerOf[desiredTokenId] != address(0)) revert("Token ID already exists");
 
-        require(
-            bytes(ipfsCID).length > 2 && bytes(ipfsCID)[0] == 0x51 && bytes(ipfsCID)[1] == 0x6D, "Invalid CID format"
-        );
-
         _mint(address(this), desiredTokenId);
 
         _skinAttributes[desiredTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
@@ -71,9 +67,6 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
     function setCID(uint256 tokenId, string calldata ipfsCID) external onlyOwner {
         if (bytes(ipfsCID).length == 0) revert InvalidCID();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
-        require(
-            bytes(ipfsCID).length > 2 && bytes(ipfsCID)[0] == 0x51 && bytes(ipfsCID)[1] == 0x6D, "Invalid CID format"
-        );
         _tokenCIDs[tokenId] = ipfsCID;
     }
 

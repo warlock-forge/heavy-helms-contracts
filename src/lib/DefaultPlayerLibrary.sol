@@ -12,9 +12,8 @@ library DefaultPlayerLibrary {
         GreatswordOffensive, // ID 3
         BattleaxeOffensive, // ID 4
         SpearBalanced, // ID 5
-        SwordAndShieldDefensive, // ID 6
-        RapierAndShieldDefensive, // ID 7
-        QuarterstaffDefensive // ID 8
+        MaceAndShieldDefensive, // ID 6
+        RapierAndShieldDefensive // ID 7
 
     }
 
@@ -38,7 +37,7 @@ library DefaultPlayerLibrary {
             firstNameIndex: 0,
             surnameIndex: 155
         });
-        ipfsCID = "QmRQEMsXzytfLuhRyntfD23Gu41GNxdn4PyrBL1XoM3sPb";
+        ipfsCID = "bafkreid4j7qd4chkycansnx3zktu3lsysszkbf5674le4ergnltthyf7dm";
     }
 
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
@@ -61,7 +60,7 @@ library DefaultPlayerLibrary {
             firstNameIndex: 1015,
             surnameIndex: 97
         });
-        ipfsCID = "QmSVzjJMzZ8ARnYVHHsse1N2VJU3tUvacV1GUiJ2vqgFDZ";
+        ipfsCID = "bafkreiciuv6jctzbyut75pezrfcqxut6h4gwoeqv5oejw6ccvvc5aejwp4";
     }
 
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
@@ -84,7 +83,7 @@ library DefaultPlayerLibrary {
             firstNameIndex: 1062,
             surnameIndex: 131
         });
-        ipfsCID = "QmUCL71TD41AFZBd1BkVMLVbjDTAF5A6HiNyGcmiXa8upT";
+        ipfsCID = "bafkreihyxl5sta2nh7f5zmeq4bvob3relwdwiyql5t5zupomiqy2vg4bpa";
     }
 
     function getBattleaxeUser(uint32 skinIndex, uint16 tokenId)
@@ -99,15 +98,15 @@ library DefaultPlayerLibrary {
         )
     {
         weapon = 4; // WEAPON_BATTLEAXE
-        armor = 2; // ARMOR_CHAIN
-        stance = 2; // STANCE_OFFENSIVE
+        armor = 1; // ARMOR_LEATHER
+        stance = 1; // STANCE_BALANCED
         stats = IDefaultPlayer.DefaultPlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 12, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1,
-            surnameIndex: 1
+            firstNameIndex: 1102,
+            surnameIndex: 241
         });
-        ipfsCID = "QmSwordAndShieldUserCIDHere";
+        ipfsCID = "bafkreibgsck2mqp7cal5ivinzl65i72mqfwbaopuc3gr6dnq4s5f5rjke4";
     }
 
     function getSpearUser(uint32 skinIndex, uint16 tokenId)
@@ -123,37 +122,14 @@ library DefaultPlayerLibrary {
     {
         weapon = 6; // WEAPON_SPEAR
         armor = 1; // ARMOR_LEATHER
-        stance = 1; // STANCE_BALANCED
+        stance = 2; // STANCE_OFFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
-            attributes: Fighter.Attributes({strength: 14, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 10}),
+            attributes: Fighter.Attributes({strength: 16, constitution: 8, size: 12, agility: 16, stamina: 12, luck: 8}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1,
-            surnameIndex: 1
+            firstNameIndex: 1146,
+            surnameIndex: 25
         });
-        ipfsCID = "QmSwordAndShieldUserCIDHere";
-    }
-
-    function getQuarterstaffUser(uint32 skinIndex, uint16 tokenId)
-        internal
-        pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
-    {
-        weapon = 5; // WEAPON_QUARTERSTAFF
-        armor = 2; // ARMOR_CHAIN
-        stance = 0; // STANCE_DEFENSIVE
-        stats = IDefaultPlayer.DefaultPlayerStats({
-            attributes: Fighter.Attributes({strength: 10, constitution: 14, size: 12, agility: 12, stamina: 14, luck: 10}),
-            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1,
-            surnameIndex: 1
-        });
-        ipfsCID = "QmSwordAndShieldUserCIDHere";
+        ipfsCID = "bafkreidkhaqtp5x67v5xvp4rdpfvnue7osxxccqsg26mclnd3mca342l7q";
     }
 
     function getRapierAndShieldUser(uint32 skinIndex, uint16 tokenId)
@@ -176,10 +152,10 @@ library DefaultPlayerLibrary {
             firstNameIndex: 38,
             surnameIndex: 15
         });
-        ipfsCID = "QmXJH9LwZ1nk4aood3R6i9JC1NMg1KyWvUYByWD25Ddtoe";
+        ipfsCID = "bafkreib55kqspxbhjicrkrb3ajakxs2rugzwovwxoi2nfdpbzyrzepran4";
     }
 
-    function getSwordAndShieldUser(uint32 skinIndex, uint16 tokenId)
+    function getMaceAndShieldUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
         returns (
@@ -190,62 +166,16 @@ library DefaultPlayerLibrary {
             string memory ipfsCID
         )
     {
-        weapon = 0; // WEAPON_SWORD_AND_SHIELD
-        armor = 2; // ARMOR_CHAIN
+        weapon = 1; // WEAPON_MACE_AND_SHIELD
+        armor = 3; // ARMOR_PLATE
         stance = 0; // STANCE_DEFENSIVE
         stats = IDefaultPlayer.DefaultPlayerStats({
-            attributes: Fighter.Attributes({strength: 12, constitution: 14, size: 12, agility: 12, stamina: 12, luck: 10}),
+            attributes: Fighter.Attributes({strength: 12, constitution: 19, size: 14, agility: 6, stamina: 15, luck: 6}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1,
-            surnameIndex: 1
+            firstNameIndex: 1079,
+            surnameIndex: 165
         });
-        ipfsCID = "QmSwordAndShieldUserCIDHere";
-    }
-
-    function getOffensiveTestWarrior(uint32 skinIndex, uint16 tokenId)
-        internal
-        pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
-    {
-        weapon = 3; // WEAPON_GREATSWORD
-        armor = 1; // ARMOR_LEATHER
-        stance = 2; // STANCE_OFFENSIVE
-        stats = IDefaultPlayer.DefaultPlayerStats({
-            attributes: Fighter.Attributes({strength: 18, constitution: 8, size: 16, agility: 10, stamina: 10, luck: 10}),
-            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1,
-            surnameIndex: 1
-        });
-        ipfsCID = "QmSwordAndShieldUserCIDHere";
-    }
-
-    function getDefensiveTestWarrior(uint32 skinIndex, uint16 tokenId)
-        internal
-        pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
-    {
-        weapon = 0; // WEAPON_SWORD_AND_SHIELD
-        armor = 2; // ARMOR_CHAIN
-        stance = 0; // STANCE_DEFENSIVE
-        stats = IDefaultPlayer.DefaultPlayerStats({
-            attributes: Fighter.Attributes({strength: 10, constitution: 16, size: 10, agility: 10, stamina: 16, luck: 10}),
-            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1,
-            surnameIndex: 1
-        });
-        ipfsCID = "QmSwordAndShieldUserCIDHere";
+        ipfsCID = "bafkreie7vtabnq4tku4d4u7q3ucnvrvfjyjhthxrd7n4pq77lvpy527m3m";
     }
 
     function createDefaultCharacter(
@@ -286,12 +216,10 @@ library DefaultPlayerLibrary {
             return getBattleaxeUser(skinIndex, tokenId);
         } else if (charType == CharacterType.SpearBalanced) {
             return getSpearUser(skinIndex, tokenId);
-        } else if (charType == CharacterType.SwordAndShieldDefensive) {
-            return getSwordAndShieldUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.MaceAndShieldDefensive) {
+            return getMaceAndShieldUser(skinIndex, tokenId);
         } else if (charType == CharacterType.RapierAndShieldDefensive) {
             return getRapierAndShieldUser(skinIndex, tokenId);
-        } else if (charType == CharacterType.QuarterstaffDefensive) {
-            return getQuarterstaffUser(skinIndex, tokenId);
         } else if (charType == CharacterType.BalancedWarrior) {
             return getBalancedWarrior(skinIndex, tokenId);
         }
@@ -302,7 +230,7 @@ library DefaultPlayerLibrary {
         IDefaultPlayer defaultPlayer,
         uint32 defaultSkinIndex
     ) internal {
-        for (uint16 i = 1; i <= 8; i++) {
+        for (uint16 i = 1; i <= 7; i++) {
             createDefaultCharacter(
                 defaultSkin,
                 defaultPlayer,
