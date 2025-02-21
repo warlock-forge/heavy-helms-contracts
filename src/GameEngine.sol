@@ -8,7 +8,7 @@ import "./interfaces/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 1;
+    uint16 public constant version = 3;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -433,7 +433,7 @@ contract GameEngine is IGameEngine {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 state.player1Won = seed.uniform(2) == 0;
             } else {
-                state.player1Won = state.p1Stamina < uint32(p1MinCost);
+                state.player1Won = state.p2Stamina < uint32(p2MinCost);
             }
             return true;
         }
