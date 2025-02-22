@@ -2,11 +2,11 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {GameEngine} from "../src/GameEngine.sol";
-import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
-import "./utils/TestBase.sol";
-import "../src/lib/DefaultPlayerLibrary.sol";
-import {Fighter} from "../src/Fighter.sol";
+import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+import "../TestBase.sol";
+import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
 
 contract LethalDamageTest is TestBase {
     address public PLAYER_ONE;

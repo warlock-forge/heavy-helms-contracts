@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./interfaces/IDefaultPlayer.sol";
-import "./interfaces/IPlayerNameRegistry.sol";
+import "../interfaces/fighters/IDefaultPlayer.sol";
+import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import "solmate/src/auth/Owned.sol";
 import "./Fighter.sol";
 

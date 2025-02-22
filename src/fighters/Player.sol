@@ -9,10 +9,10 @@ import "solmate/src/auth/Owned.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
-import "./lib/UniformRandomNumber.sol";
-import "./interfaces/IPlayer.sol";
-import "./interfaces/IPlayerNameRegistry.sol";
-import "./interfaces/IEquipmentRequirements.sol";
+import "../lib/UniformRandomNumber.sol";
+import "../interfaces/fighters/IPlayer.sol";
+import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+import "../interfaces/game/engine/IEquipmentRequirements.sol";
 import "./Fighter.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../Fighter.sol";
-import "./IEquipmentRequirements.sol";
+import "../../../../fighters/Fighter.sol";
+import "../../../game/engine/IEquipmentRequirements.sol";
 
 interface IPlayerSkinRegistry {
     enum SkinType {

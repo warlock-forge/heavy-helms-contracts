@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./GameOwnedNFT.sol";
+import "../base/GameOwnedNFT.sol";
 
 contract DefaultPlayerSkinNFT is GameOwnedNFT {
     event DefaultPlayerSkinMinted(uint16 indexed tokenId);

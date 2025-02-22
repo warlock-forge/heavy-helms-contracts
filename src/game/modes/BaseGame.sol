@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./interfaces/IGameEngine.sol";
-import "./interfaces/IPlayer.sol";
-import "./interfaces/IDefaultPlayer.sol";
-import "./interfaces/IMonster.sol";
+import "../../interfaces/game/engine/IGameEngine.sol";
+import "../../interfaces/fighters/IPlayer.sol";
+import "../../interfaces/fighters/IDefaultPlayer.sol";
+import "../../interfaces/fighters/IMonster.sol";
 import "solmate/src/auth/Owned.sol";
 
 error ZeroAddress();

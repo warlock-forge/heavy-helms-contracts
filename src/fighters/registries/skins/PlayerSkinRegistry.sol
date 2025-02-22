@@ -8,11 +8,11 @@ import "solmate/src/auth/Owned.sol";
 import "solmate/src/tokens/ERC20.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
-import "./interfaces/IPlayerSkinRegistry.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
-import "./Fighter.sol";
-import "./interfaces/IGameEngine.sol";
-import "./interfaces/IEquipmentRequirements.sol";
+import "../../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import "../../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import "../../Fighter.sol";
+import "../../../interfaces/game/engine/IGameEngine.sol";
+import "../../../interfaces/game/engine/IEquipmentRequirements.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//

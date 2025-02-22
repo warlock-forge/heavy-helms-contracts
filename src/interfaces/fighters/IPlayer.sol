@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../interfaces/IPlayerNameRegistry.sol";
-import "../interfaces/IPlayerSkinRegistry.sol";
-import "../Fighter.sol";
-import "../interfaces/IEquipmentRequirements.sol";
+import "./registries/names/IPlayerNameRegistry.sol";
+import "./registries/skins/IPlayerSkinRegistry.sol";
+import "../../fighters/Fighter.sol";
+import "../game/engine/IEquipmentRequirements.sol";
 
 /// @title Player Interface for Heavy Helms
 /// @notice Defines the core functionality for player management and game interactions

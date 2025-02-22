@@ -2,15 +2,15 @@
 pragma solidity ^0.8.13;
 
 import "./BaseGame.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
-import "./interfaces/IPlayerSkinRegistry.sol";
+import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
-import "./lib/UniformRandomNumber.sol";
-import "./interfaces/IGameEngine.sol";
-import "./Fighter.sol";
+import "../../lib/UniformRandomNumber.sol";
+import "../../interfaces/game/engine/IGameEngine.sol";
+import "../../fighters/Fighter.sol";
 
 contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;

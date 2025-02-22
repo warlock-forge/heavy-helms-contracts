@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {DuelGame} from "../src/DuelGame.sol";
-import {Player} from "../src/Player.sol";
-import {GameEngine} from "../src/GameEngine.sol";
-import {IPlayerSkinRegistry} from "../src/interfaces/IPlayerSkinRegistry.sol";
-import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
-import {UnlockNFT} from "./mocks/UnlockNFT.sol";
-import "./utils/TestBase.sol";
-import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
-import {Fighter} from "../src/Fighter.sol";
+import {Test} from "forge-std/Test.sol";
+import {DuelGame} from "../../src/game/modes/DuelGame.sol";
+import {Player} from "../../src/fighters/Player.sol";
+import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
+import {UnlockNFT} from "../mocks/UnlockNFT.sol";
+import "../TestBase.sol";
+import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;

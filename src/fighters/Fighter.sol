@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./interfaces/IPlayerSkinRegistry.sol";
-import "./interfaces/IGameEngine.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
+import "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import "../interfaces/game/engine/IGameEngine.sol";
+import "../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 abstract contract Fighter {
     struct PlayerLoadout {

@@ -2,10 +2,10 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {DefaultPlayerSkinNFT} from "../../../src/DefaultPlayerSkinNFT.sol";
-import {DefaultPlayerLibrary} from "../../../src/lib/DefaultPlayerLibrary.sol";
-import {IDefaultPlayer} from "../../../src/interfaces/IDefaultPlayer.sol";
-import {DefaultPlayer} from "../../../src/DefaultPlayer.sol";
+import {DefaultPlayerSkinNFT} from "../../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+import {DefaultPlayerLibrary} from "../../../src/fighters/lib/DefaultPlayerLibrary.sol";
+import {IDefaultPlayer} from "../../../src/interfaces/fighters/IDefaultPlayer.sol";
+import {DefaultPlayer} from "../../../src/fighters/DefaultPlayer.sol";
 
 contract MintDefaultSkinScript is Script {
     function run(address defaultSkinAddr, address defaultPlayerAddr, DefaultPlayerLibrary.CharacterType characterType)

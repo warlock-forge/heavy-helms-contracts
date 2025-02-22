@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../interfaces/IDefaultPlayer.sol";
-import "../DefaultPlayerSkinNFT.sol";
-import "../Fighter.sol";
+import "../../interfaces/fighters/IDefaultPlayer.sol";
+import "../../nft/skins/DefaultPlayerSkinNFT.sol";
+import "../../fighters/Fighter.sol";
 
 library DefaultPlayerLibrary {
     enum CharacterType {

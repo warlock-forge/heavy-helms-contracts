@@ -2,11 +2,11 @@
 pragma solidity ^0.8.13;
 
 import "./BaseGame.sol";
-import "./interfaces/IPlayerSkinNFT.sol";
-import "./interfaces/IDefaultPlayer.sol";
-import "./interfaces/IGameEngine.sol";
-import "./interfaces/IPlayer.sol";
-import "./Fighter.sol";
+import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import "../../interfaces/fighters/IDefaultPlayer.sol";
+import "../../interfaces/game/engine/IGameEngine.sol";
+import "../../interfaces/fighters/IPlayer.sol";
+import "../../fighters/Fighter.sol";
 
 contract PracticeGame is BaseGame {
     constructor(address _gameEngine, address _playerContract, address _defaultPlayerContract, address _monsterContract)

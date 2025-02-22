@@ -1,10 +1,10 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {DuelGame} from "../src/DuelGame.sol";
-import {GameEngine} from "../src/GameEngine.sol";
-import {Player} from "../src/Player.sol";
-import "./utils/TestBase.sol";
+import {DuelGame} from "../../src/game/modes/DuelGame.sol";
+import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+import {Player} from "../../src/fighters/Player.sol";
+import "../TestBase.sol";
 
 contract GasAnalysisTest is TestBase {
     DuelGame public game;

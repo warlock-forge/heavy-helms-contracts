@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {DuelGame} from "../../../src/DuelGame.sol";
-import {Fighter} from "../../../src/Fighter.sol";
-import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
+import {DuelGame} from "../../../src/game/modes/DuelGame.sol";
+import {Fighter} from "../../../src/fighters/Fighter.sol";
+import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 
 contract DuelPlayersScript is Script {
     function setUp() public {}

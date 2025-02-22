@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "solmate/src/auth/Owned.sol";
-import "./interfaces/IPlayerNameRegistry.sol";
+import "../../../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 
 error MaxNamesReached();
 error MaxSetBNamesReached();

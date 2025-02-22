@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../Monster.sol";
-import "../MonsterSkinNFT.sol";
-import "../interfaces/IMonster.sol";
-import "../GameEngine.sol";
+import "../../fighters/Monster.sol";
+import "../../nft/skins/MonsterSkinNFT.sol";
+import "../../interfaces/fighters/IMonster.sol";
+import "../../game/engine/GameEngine.sol";
 
 library MonsterLibrary {
     enum MonsterType {

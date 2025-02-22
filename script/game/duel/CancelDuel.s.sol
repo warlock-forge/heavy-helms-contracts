@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {DuelGame} from "../../../src/DuelGame.sol";
+import {DuelGame} from "../../../src/game/modes/DuelGame.sol";
 
 contract CancelDuelScript is Script {
     function setUp() public {}

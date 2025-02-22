@@ -2,15 +2,15 @@
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
-import {PracticeGame} from "../src/PracticeGame.sol";
-import {Player} from "../src/Player.sol";
-import {PlayerSkinRegistry} from "../src/PlayerSkinRegistry.sol";
-import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import "./utils/TestBase.sol";
-import "../src/lib/DefaultPlayerLibrary.sol";
-import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import {IGameEngine} from "../src/interfaces/IGameEngine.sol";
-import {Fighter} from "../src/Fighter.sol";
+import {PracticeGame} from "../../src/game/modes/PracticeGame.sol";
+import {Player} from "../../src/fighters/Player.sol";
+import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+import "../TestBase.sol";
+import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
+import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
 
 contract PracticeGameTest is TestBase {
     PracticeGame public practiceGame;

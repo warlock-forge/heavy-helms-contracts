@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./GameOwnedNFT.sol";
+import "../base/GameOwnedNFT.sol";
 
 contract MonsterSkinNFT is GameOwnedNFT {
     event MonsterSkinMinted(uint16 indexed tokenId);

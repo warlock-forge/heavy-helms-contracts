@@ -15,8 +15,8 @@ import {
     BadZeroAddress,
     InsufficientFeeAmount,
     PendingRequestExists
-} from "../src/Player.sol";
-import "./utils/TestBase.sol";
+} from "../../src/fighters/Player.sol";
+import "../TestBase.sol";
 
 event NameChangeAwarded(address indexed to, uint256 totalCharges);
 

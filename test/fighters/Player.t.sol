@@ -15,16 +15,16 @@ import {
     BadZeroAddress,
     InsufficientFeeAmount,
     PendingRequestExists
-} from "../src/Player.sol";
-import {IPlayer} from "../src/interfaces/IPlayer.sol";
-import {IPlayerSkinRegistry} from "../src/interfaces/IPlayerSkinRegistry.sol";
-import {EquipmentRequirementsNotMet} from "../src/PlayerSkinRegistry.sol";
-import {SkinNotOwned, SkinRegistryDoesNotExist} from "../src/PlayerSkinRegistry.sol";
-import {PlayerNameRegistry} from "../src/PlayerNameRegistry.sol";
-import {DefaultPlayerSkinNFT} from "../src/DefaultPlayerSkinNFT.sol";
-import {PlayerSkinNFT} from "../src/examples/PlayerSkinNFT.sol";
-import "./utils/TestBase.sol";
-import "./mocks/UnlockNFT.sol";
+} from "../../src/fighters/Player.sol";
+import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {EquipmentRequirementsNotMet} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+import {SkinNotOwned, SkinRegistryDoesNotExist} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
+import "../TestBase.sol";
+import "../mocks/UnlockNFT.sol";
 
 contract PlayerTest is TestBase {
     // Test addresses

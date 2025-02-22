@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../Fighter.sol";
+import "../../fighters/Fighter.sol";
 
 /// @title Monster Interface for Heavy Helms
 /// @notice Defines the core functionality for monster management and game interactions

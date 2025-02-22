@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "./interfaces/IMonster.sol";
-import "./interfaces/IMonsterNameRegistry.sol";
+import "../interfaces/fighters/IMonster.sol";
+import "../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
 import "solmate/src/auth/Owned.sol";
 import "./Fighter.sol";
 

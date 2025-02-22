@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
-import {MonsterNameRegistry} from "../../src/MonsterNameRegistry.sol";
-import {NameLibrary} from "../../src/lib/NameLibrary.sol";
+import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+import {MonsterNameRegistry} from "../../src/fighters/registries/names/MonsterNameRegistry.sol";
+import {NameLibrary} from "../../src/fighters/registries/names/lib/NameLibrary.sol";
 
 contract NameRegistryDeploy is Script {
     function run() public {

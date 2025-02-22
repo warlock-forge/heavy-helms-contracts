@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Player} from "../../../src/Player.sol";
+import {Player} from "../../../src/fighters/Player.sol";
 
 contract ClearPendingVRFScript is Script {
     function setUp() public {}

@@ -2,8 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {Player} from "../../../src/Player.sol";
-import {IPlayer} from "../../../src/interfaces/IPlayer.sol";
+import {Player} from "../../../src/fighters/Player.sol";
+import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 
 contract WhitelistGameScript is Script {
     function setUp() public {}

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
-import {PlayerSkinNFT} from "../../src/examples/PlayerSkinNFT.sol";
-import {GameEngine} from "../../src/GameEngine.sol";
+import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
+import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 
 contract UnlockableSkinDeployScript is Script {
     function run(address skinRegistryAddress) public {

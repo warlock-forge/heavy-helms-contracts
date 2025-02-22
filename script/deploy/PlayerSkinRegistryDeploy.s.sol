@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
+import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
 
 contract PlayerSkinRegistryDeploy is Script {
     function run() public {

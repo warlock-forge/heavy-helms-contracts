@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../Fighter.sol";
+import "../../fighters/Fighter.sol";
 
 interface IDefaultPlayer {
     /// @notice Contains all stats and attributes for a default player

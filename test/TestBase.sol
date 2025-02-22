@@ -3,33 +3,33 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {GelatoVRFConsumerBase} from "../../lib/vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import {GelatoVRFConsumerBase} from "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 
 // Interfaces
-import {IPlayer} from "../../src/interfaces/IPlayer.sol";
-import {IDefaultPlayer} from "../../src/interfaces/IDefaultPlayer.sol";
-import {IMonster} from "../../src/interfaces/IMonster.sol";
-import {IGameEngine} from "../../src/interfaces/IGameEngine.sol";
-import {IPlayerSkinNFT} from "../../src/interfaces/IPlayerSkinNFT.sol";
-import {IPlayerSkinRegistry} from "../../src/interfaces/IPlayerSkinRegistry.sol";
+import {IPlayer} from "../src/interfaces/fighters/IPlayer.sol";
+import {IDefaultPlayer} from "../src/interfaces/fighters/IDefaultPlayer.sol";
+import {IMonster} from "../src/interfaces/fighters/IMonster.sol";
+import {IGameEngine} from "../src/interfaces/game/engine/IGameEngine.sol";
+import {IPlayerSkinNFT} from "../src/interfaces/nft/skins/IPlayerSkinNFT.sol";
+import {IPlayerSkinRegistry} from "../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 
 // Concrete implementations (needed for deployment)
-import {Player} from "../../src/Player.sol";
-import {DefaultPlayer} from "../../src/DefaultPlayer.sol";
-import {Monster} from "../../src/Monster.sol";
-import {GameEngine} from "../../src/GameEngine.sol";
-import {DefaultPlayerSkinNFT} from "../../src/DefaultPlayerSkinNFT.sol";
-import {PlayerSkinRegistry} from "../../src/PlayerSkinRegistry.sol";
-import {PlayerNameRegistry} from "../../src/PlayerNameRegistry.sol";
-import {MonsterNameRegistry} from "../../src/MonsterNameRegistry.sol";
-import {Fighter} from "../../src/Fighter.sol";
+import {Player} from "../src/fighters/Player.sol";
+import {DefaultPlayer} from "../src/fighters/DefaultPlayer.sol";
+import {Monster} from "../src/fighters/Monster.sol";
+import {GameEngine} from "../src/game/engine/GameEngine.sol";
+import {DefaultPlayerSkinNFT} from "../src/nft/skins/DefaultPlayerSkinNFT.sol";
+import {PlayerSkinRegistry} from "../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+import {PlayerNameRegistry} from "../src/fighters/registries/names/PlayerNameRegistry.sol";
+import {MonsterNameRegistry} from "../src/fighters/registries/names/MonsterNameRegistry.sol";
+import {Fighter} from "../src/fighters/Fighter.sol";
 
 // Libraries
-import {DefaultPlayerLibrary} from "../../src/lib/DefaultPlayerLibrary.sol";
-import {MonsterLibrary} from "../../src/lib/MonsterLibrary.sol";
-import {MonsterSkinNFT} from "../../src/MonsterSkinNFT.sol";
-import {NameLibrary} from "../../src/lib/NameLibrary.sol";
-import {EquipmentRequirements} from "../../src/EquipmentRequirements.sol";
+import {DefaultPlayerLibrary} from "../src/fighters/lib/DefaultPlayerLibrary.sol";
+import {MonsterLibrary} from "../src/fighters/lib/MonsterLibrary.sol";
+import {MonsterSkinNFT} from "../src/nft/skins/MonsterSkinNFT.sol";
+import {NameLibrary} from "../src/fighters/registries/names/lib/NameLibrary.sol";
+import {EquipmentRequirements} from "../src/game/engine/EquipmentRequirements.sol";
 
 abstract contract TestBase is Test {
     bool private constant CI_MODE = true;
