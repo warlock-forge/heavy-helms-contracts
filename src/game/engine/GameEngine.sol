@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 3;
+    uint16 public constant version = 4;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -93,13 +93,13 @@ contract GameEngine is IGameEngine {
 
     // Combat-related constants
     uint8 private immutable STAMINA_ATTACK = 8;
-    uint8 private immutable STAMINA_BLOCK = 5;
-    uint8 private immutable STAMINA_DODGE = 4;
-    uint8 private immutable STAMINA_COUNTER = 6;
+    uint8 private immutable STAMINA_BLOCK = 2;
+    uint8 private immutable STAMINA_DODGE = 2;
+    uint8 private immutable STAMINA_COUNTER = 2;
     uint8 private immutable MAX_ROUNDS = 50;
     uint8 private immutable MINIMUM_ACTION_COST = 3;
     uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
-    uint8 private immutable STAMINA_PARRY = 5;
+    uint8 private immutable STAMINA_PARRY = 2;
     uint8 private constant ATTACK_ACTION_COST = 149;
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
@@ -723,20 +723,14 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint16)
     {
-        // Apply resistance first for better scaling
-        uint16 resistance = getResistanceForDamageType(armor, damageType);
-        resistance = resistance > 100 ? 100 : resistance;
+        // Cap at 80% to prevent complete damage immunity
+        uint16 defensePercent = armor.defense > 80 ? 80 : armor.defense;
 
         uint32 scaledDamage = uint32(incomingDamage) * 100;
-        uint32 afterResistance = (scaledDamage * uint32(100 - resistance)) / 10000;
+        // Apply percentage reduction
+        uint32 afterDefense = (scaledDamage * (100 - defensePercent)) / 100;
 
-        // Then apply flat reduction
-        if (afterResistance <= armor.defense * 100) {
-            return 0;
-        }
-        uint32 finalDamage = afterResistance - (armor.defense * 100);
-
-        return finalDamage > type(uint16).max ? type(uint16).max : uint16(finalDamage / 100);
+        return uint16(afterDefense / 100);
     }
 
     function safePercentage(uint32 value, uint32 percentage) private pure returns (uint32) {
@@ -973,8 +967,8 @@ contract GameEngine is IGameEngine {
 
     function SWORD_AND_SHIELD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 18,
-            maxDamage: 26,
+            minDamage: 50,
+            maxDamage: 60,
             attackSpeed: 80,
             parryChance: 110,
             riposteChance: 120,
@@ -989,8 +983,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_AND_SHIELD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 22,
-            maxDamage: 34,
+            minDamage: 40,
+            maxDamage: 54,
             attackSpeed: 70,
             parryChance: 80,
             riposteChance: 70,
@@ -1005,9 +999,9 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_AND_SHIELD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 16,
-            maxDamage: 24,
-            attackSpeed: 90,
+            minDamage: 32,
+            maxDamage: 64,
+            attackSpeed: 100,
             parryChance: 120,
             riposteChance: 130,
             critMultiplier: 200,
@@ -1021,9 +1015,9 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 28,
-            maxDamage: 46,
-            attackSpeed: 50,
+            minDamage: 130,
+            maxDamage: 150,
+            attackSpeed: 40,
             parryChance: 100,
             riposteChance: 110,
             critMultiplier: 280,
@@ -1037,9 +1031,9 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32,
-            maxDamage: 48,
-            attackSpeed: 50,
+            minDamage: 141,
+            maxDamage: 179,
+            attackSpeed: 30,
             parryChance: 60,
             riposteChance: 70,
             critMultiplier: 300,
@@ -1053,9 +1047,9 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 22,
-            maxDamage: 37,
-            attackSpeed: 100,
+            minDamage: 65,
+            maxDamage: 80,
+            attackSpeed: 70,
             parryChance: 120,
             riposteChance: 130,
             critMultiplier: 200,
@@ -1069,9 +1063,9 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 30,
-            maxDamage: 40,
-            attackSpeed: 85,
+            minDamage: 70,
+            maxDamage: 92,
+            attackSpeed: 65,
             parryChance: 80,
             riposteChance: 90,
             critMultiplier: 260,
@@ -1099,19 +1093,19 @@ contract GameEngine is IGameEngine {
     // =============================================
 
     function CLOTH() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 2, weight: 5, slashResist: 70, pierceResist: 70, bluntResist: 80});
+        return ArmorStats({defense: 0, weight: 5, slashResist: 70, pierceResist: 70, bluntResist: 80});
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 4, weight: 25, slashResist: 90, pierceResist: 85, bluntResist: 90});
+        return ArmorStats({defense: 20, weight: 20, slashResist: 90, pierceResist: 85, bluntResist: 90});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 6, weight: 60, slashResist: 110, pierceResist: 70, bluntResist: 100});
+        return ArmorStats({defense: 40, weight: 40, slashResist: 110, pierceResist: 70, bluntResist: 100});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 12, weight: 90, slashResist: 120, pierceResist: 90, bluntResist: 80});
+        return ArmorStats({defense: 65, weight: 100, slashResist: 120, pierceResist: 90, bluntResist: 80});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {

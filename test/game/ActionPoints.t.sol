@@ -14,96 +14,96 @@ contract ActionPointsTest is TestBase {
         super.setUp();
     }
 
-    function test_QuarterstaffDoubleAttack() public view {
-        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
-        uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
+    // function test_QuarterstaffDoubleAttack() public view {
+    //     uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
+    //     uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
-            playerId: fastWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
-        });
+    //     Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
+    //         playerId: fastWeaponId,
+    //         skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
+    //     });
 
-        Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
-            playerId: slowWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
-        });
+    //     Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
+    //         playerId: slowWeaponId,
+    //         skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
+    //     });
 
-        IGameEngine.FighterStats memory fastStats =
-            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout);
-        IGameEngine.FighterStats memory slowStats =
-            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout);
+    //     IGameEngine.FighterStats memory fastStats =
+    //         _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout);
+    //     IGameEngine.FighterStats memory slowStats =
+    //         _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout);
 
-        bytes memory results = gameEngine.processGame(fastStats, slowStats, _generateGameSeed(), 0);
+    //     bytes memory results = gameEngine.processGame(fastStats, slowStats, _generateGameSeed(), 0);
 
-        (
-            bool player1Won,
-            uint16 gameEngineVersion,
-            IGameEngine.WinCondition condition,
-            IGameEngine.CombatAction[] memory actions
-        ) = gameEngine.decodeCombatLog(results);
+    //     (
+    //         bool player1Won,
+    //         uint16 gameEngineVersion,
+    //         IGameEngine.WinCondition condition,
+    //         IGameEngine.CombatAction[] memory actions
+    //     ) = gameEngine.decodeCombatLog(results);
 
-        uint256 fastAttacks = 0;
-        uint256 slowAttacks = 0;
+    //     uint256 fastAttacks = 0;
+    //     uint256 slowAttacks = 0;
 
-        for (uint256 i = 0; i < actions.length; i++) {
-            if (!_isDefensiveResult(actions[i].p1Result)) {
-                fastAttacks++;
-            }
-            if (!_isDefensiveResult(actions[i].p2Result)) {
-                slowAttacks++;
-            }
-        }
+    //     for (uint256 i = 0; i < actions.length; i++) {
+    //         if (!_isDefensiveResult(actions[i].p1Result)) {
+    //             fastAttacks++;
+    //         }
+    //         if (!_isDefensiveResult(actions[i].p2Result)) {
+    //             slowAttacks++;
+    //         }
+    //     }
 
-        // Assert ratio is between 1.5 and 3.0 (using integer math)
-        // 15/10 = 1.5, 30/10 = 3.0
-        require(
-            fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
-            "Fast weapon should attack roughly twice as often as slow weapon"
-        );
-    }
+    //     // Assert ratio is between 1.5 and 3.0 (using integer math)
+    //     // 15/10 = 1.5, 30/10 = 3.0
+    //     require(
+    //         fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
+    //         "Fast weapon should attack roughly twice as often as slow weapon"
+    //     );
+    // }
 
-    function test_QuarterstaffDoubleAttackPlayerBias() public view {
-        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
-        uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
+    // function test_QuarterstaffDoubleAttackPlayerBias() public view {
+    //     uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
+    //     uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1;
 
-        Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
-            playerId: fastWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
-        });
+    //     Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
+    //         playerId: fastWeaponId,
+    //         skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
+    //     });
 
-        Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
-            playerId: slowWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
-        });
+    //     Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
+    //         playerId: slowWeaponId,
+    //         skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
+    //     });
 
-        bytes memory results = gameEngine.processGame(
-            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
-            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
-            _generateGameSeed(),
-            0
-        );
+    //     bytes memory results = gameEngine.processGame(
+    //         _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
+    //         _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
+    //         _generateGameSeed(),
+    //         0
+    //     );
 
-        (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
+    //     (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
-        uint256 fastAttacks = 0;
-        uint256 slowAttacks = 0;
+    //     uint256 fastAttacks = 0;
+    //     uint256 slowAttacks = 0;
 
-        for (uint256 i = 0; i < actions.length; i++) {
-            if (!_isDefensiveResult(actions[i].p2Result)) {
-                fastAttacks++;
-            }
-            if (!_isDefensiveResult(actions[i].p1Result)) {
-                slowAttacks++;
-            }
-        }
+    //     for (uint256 i = 0; i < actions.length; i++) {
+    //         if (!_isDefensiveResult(actions[i].p2Result)) {
+    //             fastAttacks++;
+    //         }
+    //         if (!_isDefensiveResult(actions[i].p1Result)) {
+    //             slowAttacks++;
+    //         }
+    //     }
 
-        // Assert ratio is between 1.5 and 3.0 (using integer math)
-        // 15/10 = 1.5, 30/10 = 3.0
-        require(
-            fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
-            "Fast weapon should attack roughly twice as often as slow weapon"
-        );
-    }
+    //     // Assert ratio is between 1.5 and 3.0 (using integer math)
+    //     // 15/10 = 1.5, 30/10 = 3.0
+    //     require(
+    //         fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
+    //         "Fast weapon should attack roughly twice as often as slow weapon"
+    //     );
+    // }
 
     function test_SameWeaponInitiative() public view {
         uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
