@@ -573,6 +573,21 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return _equipmentRequirements;
     }
 
+    /// @notice Check if a player ID is valid
+    /// @param playerId The ID to check
+    /// @return bool True if the ID is within valid user player range
+    function isValidId(uint32 playerId) public pure override returns (bool) {
+        return playerId >= USER_PLAYER_START && playerId <= USER_PLAYER_END;
+    }
+
+    /// @notice Get the current skin information for a player
+    /// @param playerId The ID of the player
+    /// @return The player's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 playerId) public view override returns (SkinInfo memory) {
+        PlayerStats memory stats = _players[playerId];
+        return stats.skin;
+    }
+
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
@@ -1227,21 +1242,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         else if (attr == Attribute.AGILITY) player.attributes.agility = value;
         else if (attr == Attribute.STAMINA) player.attributes.stamina = value;
         else player.attributes.luck = value;
-    }
-
-    /// @notice Check if a player ID is valid
-    /// @param playerId The ID to check
-    /// @return bool True if the ID is within valid user player range
-    function isValidId(uint32 playerId) public pure override returns (bool) {
-        return playerId >= USER_PLAYER_START && playerId <= USER_PLAYER_END;
-    }
-
-    /// @notice Get the current skin information for a player
-    /// @param playerId The ID of the player
-    /// @return The player's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) public view override returns (SkinInfo memory) {
-        PlayerStats memory stats = _players[playerId];
-        return stats.skin;
     }
 
     /// @notice Get the base attributes for a player
