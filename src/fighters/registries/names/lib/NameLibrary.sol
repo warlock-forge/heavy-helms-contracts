@@ -139,7 +139,7 @@ library NameLibrary {
         names[132] = "Rick";
         names[133] = "Rob";
         names[134] = "Ron";
-        names[135] = "Rory";
+        names[135] = "Ronny";
         names[136] = "Ross";
         names[137] = "Ryan";
         names[138] = "Sam";
