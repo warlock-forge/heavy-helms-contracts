@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 4;
+    uint16 public constant version = 5;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -582,10 +582,6 @@ contract GameEngine is IGameEngine {
         uint16 damage;
         (damage, seed) = calculateDamage(attacker, seed);
         (attackDamage, attackResult, seed) = calculateCriticalDamage(attacker, damage, seed);
-
-        // IMPORTANT CHANGE: Apply armor reduction here before returning the damage value
-        attackDamage = applyDefensiveStats(attackDamage, defender.armor, attacker.weapon.damageType);
-
         attackStaminaCost = uint8(modifiedStaminaCost);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -727,14 +723,20 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint16)
     {
-        // Cap at 80% to prevent complete damage immunity
-        uint16 defensePercent = armor.defense > 80 ? 80 : armor.defense;
+        // Apply resistance first for better scaling
+        uint16 resistance = getResistanceForDamageType(armor, damageType);
+        resistance = resistance > 100 ? 100 : resistance;
 
         uint32 scaledDamage = uint32(incomingDamage) * 100;
-        // Apply percentage reduction
-        uint32 afterDefense = (scaledDamage * (100 - defensePercent)) / 100;
+        uint32 afterResistance = (scaledDamage * uint32(100 - resistance)) / 10000;
 
-        return uint16(afterDefense / 100);
+        // Then apply flat reduction
+        if (afterResistance <= armor.defense * 100) {
+            return 0;
+        }
+        uint32 finalDamage = afterResistance - (armor.defense * 100);
+
+        return finalDamage > type(uint16).max ? type(uint16).max : uint16(finalDamage / 100);
     }
 
     function safePercentage(uint32 value, uint32 percentage) private pure returns (uint32) {
@@ -865,8 +867,11 @@ contract GameEngine is IGameEngine {
             );
         }
 
-        // Apply counter damage if any
-        if (defenseDamage > 0) {
+        // Apply counter damage if any AND defender is still alive
+        if (
+            defenseDamage > 0
+                && ((state.isPlayer1Turn && state.p2Health > 0) || (!state.isPlayer1Turn && state.p1Health > 0))
+        ) {
             applyDamageAndCheckLethality(
                 state,
                 defenseDamage,
