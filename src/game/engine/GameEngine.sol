@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 6;
+    uint16 public constant version = 7;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -92,7 +92,7 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 14;
+    uint8 private immutable STAMINA_ATTACK = 10;
     uint8 private immutable STAMINA_BLOCK = 2;
     uint8 private immutable STAMINA_DODGE = 2;
     uint8 private immutable STAMINA_COUNTER = 2;
@@ -1014,7 +1014,7 @@ contract GameEngine is IGameEngine {
             parryChance: 120,
             riposteChance: 130,
             critMultiplier: 200,
-            staminaMultiplier: 100,
+            staminaMultiplier: 80,
             survivalFactor: 120,
             damageType: DamageType.Piercing,
             isTwoHanded: false,
@@ -1030,7 +1030,7 @@ contract GameEngine is IGameEngine {
             parryChance: 80,
             riposteChance: 80,
             critMultiplier: 250,
-            staminaMultiplier: 240,
+            staminaMultiplier: 180,
             survivalFactor: 85,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
@@ -1040,13 +1040,13 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 121,
-            maxDamage: 169,
+            minDamage: 101,
+            maxDamage: 129,
             attackSpeed: 40,
             parryChance: 50,
             riposteChance: 50,
             critMultiplier: 300,
-            staminaMultiplier: 220,
+            staminaMultiplier: 180,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
@@ -1078,7 +1078,7 @@ contract GameEngine is IGameEngine {
             parryChance: 80,
             riposteChance: 90,
             critMultiplier: 260,
-            staminaMultiplier: 180,
+            staminaMultiplier: 140,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             isTwoHanded: true,
@@ -1131,11 +1131,11 @@ contract GameEngine is IGameEngine {
 
     function DEFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
-            damageModifier: 85,
-            hitChance: 95,
-            critChance: 90,
+            damageModifier: 75,
+            hitChance: 85,
+            critChance: 70,
             critMultiplier: 90,
-            blockChance: 120,
+            blockChance: 130,
             parryChance: 120,
             dodgeChance: 115,
             counterChance: 115,
@@ -1161,16 +1161,16 @@ contract GameEngine is IGameEngine {
 
     function OFFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
-            damageModifier: 135,
-            hitChance: 115,
-            critChance: 125,
-            critMultiplier: 125,
+            damageModifier: 115,
+            hitChance: 110,
+            critChance: 110,
+            critMultiplier: 135,
             blockChance: 85,
             parryChance: 85,
             dodgeChance: 85,
             counterChance: 85,
-            staminaCostModifier: 115,
-            survivalFactor: 80
+            staminaCostModifier: 150,
+            survivalFactor: 60
         });
     }
 
