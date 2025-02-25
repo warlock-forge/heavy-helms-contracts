@@ -582,6 +582,10 @@ contract GameEngine is IGameEngine {
         uint16 damage;
         (damage, seed) = calculateDamage(attacker, seed);
         (attackDamage, attackResult, seed) = calculateCriticalDamage(attacker, damage, seed);
+
+        // IMPORTANT CHANGE: Apply armor reduction here before returning the damage value
+        attackDamage = applyDefensiveStats(attackDamage, defender.armor, attacker.weapon.damageType);
+
         attackStaminaCost = uint8(modifiedStaminaCost);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -1097,15 +1101,15 @@ contract GameEngine is IGameEngine {
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 20, weight: 20, slashResist: 90, pierceResist: 85, bluntResist: 90});
+        return ArmorStats({defense: 15, weight: 20, slashResist: 90, pierceResist: 85, bluntResist: 90});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 40, weight: 40, slashResist: 110, pierceResist: 70, bluntResist: 100});
+        return ArmorStats({defense: 30, weight: 50, slashResist: 110, pierceResist: 70, bluntResist: 100});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 65, weight: 100, slashResist: 120, pierceResist: 90, bluntResist: 80});
+        return ArmorStats({defense: 60, weight: 100, slashResist: 120, pierceResist: 90, bluntResist: 80});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
