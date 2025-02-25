@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 5;
+    uint16 public constant version = 6;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -92,7 +92,7 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 8;
+    uint8 private immutable STAMINA_ATTACK = 14;
     uint8 private immutable STAMINA_BLOCK = 2;
     uint8 private immutable STAMINA_DODGE = 2;
     uint8 private immutable STAMINA_COUNTER = 2;
@@ -499,9 +499,9 @@ contract GameEngine is IGameEngine {
 
     function calculateHitChance(CalculatedCombatStats memory attacker) private pure returns (uint8) {
         uint32 baseHitChance = uint32(attacker.stats.hitChance);
-        uint32 weaponSpeedMod = uint32(attacker.weapon.attackSpeed);
+        uint32 weaponSpeedMod = 85 + ((uint32(attacker.weapon.attackSpeed) * 15) / 100);
         uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attacker.stanceMultipliers.hitChance) / 10000;
-        uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
+        uint32 withMin = adjustedHitChance < 60 ? 60 : adjustedHitChance;
         uint32 withBothBounds = withMin > 95 ? 95 : withMin;
         return uint8(withBothBounds);
     }
@@ -976,12 +976,12 @@ contract GameEngine is IGameEngine {
 
     function SWORD_AND_SHIELD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 60,
-            attackSpeed: 80,
-            parryChance: 110,
-            riposteChance: 120,
-            critMultiplier: 220,
+            minDamage: 36,
+            maxDamage: 48,
+            attackSpeed: 65,
+            parryChance: 100,
+            riposteChance: 100,
+            critMultiplier: 200,
             staminaMultiplier: 100,
             survivalFactor: 100,
             damageType: DamageType.Slashing,
@@ -994,10 +994,10 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 40,
             maxDamage: 54,
-            attackSpeed: 70,
+            attackSpeed: 60,
             parryChance: 80,
             riposteChance: 70,
-            critMultiplier: 240,
+            critMultiplier: 220,
             staminaMultiplier: 120,
             survivalFactor: 120,
             damageType: DamageType.Blunt,
@@ -1008,8 +1008,8 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_AND_SHIELD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32,
-            maxDamage: 64,
+            minDamage: 29,
+            maxDamage: 59,
             attackSpeed: 100,
             parryChance: 120,
             riposteChance: 130,
@@ -1024,13 +1024,13 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 130,
-            maxDamage: 150,
-            attackSpeed: 40,
-            parryChance: 100,
-            riposteChance: 110,
-            critMultiplier: 280,
-            staminaMultiplier: 180,
+            minDamage: 80,
+            maxDamage: 110,
+            attackSpeed: 50,
+            parryChance: 80,
+            riposteChance: 80,
+            critMultiplier: 250,
+            staminaMultiplier: 240,
             survivalFactor: 85,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
@@ -1040,13 +1040,13 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 141,
-            maxDamage: 179,
-            attackSpeed: 30,
-            parryChance: 60,
-            riposteChance: 70,
+            minDamage: 121,
+            maxDamage: 169,
+            attackSpeed: 40,
+            parryChance: 50,
+            riposteChance: 50,
             critMultiplier: 300,
-            staminaMultiplier: 200,
+            staminaMultiplier: 220,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
@@ -1056,8 +1056,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 65,
-            maxDamage: 80,
+            minDamage: 60,
+            maxDamage: 71,
             attackSpeed: 70,
             parryChance: 120,
             riposteChance: 130,
@@ -1072,13 +1072,13 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 70,
-            maxDamage: 92,
-            attackSpeed: 65,
+            minDamage: 38,
+            maxDamage: 74,
+            attackSpeed: 60,
             parryChance: 80,
             riposteChance: 90,
             critMultiplier: 260,
-            staminaMultiplier: 140,
+            staminaMultiplier: 180,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             isTwoHanded: true,

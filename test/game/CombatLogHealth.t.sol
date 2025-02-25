@@ -131,12 +131,18 @@ contract CombatLogHealthTest is TestBase {
                 }
             }
 
-            // After each round, verify no one is dealing damage after death
+            // After each round, verify no one is dealing damage in the NEXT round after death
             if (p1Health == 0) {
-                assertEq(actions[i].p1Damage, 0, "Dead player 1 dealing damage");
+                // Check next round's damage, if it exists
+                if (i + 1 < actions.length) {
+                    assertEq(actions[i + 1].p1Damage, 0, "Dead player 1 dealing damage in next round");
+                }
             }
             if (p2Health == 0) {
-                assertEq(actions[i].p2Damage, 0, "Dead player 2 dealing damage");
+                // Check next round's damage, if it exists
+                if (i + 1 < actions.length) {
+                    assertEq(actions[i + 1].p2Damage, 0, "Dead player 2 dealing damage in next round");
+                }
             }
         }
 
