@@ -245,8 +245,8 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
 
         SkinCollectionInfo memory skinCollectionInfo = skins[skin.skinIndex];
 
-        // Default skins and monster skins have their own validation
-        if (skinCollectionInfo.skinType == SkinType.DefaultPlayer || skinCollectionInfo.skinType == SkinType.Monster) {
+        // Monster skins have their own validation
+        if (skinCollectionInfo.skinType == SkinType.Monster) {
             return;
         }
 

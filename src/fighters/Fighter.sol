@@ -94,7 +94,5 @@ abstract contract Fighter {
     /// @notice Get the current skin information for a fighter
     /// @param playerId The ID of the fighter
     /// @return The fighter's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) public view virtual returns (SkinInfo memory) {
-        revert("Fighter: getCurrentSkin must be implemented");
-    }
+    function getCurrentSkin(uint32 playerId) public view virtual returns (SkinInfo memory);
 }

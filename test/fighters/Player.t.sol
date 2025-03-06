@@ -985,10 +985,6 @@ contract PlayerTest is TestBase {
 
         // Get the player's stats to verify they're too low
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        console2.log("Player Strength:", stats.attributes.strength);
-        console2.log("Player Constitution:", stats.attributes.constitution);
-        console2.log("Player Size:", stats.attributes.size);
-        console2.log("Player Agility:", stats.attributes.agility);
 
         // Expect the requirements not met error
         vm.expectRevert(EquipmentRequirementsNotMet.selector);
@@ -999,6 +995,40 @@ contract PlayerTest is TestBase {
         assertEq(stats.skin.skinIndex, 0, "Should still have default skin index");
         assertEq(stats.skin.skinTokenId, 1, "Should still have default token ID");
 
+        vm.stopPrank();
+    }
+
+    function testCannotEquipDefaultSkinWithoutMeetingRequirements() public {
+        // Create players until we find one that doesn't meet battleaxe requirements
+        uint32 playerId;
+        bool foundIneligiblePlayer = false;
+
+        for (uint32 i = 1; i <= 100; i++) {
+            // Create a new player
+            playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+
+            // Get player stats
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+            Fighter.Attributes memory attrs = stats.attributes;
+
+            // Check if player doesn't meet battleaxe requirements (strength 15, size 12)
+            if (attrs.strength < 15 || attrs.size < 12) {
+                foundIneligiblePlayer = true;
+                break;
+            }
+        }
+
+        // Make sure we found a player that doesn't meet requirements
+        assertTrue(foundIneligiblePlayer, "Could not find player that doesn't meet battleaxe requirements");
+
+        // Try to equip the default battleaxe skin (token ID 4)
+        uint32 defaultSkinCollectionIndex = 0; // Default collection index
+        uint16 battleaxeSkinTokenId = 4; // The battleaxe skin token ID
+
+        // This should revert because the player doesn't meet requirements
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(EquipmentRequirementsNotMet.selector);
+        playerContract.equipSkin(playerId, defaultSkinCollectionIndex, battleaxeSkinTokenId);
         vm.stopPrank();
     }
 
