@@ -35,16 +35,13 @@ contract PlayerTest is TestBase {
 
     event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
-    event PlayerCreationFulfilled(
-        uint256 indexed requestId, uint32 indexed playerId, address indexed owner, uint256 randomness
-    );
-    event RequestedRandomness(uint256 round, bytes data);
-    event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
-    event PlayerImmortalityChanged(uint32 indexed playerId, address indexed changer, bool isImmortal);
-    event PlayerCreated(
+    event PlayerCreationComplete(
+        uint256 indexed requestId,
         uint32 indexed playerId,
-        uint16 indexed firstNameIndex,
-        uint16 indexed surnameIndex,
+        address indexed owner,
+        uint256 randomness,
+        uint16 firstNameIndex,
+        uint16 surnameIndex,
         uint8 strength,
         uint8 constitution,
         uint8 size,
@@ -52,6 +49,9 @@ contract PlayerTest is TestBase {
         uint8 stamina,
         uint8 luck
     );
+    event RequestedRandomness(uint256 round, bytes data);
+    event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
+    event PlayerImmortalityChanged(uint32 indexed playerId, address indexed changer, bool isImmortal);
 
     function setUp() public override {
         super.setUp();
@@ -605,7 +605,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, false); // Only check first three indexed params
-        emit PlayerCreationFulfilled(requestId, 10001, PLAYER_ONE, 0); // Added 0 as placeholder
+        emit PlayerCreationComplete(requestId, 10001, PLAYER_ONE, 0, 0, 0, 0, 0, 0, 0, 0, 0); // Added placeholders for all params
         _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
     }
 
@@ -836,26 +836,41 @@ contract PlayerTest is TestBase {
         // Fulfill VRF request using helper
         _fulfillVRF(requestId, _generateGameSeed(), address(playerContract));
 
-        // Get the logs and find our PlayerCreated event
+        // Get the logs and find our PlayerCreationComplete event
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        bool foundPlayerCreatedEvent = false;
+        bool foundPlayerCreationCompleteEvent = false;
 
         for (uint256 i = 0; i < entries.length; i++) {
-            // Check if this is our PlayerCreated event
+            // Check if this is our PlayerCreationComplete event
             if (
                 entries[i].topics[0]
-                    == keccak256("PlayerCreated(uint32,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)")
+                    == keccak256(
+                        "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)"
+                    )
             ) {
-                foundPlayerCreatedEvent = true;
+                foundPlayerCreationCompleteEvent = true;
 
-                // Get playerId from first indexed parameter
-                uint32 playerId = uint32(uint256(entries[i].topics[1]));
-                uint16 firstNameIndex = uint16(uint256(entries[i].topics[2]));
-                uint16 surnameIndex = uint16(uint256(entries[i].topics[3]));
+                // Get indexed parameters
+                uint256 emittedRequestId = uint256(entries[i].topics[1]);
+                uint32 playerId = uint32(uint256(entries[i].topics[2]));
+                address owner = address(uint160(uint256(entries[i].topics[3])));
 
                 // Decode the non-indexed parameters
-                (uint8 strength, uint8 constitution, uint8 size, uint8 agility, uint8 stamina, uint8 luck) =
-                    abi.decode(entries[i].data, (uint8, uint8, uint8, uint8, uint8, uint8));
+                (
+                    uint256 randomness,
+                    uint16 firstNameIndex,
+                    uint16 surnameIndex,
+                    uint8 strength,
+                    uint8 constitution,
+                    uint8 size,
+                    uint8 agility,
+                    uint8 stamina,
+                    uint8 luck
+                ) = abi.decode(entries[i].data, (uint256, uint16, uint16, uint8, uint8, uint8, uint8, uint8, uint8));
+
+                // Verify request ID matches
+                assertEq(emittedRequestId, requestId, "Request ID mismatch");
+                assertEq(owner, PLAYER_ONE, "Owner mismatch");
 
                 // Get stored player data for comparison
                 IPlayer.PlayerStats memory storedStats = playerContract.getPlayer(playerId);
@@ -886,7 +901,7 @@ contract PlayerTest is TestBase {
             }
         }
 
-        assertTrue(foundPlayerCreatedEvent, "PlayerCreated event was not emitted");
+        assertTrue(foundPlayerCreationCompleteEvent, "PlayerCreationComplete event was not emitted");
     }
 
     function testWinLossKillEvents() public {

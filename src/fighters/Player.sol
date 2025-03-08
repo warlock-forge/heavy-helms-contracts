@@ -173,13 +173,32 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param tokenId The token ID of the specific skin being equipped
     event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
 
-    /// @notice Emitted when a VRF request for player creation is fulfilled
+    /// @notice Emitted when a VRF request for player creation is fulfilled with all player data
     /// @param requestId The VRF request ID
     /// @param playerId The ID of the newly created player
     /// @param owner The address that will own the new player
     /// @param randomness The random value provided by VRF
-    event PlayerCreationFulfilled(
-        uint256 indexed requestId, uint32 indexed playerId, address indexed owner, uint256 randomness
+    /// @param firstNameIndex Index of the first name in the registry
+    /// @param surnameIndex Index of the surname in the registry
+    /// @param strength Initial strength value
+    /// @param constitution Initial constitution value
+    /// @param size Initial size value
+    /// @param agility Initial agility value
+    /// @param stamina Initial stamina value
+    /// @param luck Initial luck value
+    event PlayerCreationComplete(
+        uint256 indexed requestId,
+        uint32 indexed playerId,
+        address indexed owner,
+        uint256 randomness,
+        uint16 firstNameIndex,
+        uint16 surnameIndex,
+        uint8 strength,
+        uint8 constitution,
+        uint8 size,
+        uint8 agility,
+        uint8 stamina,
+        uint8 luck
     );
 
     /// @notice Emitted when a new player creation is requested
@@ -218,28 +237,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param oldCost The previous cost
     /// @param newCost The new cost
     event SlotBatchCostUpdated(uint256 oldCost, uint256 newCost);
-
-    /// @notice Emitted when a new player is created with their initial stats
-    /// @param playerId The ID of the newly created player
-    /// @param firstNameIndex Index of the first name in the registry
-    /// @param surnameIndex Index of the surname in the registry
-    /// @param strength Initial strength value
-    /// @param constitution Initial constitution value
-    /// @param size Initial size value
-    /// @param agility Initial agility value
-    /// @param stamina Initial stamina value
-    /// @param luck Initial luck value
-    event PlayerCreated(
-        uint32 indexed playerId,
-        uint16 indexed firstNameIndex,
-        uint16 indexed surnameIndex,
-        uint8 strength,
-        uint8 constitution,
-        uint8 size,
-        uint8 agility,
-        uint8 stamina,
-        uint8 luck
-    );
 
     /// @notice Emitted when a user purchases additional player slots
     /// @param user Address of the purchaser
@@ -951,9 +948,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         _removeFromPendingRequests(pending.owner, requestId);
         delete _pendingPlayers[requestId];
 
-        emit PlayerCreationFulfilled(requestId, playerId, pending.owner, randomness);
-        emit PlayerCreated(
+        // Emit the combined event with all data
+        emit PlayerCreationComplete(
+            requestId,
             playerId,
+            pending.owner,
+            randomness,
             stats.firstNameIndex,
             stats.surnameIndex,
             stats.attributes.strength,
