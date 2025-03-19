@@ -14,8 +14,7 @@ interface IPlayer {
     //==============================================================//
     /// @notice Contains all stats and attributes for a player
     /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
-    /// @param skinIndex Index of equipped skin collection
-    /// @param skinTokenId Token ID of equipped skin
+    /// @param skin SkinInfo for player
     /// @param firstNameIndex Index of player's first name
     /// @param surnameIndex Index of player's surname
     /// @param wins Total victories

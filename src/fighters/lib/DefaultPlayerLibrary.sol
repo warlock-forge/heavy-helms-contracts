@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../../interfaces/fighters/IDefaultPlayer.sol";
+import "../../interfaces/fighters/IPlayer.sol";
 import "../../nft/skins/DefaultPlayerSkinNFT.sol";
 import "../../fighters/Fighter.sol";
+import "../../interfaces/fighters/IDefaultPlayer.sol";
 
 library DefaultPlayerLibrary {
     enum CharacterType {
@@ -20,22 +21,19 @@ library DefaultPlayerLibrary {
     function getDefaultWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 5; // WEAPON_QUARTERSTAFF
         armor = 0; // ARMOR_CLOTH
         stance = 1; // STANCE_BALANCED
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 0,
-            surnameIndex: 155
+            surnameIndex: 155,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreid4j7qd4chkycansnx3zktu3lsysszkbf5674le4ergnltthyf7dm";
     }
@@ -43,22 +41,19 @@ library DefaultPlayerLibrary {
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 0; // WEAPON_SWORD_AND_SHIELD
         armor = 2; // ARMOR_CHAIN
         stance = 1; // STANCE_BALANCED
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1015,
-            surnameIndex: 97
+            surnameIndex: 97,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreiciuv6jctzbyut75pezrfcqxut6h4gwoeqv5oejw6ccvvc5aejwp4";
     }
@@ -66,22 +61,19 @@ library DefaultPlayerLibrary {
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 3; // WEAPON_GREATSWORD
         armor = 1; // ARMOR_LEATHER
         stance = 2; // STANCE_OFFENSIVE
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 10, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1062,
-            surnameIndex: 131
+            surnameIndex: 131,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreihyxl5sta2nh7f5zmeq4bvob3relwdwiyql5t5zupomiqy2vg4bpa";
     }
@@ -89,22 +81,19 @@ library DefaultPlayerLibrary {
     function getBattleaxeUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 4; // WEAPON_BATTLEAXE
         armor = 1; // ARMOR_LEATHER
         stance = 1; // STANCE_BALANCED
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 12, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1102,
-            surnameIndex: 241
+            surnameIndex: 241,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreibgsck2mqp7cal5ivinzl65i72mqfwbaopuc3gr6dnq4s5f5rjke4";
     }
@@ -112,22 +101,19 @@ library DefaultPlayerLibrary {
     function getSpearUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 6; // WEAPON_SPEAR
         armor = 1; // ARMOR_LEATHER
         stance = 2; // STANCE_OFFENSIVE
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 8, size: 12, agility: 16, stamina: 12, luck: 8}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1146,
-            surnameIndex: 25
+            surnameIndex: 25,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreidkhaqtp5x67v5xvp4rdpfvnue7osxxccqsg26mclnd3mca342l7q";
     }
@@ -135,22 +121,19 @@ library DefaultPlayerLibrary {
     function getRapierAndShieldUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 2; // WEAPON_RAPIER_AND_SHIELD
         armor = 1; // ARMOR_LEATHER
         stance = 1; // STANCE_BALANCED
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 10, constitution: 12, size: 8, agility: 16, stamina: 12, luck: 14}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 38,
-            surnameIndex: 15
+            surnameIndex: 15,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreib55kqspxbhjicrkrb3ajakxs2rugzwovwxoi2nfdpbzyrzepran4";
     }
@@ -158,22 +141,19 @@ library DefaultPlayerLibrary {
     function getMaceAndShieldUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         weapon = 1; // WEAPON_MACE_AND_SHIELD
         armor = 3; // ARMOR_PLATE
         stance = 0; // STANCE_DEFENSIVE
-        stats = IDefaultPlayer.DefaultPlayerStats({
+        stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 19, size: 14, agility: 6, stamina: 15, luck: 6}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             firstNameIndex: 1079,
-            surnameIndex: 165
+            surnameIndex: 165,
+            wins: 0,
+            losses: 0,
+            kills: 0
         });
         ipfsCID = "bafkreie7vtabnq4tku4d4u7q3ucnvrvfjyjhthxrd7n4pq77lvpy527m3m";
     }
@@ -186,8 +166,8 @@ library DefaultPlayerLibrary {
         CharacterType characterType
     ) internal returns (uint16) {
         // Get character data based on type
-        (uint8 weapon, uint8 armor, uint8 stance, IDefaultPlayer.DefaultPlayerStats memory stats, string memory ipfsCID)
-        = _getCharacterData(characterType, skinIndex, tokenId);
+        (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID) =
+            _getCharacterData(characterType, skinIndex, tokenId);
 
         // Create the default player first
         defaultPlayer.setDefaultPlayer(tokenId, stats);
@@ -200,13 +180,7 @@ library DefaultPlayerLibrary {
     function _getCharacterData(CharacterType charType, uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (
-            uint8 weapon,
-            uint8 armor,
-            uint8 stance,
-            IDefaultPlayer.DefaultPlayerStats memory stats,
-            string memory ipfsCID
-        )
+        returns (uint8 weapon, uint8 armor, uint8 stance, IPlayer.PlayerStats memory stats, string memory ipfsCID)
     {
         if (charType == CharacterType.DefaultWarrior) {
             return getDefaultWarrior(skinIndex, tokenId);
