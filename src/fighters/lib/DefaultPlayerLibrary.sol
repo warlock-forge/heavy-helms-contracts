@@ -29,7 +29,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 0, surnameIndex: 155}),
+            name: IPlayer.PlayerName({firstNameIndex: 0, surnameIndex: 155}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreid4j7qd4chkycansnx3zktu3lsysszkbf5674le4ergnltthyf7dm";
@@ -46,7 +46,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 1015, surnameIndex: 97}),
+            name: IPlayer.PlayerName({firstNameIndex: 1015, surnameIndex: 97}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreiciuv6jctzbyut75pezrfcqxut6h4gwoeqv5oejw6ccvvc5aejwp4";
@@ -63,7 +63,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 10, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 1062, surnameIndex: 131}),
+            name: IPlayer.PlayerName({firstNameIndex: 1062, surnameIndex: 131}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreihyxl5sta2nh7f5zmeq4bvob3relwdwiyql5t5zupomiqy2vg4bpa";
@@ -80,7 +80,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 12, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 1102, surnameIndex: 241}),
+            name: IPlayer.PlayerName({firstNameIndex: 1102, surnameIndex: 241}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreibgsck2mqp7cal5ivinzl65i72mqfwbaopuc3gr6dnq4s5f5rjke4";
@@ -97,7 +97,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 8, size: 12, agility: 16, stamina: 12, luck: 8}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 1146, surnameIndex: 25}),
+            name: IPlayer.PlayerName({firstNameIndex: 1146, surnameIndex: 25}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreidkhaqtp5x67v5xvp4rdpfvnue7osxxccqsg26mclnd3mca342l7q";
@@ -114,7 +114,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 10, constitution: 12, size: 8, agility: 16, stamina: 12, luck: 14}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 38, surnameIndex: 15}),
+            name: IPlayer.PlayerName({firstNameIndex: 38, surnameIndex: 15}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreib55kqspxbhjicrkrb3ajakxs2rugzwovwxoi2nfdpbzyrzepran4";
@@ -131,7 +131,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 19, size: 14, agility: 6, stamina: 15, luck: 6}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 1079, surnameIndex: 165}),
+            name: IPlayer.PlayerName({firstNameIndex: 1079, surnameIndex: 165}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
         ipfsCID = "bafkreie7vtabnq4tku4d4u7q3ucnvrvfjyjhthxrd7n4pq77lvpy527m3m";

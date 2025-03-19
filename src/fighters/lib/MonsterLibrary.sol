@@ -66,7 +66,7 @@ library MonsterLibrary {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 8, constitution: 8, size: 6, agility: 14, stamina: 10, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 0, surnameIndex: 0}),
+            monsterNameIndex: 0,
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
         });
@@ -88,7 +88,7 @@ library MonsterLibrary {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 14, constitution: 14, size: 14, agility: 8, stamina: 12, luck: 8}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 0, surnameIndex: 0}),
+            monsterNameIndex: 0,
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
         });
@@ -110,7 +110,7 @@ library MonsterLibrary {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 16, size: 16, agility: 6, stamina: 14, luck: 6}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 0, surnameIndex: 0}),
+            monsterNameIndex: 0,
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
         });
@@ -132,7 +132,7 @@ library MonsterLibrary {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 18, size: 18, agility: 4, stamina: 16, luck: 4}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            name: Fighter.Name({firstNameIndex: 0, surnameIndex: 0}),
+            monsterNameIndex: 0,
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
         });

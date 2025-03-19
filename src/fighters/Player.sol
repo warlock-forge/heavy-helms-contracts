@@ -1063,7 +1063,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                 luck: stats[5]
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            name: Fighter.Name({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
+            name: PlayerName({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
             record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills})
         });
     }
@@ -1184,7 +1184,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                 luck: statArray[5]
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            name: Name({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
+            name: PlayerName({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
 

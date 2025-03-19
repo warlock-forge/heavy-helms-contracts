@@ -18,7 +18,7 @@ interface IMonster {
     struct MonsterStats {
         Fighter.Attributes attributes;
         Fighter.SkinInfo skin;
-        Fighter.Name name;
+        uint16 monsterNameIndex;
         Fighter.Record record;
         uint8 tier;
     }

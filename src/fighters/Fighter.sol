@@ -25,11 +25,6 @@ abstract contract Fighter {
         uint16 skinTokenId;
     }
 
-    struct Name {
-        uint16 firstNameIndex;
-        uint16 surnameIndex;
-    }
-
     struct Record {
         uint16 wins;
         uint16 losses;
