@@ -59,8 +59,8 @@ contract PlayerChargesTest is TestBase {
 
         // Verify name changed and charge consumed
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-        assertEq(stats.firstNameIndex, newFirstName, "First name should be updated");
-        assertEq(stats.surnameIndex, newSurname, "Surname should be updated");
+        assertEq(stats.name.firstNameIndex, newFirstName, "First name should be updated");
+        assertEq(stats.name.surnameIndex, newSurname, "Surname should be updated");
         assertEq(playerContract.nameChangeCharges(PLAYER_ONE), 0, "Should have 0 charges remaining");
     }
 

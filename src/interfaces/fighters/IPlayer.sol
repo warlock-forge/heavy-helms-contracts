@@ -15,16 +15,14 @@ interface IPlayer {
     /// @notice Contains all stats and attributes for a player
     /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
     /// @param skin SkinInfo for player
-    /// @param firstNameIndex Index of player's first name
-    /// @param surnameIndex Index of player's surname
+    /// @param name Name for player
     /// @param wins Total victories
     /// @param losses Total defeats
     /// @param kills Total kills
     struct PlayerStats {
         Fighter.Attributes attributes;
         Fighter.SkinInfo skin;
-        uint16 firstNameIndex;
-        uint16 surnameIndex;
+        Fighter.Name name;
         uint16 wins;
         uint16 losses;
         uint16 kills;

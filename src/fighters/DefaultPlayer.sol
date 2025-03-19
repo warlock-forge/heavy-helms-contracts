@@ -118,8 +118,8 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
 
         // Validate name indices
         if (
-            !nameRegistry().isValidFirstNameIndex(stats.firstNameIndex)
-                || stats.surnameIndex >= nameRegistry().getSurnamesLength()
+            !nameRegistry().isValidFirstNameIndex(stats.name.firstNameIndex)
+                || stats.name.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
             revert InvalidNameIndex();
         }
@@ -143,8 +143,8 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
 
         // Validate name indices
         if (
-            !nameRegistry().isValidFirstNameIndex(newStats.firstNameIndex)
-                || newStats.surnameIndex >= nameRegistry().getSurnamesLength()
+            !nameRegistry().isValidFirstNameIndex(newStats.name.firstNameIndex)
+                || newStats.name.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
             revert InvalidNameIndex();
         }

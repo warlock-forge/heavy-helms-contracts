@@ -392,11 +392,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         packed[14] = bytes1(uint8(stats.skin.skinTokenId >> 8));
         packed[15] = bytes1(uint8(stats.skin.skinTokenId));
 
-        packed[16] = bytes1(uint8(stats.firstNameIndex >> 8));
-        packed[17] = bytes1(uint8(stats.firstNameIndex));
+        packed[16] = bytes1(uint8(stats.name.firstNameIndex >> 8));
+        packed[17] = bytes1(uint8(stats.name.firstNameIndex));
 
-        packed[18] = bytes1(uint8(stats.surnameIndex >> 8));
-        packed[19] = bytes1(uint8(stats.surnameIndex));
+        packed[18] = bytes1(uint8(stats.name.surnameIndex >> 8));
+        packed[19] = bytes1(uint8(stats.name.surnameIndex));
 
         packed[20] = bytes1(uint8(stats.wins >> 8));
         packed[21] = bytes1(uint8(stats.wins));
@@ -441,8 +441,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         uint16 skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
 
         // Decode uint16 values
-        stats.firstNameIndex = uint16(uint8(packed[16])) << 8 | uint16(uint8(packed[17]));
-        stats.surnameIndex = uint16(uint8(packed[18])) << 8 | uint16(uint8(packed[19]));
+        stats.name.firstNameIndex = uint16(uint8(packed[16])) << 8 | uint16(uint8(packed[17]));
+        stats.name.surnameIndex = uint16(uint8(packed[18])) << 8 | uint16(uint8(packed[19]));
         stats.wins = uint16(uint8(packed[20])) << 8 | uint16(uint8(packed[21]));
         stats.losses = uint16(uint8(packed[22])) << 8 | uint16(uint8(packed[23]));
         stats.kills = uint16(uint8(packed[24])) << 8 | uint16(uint8(packed[25]));
@@ -684,8 +684,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         _nameChangeCharges[msg.sender]--;
 
         PlayerStats storage player = _players[playerId];
-        player.firstNameIndex = firstNameIndex;
-        player.surnameIndex = surnameIndex;
+        player.name.firstNameIndex = firstNameIndex;
+        player.name.surnameIndex = surnameIndex;
 
         emit PlayerNameUpdated(playerId, firstNameIndex, surnameIndex);
     }
@@ -954,8 +954,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             playerId,
             pending.owner,
             randomness,
-            stats.firstNameIndex,
-            stats.surnameIndex,
+            stats.name.firstNameIndex,
+            stats.name.surnameIndex,
             stats.attributes.strength,
             stats.attributes.constitution,
             stats.attributes.size,
@@ -1063,8 +1063,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                 luck: stats[5]
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            firstNameIndex: player.firstNameIndex,
-            surnameIndex: player.surnameIndex,
+            name: Fighter.Name({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
             wins: player.wins,
             losses: player.losses,
             kills: player.kills
@@ -1187,8 +1186,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                 luck: statArray[5]
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            firstNameIndex: firstNameIndex,
-            surnameIndex: surnameIndex,
+            name: Name({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
             wins: 0,
             losses: 0,
             kills: 0

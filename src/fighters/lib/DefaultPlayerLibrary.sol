@@ -29,8 +29,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 0,
-            surnameIndex: 155,
+            name: Fighter.Name({firstNameIndex: 0, surnameIndex: 155}),
             wins: 0,
             losses: 0,
             kills: 0
@@ -49,8 +48,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 12, size: 12, agility: 12, stamina: 12, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1015,
-            surnameIndex: 97,
+            name: Fighter.Name({firstNameIndex: 1015, surnameIndex: 97}),
             wins: 0,
             losses: 0,
             kills: 0
@@ -69,8 +67,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 10, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1062,
-            surnameIndex: 131,
+            name: Fighter.Name({firstNameIndex: 1062, surnameIndex: 131}),
             wins: 0,
             losses: 0,
             kills: 0
@@ -89,8 +86,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 12, size: 14, agility: 10, stamina: 10, luck: 10}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1102,
-            surnameIndex: 241,
+            name: Fighter.Name({firstNameIndex: 1102, surnameIndex: 241}),
             wins: 0,
             losses: 0,
             kills: 0
@@ -109,8 +105,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 8, size: 12, agility: 16, stamina: 12, luck: 8}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1146,
-            surnameIndex: 25,
+            name: Fighter.Name({firstNameIndex: 1146, surnameIndex: 25}),
             wins: 0,
             losses: 0,
             kills: 0
@@ -129,8 +124,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 10, constitution: 12, size: 8, agility: 16, stamina: 12, luck: 14}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 38,
-            surnameIndex: 15,
+            name: Fighter.Name({firstNameIndex: 38, surnameIndex: 15}),
             wins: 0,
             losses: 0,
             kills: 0
@@ -149,8 +143,7 @@ library DefaultPlayerLibrary {
         stats = IPlayer.PlayerStats({
             attributes: Fighter.Attributes({strength: 12, constitution: 19, size: 14, agility: 6, stamina: 15, luck: 6}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
-            firstNameIndex: 1079,
-            surnameIndex: 165,
+            name: Fighter.Name({firstNameIndex: 1079, surnameIndex: 165}),
             wins: 0,
             losses: 0,
             kills: 0

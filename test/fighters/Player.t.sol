@@ -353,8 +353,8 @@ contract PlayerTest is TestBase {
 
             uint32 playerId = playerContract.getPlayerIds(player)[0];
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-            firstNameCounts[stats.firstNameIndex]++;
-            surnameCounts[stats.surnameIndex]++;
+            firstNameCounts[stats.name.firstNameIndex]++;
+            surnameCounts[stats.name.surnameIndex]++;
         }
 
         // Verify we got some variety in names
@@ -879,8 +879,8 @@ contract PlayerTest is TestBase {
                 _assertStatRanges(storedStats);
 
                 // Verify stats match stored data
-                assertEq(storedStats.firstNameIndex, firstNameIndex, "First name index mismatch");
-                assertEq(storedStats.surnameIndex, surnameIndex, "Surname index mismatch");
+                assertEq(storedStats.name.firstNameIndex, firstNameIndex, "First name index mismatch");
+                assertEq(storedStats.name.surnameIndex, surnameIndex, "Surname index mismatch");
                 assertEq(storedStats.attributes.strength, strength, "Strength mismatch");
                 assertEq(storedStats.attributes.constitution, constitution, "Constitution mismatch");
                 assertEq(storedStats.attributes.size, size, "Size mismatch");

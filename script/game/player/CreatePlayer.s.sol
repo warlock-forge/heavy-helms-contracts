@@ -47,8 +47,9 @@ contract CreatePlayerScript is Script {
             console2.log("Luck:", stats.attributes.luck);
 
             // Get and display player name
-            (string memory firstName, string memory surname) =
-                IPlayerNameRegistry(player.nameRegistry()).getFullName(stats.firstNameIndex, stats.surnameIndex);
+            (string memory firstName, string memory surname) = IPlayerNameRegistry(player.nameRegistry()).getFullName(
+                stats.name.firstNameIndex, stats.name.surnameIndex
+            );
             console2.log("\nPlayer Name:", firstName, surname);
         }
 
