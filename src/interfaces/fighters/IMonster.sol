@@ -10,20 +10,17 @@ interface IMonster {
     //                          STRUCTS                             //
     //==============================================================//
     /// @notice Contains all stats and attributes for a monster
-    /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
+    /// @param attributes Attributes for monster -> (strength, constitution, size, agility, stamina, luck)
+    /// @param skin SkinInfo for monster -> (skinIndex, skinTokenId)
+    /// @param name Name for monster -> (firstNameIndex, surnameIndex)
+    /// @param record Record for monster -> (wins, losses, kills)
     /// @param tier Tier of the monster
-    /// @param skinIndex Index of monster skin/type
-    /// @param skinTokenId Token ID of monster skin/type
-    /// @param wins Total victories
-    /// @param losses Total defeats
-    /// @param kills Total kills
     struct MonsterStats {
         Fighter.Attributes attributes;
         Fighter.SkinInfo skin;
+        Fighter.Name name;
+        Fighter.Record record;
         uint8 tier;
-        uint16 wins;
-        uint16 losses;
-        uint16 kills;
     }
 
     //==============================================================//

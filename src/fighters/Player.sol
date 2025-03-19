@@ -398,14 +398,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         packed[18] = bytes1(uint8(stats.name.surnameIndex >> 8));
         packed[19] = bytes1(uint8(stats.name.surnameIndex));
 
-        packed[20] = bytes1(uint8(stats.wins >> 8));
-        packed[21] = bytes1(uint8(stats.wins));
+        packed[20] = bytes1(uint8(stats.record.wins >> 8));
+        packed[21] = bytes1(uint8(stats.record.wins));
 
-        packed[22] = bytes1(uint8(stats.losses >> 8));
-        packed[23] = bytes1(uint8(stats.losses));
+        packed[22] = bytes1(uint8(stats.record.losses >> 8));
+        packed[23] = bytes1(uint8(stats.record.losses));
 
-        packed[24] = bytes1(uint8(stats.kills >> 8));
-        packed[25] = bytes1(uint8(stats.kills));
+        packed[24] = bytes1(uint8(stats.record.kills >> 8));
+        packed[25] = bytes1(uint8(stats.record.kills));
 
         // Last 6 bytes are padded with zeros by default
 
@@ -443,9 +443,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         // Decode uint16 values
         stats.name.firstNameIndex = uint16(uint8(packed[16])) << 8 | uint16(uint8(packed[17]));
         stats.name.surnameIndex = uint16(uint8(packed[18])) << 8 | uint16(uint8(packed[19]));
-        stats.wins = uint16(uint8(packed[20])) << 8 | uint16(uint8(packed[21]));
-        stats.losses = uint16(uint8(packed[22])) << 8 | uint16(uint8(packed[23]));
-        stats.kills = uint16(uint8(packed[24])) << 8 | uint16(uint8(packed[25]));
+        stats.record.wins = uint16(uint8(packed[20])) << 8 | uint16(uint8(packed[21]));
+        stats.record.losses = uint16(uint8(packed[22])) << 8 | uint16(uint8(packed[23]));
+        stats.record.kills = uint16(uint8(packed[24])) << 8 | uint16(uint8(packed[25]));
 
         // Construct skin
         stats.skin = SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId});
@@ -753,8 +753,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         playerExists(playerId)
     {
         PlayerStats storage stats = _players[playerId];
-        stats.wins++;
-        emit PlayerWinLossUpdated(playerId, stats.wins, stats.losses);
+        stats.record.wins++;
+        emit PlayerWinLossUpdated(playerId, stats.record.wins, stats.record.losses);
     }
 
     /// @notice Increments the loss count for a player
@@ -766,8 +766,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         playerExists(playerId)
     {
         PlayerStats storage stats = _players[playerId];
-        stats.losses++;
-        emit PlayerWinLossUpdated(playerId, stats.wins, stats.losses);
+        stats.record.losses++;
+        emit PlayerWinLossUpdated(playerId, stats.record.wins, stats.record.losses);
     }
 
     /// @notice Increments the kill count for a player
@@ -779,8 +779,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         playerExists(playerId)
     {
         PlayerStats storage stats = _players[playerId];
-        stats.kills++;
-        emit PlayerKillUpdated(playerId, stats.kills);
+        stats.record.kills++;
+        emit PlayerKillUpdated(playerId, stats.record.kills);
     }
 
     /// @notice Sets the retirement status of a player
@@ -1064,9 +1064,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: Fighter.Name({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
-            wins: player.wins,
-            losses: player.losses,
-            kills: player.kills
+            record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills})
         });
     }
 
@@ -1187,9 +1185,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: Name({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
-            wins: 0,
-            losses: 0,
-            kills: 0
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
 
         // Validate and fix if necessary

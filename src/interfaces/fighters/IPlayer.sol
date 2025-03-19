@@ -13,19 +13,15 @@ interface IPlayer {
     //                          STRUCTS                             //
     //==============================================================//
     /// @notice Contains all stats and attributes for a player
-    /// @param attributes Core fighter attributes (strength, constitution, size, agility, stamina, luck)
-    /// @param skin SkinInfo for player
-    /// @param name Name for player
-    /// @param wins Total victories
-    /// @param losses Total defeats
-    /// @param kills Total kills
+    /// @param attributes Attributes for player -> (strength, constitution, size, agility, stamina, luck)
+    /// @param skin SkinInfo for player -> (skinIndex, skinTokenId)
+    /// @param name Name for player -> (firstNameIndex, surnameIndex)
+    /// @param record Record for player -> (wins, losses, kills)
     struct PlayerStats {
         Fighter.Attributes attributes;
         Fighter.SkinInfo skin;
         Fighter.Name name;
-        uint16 wins;
-        uint16 losses;
-        uint16 kills;
+        Fighter.Record record;
     }
 
     /// @notice Permission flags for game contracts

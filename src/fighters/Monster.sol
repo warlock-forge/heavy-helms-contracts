@@ -111,18 +111,18 @@ contract Monster is IMonster, Owned, Fighter {
     }
 
     function incrementWins(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
-        _monsters[monsterId].wins++;
-        emit MonsterWinLossUpdated(monsterId, _monsters[monsterId].wins, _monsters[monsterId].losses);
+        _monsters[monsterId].record.wins++;
+        emit MonsterWinLossUpdated(monsterId, _monsters[monsterId].record.wins, _monsters[monsterId].record.losses);
     }
 
     function incrementLosses(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
-        _monsters[monsterId].losses++;
-        emit MonsterWinLossUpdated(monsterId, _monsters[monsterId].wins, _monsters[monsterId].losses);
+        _monsters[monsterId].record.losses++;
+        emit MonsterWinLossUpdated(monsterId, _monsters[monsterId].record.wins, _monsters[monsterId].record.losses);
     }
 
     function incrementKills(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
-        _monsters[monsterId].kills++;
-        emit MonsterKillsUpdated(monsterId, _monsters[monsterId].kills);
+        _monsters[monsterId].record.kills++;
+        emit MonsterKillsUpdated(monsterId, _monsters[monsterId].record.kills);
     }
 
     function setMonsterRetired(uint32 monsterId, bool retired) external onlyOwner monsterExists(monsterId) {
