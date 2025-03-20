@@ -149,7 +149,7 @@ library DefaultPlayerLibrary {
             _getCharacterData(characterType, skinIndex, tokenId);
 
         // Create the default player first
-        defaultPlayer.setDefaultPlayer(tokenId, stats);
+        defaultPlayer.createDefaultPlayer(tokenId, stats);
         // Then mint the skin
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, stance, ipfsCID, tokenId);
 
