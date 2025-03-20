@@ -16,8 +16,8 @@ import "../../../interfaces/game/engine/IEquipmentRequirements.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
-/// @notice Thrown when registration fee is insufficient
 
+/// @notice Thrown when registration fee is insufficient
 error InsufficientRegistrationFee();
 /// @notice Thrown when attempting to collect with zero balance
 error NoTokensToCollect();

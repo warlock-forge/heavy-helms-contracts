@@ -1168,7 +1168,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             firstNameIndex = uint16(randomSeed.uniform(nameRegistry().getNameSetBLength()));
         } else {
             firstNameIndex =
-                uint16(randomSeed.uniform(nameRegistry().getNameSetALength())) + nameRegistry().SET_A_START();
+                uint16(randomSeed.uniform(nameRegistry().getNameSetALength())) + nameRegistry().getSetAStart();
         }
 
         uint16 surnameIndex = uint16(randomSeed.uniform(nameRegistry().getSurnamesLength()));

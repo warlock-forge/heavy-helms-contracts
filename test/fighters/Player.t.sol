@@ -330,7 +330,7 @@ contract PlayerTest is TestBase {
     function testNameRandomness() public skipInCI {
         // Create multiple players and track name frequencies
         uint256 numPlayers = 20; // Reduced from 50 to avoid gas limits
-        uint256[] memory firstNameCounts = new uint256[](nameRegistry.SET_A_START() + nameRegistry.getNameSetALength());
+        uint256[] memory firstNameCounts = new uint256[](nameRegistry.getSetAStart() + nameRegistry.getNameSetALength());
         uint256[] memory surnameCounts = new uint256[](nameRegistry.getSurnamesLength());
 
         for (uint256 i = 0; i < numPlayers; i++) {
@@ -366,8 +366,8 @@ contract PlayerTest is TestBase {
             if (firstNameCounts[i] > 0) uniqueFirstNames++;
         }
         for (
-            uint16 i = nameRegistry.SET_A_START();
-            i < nameRegistry.SET_A_START() + nameRegistry.getNameSetALength();
+            uint16 i = nameRegistry.getSetAStart();
+            i < nameRegistry.getSetAStart() + nameRegistry.getNameSetALength();
             i++
         ) {
             if (firstNameCounts[i] > 0) uniqueFirstNames++;
@@ -384,7 +384,7 @@ contract PlayerTest is TestBase {
 
         // Make sure we're not always getting the default names
         assertTrue(firstNameCounts[0] < numPlayers, "Too many default Set B names");
-        assertTrue(firstNameCounts[nameRegistry.SET_A_START()] < numPlayers, "Too many default Set A names");
+        assertTrue(firstNameCounts[nameRegistry.getSetAStart()] < numPlayers, "Too many default Set A names");
         assertTrue(surnameCounts[0] < numPlayers, "Too many default surnames");
     }
 
