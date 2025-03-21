@@ -1,33 +1,59 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+//==============================================================//
+//                          IMPORTS                             //
+//==============================================================//
 import "./BaseGame.sol";
-import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
-import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
-import "../../fighters/Fighter.sol";
 
+//==============================================================//
+//                         HEAVY HELMS                          //
+//                          DUEL GAME                           //
+//==============================================================//
+/// @title Duel Game Mode for Heavy Helms
+/// @notice Allows players to challenge each other to 1v1 combat with wagers
+/// @dev Integrates with VRF for fair, random combat resolution
 contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
 
+    //==============================================================//
+    //                    STATE VARIABLES                           //
+    //==============================================================//
     // Constants
-    uint256 public wagerFeePercentage = 200; // 3% fee (basis points)
+    /// @notice Percentage fee taken from wagers (in basis points)
+    uint256 public wagerFeePercentage = 200; // 2% fee (basis points)
+    /// @notice Minimum allowed wager amount
     uint256 public minWagerAmount = 0.001 ether;
-    uint256 public maxWagerAmount = 100 ether; // Add reasonable max wager
+    /// @notice Maximum allowed wager amount
+    uint256 public maxWagerAmount = 100 ether;
+    /// @notice Minimum fee required for all duels (even zero-wager duels)
     uint256 public minDuelFee = 0.0002 ether;
-    uint256 public constant BLOCKS_UNTIL_EXPIRE = 43200; // ~24 hours at 2s blocks
+    /// @notice Number of blocks after which a challenge expires
+    uint256 public constant BLOCKS_UNTIL_EXPIRE = 302400; // ~7 days at 2s blocks
+    /// @notice Number of blocks after which abandoned challenges can be withdrawn
     uint256 public constant BLOCKS_UNTIL_WITHDRAW = 1296000; // ~30 days at 2s blocks
 
+    /// @notice Round ID constant for VRF requests
     uint256 private constant ROUND_ID = 1;
 
+    /// @notice Address of the Gelato VRF operator
     address private _operatorAddress;
 
     // Structs
+    /// @notice Structure storing a duel challenge data
+    /// @param challengerId ID of the player issuing the challenge
+    /// @param defenderId ID of the player being challenged
+    /// @param wagerAmount Amount of ETH wagered
+    /// @param createdBlock Block number when challenge was created
+    /// @param challengerLoadout Loadout of the challenger player
+    /// @param defenderLoadout Loadout of the defender player
+    /// @param fulfilled Whether the challenge has been fulfilled
     struct DuelChallenge {
         uint32 challengerId;
         uint32 defenderId;
@@ -39,17 +65,28 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     // State variables
+    /// @notice Next challenge ID to be assigned
     uint256 public nextChallengeId;
+    /// @notice Total fees collected from all duels
     uint256 public totalFeesCollected;
+    /// @notice Maps challenge IDs to their challenge data
     mapping(uint256 => DuelChallenge) public challenges;
+    /// @notice Maps VRF request IDs to challenge IDs
     mapping(uint256 => uint256) public requestToChallengeId;
-    mapping(uint256 => bool) public hasPendingRequest; // Track if challenge has pending request
-    mapping(address => mapping(uint256 => bool)) public userChallenges; // Track challenges per user
+    /// @notice Tracks if a challenge has a pending VRF request
+    mapping(uint256 => bool) public hasPendingRequest;
+    /// @notice Tracks challenges per user address
+    mapping(address => mapping(uint256 => bool)) public userChallenges;
 
-    // Game state
+    /// @notice Overall game enabled state
     bool public isGameEnabled = true;
+    /// @notice Controls whether wagers are enabled in the game
+    bool public wagersEnabled = true;
 
-    // Events
+    //==============================================================//
+    //                          EVENTS                              //
+    //==============================================================//
+    /// @notice Emitted when a new challenge is created
     event ChallengeCreated(
         uint256 indexed challengeId,
         uint32 indexed challengerId,
@@ -57,22 +94,45 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 wagerAmount,
         uint256 createdAtBlock
     );
+    /// @notice Emitted when a challenge is accepted
     event ChallengeAccepted(uint256 indexed challengeId, uint32 defenderId);
+    /// @notice Emitted when a challenge is cancelled
     event ChallengeCancelled(uint256 indexed challengeId);
+    /// @notice Emitted when a challenge expires
     event ChallengeExpired(uint256 indexed challengeId);
+    /// @notice Emitted when a challenge is forfeited
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
+    /// @notice Emitted when a duel is completed
     event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomSeed, uint256 winnerPayout);
+    /// @notice Emitted when accumulated fees are withdrawn
     event FeesWithdrawn(uint256 amount);
+    /// @notice Emitted when minimum duel fee is updated
     event MinDuelFeeUpdated(uint256 oldFee, uint256 newFee);
+    /// @notice Emitted when minimum wager amount is updated
     event MinWagerAmountUpdated(uint256 newAmount);
+    /// @notice Emitted when game enabled state is updated
     event GameEnabledUpdated(bool enabled);
+    /// @notice Emitted when wager fee percentage is updated
     event WagerFeePercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
+    /// @notice Emitted when wager functionality is enabled or disabled
+    event WagersEnabledUpdated(bool enabled);
 
+    //==============================================================//
+    //                        MODIFIERS                             //
+    //==============================================================//
+    /// @notice Ensures game is enabled for function execution
     modifier whenGameEnabled() {
         require(isGameEnabled, "Game is disabled");
         _;
     }
 
+    //==============================================================//
+    //                       CONSTRUCTOR                            //
+    //==============================================================//
+    /// @notice Initializes the DuelGame contract
+    /// @param _gameEngine Address of the game engine contract
+    /// @param _playerContract Address of the player contract
+    /// @param operator Address of the Gelato VRF operator
     constructor(address _gameEngine, address _playerContract, address operator)
         BaseGame(_gameEngine, _playerContract)
         GelatoVRFConsumerBase()
@@ -81,37 +141,97 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         _operatorAddress = operator;
     }
 
-    // Override _operator to use the operator address
+    //==============================================================//
+    //                    EXTERNAL FUNCTIONS                        //
+    //==============================================================//
+    /// @notice Returns the operator address for VRF
+    /// @return operator address
     function _operator() internal view override returns (address) {
         return _operatorAddress;
     }
 
-    function setOperator(address newOperator) external onlyOwner {
-        require(newOperator != address(0), "Invalid operator address");
-        _operatorAddress = newOperator;
+    /// @notice Checks if a challenge is active
+    /// @param challengeId ID of the challenge to check
+    /// @return isActive True if challenge is active
+    function isChallengeActive(uint256 challengeId) public view returns (bool) {
+        DuelChallenge storage challenge = challenges[challengeId];
+        // Challenge is active if:
+        // 1. It has a valid challenger (non-zero challengerId means it exists)
+        // 2. It hasn't been fulfilled yet
+        // 3. It hasn't expired
+        return challenge.challengerId != 0 && !challenge.fulfilled
+            && block.number <= challenge.createdBlock + BLOCKS_UNTIL_EXPIRE;
     }
 
-    function setMinDuelFee(uint256 _minDuelFee) external onlyOwner {
-        emit MinDuelFeeUpdated(minDuelFee, _minDuelFee);
-        minDuelFee = _minDuelFee;
+    /// @notice Calculates fee based on wager amount
+    /// @param amount Wager amount to calculate fee for
+    /// @return Fee amount
+    function calculateFee(uint256 amount) public view returns (uint256) {
+        // If amount is 0 or below min wager, return minimum fee
+        if (amount < minWagerAmount) return minDuelFee;
+
+        // Calculate percentage fee (3% of amount)
+        uint256 percentageFee = (amount * wagerFeePercentage) / 10000;
+
+        // Return the larger of percentage fee or minimum fee
+        return percentageFee > minDuelFee ? percentageFee : minDuelFee;
     }
 
-    function setMinWagerAmount(uint256 _minWagerAmount) external onlyOwner {
-        emit MinWagerAmountUpdated(_minWagerAmount);
-        minWagerAmount = _minWagerAmount;
+    /// @notice Gets all active challenges for a user
+    /// @param user Address of the user
+    /// @return Array of active challenge IDs
+    function getUserActiveChallenges(address user) external view returns (uint256[] memory) {
+        // First count active challenges
+        uint256 count = 0;
+        for (uint256 i = 0; i < nextChallengeId; i++) {
+            if (userChallenges[user][i] && isChallengeActive(i)) {
+                count++;
+            }
+        }
+
+        // Create array and populate
+        uint256[] memory activeChallenges = new uint256[](count);
+        uint256 index = 0;
+        for (uint256 i = 0; i < nextChallengeId; i++) {
+            if (userChallenges[user][i] && isChallengeActive(i)) {
+                activeChallenges[index++] = i;
+            }
+        }
+
+        return activeChallenges;
     }
 
-    function setWagerFeePercentage(uint256 _wagerFeePercentage) external onlyOwner {
-        require(_wagerFeePercentage <= 1000, "Fee cannot exceed 10%"); // Safety check
-        emit WagerFeePercentageUpdated(wagerFeePercentage, _wagerFeePercentage);
-        wagerFeePercentage = _wagerFeePercentage;
+    /// @notice Gets all active challenges for a specific player ID
+    /// @param playerId The player ID to check
+    /// @return Array of active challenge IDs involving this player
+    function getPlayerActiveChallenges(uint32 playerId) external view returns (uint256[] memory) {
+        // First count active challenges
+        uint256 count = 0;
+        for (uint256 i = 0; i < nextChallengeId; i++) {
+            DuelChallenge storage challenge = challenges[i];
+            if (isChallengeActive(i) && (challenge.challengerId == playerId || challenge.defenderId == playerId)) {
+                count++;
+            }
+        }
+
+        // Create array and populate
+        uint256[] memory activeChallenges = new uint256[](count);
+        uint256 index = 0;
+        for (uint256 i = 0; i < nextChallengeId; i++) {
+            DuelChallenge storage challenge = challenges[i];
+            if (isChallengeActive(i) && (challenge.challengerId == playerId || challenge.defenderId == playerId)) {
+                activeChallenges[index++] = i;
+            }
+        }
+
+        return activeChallenges;
     }
 
-    function setGameEnabled(bool enabled) external onlyOwner {
-        emit GameEnabledUpdated(enabled);
-        isGameEnabled = enabled;
-    }
-
+    /// @notice Creates a new duel challenge
+    /// @param challengerLoadout Loadout for the challenger
+    /// @param defenderId ID of the defender
+    /// @param wagerAmount Amount to wager
+    /// @return challengeId ID of the created challenge
     function initiateChallenge(Fighter.PlayerLoadout calldata challengerLoadout, uint32 defenderId, uint256 wagerAmount)
         external
         payable
@@ -119,6 +239,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         nonReentrant
         returns (uint256)
     {
+        require(wagersEnabled || wagerAmount == 0, "Wagers are disabled");
         require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
         require(
             address(_getFighterContract(challengerLoadout.playerId)) == address(playerContract),
@@ -135,19 +256,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         IPlayer(playerContract).getPlayer(defenderId);
 
         // Calculate required msg.value based on wager
-        uint256 requiredAmount;
-        if (wagerAmount == 0) {
-            requiredAmount = minDuelFee;
-        } else {
+        uint256 requiredAmount = minDuelFee + wagerAmount;
+        if (wagerAmount > 0) {
             require(wagerAmount >= minWagerAmount, "Wager below minimum");
-            require(wagerAmount <= maxWagerAmount, "Wager exceeds maximum");
-            requiredAmount = wagerAmount;
         }
-
+        require(wagerAmount <= maxWagerAmount, "Wager exceeds maximum");
         require(msg.value == requiredAmount, "Incorrect ETH amount sent");
-
-        // Check for overflow when total wager is calculated
-        require(wagerAmount <= type(uint256).max / 2, "Wager would overflow");
 
         // Verify players are not retired
         require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
@@ -184,16 +298,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         return challengeId;
     }
 
-    function isChallengeActive(uint256 challengeId) public view returns (bool) {
-        DuelChallenge storage challenge = challenges[challengeId];
-        // Challenge is active if:
-        // 1. It has a valid challenger (non-zero challengerId means it exists)
-        // 2. It hasn't been fulfilled yet
-        // 3. It hasn't expired
-        return challenge.challengerId != 0 && !challenge.fulfilled
-            && block.number <= challenge.createdBlock + BLOCKS_UNTIL_EXPIRE;
-    }
-
+    /// @notice Accepts a duel challenge
+    /// @param challengeId ID of the challenge to accept
+    /// @param defenderLoadout Loadout for the defender
     function acceptChallenge(uint256 challengeId, Fighter.PlayerLoadout calldata defenderLoadout)
         external
         payable
@@ -238,6 +345,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit ChallengeAccepted(challengeId, defenderLoadout.playerId);
     }
 
+    /// @notice Cancels a duel challenge (challenger only)
+    /// @param challengeId ID of the challenge to cancel
     function cancelChallenge(uint256 challengeId) external nonReentrant {
         DuelChallenge storage challenge = challenges[challengeId];
 
@@ -255,31 +364,102 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         userChallenges[challenger][challengeId] = false;
         userChallenges[IPlayer(playerContract).getPlayerOwner(challenge.defenderId)][challengeId] = false;
 
-        // Always collect minDuelFee
-        totalFeesCollected += minDuelFee;
-
-        // Handle refund for wagered duels
-        if (challenge.wagerAmount > 0) {
-            uint256 refundAmount = challenge.wagerAmount - minDuelFee;
-            if (refundAmount > 0) {
-                SafeTransferLib.safeTransferETH(challenger, refundAmount);
-            }
-        }
+        // Refund the FULL amount (both wager and minDuelFee)
+        uint256 refundAmount = challenge.wagerAmount + minDuelFee;
+        SafeTransferLib.safeTransferETH(challenger, refundAmount);
 
         emit ChallengeCancelled(challengeId);
     }
 
-    function calculateFee(uint256 amount) public view returns (uint256) {
-        // If amount is 0 or below min wager, return minimum fee
-        if (amount < minWagerAmount) return minDuelFee;
-
-        // Calculate percentage fee (3% of amount)
-        uint256 percentageFee = (amount * wagerFeePercentage) / 10000;
-
-        // Return the larger of percentage fee or minimum fee
-        return percentageFee > minDuelFee ? percentageFee : minDuelFee;
+    //==============================================================//
+    //                     ADMIN FUNCTIONS                          //
+    //==============================================================//
+    /// @notice Sets the VRF operator address
+    /// @param newOperator The new operator address
+    function setOperator(address newOperator) external onlyOwner {
+        require(newOperator != address(0), "Invalid operator address");
+        _operatorAddress = newOperator;
     }
 
+    /// @notice Sets the minimum fee required for all duels
+    /// @param _minDuelFee The new minimum duel fee
+    function setMinDuelFee(uint256 _minDuelFee) external onlyOwner {
+        emit MinDuelFeeUpdated(minDuelFee, _minDuelFee);
+        minDuelFee = _minDuelFee;
+    }
+
+    /// @notice Sets the minimum wager amount
+    /// @param _minWagerAmount The new minimum wager amount
+    function setMinWagerAmount(uint256 _minWagerAmount) external onlyOwner {
+        emit MinWagerAmountUpdated(_minWagerAmount);
+        minWagerAmount = _minWagerAmount;
+    }
+
+    /// @notice Sets the wager fee percentage (in basis points)
+    /// @param _wagerFeePercentage The new wager fee percentage
+    function setWagerFeePercentage(uint256 _wagerFeePercentage) external onlyOwner {
+        require(_wagerFeePercentage <= 1000, "Fee cannot exceed 10%"); // Safety check
+        emit WagerFeePercentageUpdated(wagerFeePercentage, _wagerFeePercentage);
+        wagerFeePercentage = _wagerFeePercentage;
+    }
+
+    /// @notice Sets whether the game is enabled
+    /// @param enabled The new enabled state
+    function setGameEnabled(bool enabled) external onlyOwner {
+        emit GameEnabledUpdated(enabled);
+        isGameEnabled = enabled;
+    }
+
+    /// @notice Force closes abandoned challenges (admin only)
+    /// @param challengeId ID of the challenge to close
+    function forceCloseAbandonedChallenge(uint256 challengeId) external onlyOwner {
+        DuelChallenge storage challenge = challenges[challengeId];
+
+        // Verify challenge exists and is old enough
+        require(challenge.challengerId != 0, "Challenge does not exist");
+        require(!challenge.fulfilled, "Challenge already fulfilled");
+        require(block.number > challenge.createdBlock + BLOCKS_UNTIL_WITHDRAW, "Challenge not old enough");
+
+        // Mark as fulfilled to prevent further actions
+        challenge.fulfilled = true;
+
+        // Clear challenge tracking for both users
+        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
+        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
+        userChallenges[challenger][challengeId] = false;
+        userChallenges[defender][challengeId] = false;
+
+        // Add entire amount to collected fees (wager + minDuelFee)
+        totalFeesCollected += challenge.wagerAmount + minDuelFee;
+
+        emit ChallengeForfeited(challengeId, challenge.wagerAmount + minDuelFee);
+    }
+
+    /// @notice Withdraws accumulated fees (owner only)
+    function withdrawFees() external onlyOwner nonReentrant {
+        uint256 amount = totalFeesCollected;
+        require(amount > 0, "No fees to withdraw");
+
+        totalFeesCollected = 0;
+
+        SafeTransferLib.safeTransferETH(owner, amount);
+
+        emit FeesWithdrawn(amount);
+    }
+
+    /// @notice Sets whether wagers are enabled
+    /// @param enabled The new wager enabled state
+    function setWagersEnabled(bool enabled) external onlyOwner {
+        wagersEnabled = enabled;
+        emit WagersEnabledUpdated(enabled);
+    }
+
+    //==============================================================//
+    //                    INTERNAL FUNCTIONS                        //
+    //==============================================================//
+    /// @notice Processes VRF randomness fulfillment
+    /// @param randomness The random value from VRF
+    /// @param requestId ID of the VRF request
     function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory /* extraData */ )
         internal
         override
@@ -361,18 +541,21 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         );
 
         uint256 winnerPayout = 0;
+        totalFeesCollected += minDuelFee;
         if (challenge.wagerAmount > 0) {
-            // Calculate winner's prize (total wager minus fee)
+            // Calculate winner's prize (total wager minus percentage fee)
             uint256 totalWager = challenge.wagerAmount * 2;
-            uint256 fee = calculateFee(totalWager);
-            totalFeesCollected += fee;
-            winnerPayout = totalWager - fee;
+            uint256 percentageFee = calculateFee(totalWager);
+
+            // Add percentage fee to totalFeesCollected
+            totalFeesCollected += percentageFee;
+
+            // Winner gets total wager minus percentage fee only
+            winnerPayout = totalWager - percentageFee;
 
             // Get winner's address and transfer prize
             address winner = IPlayer(playerContract).getPlayerOwner(winnerId);
             SafeTransferLib.safeTransferETH(winner, winnerPayout);
-        } else {
-            totalFeesCollected += minDuelFee;
         }
 
         // Clear challenge tracking for both users
@@ -389,71 +572,26 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit DuelComplete(challengeId, winnerId, combinedSeed, winnerPayout);
     }
 
-    function getUserActiveChallenges(address user) external view returns (uint256[] memory) {
-        // First count active challenges
-        uint256 count = 0;
-        for (uint256 i = 0; i < nextChallengeId; i++) {
-            if (userChallenges[user][i] && isChallengeActive(i)) {
-                count++;
-            }
-        }
-
-        // Create array and populate
-        uint256[] memory activeChallenges = new uint256[](count);
-        uint256 index = 0;
-        for (uint256 i = 0; i < nextChallengeId; i++) {
-            if (userChallenges[user][i] && isChallengeActive(i)) {
-                activeChallenges[index++] = i;
-            }
-        }
-
-        return activeChallenges;
-    }
-
-    function forceCloseAbandonedChallenge(uint256 challengeId) external onlyOwner {
-        DuelChallenge storage challenge = challenges[challengeId];
-
-        // Verify challenge exists and is old enough
-        require(challenge.challengerId != 0, "Challenge does not exist");
-        require(!challenge.fulfilled, "Challenge already fulfilled");
-        require(block.number > challenge.createdBlock + BLOCKS_UNTIL_WITHDRAW, "Challenge not old enough");
-
-        // Mark as fulfilled to prevent further actions
-        challenge.fulfilled = true;
-
-        // Clear challenge tracking for both users
-        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
-        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
-        userChallenges[challenger][challengeId] = false;
-        userChallenges[defender][challengeId] = false;
-
-        // Add entire amount to collected fees
-        totalFeesCollected += challenge.wagerAmount;
-
-        emit ChallengeForfeited(challengeId, challenge.wagerAmount);
-    }
-
-    function withdrawFees() external onlyOwner nonReentrant {
-        uint256 amount = totalFeesCollected;
-        require(amount > 0, "No fees to withdraw");
-
-        totalFeesCollected = 0;
-
-        SafeTransferLib.safeTransferETH(owner, amount);
-
-        emit FeesWithdrawn(amount);
-    }
-
+    /// @notice Checks if a player ID is supported in Duel mode
+    /// @param playerId The ID to check
+    /// @return True if player ID is supported
     function _isPlayerIdSupported(uint32 playerId) internal pure override returns (bool) {
         // Only regular players are supported in Duel mode
         return playerId > MONSTER_END;
     }
 
+    /// @notice Gets the fighter contract for a player ID
+    /// @param playerId The ID to check
+    /// @return Fighter contract implementation
     function _getFighterContract(uint32 playerId) internal view override returns (Fighter) {
         require(_isPlayerIdSupported(playerId), "Unsupported player ID for Duel mode");
         return Fighter(address(playerContract));
     }
 
+    //==============================================================//
+    //                    FALLBACK FUNCTIONS                        //
+    //==============================================================//
+    /// @notice Allows contract to receive ETH
     receive() external payable {
         totalFeesCollected += msg.value;
     }

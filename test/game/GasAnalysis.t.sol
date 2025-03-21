@@ -43,8 +43,9 @@ contract GasAnalysisTest is TestBase {
             // Create and accept a challenge
             vm.startPrank(PLAYER_ONE);
             uint256 wagerAmount = 1 ether;
-            uint256 challengeId =
-                game.initiateChallenge{value: wagerAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+            uint256 challengeId = game.initiateChallenge{value: wagerAmount + game.minDuelFee()}(
+                _createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount
+            );
             vm.stopPrank();
 
             vm.startPrank(PLAYER_TWO);

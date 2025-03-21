@@ -73,9 +73,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
 
-        // Calculate fee based on wager amount
-        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 totalAmount = wagerAmount;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -102,8 +100,8 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
 
         // Calculate fee based on wager amount
-        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 totalAmount = wagerAmount;
+        uint256 fee = (((wagerAmount * 2) * game.wagerFeePercentage()) / 10000) + game.minDuelFee();
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -153,16 +151,16 @@ contract DuelGameTest is TestBase {
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
 
-        assertTrue(game.totalFeesCollected() > 0, "Fees should be collected");
+        console2.log("totalFeesCollected", game.totalFeesCollected());
+        console2.log("fee", fee);
+        assertTrue(game.totalFeesCollected() == fee, "Fees should be collected");
     }
 
     function testCancelExpiredChallenge() public {
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
 
-        // Calculate fee based on wager amount
-        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 totalAmount = wagerAmount;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -178,8 +176,19 @@ contract DuelGameTest is TestBase {
         // Warp to after expiry
         vm.roll(block.number + game.BLOCKS_UNTIL_EXPIRE() + 1);
 
+        // Record balance before cancellation
+        uint256 balanceBefore = address(PLAYER_ONE).balance;
+
         // Cancel the challenge
         game.cancelChallenge(challengeId);
+
+        // Record balance after cancellation
+        uint256 balanceAfter = address(PLAYER_ONE).balance;
+
+        // Expect FULL refund (wager + fee)
+        uint256 expectedRefund = wagerAmount + game.minDuelFee();
+
+        assertEq(balanceAfter - balanceBefore, expectedRefund, "Should refund full amount (wager + fee)");
 
         // Verify challenge state
         (,,,,,, bool fulfilled) = game.challenges(challengeId);
@@ -193,8 +202,8 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
 
         // Calculate fee based on wager amount
-        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 totalAmount = wagerAmount;
+        uint256 fee = (((wagerAmount * 2) * game.wagerFeePercentage()) / 10000) + game.minDuelFee();
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -244,7 +253,7 @@ contract DuelGameTest is TestBase {
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
 
-        assertTrue(game.totalFeesCollected() > 0, "Fees should be collected");
+        assertTrue(game.totalFeesCollected() == fee, "Fees should be collected");
     }
 
     function testForceCloseAbandonedChallenge() public {
@@ -252,8 +261,8 @@ contract DuelGameTest is TestBase {
         uint256 wagerAmount = 1 ether;
 
         // Calculate fee based on wager amount
-        uint256 fee = (wagerAmount * game.wagerFeePercentage()) / 10000;
-        uint256 totalAmount = wagerAmount;
+        uint256 fee = wagerAmount + game.minDuelFee();
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
 
         // Give enough ETH to cover wager + fee
         vm.deal(PLAYER_ONE, totalAmount);
@@ -279,6 +288,7 @@ contract DuelGameTest is TestBase {
         (,,,,,, bool fulfilled) = game.challenges(challengeId);
         assertTrue(fulfilled);
         assertFalse(game.userChallenges(challenger, challengeId));
+        assertTrue(game.totalFeesCollected() == fee, "Fees should be collected");
     }
 
     function test_RevertWhen_InsufficientFunds() public {
@@ -316,10 +326,11 @@ contract DuelGameTest is TestBase {
         // First create a valid challenge
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        vm.deal(PLAYER_ONE, wagerAmount);
+        vm.deal(PLAYER_ONE, wagerAmount + game.minDuelFee());
 
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
-        uint256 challengeId = game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: wagerAmount + game.minDuelFee()}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         // Try to accept with wrong defender
@@ -378,10 +389,14 @@ contract DuelGameTest is TestBase {
         // First complete a duel to collect some fees
         vm.startPrank(PLAYER_ONE);
         uint256 wagerAmount = 1 ether;
-        vm.deal(PLAYER_ONE, wagerAmount);
 
+        // Calculate fee based on wager amount
+        uint256 fee = (((wagerAmount * 2) * game.wagerFeePercentage()) / 10000) + game.minDuelFee();
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+
+        vm.deal(PLAYER_ONE, wagerAmount + game.minDuelFee());
         uint256 challengeId =
-            game.initiateChallenge{value: wagerAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
 
         vm.deal(PLAYER_TWO, wagerAmount);
@@ -398,7 +413,7 @@ contract DuelGameTest is TestBase {
 
         // Verify fees were collected
         uint256 collectedFees = game.totalFeesCollected();
-        assertTrue(collectedFees > 0, "Fees should be collected");
+        assertTrue(collectedFees == fee, "Fees should be collected");
 
         // Store initial balances
         uint256 initialContractBalance = address(game).balance;
@@ -419,6 +434,94 @@ contract DuelGameTest is TestBase {
         assertEq(
             address(game.owner()).balance, initialOwnerBalance + collectedFees, "Owner should receive collected fees"
         );
+    }
+
+    function testCancelZeroWagerChallenge() public {
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 0; // Zero wager
+
+        uint256 totalAmount = wagerAmount + game.minDuelFee(); // Just the minDuelFee
+
+        // Give enough ETH to cover just the fee
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        // Get challenger's address
+        address challenger = playerContract.getPlayerOwner(PLAYER_ONE_ID);
+        require(challenger == PLAYER_ONE, "Player one should own their player");
+
+        // Create a challenge with zero wager
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+
+        // Record balance before cancellation
+        uint256 balanceBefore = address(PLAYER_ONE).balance;
+
+        // Cancel the challenge
+        game.cancelChallenge(challengeId);
+
+        // Record balance after cancellation
+        uint256 balanceAfter = address(PLAYER_ONE).balance;
+
+        // Expect FULL refund of minDuelFee (since wager is 0)
+        uint256 expectedRefund = game.minDuelFee();
+
+        assertEq(balanceAfter - balanceBefore, expectedRefund, "Should refund minDuelFee for zero-wager challenge");
+
+        // Verify challenge state
+        (,,,,,, bool fulfilled) = game.challenges(challengeId);
+        assertTrue(fulfilled);
+        assertFalse(game.userChallenges(challenger, challengeId));
+        vm.stopPrank();
+    }
+
+    function testWagerToggle() public {
+        // Verify wagers start enabled
+        assertTrue(game.wagersEnabled(), "Wagers should start enabled");
+
+        // Verify non-owner can't toggle wager setting
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("UNAUTHORIZED");
+        game.setWagersEnabled(false);
+
+        // Owner can disable wagers
+        vm.startPrank(game.owner());
+        game.setWagersEnabled(false);
+        assertFalse(game.wagersEnabled(), "Wagers should be disabled");
+        vm.stopPrank();
+
+        // Test with wagers disabled - creating challenge with wager should fail
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+
+        // Give enough ETH to cover wager + fee
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        // Try to create a challenge with wager - should fail
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+        vm.expectRevert("Wagers are disabled");
+        game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+
+        // But creating a zero-wager challenge should still work
+        uint256 challengeId = game.initiateChallenge{value: game.minDuelFee()}(loadout, PLAYER_TWO_ID, 0);
+        assertEq(challengeId, 0, "Zero-wager challenge should be created");
+        vm.stopPrank();
+
+        // Owner can re-enable wagers
+        vm.startPrank(game.owner());
+        game.setWagersEnabled(true);
+        assertTrue(game.wagersEnabled(), "Wagers should be re-enabled");
+        vm.stopPrank();
+
+        // After re-enabling, creating challenge with wager should work again
+        vm.startPrank(PLAYER_ONE);
+        // Cancel previous challenge to keep test clean
+        game.cancelChallenge(0);
+
+        // Create new challenge with wager
+        uint256 newChallengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
+        assertEq(newChallengeId, 1, "Wager challenge should be created after re-enabling");
+        vm.stopPrank();
     }
 
     receive() external payable {}
