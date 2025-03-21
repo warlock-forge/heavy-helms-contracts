@@ -573,14 +573,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Check if a player ID is valid
     /// @param playerId The ID to check
     /// @return bool True if the ID is within valid user player range
-    function isValidId(uint32 playerId) public pure override returns (bool) {
+    function isValidId(uint32 playerId) public pure override(Fighter, IPlayer) returns (bool) {
         return playerId >= USER_PLAYER_START && playerId <= USER_PLAYER_END;
     }
 
     /// @notice Get the current skin information for a player
     /// @param playerId The ID of the player
     /// @return The player's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) public view override returns (SkinInfo memory) {
+    function getCurrentSkin(uint32 playerId) public view override(Fighter, IPlayer) returns (SkinInfo memory) {
         PlayerStats memory stats = _players[playerId];
         return stats.skin;
     }

@@ -110,14 +110,14 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     /// @notice Check if a default player ID is valid
     /// @param playerId The ID to check
     /// @return bool True if the ID is within valid default player range
-    function isValidId(uint32 playerId) public pure override returns (bool) {
+    function isValidId(uint32 playerId) public pure override(IDefaultPlayer, Fighter) returns (bool) {
         return playerId >= DEFAULT_PLAYER_START && playerId <= DEFAULT_PLAYER_END;
     }
 
     /// @notice Get the current skin information for a default player
     /// @param playerId The ID of the default player
     /// @return The default player's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) public view override returns (SkinInfo memory) {
+    function getCurrentSkin(uint32 playerId) public view override(IDefaultPlayer, Fighter) returns (SkinInfo memory) {
         IPlayer.PlayerStats memory stats = _defaultPlayers[playerId];
         return stats.skin;
     }
@@ -133,6 +133,12 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         returns (IPlayer.PlayerStats memory)
     {
         return _defaultPlayers[playerId];
+    }
+
+    /// @notice Gets the skin registry contract reference
+    /// @return The PlayerSkinRegistry contract instance
+    function skinRegistry() public view override(Fighter, IDefaultPlayer) returns (IPlayerSkinRegistry) {
+        return super.skinRegistry();
     }
 
     // State-Changing Functions

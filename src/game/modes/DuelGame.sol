@@ -73,13 +73,10 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         _;
     }
 
-    constructor(
-        address _gameEngine,
-        address _playerContract,
-        address _defaultPlayerContract,
-        address _monsterContract,
-        address operator
-    ) BaseGame(_gameEngine, _playerContract, _defaultPlayerContract, _monsterContract) GelatoVRFConsumerBase() {
+    constructor(address _gameEngine, address _playerContract, address operator)
+        BaseGame(_gameEngine, _playerContract)
+        GelatoVRFConsumerBase()
+    {
         require(operator != address(0), "Invalid operator address");
         _operatorAddress = operator;
     }
@@ -445,6 +442,16 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         SafeTransferLib.safeTransferETH(owner, amount);
 
         emit FeesWithdrawn(amount);
+    }
+
+    function _isPlayerIdSupported(uint32 playerId) internal pure override returns (bool) {
+        // Only regular players are supported in Duel mode
+        return playerId > MONSTER_END;
+    }
+
+    function _getFighterContract(uint32 playerId) internal view override returns (Fighter) {
+        require(_isPlayerIdSupported(playerId), "Unsupported player ID for Duel mode");
+        return Fighter(address(playerContract));
     }
 
     receive() external payable {

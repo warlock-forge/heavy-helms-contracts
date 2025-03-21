@@ -19,13 +19,7 @@ contract GasAnalysisTest is TestBase {
         super.setUp();
 
         // Deploy contracts
-        game = new DuelGame(
-            address(gameEngine),
-            address(playerContract),
-            address(defaultPlayerContract),
-            address(monsterContract),
-            operator
-        );
+        game = new DuelGame(address(gameEngine), address(playerContract), operator);
 
         // Set permissions
         IPlayer.GamePermissions memory perms =

@@ -7,6 +7,7 @@ pragma solidity ^0.8.13;
 import "../../fighters/Fighter.sol";
 import "../fighters/IPlayer.sol";
 import "./registries/names/IPlayerNameRegistry.sol";
+import "./registries/skins/IPlayerSkinRegistry.sol";
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -23,10 +24,24 @@ interface IDefaultPlayer {
     /// @return The PlayerNameRegistry contract instance
     function nameRegistry() external view returns (IPlayerNameRegistry);
 
+    /// @notice Gets the skin registry contract reference
+    /// @return The PlayerSkinRegistry contract instance
+    function skinRegistry() external view returns (IPlayerSkinRegistry);
+
     /// @notice Get the complete stats for a default player
     /// @param playerId The ID of the default player to query
     /// @return PlayerStats struct containing all player data
     function getDefaultPlayer(uint32 playerId) external view returns (IPlayer.PlayerStats memory);
+
+    /// @notice Check if a default player ID is valid
+    /// @param playerId The ID to check
+    /// @return bool True if the ID is within valid default player range
+    function isValidId(uint32 playerId) external pure returns (bool);
+
+    /// @notice Get the current skin information for a default player
+    /// @param playerId The ID of the default player
+    /// @return The default player's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 playerId) external view returns (Fighter.SkinInfo memory);
 
     //==============================================================//
     //                 STATE-CHANGING FUNCTIONS                     //

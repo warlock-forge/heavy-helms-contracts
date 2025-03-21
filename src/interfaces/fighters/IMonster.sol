@@ -66,6 +66,10 @@ interface IMonster {
     /// @return The MonsterNameRegistry contract instance
     function nameRegistry() external view returns (IMonsterNameRegistry);
 
+    /// @notice Gets the skin registry contract reference
+    /// @return The PlayerSkinRegistry contract instance
+    function skinRegistry() external view returns (IPlayerSkinRegistry);
+
     /// @notice Gets the complete stats for a monster
     /// @param monsterId The ID of the monster to query
     /// @return The monster's complete stats and attributes

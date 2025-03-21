@@ -193,6 +193,12 @@ contract Monster is IMonster, Owned, Fighter {
         return _gameContractPermissions[gameContract];
     }
 
+    /// @notice Gets the skin registry contract reference
+    /// @return The PlayerSkinRegistry contract instance
+    function skinRegistry() public view override(Fighter, IMonster) returns (IPlayerSkinRegistry) {
+        return super.skinRegistry();
+    }
+
     // State-Changing Functions
     /// @notice Creates a new monster with specified stats
     /// @param stats The stats for the new monster

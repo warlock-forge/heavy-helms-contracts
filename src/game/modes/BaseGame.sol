@@ -3,8 +3,7 @@ pragma solidity ^0.8.13;
 
 import "../../interfaces/game/engine/IGameEngine.sol";
 import "../../interfaces/fighters/IPlayer.sol";
-import "../../interfaces/fighters/IDefaultPlayer.sol";
-import "../../interfaces/fighters/IMonster.sol";
+import "../../fighters/Fighter.sol";
 import "solmate/src/auth/Owned.sol";
 
 error ZeroAddress();
@@ -15,28 +14,22 @@ error ZeroAddress();
 abstract contract BaseGame is Owned {
     IGameEngine public gameEngine;
     IPlayer public playerContract;
-    IDefaultPlayer public defaultPlayerContract;
-    IMonster public monsterContract;
+
+    // Fighter ID ranges - defined here to avoid duplicate code and reduce gas costs
+    // These should match the ranges defined in the respective fighter contracts
+    uint32 internal constant DEFAULT_PLAYER_END = 2000;
+    uint32 internal constant MONSTER_END = 10000;
 
     event GameEngineUpdated(address indexed oldEngine, address indexed newEngine);
     event PlayerContractUpdated(address indexed oldContract, address indexed newContract);
-    event DefaultPlayerContractUpdated(address indexed oldContract, address indexed newContract);
-    event MonsterContractUpdated(address indexed oldContract, address indexed newContract);
     event CombatResult(
         bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 indexed winningPlayerId, bytes packedResults
     );
 
-    constructor(address _gameEngine, address _playerContract, address _defaultPlayerContract, address _monsterContract)
-        Owned(msg.sender)
-    {
-        if (
-            _gameEngine == address(0) || _playerContract == address(0) || _defaultPlayerContract == address(0)
-                || _monsterContract == address(0)
-        ) revert ZeroAddress();
+    constructor(address _gameEngine, address _playerContract) Owned(msg.sender) {
+        if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);
-        defaultPlayerContract = IDefaultPlayer(_defaultPlayerContract);
-        monsterContract = IMonster(_monsterContract);
     }
 
     function setGameEngine(address _newEngine) external onlyOwner {
@@ -53,30 +46,23 @@ abstract contract BaseGame is Owned {
         emit PlayerContractUpdated(oldContract, _newContract);
     }
 
-    function setDefaultPlayerContract(address _newContract) external onlyOwner {
-        if (_newContract == address(0)) revert ZeroAddress();
-        address oldContract = address(defaultPlayerContract);
-        defaultPlayerContract = IDefaultPlayer(_newContract);
-        emit DefaultPlayerContractUpdated(oldContract, _newContract);
+    function _getFighterType(uint32 playerId) internal pure returns (Fighter.FighterType) {
+        if (playerId <= DEFAULT_PLAYER_END) {
+            return Fighter.FighterType.DEFAULT_PLAYER;
+        } else if (playerId <= MONSTER_END) {
+            return Fighter.FighterType.MONSTER;
+        } else {
+            return Fighter.FighterType.PLAYER;
+        }
     }
 
-    function setMonsterContract(address _newContract) external onlyOwner {
-        if (_newContract == address(0)) revert ZeroAddress();
-        address oldContract = address(monsterContract);
-        monsterContract = IMonster(_newContract);
-        emit MonsterContractUpdated(oldContract, _newContract);
-    }
+    /// @notice Returns whether a given player ID is supported in this game mode
+    /// @param playerId The ID to check
+    /// @return True if the player ID is supported, false otherwise
+    function _isPlayerIdSupported(uint32 playerId) internal view virtual returns (bool);
 
     /// @notice Returns the appropriate Fighter contract for a given player ID
     /// @param playerId The ID to check
     /// @return The Fighter contract implementation for this ID
-    function _getFighterContract(uint32 playerId) internal view returns (Fighter) {
-        if (playerId <= 2000) {
-            return Fighter(address(defaultPlayerContract));
-        } else if (playerId <= 10000) {
-            return Fighter(address(monsterContract));
-        } else {
-            return Fighter(address(playerContract));
-        }
-    }
+    function _getFighterContract(uint32 playerId) internal view virtual returns (Fighter);
 }

@@ -150,6 +150,16 @@ interface IPlayer {
     /// @return The EquipmentRequirements contract instance
     function equipmentRequirements() external view returns (IEquipmentRequirements);
 
+    /// @notice Check if a player ID is valid
+    /// @param playerId The ID to check
+    /// @return bool True if the ID is within valid player range
+    function isValidId(uint32 playerId) external pure returns (bool);
+
+    /// @notice Get the current skin information for a player
+    /// @param playerId The ID of the player
+    /// @return The player's equipped skin information (index and token ID)
+    function getCurrentSkin(uint32 playerId) external view returns (Fighter.SkinInfo memory);
+
     // Pure Functions
     /// @notice Encodes player data into a compact bytes32 format
     /// @param playerId The ID of the player to encode

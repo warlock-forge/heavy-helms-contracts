@@ -42,13 +42,7 @@ contract DuelGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        game = new DuelGame(
-            address(gameEngine),
-            address(playerContract),
-            address(defaultPlayerContract),
-            address(monsterContract),
-            operator
-        );
+        game = new DuelGame(address(gameEngine), address(playerContract), operator);
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms =
@@ -306,7 +300,7 @@ contract DuelGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout =
             Fighter.PlayerLoadout({playerId: 999, skin: Fighter.SkinInfo({skinIndex: 1, skinTokenId: 1})});
 
-        vm.expectRevert("Challenger must be a Player");
+        vm.expectRevert("Unsupported player ID for Duel mode");
         game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         vm.stopPrank();
     }
