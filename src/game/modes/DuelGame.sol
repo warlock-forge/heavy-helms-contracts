@@ -16,10 +16,10 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
 
     // Constants
-    uint256 public wagerFeePercentage = 300; // 3% fee (basis points)
+    uint256 public wagerFeePercentage = 200; // 3% fee (basis points)
     uint256 public minWagerAmount = 0.001 ether;
     uint256 public maxWagerAmount = 100 ether; // Add reasonable max wager
-    uint256 public minDuelFee = 0.0005 ether;
+    uint256 public minDuelFee = 0.0002 ether;
     uint256 public constant BLOCKS_UNTIL_EXPIRE = 43200; // ~24 hours at 2s blocks
     uint256 public constant BLOCKS_UNTIL_WITHDRAW = 1296000; // ~30 days at 2s blocks
 
