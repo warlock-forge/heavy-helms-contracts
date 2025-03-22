@@ -86,11 +86,12 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
 
         assertEq(challengeId, 0);
-        (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,, bool fulfilled) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,, DuelGame.ChallengeState state) =
+            game.challenges(challengeId);
         assertEq(challengerId, PLAYER_ONE_ID);
         assertEq(defenderId, PLAYER_TWO_ID);
         assertEq(storedWager, wagerAmount);
-        assertFalse(fulfilled);
+        assertTrue(state == DuelGame.ChallengeState.OPEN);
         vm.stopPrank();
     }
 
@@ -174,7 +175,7 @@ contract DuelGameTest is TestBase {
             game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
         // Warp to after expiry
-        vm.roll(block.number + game.BLOCKS_UNTIL_EXPIRE() + 1);
+        vm.roll(block.number + game.blocksUntilExpire() + 1);
 
         // Record balance before cancellation
         uint256 balanceBefore = address(PLAYER_ONE).balance;
@@ -191,8 +192,8 @@ contract DuelGameTest is TestBase {
         assertEq(balanceAfter - balanceBefore, expectedRefund, "Should refund full amount (wager + fee)");
 
         // Verify challenge state
-        (,,,,,, bool fulfilled) = game.challenges(challengeId);
-        assertTrue(fulfilled);
+        (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        assertTrue(state == DuelGame.ChallengeState.COMPLETED);
         assertFalse(game.userChallenges(challenger, challengeId));
         vm.stopPrank();
     }
@@ -276,7 +277,7 @@ contract DuelGameTest is TestBase {
             game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
         // Warp to after withdrawal period
-        vm.roll(block.number + game.BLOCKS_UNTIL_WITHDRAW() + 1);
+        vm.roll(block.number + game.blocksUntilWithdraw() + 1);
 
         // Force close the challenge as owner
         vm.stopPrank();
@@ -285,8 +286,8 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Verify challenge state
-        (,,,,,, bool fulfilled) = game.challenges(challengeId);
-        assertTrue(fulfilled);
+        (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        assertTrue(state == DuelGame.ChallengeState.COMPLETED);
         assertFalse(game.userChallenges(challenger, challengeId));
         assertTrue(game.totalFeesCollected() == fee, "Fees should be collected");
     }
@@ -419,9 +420,6 @@ contract DuelGameTest is TestBase {
         uint256 initialContractBalance = address(game).balance;
         uint256 initialOwnerBalance = address(game.owner()).balance;
 
-        // Deal enough ETH to the contract to cover the fees
-        vm.deal(address(game), collectedFees);
-
         // Withdraw fees as owner
         vm.prank(game.owner());
         game.withdrawFees();
@@ -468,8 +466,8 @@ contract DuelGameTest is TestBase {
         assertEq(balanceAfter - balanceBefore, expectedRefund, "Should refund minDuelFee for zero-wager challenge");
 
         // Verify challenge state
-        (,,,,,, bool fulfilled) = game.challenges(challengeId);
-        assertTrue(fulfilled);
+        (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        assertTrue(state == DuelGame.ChallengeState.COMPLETED);
         assertFalse(game.userChallenges(challenger, challengeId));
         vm.stopPrank();
     }

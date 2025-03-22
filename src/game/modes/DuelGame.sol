@@ -7,7 +7,6 @@ pragma solidity ^0.8.13;
 import "./BaseGame.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
-import "solmate/src/tokens/ERC721.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
@@ -35,15 +34,20 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Minimum fee required for all duels (even zero-wager duels)
     uint256 public minDuelFee = 0.0002 ether;
     /// @notice Number of blocks after which a challenge expires
-    uint256 public constant BLOCKS_UNTIL_EXPIRE = 302400; // ~7 days at 2s blocks
+    uint256 public blocksUntilExpire = 302400; // ~7 days at 2s blocks
     /// @notice Number of blocks after which abandoned challenges can be withdrawn
-    uint256 public constant BLOCKS_UNTIL_WITHDRAW = 1296000; // ~30 days at 2s blocks
-
-    /// @notice Round ID constant for VRF requests
-    uint256 private constant ROUND_ID = 1;
-
+    uint256 public blocksUntilWithdraw = 1296000; // ~30 days at 2s blocks
     /// @notice Address of the Gelato VRF operator
     address private _operatorAddress;
+
+    // Enum
+    /// @notice Enum representing the state of a duel challenge
+    enum ChallengeState {
+        OPEN, // Challenge created but not yet accepted
+        PENDING, // Challenge accepted and awaiting VRF result
+        COMPLETED // Challenge completed (fulfilled or cancelled)
+
+    }
 
     // Structs
     /// @notice Structure storing a duel challenge data
@@ -53,7 +57,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param createdBlock Block number when challenge was created
     /// @param challengerLoadout Loadout of the challenger player
     /// @param defenderLoadout Loadout of the defender player
-    /// @param fulfilled Whether the challenge has been fulfilled
+    /// @param state State of the challenge
     struct DuelChallenge {
         uint32 challengerId;
         uint32 defenderId;
@@ -61,7 +65,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 createdBlock;
         Fighter.PlayerLoadout challengerLoadout;
         Fighter.PlayerLoadout defenderLoadout;
-        bool fulfilled;
+        ChallengeState state;
     }
 
     // State variables
@@ -73,8 +77,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     mapping(uint256 => DuelChallenge) public challenges;
     /// @notice Maps VRF request IDs to challenge IDs
     mapping(uint256 => uint256) public requestToChallengeId;
-    /// @notice Tracks if a challenge has a pending VRF request
-    mapping(uint256 => bool) public hasPendingRequest;
     /// @notice Tracks challenges per user address
     mapping(address => mapping(uint256 => bool)) public userChallenges;
 
@@ -98,8 +100,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event ChallengeAccepted(uint256 indexed challengeId, uint32 defenderId);
     /// @notice Emitted when a challenge is cancelled
     event ChallengeCancelled(uint256 indexed challengeId);
-    /// @notice Emitted when a challenge expires
-    event ChallengeExpired(uint256 indexed challengeId);
     /// @notice Emitted when a challenge is forfeited
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
     /// @notice Emitted when a duel is completed
@@ -116,6 +116,10 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event WagerFeePercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
     /// @notice Emitted when wager functionality is enabled or disabled
     event WagersEnabledUpdated(bool enabled);
+    /// @notice Emitted when blocks until expire is updated
+    event BlocksUntilExpireUpdated(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when blocks until withdraw is updated
+    event BlocksUntilWithdrawUpdated(uint256 oldValue, uint256 newValue);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -150,17 +154,38 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         return _operatorAddress;
     }
 
-    /// @notice Checks if a challenge is active
+    /// @notice Checks if a challenge exists and is in OPEN state (not expired)
     /// @param challengeId ID of the challenge to check
-    /// @return isActive True if challenge is active
+    /// @return isActive True if challenge exists, is in OPEN state, and not expired
     function isChallengeActive(uint256 challengeId) public view returns (bool) {
         DuelChallenge storage challenge = challenges[challengeId];
-        // Challenge is active if:
-        // 1. It has a valid challenger (non-zero challengerId means it exists)
-        // 2. It hasn't been fulfilled yet
-        // 3. It hasn't expired
-        return challenge.challengerId != 0 && !challenge.fulfilled
-            && block.number <= challenge.createdBlock + BLOCKS_UNTIL_EXPIRE;
+        return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN
+            && block.number <= challenge.createdBlock + blocksUntilExpire;
+    }
+
+    /// @notice Checks if a challenge exists and is in PENDING state
+    /// @param challengeId ID of the challenge to check
+    /// @return isPending True if challenge exists and is in PENDING state
+    function isChallengePending(uint256 challengeId) public view returns (bool) {
+        DuelChallenge storage challenge = challenges[challengeId];
+        return challenge.challengerId != 0 && challenge.state == ChallengeState.PENDING;
+    }
+
+    /// @notice Checks if a challenge exists and is in COMPLETED state
+    /// @param challengeId ID of the challenge to check
+    /// @return isCompleted True if challenge exists and is in COMPLETED state
+    function isChallengeCompleted(uint256 challengeId) public view returns (bool) {
+        DuelChallenge storage challenge = challenges[challengeId];
+        return challenge.challengerId != 0 && challenge.state == ChallengeState.COMPLETED;
+    }
+
+    /// @notice Checks if a challenge is expired but still in OPEN state
+    /// @param challengeId ID of the challenge to check
+    /// @return isExpired True if challenge exists and is in OPEN state but expired
+    function isChallengeExpired(uint256 challengeId) public view returns (bool) {
+        DuelChallenge storage challenge = challenges[challengeId];
+        return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN
+            && block.number > challenge.createdBlock + blocksUntilExpire;
     }
 
     /// @notice Calculates fee based on wager amount
@@ -170,61 +195,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // If amount is 0 or below min wager, return minimum fee
         if (amount < minWagerAmount) return minDuelFee;
 
-        // Calculate percentage fee (3% of amount)
+        // Always apply percentage fee plus minimum fee
         uint256 percentageFee = (amount * wagerFeePercentage) / 10000;
-
-        // Return the larger of percentage fee or minimum fee
-        return percentageFee > minDuelFee ? percentageFee : minDuelFee;
-    }
-
-    /// @notice Gets all active challenges for a user
-    /// @param user Address of the user
-    /// @return Array of active challenge IDs
-    function getUserActiveChallenges(address user) external view returns (uint256[] memory) {
-        // First count active challenges
-        uint256 count = 0;
-        for (uint256 i = 0; i < nextChallengeId; i++) {
-            if (userChallenges[user][i] && isChallengeActive(i)) {
-                count++;
-            }
-        }
-
-        // Create array and populate
-        uint256[] memory activeChallenges = new uint256[](count);
-        uint256 index = 0;
-        for (uint256 i = 0; i < nextChallengeId; i++) {
-            if (userChallenges[user][i] && isChallengeActive(i)) {
-                activeChallenges[index++] = i;
-            }
-        }
-
-        return activeChallenges;
-    }
-
-    /// @notice Gets all active challenges for a specific player ID
-    /// @param playerId The player ID to check
-    /// @return Array of active challenge IDs involving this player
-    function getPlayerActiveChallenges(uint32 playerId) external view returns (uint256[] memory) {
-        // First count active challenges
-        uint256 count = 0;
-        for (uint256 i = 0; i < nextChallengeId; i++) {
-            DuelChallenge storage challenge = challenges[i];
-            if (isChallengeActive(i) && (challenge.challengerId == playerId || challenge.defenderId == playerId)) {
-                count++;
-            }
-        }
-
-        // Create array and populate
-        uint256[] memory activeChallenges = new uint256[](count);
-        uint256 index = 0;
-        for (uint256 i = 0; i < nextChallengeId; i++) {
-            DuelChallenge storage challenge = challenges[i];
-            if (isChallengeActive(i) && (challenge.challengerId == playerId || challenge.defenderId == playerId)) {
-                activeChallenges[index++] = i;
-            }
-        }
-
-        return activeChallenges;
+        return percentageFee + minDuelFee;
     }
 
     /// @notice Creates a new duel challenge
@@ -285,7 +258,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             createdBlock: block.number,
             challengerLoadout: challengerLoadout,
             defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0)),
-            fulfilled: false
+            state: ChallengeState.OPEN
         });
 
         // Track challenge for challenger
@@ -310,7 +283,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Validate challenge state
         require(isChallengeActive(challengeId), "Challenge not active");
-        require(!hasPendingRequest[challengeId], "Challenge has pending request");
         require(msg.value == challenge.wagerAmount, "Incorrect wager amount");
 
         // Check player existence by calling getPlayer (will revert if player doesn't exist)
@@ -328,10 +300,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Store defender loadout
         challenge.defenderLoadout = defenderLoadout;
 
+        // Update state to PENDING
+        challenge.state = ChallengeState.PENDING;
+
         // Request VRF for true randomness
         uint256 requestId = _requestRandomness("");
         requestToChallengeId[requestId] = challengeId;
-        hasPendingRequest[challengeId] = true;
 
         // Validate ownership and requirements
         address owner = IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId);
@@ -350,15 +324,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function cancelChallenge(uint256 challengeId) external nonReentrant {
         DuelChallenge storage challenge = challenges[challengeId];
 
-        // Can only cancel if it exists
         require(challenge.challengerId != 0, "Challenge does not exist");
+        require(challenge.state == ChallengeState.OPEN, "Challenge not cancellable");
 
         // Get challenger's address
         address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
         require(msg.sender == challenger, "Not challenger");
 
-        // Mark as fulfilled to prevent further actions
-        challenge.fulfilled = true;
+        // Mark as completed
+        challenge.state = ChallengeState.COMPLETED;
 
         // Clear challenge tracking for both users
         userChallenges[challenger][challengeId] = false;
@@ -415,13 +389,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function forceCloseAbandonedChallenge(uint256 challengeId) external onlyOwner {
         DuelChallenge storage challenge = challenges[challengeId];
 
-        // Verify challenge exists and is old enough
+        // Verify challenge exists and is in OPEN or PENDING state (don't check expiration)
         require(challenge.challengerId != 0, "Challenge does not exist");
-        require(!challenge.fulfilled, "Challenge already fulfilled");
-        require(block.number > challenge.createdBlock + BLOCKS_UNTIL_WITHDRAW, "Challenge not old enough");
+        require(
+            challenge.state == ChallengeState.OPEN || challenge.state == ChallengeState.PENDING, "Challenge not active"
+        );
+        require(block.number > challenge.createdBlock + blocksUntilWithdraw, "Challenge not old enough");
 
-        // Mark as fulfilled to prevent further actions
-        challenge.fulfilled = true;
+        // Mark as completed
+        challenge.state = ChallengeState.COMPLETED;
 
         // Clear challenge tracking for both users
         address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
@@ -454,6 +430,22 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit WagersEnabledUpdated(enabled);
     }
 
+    /// @notice Updates the number of blocks until a challenge expires
+    /// @param newValue The new number of blocks
+    function setBlocksUntilExpire(uint256 newValue) external onlyOwner {
+        require(newValue > 0, "Value must be positive");
+        emit BlocksUntilExpireUpdated(blocksUntilExpire, newValue);
+        blocksUntilExpire = newValue;
+    }
+
+    /// @notice Updates the number of blocks until an abandoned challenge can be withdrawn
+    /// @param newValue The new number of blocks
+    function setBlocksUntilWithdraw(uint256 newValue) external onlyOwner {
+        require(newValue > 0, "Value must be positive");
+        emit BlocksUntilWithdrawUpdated(blocksUntilWithdraw, newValue);
+        blocksUntilWithdraw = newValue;
+    }
+
     //==============================================================//
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
@@ -466,12 +458,11 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     {
         uint256 challengeId = requestToChallengeId[requestId];
         DuelChallenge storage challenge = challenges[challengeId];
-        require(isChallengeActive(challengeId), "Challenge not active");
+        require(isChallengePending(challengeId), "Challenge not pending");
 
         // Clear state FIRST
         delete requestToChallengeId[requestId];
-        delete hasPendingRequest[challengeId];
-        challenge.fulfilled = true; // Prevent re-entry
+        challenge.state = ChallengeState.COMPLETED; // Prevent re-entry
 
         // THEN do external calls
         require(!playerContract.isPlayerRetired(challenge.challengerId), "Challenger is retired");
@@ -541,17 +532,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         );
 
         uint256 winnerPayout = 0;
-        totalFeesCollected += minDuelFee;
+        uint256 totalWager = challenge.wagerAmount * 2;
+        uint256 fee = calculateFee(totalWager);
+
+        // Add fee to collected fees
+        totalFeesCollected += fee;
+
         if (challenge.wagerAmount > 0) {
-            // Calculate winner's prize (total wager minus percentage fee)
-            uint256 totalWager = challenge.wagerAmount * 2;
-            uint256 percentageFee = calculateFee(totalWager);
-
-            // Add percentage fee to totalFeesCollected
-            totalFeesCollected += percentageFee;
-
-            // Winner gets total wager minus percentage fee only
-            winnerPayout = totalWager - percentageFee;
+            // Winner gets total wager minus fee
+            winnerPayout = totalWager - fee;
 
             // Get winner's address and transfer prize
             address winner = IPlayer(playerContract).getPlayerOwner(winnerId);

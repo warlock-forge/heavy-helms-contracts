@@ -31,8 +31,6 @@ contract PlayerTest is TestBase {
     address public PLAYER_ONE;
     address public PLAYER_TWO;
 
-    uint256 public ROUND_ID;
-
     event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
     event PlayerCreationComplete(
@@ -59,9 +57,6 @@ contract PlayerTest is TestBase {
         // Set up test addresses
         PLAYER_ONE = address(0x1111);
         PLAYER_TWO = address(0x2222);
-
-        // Reset VRF state
-        ROUND_ID = 0;
     }
 
     function testCreatePlayerWithVRF() public skipInCI {

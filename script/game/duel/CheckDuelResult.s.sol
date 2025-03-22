@@ -8,6 +8,13 @@ import {GameEngine} from "../../../src/game/engine/GameEngine.sol";
 contract CheckDuelResultScript is Script {
     function setUp() public {}
 
+    function getStateString(DuelGame.ChallengeState state) internal pure returns (string memory) {
+        if (state == DuelGame.ChallengeState.OPEN) return "OPEN";
+        if (state == DuelGame.ChallengeState.PENDING) return "PENDING";
+        if (state == DuelGame.ChallengeState.COMPLETED) return "COMPLETED";
+        return "UNKNOWN";
+    }
+
     function run(address duelGameAddr, uint256 challengeId) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
@@ -20,20 +27,27 @@ contract CheckDuelResultScript is Script {
         DuelGame duelGame = DuelGame(payable(duelGameAddr));
 
         // Get challenge details
-        (uint32 challengerId, uint32 defenderId, uint256 wagerAmount, uint256 createdBlock,,, bool fulfilled) =
-            duelGame.challenges(challengeId);
+        (
+            uint32 challengerId,
+            uint32 defenderId,
+            uint256 wagerAmount,
+            uint256 createdBlock,
+            ,
+            ,
+            DuelGame.ChallengeState state
+        ) = duelGame.challenges(challengeId);
 
         console.log("Challenge ID:", challengeId);
         console.log("Challenger ID:", challengerId);
         console.log("Defender ID:", defenderId);
         console.log("Wager Amount:", wagerAmount);
         console.log("Created Block:", createdBlock);
-        console.log("Fulfilled:", fulfilled);
+        console.log("State:", getStateString(state));
 
-        if (fulfilled) {
+        if (state == DuelGame.ChallengeState.COMPLETED) {
             console.log("Duel has been completed!");
             // You can check the DuelComplete event logs to see who won
-        } else if (duelGame.hasPendingRequest(challengeId)) {
+        } else if (state == DuelGame.ChallengeState.PENDING) {
             console.log("Duel is still pending VRF completion");
         } else {
             console.log("Challenge is not active or has expired");
