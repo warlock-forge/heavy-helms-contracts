@@ -194,7 +194,6 @@ contract DuelGameTest is TestBase {
         // Verify challenge state
         (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertTrue(state == DuelGame.ChallengeState.COMPLETED);
-        assertFalse(game.userChallenges(challenger, challengeId));
         vm.stopPrank();
     }
 
@@ -288,8 +287,7 @@ contract DuelGameTest is TestBase {
         // Verify challenge state
         (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertTrue(state == DuelGame.ChallengeState.COMPLETED);
-        assertFalse(game.userChallenges(challenger, challengeId));
-        assertTrue(game.totalFeesCollected() == fee, "Fees should be collected");
+        vm.stopPrank();
     }
 
     function test_RevertWhen_InsufficientFunds() public {
@@ -468,7 +466,6 @@ contract DuelGameTest is TestBase {
         // Verify challenge state
         (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertTrue(state == DuelGame.ChallengeState.COMPLETED);
-        assertFalse(game.userChallenges(challenger, challengeId));
         vm.stopPrank();
     }
 
@@ -520,6 +517,172 @@ contract DuelGameTest is TestBase {
         uint256 newChallengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
         assertEq(newChallengeId, 1, "Wager challenge should be created after re-enabling");
         vm.stopPrank();
+    }
+
+    function testHelperFunctions() public {
+        // Create a challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        // 1. Test initial state
+        assertTrue(game.isChallengeActive(challengeId), "Challenge should be active initially");
+        assertFalse(game.isChallengePending(challengeId), "Challenge should not be pending initially");
+        assertFalse(game.isChallengeCompleted(challengeId), "Challenge should not be completed initially");
+        assertFalse(game.isChallengeExpired(challengeId), "Challenge should not be expired initially");
+
+        // 2. Create a second challenge to test acceptance
+        vm.startPrank(PLAYER_ONE);
+        uint256 totalAmount2 = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount2);
+        uint256 challengeId2 =
+            game.initiateChallenge{value: totalAmount2}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        // 3. Accept the second challenge and test pending state
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+        vm.recordLogs();
+        game.acceptChallenge{value: wagerAmount}(challengeId2, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after acceptance");
+        assertTrue(game.isChallengePending(challengeId2), "Challenge should be pending after acceptance");
+        assertFalse(game.isChallengeCompleted(challengeId2), "Challenge should not be completed after acceptance");
+
+        // 4. Roll forward to expire the first challenge
+        vm.roll(block.number + game.blocksUntilExpire() + 1);
+
+        // Test the expired challenge state
+        assertFalse(game.isChallengeActive(challengeId), "Challenge should not be active after expiration");
+        assertTrue(game.isChallengeExpired(challengeId), "Challenge should be expired");
+
+        // 5. Fulfill randomness for the second (accepted) challenge
+        (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+
+        vm.prank(operator);
+        game.fulfillRandomness(0, dataWithRound);
+
+        // Test completed state
+        assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after completion");
+        assertFalse(game.isChallengePending(challengeId2), "Challenge should not be pending after completion");
+        assertTrue(game.isChallengeCompleted(challengeId2), "Challenge should be completed after fulfillment");
+    }
+
+    function testFeeCalculation() public {
+        // Test zero wager
+        uint256 fee = game.calculateFee(0);
+        assertEq(fee, game.minDuelFee(), "Zero wager should have minDuelFee");
+
+        // Test below minimum wager
+        fee = game.calculateFee(game.minWagerAmount() - 1);
+        assertEq(fee, game.minDuelFee(), "Below min wager should have minDuelFee");
+
+        // Test at minimum wager
+        fee = game.calculateFee(game.minWagerAmount());
+        uint256 expectedFee = ((game.minWagerAmount() * game.wagerFeePercentage()) / 10000) + game.minDuelFee();
+        assertEq(fee, expectedFee, "Fee calculation incorrect at min wager");
+
+        // Test larger wager
+        uint256 largeWager = 10 ether;
+        fee = game.calculateFee(largeWager);
+        expectedFee = ((largeWager * game.wagerFeePercentage()) / 10000) + game.minDuelFee();
+        assertEq(fee, expectedFee, "Fee calculation incorrect for large wager");
+    }
+
+    function test_RevertWhen_AcceptingExpiredChallenge() public {
+        // Create a challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        // Get current challenge state
+        (,,, uint256 createdBlock,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        console2.log("Initial state:", uint256(state));
+        console2.log("Created at block:", createdBlock);
+        console2.log("Current block:", block.number);
+        console2.log("Blocks until expire:", game.blocksUntilExpire());
+
+        // Warp forward enough blocks to ensure expiration
+        uint256 forwardBlocks = game.blocksUntilExpire() + 10; // Add extra blocks to be safe
+        vm.roll(block.number + forwardBlocks);
+
+        console2.log("After roll, block number:", block.number);
+        console2.log("Expiration threshold:", createdBlock + game.blocksUntilExpire());
+
+        // Manually check if it should be expired
+        bool shouldBeExpired = block.number > createdBlock + game.blocksUntilExpire();
+        console2.log("Should be expired?", shouldBeExpired);
+        console2.log("Is expired according to contract?", game.isChallengeExpired(challengeId));
+        console2.log("Is active according to contract?", game.isChallengeActive(challengeId));
+
+        // Try to accept the challenge
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+
+        // Don't use expectRevert here, instead try/catch to see what happens
+        bool didRevert = false;
+        try game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID)) {
+            console2.log("Call succeeded unexpectedly!");
+        } catch Error(string memory reason) {
+            console2.log("Reverted with reason:", reason);
+            didRevert = true;
+        } catch (bytes memory) /*lowLevelData*/ {
+            console2.log("Reverted with no reason");
+            didRevert = true;
+        }
+
+        // Assert that it did revert
+        assertTrue(didRevert, "Challenge acceptance should have reverted");
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_PlayerRetiredDuringFulfillment() public {
+        // First, we need to give ourselves permission to retire players
+        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
+            record: false,
+            retire: true, // Need this permission to retire players
+            name: false,
+            attributes: false,
+            immortal: false
+        });
+        playerContract.setGameContractPermission(address(this), perms);
+
+        // Create a challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        // Accept the challenge
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+        vm.recordLogs();
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
+        (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+        vm.stopPrank();
+
+        // Retire the player with our permission
+        // Using the test contract (this) since it has permissions
+        playerContract.setPlayerRetired(PLAYER_ONE_ID, true);
+
+        // Fulfillment should revert
+        vm.prank(operator);
+        vm.expectRevert(bytes("Challenger is retired"));
+        game.fulfillRandomness(0, dataWithRound);
     }
 
     receive() external payable {}

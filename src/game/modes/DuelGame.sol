@@ -26,7 +26,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     // Constants
     /// @notice Percentage fee taken from wagers (in basis points)
-    uint256 public wagerFeePercentage = 200; // 2% fee (basis points)
+    uint256 public wagerFeePercentage = 200; // basis points
     /// @notice Minimum allowed wager amount
     uint256 public minWagerAmount = 0.001 ether;
     /// @notice Maximum allowed wager amount
@@ -76,9 +76,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Maps challenge IDs to their challenge data
     mapping(uint256 => DuelChallenge) public challenges;
     /// @notice Maps VRF request IDs to challenge IDs
+    /// @dev This mapping connects the random outcomes from Gelato VRF to their corresponding challenges
+    /// It's necessary because challenges are created before randomness is requested
     mapping(uint256 => uint256) public requestToChallengeId;
-    /// @notice Tracks challenges per user address
-    mapping(address => mapping(uint256 => bool)) public userChallenges;
 
     /// @notice Overall game enabled state
     bool public isGameEnabled = true;
@@ -103,7 +103,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Emitted when a challenge is forfeited
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
     /// @notice Emitted when a duel is completed
-    event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomSeed, uint256 winnerPayout);
+    event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomness, uint256 winnerPayout);
     /// @notice Emitted when accumulated fees are withdrawn
     event FeesWithdrawn(uint256 amount);
     /// @notice Emitted when minimum duel fee is updated
@@ -261,11 +261,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             state: ChallengeState.OPEN
         });
 
-        // Track challenge for challenger
-        userChallenges[msg.sender][challengeId] = true;
-        // Track challenge for defender
-        userChallenges[IPlayer(playerContract).getPlayerOwner(defenderId)][challengeId] = true;
-
         emit ChallengeCreated(challengeId, challengerLoadout.playerId, defenderId, wagerAmount, block.number);
 
         return challengeId;
@@ -334,10 +329,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Mark as completed
         challenge.state = ChallengeState.COMPLETED;
 
-        // Clear challenge tracking for both users
-        userChallenges[challenger][challengeId] = false;
-        userChallenges[IPlayer(playerContract).getPlayerOwner(challenge.defenderId)][challengeId] = false;
-
         // Refund the FULL amount (both wager and minDuelFee)
         uint256 refundAmount = challenge.wagerAmount + minDuelFee;
         SafeTransferLib.safeTransferETH(challenger, refundAmount);
@@ -398,12 +389,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Mark as completed
         challenge.state = ChallengeState.COMPLETED;
-
-        // Clear challenge tracking for both users
-        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
-        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
-        userChallenges[challenger][challengeId] = false;
-        userChallenges[defender][challengeId] = false;
 
         // Add entire amount to collected fees (wager + minDuelFee)
         totalFeesCollected += challenge.wagerAmount + minDuelFee;
@@ -542,23 +527,22 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             // Winner gets total wager minus fee
             winnerPayout = totalWager - fee;
 
-            // Get winner's address and transfer prize
+            // Get winner's address
             address winner = IPlayer(playerContract).getPlayerOwner(winnerId);
+
+            // Verify contract has enough ETH before transferring
+            require(address(this).balance >= winnerPayout, "Insufficient contract balance for payout");
+
+            // Safely transfer the winnings
             SafeTransferLib.safeTransferETH(winner, winnerPayout);
         }
-
-        // Clear challenge tracking for both users
-        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
-        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
-        userChallenges[challenger][challengeId] = false;
-        userChallenges[defender][challengeId] = false;
 
         // Update player stats
         IPlayer(playerContract).incrementWins(winnerId);
         IPlayer(playerContract).incrementLosses(loserId);
 
         // Emit economic results
-        emit DuelComplete(challengeId, winnerId, combinedSeed, winnerPayout);
+        emit DuelComplete(challengeId, winnerId, randomness, winnerPayout);
     }
 
     /// @notice Checks if a player ID is supported in Duel mode
