@@ -543,4 +543,25 @@ abstract contract TestBase is Test {
 
         revert("Player creation event not found");
     }
+
+    // Add this helper function to your TestBase contract
+    function _setupValidPlayerRequest(address player) internal returns (uint256) {
+        // Create a request
+        vm.deal(player, playerContract.createPlayerFeeAmount());
+        vm.startPrank(player);
+        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
+        vm.stopPrank();
+
+        // Verify request is properly stored
+        uint256 pendingRequest = playerContract.getPendingRequest(player);
+        assertEq(pendingRequest, requestId, "Request should be stored");
+
+        // Check request status
+        (bool exists, bool fulfilled, address owner) = playerContract.getRequestStatus(requestId);
+        assertTrue(exists, "Request should exist");
+        assertFalse(fulfilled, "Request should not be fulfilled yet");
+        assertEq(owner, player, "Owner should match");
+
+        return requestId;
+    }
 }

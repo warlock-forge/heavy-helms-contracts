@@ -58,6 +58,8 @@ error RequiredNFTNotOwned(address nftAddress);
 error InvalidPlayerRange();
 /// @notice Thrown when attempting to use an invalid skin type
 error InvalidSkinType();
+/// @notice Thrown when no pending request exists
+error NoPendingRequest();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -78,10 +80,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param owner Address that requested the player creation
     /// @param useNameSetB Whether to use name set B (true) or A (false) for generation
     /// @param fulfilled Whether the VRF request has been fulfilled
+    /// @param timestamp Timestamp when request was created
     struct PendingPlayer {
         address owner;
         bool useNameSetB;
         bool fulfilled;
+        uint64 timestamp;
     }
 
     //==============================================================//
@@ -102,6 +106,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     uint32 private constant USER_PLAYER_START = 10001;
     /// @notice End ID for user-created players (no upper limit for user players)
     uint32 private constant USER_PLAYER_END = type(uint32).max;
+    /// @notice Timeout period in seconds after which a player creation request can be recovered
+    uint256 private constant REQUEST_TIMEOUT = 4 hours;
 
     // Configuration
     /// @notice Fee amount in ETH required to create a new player
@@ -291,6 +297,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param oldAddress The previous contract address
     /// @param newAddress The new contract address
     event EquipmentRequirementsUpdated(address indexed oldAddress, address indexed newAddress);
+
+    /// @notice Emitted when a player creation request is recovered due to timeout or admin action
+    /// @param requestId The VRF request ID that was recovered
+    /// @param user The address of the user whose request was recovered
+    /// @param amount The amount of ETH refunded
+    /// @param adminInitiated Whether the recovery was initiated by an admin
+    /// @param recoveryTimestamp The timestamp when the recovery occurred
+    event RequestRecovered(
+        uint256 indexed requestId, address indexed user, uint256 amount, bool adminInitiated, uint256 recoveryTimestamp
+    );
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -586,7 +602,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
         // Effects - Get requestId first since it's deterministic and can't fail
         requestId = _requestRandomness("");
-        _pendingPlayers[requestId] = PendingPlayer({owner: msg.sender, useNameSetB: useNameSetB, fulfilled: false});
+        _pendingPlayers[requestId] = PendingPlayer({
+            owner: msg.sender,
+            useNameSetB: useNameSetB,
+            fulfilled: false,
+            timestamp: uint64(block.timestamp)
+        });
         _userPendingRequest[msg.sender] = requestId;
 
         emit PlayerCreationRequested(requestId, msg.sender);
@@ -828,6 +849,27 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit AttributeSwapAwarded(to, _attributeSwapCharges[to]);
     }
 
+    /// @notice Allows a user to recover ETH from a timed-out player creation request
+    /// @dev Checks if the request has exceeded the timeout period before allowing recovery
+    function recoverTimedOutRequest() external {
+        uint256 requestId = _userPendingRequest[msg.sender];
+        if (requestId == 0) revert NoPendingRequest();
+
+        PendingPlayer storage request = _pendingPlayers[requestId];
+        if (request.owner != msg.sender) revert NotPlayerOwner();
+        if (request.fulfilled) revert RequestAlreadyFulfilled();
+        if (block.timestamp <= request.timestamp + REQUEST_TIMEOUT) revert("Not timed out yet");
+
+        // Effects - clear request data before transfer
+        delete _pendingPlayers[requestId];
+        delete _userPendingRequest[msg.sender];
+
+        // Interactions - transfer ETH after state changes
+        SafeTransferLib.safeTransferETH(msg.sender, createPlayerFeeAmount);
+
+        emit RequestRecovered(requestId, msg.sender, createPlayerFeeAmount, false, block.timestamp);
+    }
+
     // Admin Functions
     /// @notice Updates the Gelato VRF operator address
     /// @param newOperator The new operator address
@@ -859,12 +901,21 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
     /// @notice Emergency function to clear pending VRF requests for an address
     /// @param user The address whose pending requests should be cleared
+    /// @param refund Whether to refund the player creation fee to the user
     /// @dev Use with caution - will invalidate any pending player creation requests
-    function clearPendingRequestsForAddress(address user) external onlyOwner {
+    function clearPendingRequestsForAddress(address user, bool refund) external onlyOwner {
         uint256 requestId = _userPendingRequest[user];
         if (requestId != 0) {
+            // Effects - clear request data first
             delete _pendingPlayers[requestId];
             delete _userPendingRequest[user];
+
+            // Interactions - optionally refund ETH
+            if (refund) {
+                SafeTransferLib.safeTransferETH(user, createPlayerFeeAmount);
+            }
+
+            emit RequestRecovered(requestId, user, refund ? createPlayerFeeAmount : 0, true, block.timestamp);
         }
     }
 

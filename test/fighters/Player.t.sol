@@ -14,7 +14,8 @@ import {
     InvalidNameIndex,
     BadZeroAddress,
     InsufficientFeeAmount,
-    PendingRequestExists
+    PendingRequestExists,
+    NoPendingRequest
 } from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
@@ -50,6 +51,9 @@ contract PlayerTest is TestBase {
     event RequestedRandomness(uint256 round, bytes data);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
     event PlayerImmortalityChanged(uint32 indexed playerId, address indexed changer, bool isImmortal);
+    event RequestRecovered(
+        uint256 indexed requestId, address indexed user, uint256 amount, bool adminInitiated, uint256 recoveryTimestamp
+    );
 
     function setUp() public override {
         super.setUp();
@@ -1048,6 +1052,40 @@ contract PlayerTest is TestBase {
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
         }
         vm.stopPrank();
+    }
+
+    function testAdminClearPendingRequest() public {
+        // Setup a first request to ensure non-zero IDs
+        _setupValidPlayerRequest(address(0xDEAD));
+
+        // Get owner address
+        address owner = playerContract.owner();
+
+        // Create a new request for PLAYER_ONE
+        uint256 requestId = _setupValidPlayerRequest(PLAYER_ONE);
+        assertTrue(requestId != 0, "Request ID should not be 0");
+
+        // Track balances for verification
+        uint256 contractBalanceBefore = address(playerContract).balance;
+        vm.deal(PLAYER_ONE, 0); // Reset player balance for clear verification
+
+        // Call the admin function to clear the request with refund
+        vm.prank(owner);
+        playerContract.clearPendingRequestsForAddress(PLAYER_ONE, true);
+
+        // Verify request is cleared
+        uint256 pendingRequestAfter = playerContract.getPendingRequest(PLAYER_ONE);
+        assertEq(pendingRequestAfter, 0, "Request should be cleared");
+
+        // Verify balances
+        assertEq(
+            address(PLAYER_ONE).balance, playerContract.createPlayerFeeAmount(), "Player should receive the fee amount"
+        );
+        assertEq(
+            address(playerContract).balance,
+            contractBalanceBefore - playerContract.createPlayerFeeAmount(),
+            "Contract balance should decrease by fee amount"
+        );
     }
 
     receive() external payable {}

@@ -20,7 +20,7 @@ contract ClearPendingVRFScript is Script {
         Player player = Player(playerContractAddr);
 
         // Clear the pending VRF requests for the wallet
-        player.clearPendingRequestsForAddress(walletToClear);
+        player.clearPendingRequestsForAddress(walletToClear, true);
         console2.log("Cleared pending VRF requests for wallet:", walletToClear);
 
         vm.stopBroadcast();
