@@ -166,6 +166,9 @@ abstract contract TestBase is Test {
         // Request player creation
         uint256 requestId = _createPlayerRequest(owner, contractInstance, useSetB);
 
+        // Prepare to capture the event
+        vm.recordLogs();
+
         // Fulfill VRF request
         _fulfillVRF(
             requestId,
@@ -173,11 +176,30 @@ abstract contract TestBase is Test {
             address(contractInstance)
         );
 
-        // Get the player ID from the contract
-        uint32[] memory playerIds = contractInstance.getPlayerIds(owner);
-        require(playerIds.length > 0, "Player not created");
+        // Get logs and extract player ID
+        Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        return playerIds[playerIds.length - 1];
+        // The PlayerCreationComplete event signature
+        bytes32 playerCreationEventSig = keccak256(
+            "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)"
+        );
+
+        // Find the PlayerCreationComplete event with our requestId
+        uint32 playerId;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == playerCreationEventSig) {
+                // Check if the requestId matches (first indexed parameter)
+                if (uint256(logs[i].topics[1]) == requestId) {
+                    // Extract playerId from second indexed parameter
+                    playerId = uint32(uint256(logs[i].topics[2]));
+                    break;
+                }
+            }
+        }
+
+        require(playerId != 0, "Player ID not found in logs");
+
+        return playerId;
     }
 
     // Helper function to assert stat ranges
@@ -488,5 +510,37 @@ abstract contract TestBase is Test {
         } else {
             return Fighter(address(playerContract));
         }
+    }
+
+    /// @notice Gets player ID for a player that was already created in a previous transaction
+    /// @param owner The address that owns the player
+    /// @param requestId The request ID used to create the player
+    /// @return The player ID found in logs
+    function _getPlayerIdFromLogs(address owner, uint256 requestId) internal returns (uint32) {
+        // Player creation event signature
+        bytes32 playerCreationEventSig = keccak256(
+            "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)"
+        );
+
+        // Use the most recently captured logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Find the PlayerCreationComplete event matching our criteria
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == playerCreationEventSig) {
+                // If requestId is specified, check it matches
+                if (requestId != 0 && uint256(logs[i].topics[1]) != requestId) {
+                    continue;
+                }
+
+                // Check if the owner matches the third indexed parameter
+                if (address(uint160(uint256(logs[i].topics[3]))) == owner) {
+                    // Extract playerId from second indexed parameter
+                    return uint32(uint256(logs[i].topics[2]));
+                }
+            }
+        }
+
+        revert("Player creation event not found");
     }
 }

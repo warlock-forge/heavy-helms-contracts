@@ -124,18 +124,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     mapping(uint32 => IPlayer.PlayerStats) private _players;
     /// @notice Maps player ID to their owner's address
     mapping(uint32 => address) private _playerOwners;
+    /// @notice Tracks how many active (non-retired) players each address has
+    mapping(address => uint256) private _addressActivePlayerCount;
     /// @notice Maps player ID to their retirement status
     mapping(uint32 => bool) private _retiredPlayers;
     /// @notice Maps player ID to their immortality status
     mapping(uint32 => bool) private _immortalPlayers;
-    /// @notice Tracks how many players each address has created
-    mapping(address => uint256) private _addressPlayerCount;
-    /// @notice Maps address to array of their owned player IDs
-    mapping(address => uint32[]) private _addressToPlayerIds;
     /// @notice Maps game contract address to their granted permissions
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
-    /// @notice Tracks how many active (non-retired) players each address has
-    mapping(address => uint256) private _addressActivePlayerCount;
     /// @notice Maps address to their number of purchased extra player slots
     mapping(address => uint8) private _extraPlayerSlots;
     /// @notice Maps address to the number of name change charges available
@@ -454,13 +450,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     }
 
     // View Functions
-    /// @notice Gets all player IDs owned by a specific address
-    /// @param owner The address to check
-    /// @return Array of player IDs owned by the address
-    function getPlayerIds(address owner) external view returns (uint32[] memory) {
-        return _addressToPlayerIds[owner];
-    }
-
     /// @notice Gets the complete stats and attributes for a player
     /// @param playerId The ID of the player to query
     /// @return PlayerStats struct containing all player data
@@ -1083,20 +1072,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return _playerOwners[playerId];
     }
 
-    /// @notice Checks if an address owns any NFT from a collection
-    /// @param owner The address to check
-    /// @param nftContract The NFT contract address
-    /// @return True if owner has any NFTs from the collection
-    /// @dev Uses balanceOf call, returns false if call fails
-    function _checkCollectionOwnership(address owner, address nftContract) private view returns (bool) {
-        (bool success, bytes memory data) = nftContract.staticcall(abi.encodeWithSignature("balanceOf(address)", owner));
-
-        if (!success) return false;
-
-        uint256 balance = abi.decode(data, (uint256));
-        return balance > 0;
-    }
-
     // State-modifying helpers
     /// @notice Creates a new player with random stats
     /// @param owner Address that will own the player
@@ -1196,8 +1171,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         // Store player data
         _players[playerId] = stats;
         _playerOwners[playerId] = owner;
-        _addressToPlayerIds[owner].push(playerId);
-        _addressPlayerCount[owner]++;
         _addressActivePlayerCount[owner]++;
 
         return (playerId, stats);

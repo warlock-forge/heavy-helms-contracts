@@ -338,7 +338,8 @@ contract PlayerTest is TestBase {
                 playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(i % 2 == 0);
             vm.stopPrank();
 
-            bytes32 requestHash = playerContract.requestedHash(requestId);
+            // Record logs BEFORE fulfilling VRF
+            vm.recordLogs();
 
             vm.prank(operator);
             playerContract.fulfillRandomness(
@@ -346,7 +347,9 @@ contract PlayerTest is TestBase {
                 abi.encode(335, abi.encode(requestId, ""))
             );
 
-            uint32 playerId = playerContract.getPlayerIds(player)[0];
+            // Now extract the player ID right after the transaction that emitted the event
+            uint32 playerId = _getPlayerIdFromLogs(player, requestId);
+
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
             firstNameCounts[stats.name.firstNameIndex]++;
             surnameCounts[stats.name.surnameIndex]++;
@@ -397,13 +400,17 @@ contract PlayerTest is TestBase {
 
         bytes32 requestHash = playerContract.requestedHash(requestId);
 
+        // Record logs before fulfilling VRF
+        vm.recordLogs();
+
         vm.prank(operator);
         playerContract.fulfillRandomness(
             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, player))),
             abi.encode(335, abi.encode(requestId, ""))
         );
 
-        uint32 playerId = playerContract.getPlayerIds(player)[0];
+        // Get player ID from logs using our helper
+        uint32 playerId = _getPlayerIdFromLogs(player, requestId);
 
         // Get and validate player stats
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
@@ -495,23 +502,6 @@ contract PlayerTest is TestBase {
 
         // Verify player is not retired
         assertFalse(playerContract.isPlayerRetired(playerId), "Player should not be retired");
-    }
-
-    function testGetPlayerIds() public {
-        // Create multiple players for PLAYER_ONE
-        uint32[] memory playerIds = new uint32[](3);
-        for (uint256 i = 0; i < 3; i++) {
-            playerIds[i] = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
-        }
-
-        // Get all player IDs for PLAYER_ONE
-        uint32[] memory retrievedIds = playerContract.getPlayerIds(PLAYER_ONE);
-
-        // Verify we got all the IDs
-        assertEq(retrievedIds.length, 3, "Should have 3 players");
-        for (uint256 i = 0; i < 3; i++) {
-            assertEq(retrievedIds[i], playerIds[i], "Player ID mismatch");
-        }
     }
 
     function testEquipUnlockableCollection() public {

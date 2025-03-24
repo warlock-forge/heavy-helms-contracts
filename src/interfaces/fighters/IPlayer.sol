@@ -85,11 +85,6 @@ interface IPlayer {
     /// @return The PlayerSkinRegistry contract instance
     function skinRegistry() external view returns (IPlayerSkinRegistry);
 
-    /// @notice Gets all player IDs owned by an address
-    /// @param owner The address to query
-    /// @return Array of player IDs owned by the address
-    function getPlayerIds(address owner) external view returns (uint32[] memory);
-
     /// @notice Gets the complete stats for a player
     /// @param playerId The ID of the player to query
     /// @return The player's complete stats and attributes
