@@ -33,10 +33,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint256 public maxWagerAmount = 100 ether;
     /// @notice Minimum fee required for all duels (even zero-wager duels)
     uint256 public minDuelFee = 0.0002 ether;
-    /// @notice Number of blocks after which a challenge expires
-    uint256 public blocksUntilExpire = 302400; // ~7 days at 2s blocks
-    /// @notice Number of blocks after which abandoned challenges can be withdrawn
-    uint256 public blocksUntilWithdraw = 1296000; // ~30 days at 2s blocks
+    /// @notice Timeout period in seconds after which a VRF request can be considered failed
+    uint256 public vrfRequestTimeout = 4 hours;
+    /// @notice Time (in seconds) after which a challenge expires
+    uint256 public timeUntilExpire = 7 days; // 7 days
+    /// @notice Time (in seconds) after which abandoned challenges can be withdrawn
+    uint256 public timeUntilWithdraw = 30 days; // 30 days
     /// @notice Address of the Gelato VRF operator
     address private _operatorAddress;
 
@@ -55,14 +57,18 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param defenderId ID of the player being challenged
     /// @param wagerAmount Amount of ETH wagered
     /// @param createdBlock Block number when challenge was created
+    /// @param createdTimestamp Timestamp when challenge was created
     /// @param challengerLoadout Loadout of the challenger player
     /// @param defenderLoadout Loadout of the defender player
     /// @param state State of the challenge
+    /// @param vrfRequestTimestamp When VRF was requested (set at acceptance time)
     struct DuelChallenge {
         uint32 challengerId;
         uint32 defenderId;
         uint256 wagerAmount;
         uint256 createdBlock;
+        uint256 createdTimestamp;
+        uint256 vrfRequestTimestamp;
         Fighter.PlayerLoadout challengerLoadout;
         Fighter.PlayerLoadout defenderLoadout;
         ChallengeState state;
@@ -116,10 +122,14 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event WagerFeePercentageUpdated(uint256 oldPercentage, uint256 newPercentage);
     /// @notice Emitted when wager functionality is enabled or disabled
     event WagersEnabledUpdated(bool enabled);
-    /// @notice Emitted when blocks until expire is updated
-    event BlocksUntilExpireUpdated(uint256 oldValue, uint256 newValue);
-    /// @notice Emitted when blocks until withdraw is updated
-    event BlocksUntilWithdrawUpdated(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when time until expire is updated
+    event TimeUntilExpireUpdated(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when time until withdraw is updated
+    event TimeUntilWithdrawUpdated(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when a challenge is recovered from a VRF timeout
+    event ChallengeRecovered(uint256 indexed challengeId, uint256 challengerRefund, uint256 defenderRefund);
+    /// @notice Emitted when VRF request timeout is updated
+    event VrfRequestTimeoutUpdated(uint256 oldValue, uint256 newValue);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -160,7 +170,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function isChallengeActive(uint256 challengeId) public view returns (bool) {
         DuelChallenge storage challenge = challenges[challengeId];
         return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN
-            && block.number <= challenge.createdBlock + blocksUntilExpire;
+            && block.timestamp <= challenge.createdTimestamp + timeUntilExpire;
     }
 
     /// @notice Checks if a challenge exists and is in PENDING state
@@ -185,7 +195,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function isChallengeExpired(uint256 challengeId) public view returns (bool) {
         DuelChallenge storage challenge = challenges[challengeId];
         return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN
-            && block.number > challenge.createdBlock + blocksUntilExpire;
+            && block.timestamp > challenge.createdTimestamp + timeUntilExpire;
     }
 
     /// @notice Calculates fee based on wager amount
@@ -256,6 +266,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             defenderId: defenderId,
             wagerAmount: wagerAmount,
             createdBlock: block.number,
+            createdTimestamp: block.timestamp,
+            vrfRequestTimestamp: 0,
             challengerLoadout: challengerLoadout,
             defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0)),
             state: ChallengeState.OPEN
@@ -297,6 +309,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Update state to PENDING
         challenge.state = ChallengeState.PENDING;
+        challenge.vrfRequestTimestamp = block.timestamp;
 
         // Request VRF for true randomness
         uint256 requestId = _requestRandomness("");
@@ -334,6 +347,45 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         SafeTransferLib.safeTransferETH(challenger, refundAmount);
 
         emit ChallengeCancelled(challengeId);
+    }
+
+    /// @notice Allows players to recover from a timed-out VRF request
+    /// @param challengeId ID of the challenge to recover
+    function recoverTimedOutVRF(uint256 challengeId) external nonReentrant {
+        DuelChallenge storage challenge = challenges[challengeId];
+
+        // Verify challenge exists and is in PENDING state
+        require(challenge.challengerId != 0, "Challenge does not exist");
+        require(challenge.state == ChallengeState.PENDING, "Challenge not pending");
+
+        // Get player addresses early
+        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
+        address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
+
+        // Require caller to be either challenger or defender
+        require(msg.sender == challenger || msg.sender == defender, "Not authorized");
+
+        // Verify that VRF request timestamp is non-zero
+        require(challenge.vrfRequestTimestamp != 0, "Invalid VRF request timestamp");
+
+        // Check if enough time has passed since VRF was requested
+        require(block.timestamp >= challenge.vrfRequestTimestamp + vrfRequestTimeout, "VRF timeout not reached");
+
+        // Mark as completed
+        challenge.state = ChallengeState.COMPLETED;
+
+        // Calculate refund amounts
+        uint256 challengerRefund = challenge.wagerAmount + minDuelFee;
+        uint256 defenderRefund = challenge.wagerAmount;
+
+        // Send refunds in just two transactions
+        if (defenderRefund > 0) {
+            SafeTransferLib.safeTransferETH(defender, defenderRefund);
+        }
+
+        SafeTransferLib.safeTransferETH(challenger, challengerRefund);
+
+        emit ChallengeRecovered(challengeId, challengerRefund, defenderRefund);
     }
 
     //==============================================================//
@@ -380,12 +432,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function forceCloseAbandonedChallenge(uint256 challengeId) external onlyOwner {
         DuelChallenge storage challenge = challenges[challengeId];
 
-        // Verify challenge exists and is in OPEN or PENDING state (don't check expiration)
+        // Verify challenge exists and is in OPEN or PENDING state
         require(challenge.challengerId != 0, "Challenge does not exist");
         require(
             challenge.state == ChallengeState.OPEN || challenge.state == ChallengeState.PENDING, "Challenge not active"
         );
-        require(block.number > challenge.createdBlock + blocksUntilWithdraw, "Challenge not old enough");
+        require(block.timestamp > challenge.createdTimestamp + timeUntilWithdraw, "Challenge not old enough");
 
         // Mark as completed
         challenge.state = ChallengeState.COMPLETED;
@@ -415,20 +467,28 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit WagersEnabledUpdated(enabled);
     }
 
-    /// @notice Updates the number of blocks until a challenge expires
-    /// @param newValue The new number of blocks
-    function setBlocksUntilExpire(uint256 newValue) external onlyOwner {
+    /// @notice Updates the time until a challenge expires
+    /// @param newValue The new time until expire
+    function setTimeUntilExpire(uint256 newValue) external onlyOwner {
         require(newValue > 0, "Value must be positive");
-        emit BlocksUntilExpireUpdated(blocksUntilExpire, newValue);
-        blocksUntilExpire = newValue;
+        emit TimeUntilExpireUpdated(timeUntilExpire, newValue);
+        timeUntilExpire = newValue;
     }
 
-    /// @notice Updates the number of blocks until an abandoned challenge can be withdrawn
-    /// @param newValue The new number of blocks
-    function setBlocksUntilWithdraw(uint256 newValue) external onlyOwner {
+    /// @notice Updates the time until an abandoned challenge can be withdrawn
+    /// @param newValue The new time until withdraw
+    function setTimeUntilWithdraw(uint256 newValue) external onlyOwner {
         require(newValue > 0, "Value must be positive");
-        emit BlocksUntilWithdrawUpdated(blocksUntilWithdraw, newValue);
-        blocksUntilWithdraw = newValue;
+        emit TimeUntilWithdrawUpdated(timeUntilWithdraw, newValue);
+        timeUntilWithdraw = newValue;
+    }
+
+    /// @notice Updates the timeout period for VRF requests
+    /// @param newValue The new timeout period in seconds
+    function setVrfRequestTimeout(uint256 newValue) external onlyOwner {
+        require(newValue > 0, "Value must be positive");
+        emit VrfRequestTimeoutUpdated(vrfRequestTimeout, newValue);
+        vrfRequestTimeout = newValue;
     }
 
     //==============================================================//

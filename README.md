@@ -210,7 +210,7 @@ forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address,a
 ```
 9. Deploy DuelGame *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
+forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
 10. Setup VRF
 ```bash

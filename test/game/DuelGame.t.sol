@@ -38,6 +38,7 @@ contract DuelGameTest is TestBase {
     );
     event MinDuelFeeUpdated(uint256 oldFee, uint256 newFee);
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
+    event ChallengeRecovered(uint256 indexed challengeId, uint256 challengerRefund, uint256 defenderRefund);
 
     function setUp() public override {
         super.setUp();
@@ -86,8 +87,17 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
 
         assertEq(challengeId, 0);
-        (uint32 challengerId, uint32 defenderId, uint256 storedWager,,,, DuelGame.ChallengeState state) =
-            game.challenges(challengeId);
+        (
+            uint32 challengerId,
+            uint32 defenderId,
+            uint256 storedWager,
+            uint256 createdBlock,
+            uint256 createdTimestamp,
+            uint256 vrfRequestTimestamp,
+            Fighter.PlayerLoadout memory challengerLoadout,
+            Fighter.PlayerLoadout memory defenderLoadout,
+            DuelGame.ChallengeState state
+        ) = game.challenges(challengeId);
         assertEq(challengerId, PLAYER_ONE_ID);
         assertEq(defenderId, PLAYER_TWO_ID);
         assertEq(storedWager, wagerAmount);
@@ -125,7 +135,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
 
         // Get the challenger and defender IDs
-        (uint32 challengerId, uint32 defenderId,,,,,) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId,,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
 
         // Fulfill VRF with the exact data from the event
         vm.stopPrank(); // Stop any active pranks before fulfilling VRF
@@ -133,8 +143,16 @@ contract DuelGameTest is TestBase {
         game.fulfillRandomness(0, dataWithRound);
 
         // Get loadouts from challenge
-        (,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
-            game.challenges(challengeId);
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            uint256 vrfRequestTime,
+            Fighter.PlayerLoadout memory challengerLoadout,
+            Fighter.PlayerLoadout memory defenderLoadout,
+        ) = game.challenges(challengeId);
 
         // Get the appropriate Fighter contracts
         Fighter challengerFighter = _getFighterContract(challengerLoadout.playerId);
@@ -174,8 +192,8 @@ contract DuelGameTest is TestBase {
         uint256 challengeId =
             game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
-        // Warp to after expiry
-        vm.roll(block.number + game.blocksUntilExpire() + 1);
+        // Warp to after expiry - using timestamps now instead of blocks
+        vm.warp(block.timestamp + game.timeUntilExpire() + 1);
 
         // Record balance before cancellation
         uint256 balanceBefore = address(PLAYER_ONE).balance;
@@ -192,7 +210,7 @@ contract DuelGameTest is TestBase {
         assertEq(balanceAfter - balanceBefore, expectedRefund, "Should refund full amount (wager + fee)");
 
         // Verify challenge state
-        (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        (,,,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertTrue(state == DuelGame.ChallengeState.COMPLETED);
         vm.stopPrank();
     }
@@ -226,7 +244,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
 
         // Get the challenger and defender IDs
-        (uint32 challengerId, uint32 defenderId,,,,,) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId,,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
 
         // Fulfill VRF with the exact data from the event
         vm.stopPrank(); // Stop any active pranks before fulfilling VRF
@@ -234,8 +252,16 @@ contract DuelGameTest is TestBase {
         game.fulfillRandomness(0, dataWithRound);
 
         // Get loadouts from challenge
-        (,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
-            game.challenges(challengeId);
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            uint256 vrfRequestTime,
+            Fighter.PlayerLoadout memory challengerLoadout,
+            Fighter.PlayerLoadout memory defenderLoadout,
+        ) = game.challenges(challengeId);
 
         // Get the appropriate Fighter contracts
         Fighter challengerFighter = _getFighterContract(challengerLoadout.playerId);
@@ -275,8 +301,8 @@ contract DuelGameTest is TestBase {
         uint256 challengeId =
             game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
 
-        // Warp to after withdrawal period
-        vm.roll(block.number + game.blocksUntilWithdraw() + 1);
+        // Warp to after withdrawal period - using timestamps now instead of blocks
+        vm.warp(block.timestamp + game.timeUntilWithdraw() + 1);
 
         // Force close the challenge as owner
         vm.stopPrank();
@@ -285,7 +311,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Verify challenge state
-        (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        (,,,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertTrue(state == DuelGame.ChallengeState.COMPLETED);
         vm.stopPrank();
     }
@@ -464,7 +490,7 @@ contract DuelGameTest is TestBase {
         assertEq(balanceAfter - balanceBefore, expectedRefund, "Should refund minDuelFee for zero-wager challenge");
 
         // Verify challenge state
-        (,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        (,,,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertTrue(state == DuelGame.ChallengeState.COMPLETED);
         vm.stopPrank();
     }
@@ -554,8 +580,8 @@ contract DuelGameTest is TestBase {
         assertTrue(game.isChallengePending(challengeId2), "Challenge should be pending after acceptance");
         assertFalse(game.isChallengeCompleted(challengeId2), "Challenge should not be completed after acceptance");
 
-        // 4. Roll forward to expire the first challenge
-        vm.roll(block.number + game.blocksUntilExpire() + 1);
+        // 4. Roll forward to expire the first challenge - using timestamps now instead of blocks
+        vm.warp(block.timestamp + game.timeUntilExpire() + 1);
 
         // Test the expired challenge state
         assertFalse(game.isChallengeActive(challengeId), "Challenge should not be active after expiration");
@@ -606,21 +632,23 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Get current challenge state
-        (,,, uint256 createdBlock,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        (,, uint256 storedWager, uint256 createdBlock, uint256 createdTimestamp,,,, DuelGame.ChallengeState state) =
+            game.challenges(challengeId);
         console2.log("Initial state:", uint256(state));
         console2.log("Created at block:", createdBlock);
+        console2.log("Created at timestamp:", createdTimestamp);
         console2.log("Current block:", block.number);
-        console2.log("Blocks until expire:", game.blocksUntilExpire());
+        console2.log("Current timestamp:", block.timestamp);
+        console2.log("Time until expire:", game.timeUntilExpire());
 
-        // Warp forward enough blocks to ensure expiration
-        uint256 forwardBlocks = game.blocksUntilExpire() + 10; // Add extra blocks to be safe
-        vm.roll(block.number + forwardBlocks);
+        // Warp forward enough time to ensure expiration
+        vm.warp(block.timestamp + game.timeUntilExpire() + 10); // Add extra time to be safe
 
-        console2.log("After roll, block number:", block.number);
-        console2.log("Expiration threshold:", createdBlock + game.blocksUntilExpire());
+        console2.log("After warp, timestamp:", block.timestamp);
+        console2.log("Expiration threshold:", createdTimestamp + game.timeUntilExpire());
 
         // Manually check if it should be expired
-        bool shouldBeExpired = block.number > createdBlock + game.blocksUntilExpire();
+        bool shouldBeExpired = block.timestamp > createdTimestamp + game.timeUntilExpire();
         console2.log("Should be expired?", shouldBeExpired);
         console2.log("Is expired according to contract?", game.isChallengeExpired(challengeId));
         console2.log("Is active according to contract?", game.isChallengeActive(challengeId));
@@ -683,6 +711,109 @@ contract DuelGameTest is TestBase {
         vm.prank(operator);
         vm.expectRevert(bytes("Challenger is retired"));
         game.fulfillRandomness(0, dataWithRound);
+    }
+
+    function testRecoverTimedOutVRF() public {
+        // Step 1: Create a challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+
+        // Give enough ETH to cover wager + fee
+        vm.deal(PLAYER_ONE, totalAmount);
+
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        // Step 2: Accept the challenge as PLAYER_TWO to make it PENDING
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+        vm.recordLogs();
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Verify challenge is in PENDING state
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after acceptance");
+
+        // Step 3: Fast forward time past VRF timeout
+        vm.warp(block.timestamp + game.vrfRequestTimeout() + 1);
+
+        // Record balances before recovery
+        address challenger = playerContract.getPlayerOwner(PLAYER_ONE_ID);
+        address defender = playerContract.getPlayerOwner(PLAYER_TWO_ID);
+        uint256 challengerBalanceBefore = address(challenger).balance;
+        uint256 defenderBalanceBefore = address(defender).balance;
+
+        // Step 4: Call recoverTimedOutVRF as challenger
+        vm.startPrank(PLAYER_ONE);
+        vm.expectEmit(true, true, false, true);
+        emit ChallengeRecovered(challengeId, wagerAmount + game.minDuelFee(), wagerAmount);
+        game.recoverTimedOutVRF(challengeId);
+        vm.stopPrank();
+
+        // Step 5: Verify results
+        // Challenge should be completed
+        assertTrue(game.isChallengeCompleted(challengeId), "Challenge should be completed after recovery");
+
+        // Verify refunds
+        uint256 challengerRefund = wagerAmount + game.minDuelFee();
+        uint256 defenderRefund = wagerAmount;
+
+        assertEq(
+            address(challenger).balance - challengerBalanceBefore,
+            challengerRefund,
+            "Challenger should receive wager + fee back"
+        );
+        assertEq(
+            address(defender).balance - defenderBalanceBefore, defenderRefund, "Defender should receive wager back"
+        );
+    }
+
+    function testRevertWhen_RecoverTimedOutVRF_NotAuthorized() public {
+        // Create and accept challenge like in previous test
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Fast forward time past VRF timeout
+        vm.warp(block.timestamp + game.vrfRequestTimeout() + 1);
+
+        // Try to recover as unauthorized address
+        address randomUser = address(0x123);
+        vm.prank(randomUser);
+        vm.expectRevert("Not authorized");
+        game.recoverTimedOutVRF(challengeId);
+    }
+
+    function testRevertWhen_RecoverTimedOutVRF_TimeoutNotReached() public {
+        // Create and accept challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+        vm.stopPrank();
+
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+        game.acceptChallenge{value: wagerAmount}(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Try to recover before timeout
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("VRF timeout not reached");
+        game.recoverTimedOutVRF(challengeId);
     }
 
     receive() external payable {}

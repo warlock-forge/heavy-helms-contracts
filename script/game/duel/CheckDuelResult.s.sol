@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {DuelGame} from "../../../src/game/modes/DuelGame.sol";
 import {GameEngine} from "../../../src/game/engine/GameEngine.sol";
+import {Fighter} from "../../../src/fighters/Fighter.sol";
 
 contract CheckDuelResultScript is Script {
     function setUp() public {}
@@ -32,8 +33,10 @@ contract CheckDuelResultScript is Script {
             uint32 defenderId,
             uint256 wagerAmount,
             uint256 createdBlock,
-            ,
-            ,
+            uint256 createdTimestamp,
+            uint256 vrfRequestTimestamp,
+            Fighter.PlayerLoadout memory challengerLoadout,
+            Fighter.PlayerLoadout memory defenderLoadout,
             DuelGame.ChallengeState state
         ) = duelGame.challenges(challengeId);
 
@@ -42,6 +45,8 @@ contract CheckDuelResultScript is Script {
         console.log("Defender ID:", defenderId);
         console.log("Wager Amount:", wagerAmount);
         console.log("Created Block:", createdBlock);
+        console.log("Created Timestamp:", createdTimestamp);
+        console.log("VRF Request Timestamp:", vrfRequestTimestamp);
         console.log("State:", getStateString(state));
 
         if (state == DuelGame.ChallengeState.COMPLETED) {

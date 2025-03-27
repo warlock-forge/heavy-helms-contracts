@@ -107,7 +107,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice End ID for user-created players (no upper limit for user players)
     uint32 private constant USER_PLAYER_END = type(uint32).max;
     /// @notice Timeout period in seconds after which a player creation request can be recovered
-    uint256 private constant REQUEST_TIMEOUT = 4 hours;
+    uint256 public vrfRequestTimeout = 4 hours;
 
     // Configuration
     /// @notice Fee amount in ETH required to create a new player
@@ -307,6 +307,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     event RequestRecovered(
         uint256 indexed requestId, address indexed user, uint256 amount, bool adminInitiated, uint256 recoveryTimestamp
     );
+
+    /// @notice Emitted when VRF request timeout is updated
+    event VrfRequestTimeoutUpdated(uint256 oldValue, uint256 newValue);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -858,7 +861,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         PendingPlayer storage request = _pendingPlayers[requestId];
         if (request.owner != msg.sender) revert NotPlayerOwner();
         if (request.fulfilled) revert RequestAlreadyFulfilled();
-        if (block.timestamp <= request.timestamp + REQUEST_TIMEOUT) revert("Not timed out yet");
+        if (block.timestamp <= request.timestamp + vrfRequestTimeout) revert("Not timed out yet");
 
         // Effects - clear request data before transfer
         delete _pendingPlayers[requestId];
@@ -952,6 +955,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (newAddress == address(0)) revert BadZeroAddress();
         _equipmentRequirements = IEquipmentRequirements(newAddress);
         emit EquipmentRequirementsUpdated(address(_equipmentRequirements), newAddress);
+    }
+
+    /// @notice Updates the timeout period for VRF requests
+    /// @param newValue The new timeout period in seconds
+    function setVrfRequestTimeout(uint256 newValue) external onlyOwner {
+        require(newValue > 0, "Value must be positive");
+        emit VrfRequestTimeoutUpdated(vrfRequestTimeout, newValue);
+        vrfRequestTimeout = newValue;
     }
 
     //==============================================================//
