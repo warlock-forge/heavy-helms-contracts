@@ -302,7 +302,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Validate player ownership and stats
         require(IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId) == msg.sender, "Not player owner");
-        require(!IPlayer(playerContract).isPlayerRetired(defenderLoadout.playerId), "Player retired");
+        require(!IPlayer(playerContract).isPlayerRetired(defenderLoadout.playerId), "Defender is retired");
+        require(!IPlayer(playerContract).isPlayerRetired(challenge.challengerId), "Challenger is retired");
 
         // Store defender loadout
         challenge.defenderLoadout = defenderLoadout;

@@ -713,6 +713,36 @@ contract DuelGameTest is TestBase {
         game.fulfillRandomness(0, dataWithRound);
     }
 
+    function test_RevertWhen_ChallengerRetiredBeforeAcceptance() public {
+        // Create a challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 wagerAmount = 1 ether;
+        uint256 totalAmount = wagerAmount + game.minDuelFee();
+        vm.deal(PLAYER_ONE, totalAmount);
+        uint256 challengeId =
+            game.initiateChallenge{value: totalAmount}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID, wagerAmount);
+
+        // Retire the challenger's player using the player's own method
+        playerContract.retireOwnPlayer(PLAYER_ONE_ID);
+
+        // Verify retirement was successful
+        assertTrue(playerContract.isPlayerRetired(PLAYER_ONE_ID), "Player not retired");
+        vm.stopPrank();
+
+        // Try to accept the challenge - should revert due to retired challenger
+        vm.startPrank(PLAYER_TWO);
+        vm.deal(PLAYER_TWO, wagerAmount);
+
+        // Create the loadout FIRST, outside the expectRevert scope
+        Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
+
+        // Now expect the revert on just the acceptChallenge call
+        vm.expectRevert("Challenger is retired");
+        game.acceptChallenge{value: wagerAmount}(challengeId, defenderLoadout);
+
+        vm.stopPrank();
+    }
+
     function testRecoverTimedOutVRF() public {
         // Step 1: Create a challenge
         vm.startPrank(PLAYER_ONE);
