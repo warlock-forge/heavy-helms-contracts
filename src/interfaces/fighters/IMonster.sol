@@ -26,8 +26,9 @@ interface IMonster {
     /// @param tier Tier/level of the monster (affects difficulty and rewards)
     struct MonsterStats {
         Fighter.Attributes attributes;
-        Fighter.SkinInfo skin;
         MonsterName name;
+        Fighter.SkinInfo skin;
+        uint8 stance;
         Fighter.Record record;
         uint8 tier;
     }
@@ -94,6 +95,31 @@ interface IMonster {
     /// @param monsterId The ID of the monster
     /// @return The monster's equipped skin information
     function getCurrentSkin(uint32 monsterId) external view returns (Fighter.SkinInfo memory);
+
+    /// @notice Gets the current stance for a monster
+    /// @param monsterId The ID of the monster to query
+    /// @return The monster's current stance
+    function getCurrentStance(uint32 monsterId) external view returns (uint8);
+
+    /// @notice Get the current attributes for a monster
+    /// @param monsterId The ID of the monster
+    /// @return attributes The monster's current base attributes
+    function getCurrentAttributes(uint32 monsterId) external view returns (Fighter.Attributes memory);
+
+    /// @notice Get the current combat record for a monster
+    /// @param monsterId The ID of the monster
+    /// @return The monster's current win/loss/kill record
+    function getCurrentRecord(uint32 monsterId) external view returns (Fighter.Record memory);
+
+    /// @notice Get the current name for a monster
+    /// @param monsterId The ID of the monster
+    /// @return The monster's current name
+    function getCurrentName(uint32 monsterId) external view returns (MonsterName memory);
+
+    /// @notice Get the current tier/level for a monster
+    /// @param monsterId The ID of the monster
+    /// @return The monster's current tier/level
+    function getCurrentTier(uint32 monsterId) external view returns (uint8);
 
     /// @notice Gets the permissions for a game contract
     /// @param gameContract Address of the game contract to query

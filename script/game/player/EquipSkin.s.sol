@@ -9,7 +9,7 @@ import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 contract EquipSkinScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr, uint32 playerId, uint32 skinIndex, uint16 tokenId) public {
+    function run(address playerContractAddr, uint32 playerId, uint32 skinIndex, uint16 tokenId, uint8 stance) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -25,7 +25,7 @@ contract EquipSkinScript is Script {
         // PlayerSkinRegistry skinRegistry = PlayerSkinRegistry(payable(player.skinRegistry()));
 
         // Equip the skin
-        player.equipSkin(playerId, skinIndex, tokenId);
+        player.equipSkin(playerId, skinIndex, tokenId, stance);
         console2.log("Equipped skin to player", playerId);
         console2.log("Skin Index:", skinIndex);
         console2.log("Token ID:", tokenId);

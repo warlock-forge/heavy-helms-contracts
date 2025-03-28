@@ -9,6 +9,7 @@ error InvalidCID();
 error InvalidTokenId();
 error MaxSupplyReached();
 error TokenDoesNotExist();
+error TokenIdAlreadyExists(uint16 tokenId);
 
 abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
     uint16 internal immutable _MAX_SUPPLY;
@@ -18,30 +19,28 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
     mapping(uint256 => SkinAttributes) internal _skinAttributes;
 
     // Common events
-    event SkinAttributesUpdated(uint16 indexed tokenId, uint8 weapon, uint8 armor, uint8 stance);
+    event SkinAttributesUpdated(uint16 indexed tokenId, uint8 weapon, uint8 armor);
 
     constructor(string memory name, string memory symbol, uint16 maxSupply) ERC721(name, symbol) Owned(msg.sender) {
         _MAX_SUPPLY = maxSupply;
     }
 
-    function _mintGameSkin(uint8 weapon, uint8 armor, uint8 stance, string memory ipfsCID, uint16 desiredTokenId)
+    function _mintGameSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
         internal
         returns (uint16)
     {
         if (desiredTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
         if (bytes(ipfsCID).length == 0) revert InvalidCID();
-        if (_ownerOf[desiredTokenId] != address(0)) revert("Token ID already exists");
+        if (_ownerOf[desiredTokenId] != address(0)) revert TokenIdAlreadyExists(desiredTokenId);
 
         _mint(address(this), desiredTokenId);
 
-        _skinAttributes[desiredTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
+        _skinAttributes[desiredTokenId] = SkinAttributes({weapon: weapon, armor: armor});
         _tokenCIDs[desiredTokenId] = ipfsCID;
 
         if (desiredTokenId >= _currentTokenId) {
             _currentTokenId = desiredTokenId + 1;
         }
-
-        emit SkinMinted(address(this), desiredTokenId, weapon, armor, stance);
 
         return desiredTokenId;
     }
@@ -70,13 +69,13 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
         _tokenCIDs[tokenId] = ipfsCID;
     }
 
-    function updateSkinAttributes(uint256 tokenId, uint8 weapon, uint8 armor, uint8 stance) external onlyOwner {
+    function updateSkinAttributes(uint256 tokenId, uint8 weapon, uint8 armor) external onlyOwner {
         if (tokenId >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
 
-        _skinAttributes[tokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
+        _skinAttributes[tokenId] = SkinAttributes({weapon: weapon, armor: armor});
 
-        emit SkinAttributesUpdated(uint16(tokenId), weapon, armor, stance);
+        emit SkinAttributesUpdated(uint16(tokenId), weapon, armor);
     }
 
     function withdraw() external onlyOwner {

@@ -219,7 +219,8 @@ abstract contract TestBase is Test {
     function _createLoadout(uint32 fighterId) internal view returns (Fighter.PlayerLoadout memory) {
         Fighter fighter = _getFighterContract(fighterId);
         Fighter.SkinInfo memory skin = fighter.getCurrentSkin(fighterId);
-        return Fighter.PlayerLoadout({playerId: fighterId, skin: skin});
+        uint8 stance = fighter.getCurrentStance(fighterId);
+        return Fighter.PlayerLoadout({playerId: fighterId, skin: skin, stance: stance});
     }
 
     // Helper function to validate combat results

@@ -5,7 +5,6 @@ interface IPlayerSkinNFT {
     struct SkinAttributes {
         uint8 weapon;
         uint8 armor;
-        uint8 stance;
     }
 
     // Required view functions
@@ -14,5 +13,5 @@ interface IPlayerSkinNFT {
     function getSkinAttributes(uint256 tokenId) external view returns (SkinAttributes memory);
     function ownerOf(uint256 tokenId) external view returns (address owner);
 
-    event SkinMinted(address indexed to, uint16 indexed tokenId, uint8 weapon, uint8 armor, uint8 stance);
+    event PlayerSkinMinted(uint16 indexed tokenId, uint8 indexed weapon, uint8 indexed armor);
 }

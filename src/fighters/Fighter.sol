@@ -25,6 +25,7 @@ abstract contract Fighter {
     struct PlayerLoadout {
         uint32 playerId;
         SkinInfo skin;
+        uint8 stance;
     }
 
     /// @notice Core attributes that define a fighter's capabilities
@@ -105,10 +106,13 @@ abstract contract Fighter {
         require(isValidId(playerId), "Invalid player ID");
 
         // Get base attributes
-        Attributes memory attributes = getFighterAttributes(playerId);
+        Attributes memory attributes = getCurrentAttributes(playerId);
 
         // Get current skin info
         SkinInfo memory skinInfo = getCurrentSkin(playerId);
+
+        // Get stance
+        uint8 stance = getCurrentStance(playerId);
 
         // Get skin attributes
         IPlayerSkinRegistry skinReg = skinRegistry(); // Get the registry instance first
@@ -119,7 +123,7 @@ abstract contract Fighter {
         return IGameEngine.FighterStats({
             weapon: skinAttrs.weapon,
             armor: skinAttrs.armor,
-            stance: skinAttrs.stance,
+            stance: stance,
             attributes: attributes
         });
     }
@@ -136,7 +140,7 @@ abstract contract Fighter {
         require(isValidId(loadout.playerId), "Invalid player ID");
 
         // Get base attributes
-        Attributes memory attributes = getFighterAttributes(loadout.playerId);
+        Attributes memory attributes = getCurrentAttributes(loadout.playerId);
 
         // Get skin data from loadout
         IPlayerSkinRegistry skinReg = skinRegistry();
@@ -147,7 +151,7 @@ abstract contract Fighter {
         return IGameEngine.FighterStats({
             weapon: skinAttrs.weapon,
             armor: skinAttrs.armor,
-            stance: skinAttrs.stance,
+            stance: loadout.stance,
             attributes: attributes
         });
     }
@@ -167,12 +171,21 @@ abstract contract Fighter {
     /// @dev Must be implemented by child contracts
     function getCurrentSkin(uint32 playerId) public view virtual returns (SkinInfo memory);
 
-    //==============================================================//
-    //                    INTERNAL FUNCTIONS                        //
-    //==============================================================//
-    /// @notice Get the base attributes for a fighter
+    /// @notice Get the current stance for a fighter
     /// @param playerId The ID of the fighter
-    /// @return attributes The fighter's base attributes
+    /// @return The fighter's current stance
     /// @dev Must be implemented by child contracts
-    function getFighterAttributes(uint32 playerId) internal view virtual returns (Attributes memory);
+    function getCurrentStance(uint32 playerId) public view virtual returns (uint8);
+
+    /// @notice Get the current attributes for a fighter
+    /// @param playerId The ID of the fighter
+    /// @return attributes The fighter's current base attributes
+    /// @dev Must be implemented by child contracts
+    function getCurrentAttributes(uint32 playerId) public view virtual returns (Attributes memory);
+
+    /// @notice Get the current combat record for a fighter
+    /// @param playerId The ID of the fighter
+    /// @return The fighter's current win/loss/kill record
+    /// @dev Must be implemented by child contracts
+    function getCurrentRecord(uint32 playerId) public view virtual returns (Record memory);
 }

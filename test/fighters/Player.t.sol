@@ -267,7 +267,7 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_LEATHER(), gameEngine.STANCE_BALANCED()
+            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_LEATHER()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -298,20 +298,20 @@ contract PlayerTest is TestBase {
         vm.deal(otherAddress, 0.01 ether);
         vm.startPrank(otherAddress);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            otherAddress, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE(), gameEngine.STANCE_DEFENSIVE()
+            otherAddress, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
 
         // Try to equip the skin (should fail)
-        vm.expectRevert(abi.encodeWithSignature("PlayerDoesNotExist(uint32)", 10001));
-        playerContract.equipSkin(playerId, skinIndex, tokenId);
+        vm.expectRevert(NotPlayerOwner.selector);
+        playerContract.equipSkin(playerId, skinIndex, tokenId, 1);
         vm.stopPrank();
 
         // Now try to equip the same skin as PLAYER_ONE (who owns the player but not the skin)
         vm.startPrank(PLAYER_ONE);
         vm.expectRevert(abi.encodeWithSelector(SkinNotOwned.selector, address(skinNFT), tokenId));
-        playerContract.equipSkin(playerId, skinIndex, tokenId);
+        playerContract.equipSkin(playerId, skinIndex, tokenId, 1);
         vm.stopPrank();
     }
 
@@ -322,7 +322,7 @@ contract PlayerTest is TestBase {
         // Try to equip a non-existent skin collection
         vm.startPrank(PLAYER_ONE);
         vm.expectRevert(SkinRegistryDoesNotExist.selector);
-        playerContract.equipSkin(playerId, 999, 1);
+        playerContract.equipSkin(playerId, 9999, 1, 1);
         vm.stopPrank();
     }
 
@@ -532,8 +532,7 @@ contract PlayerTest is TestBase {
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
             equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
-            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
-            gameEngine.STANCE_OFFENSIVE()
+            equipmentRequirements.ARMOR_CLOTH()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -541,7 +540,7 @@ contract PlayerTest is TestBase {
         // Now mint unlock NFT and try again (should succeed)
         unlockNFT.mint(PLAYER_ONE);
         vm.prank(PLAYER_ONE);
-        playerContract.equipSkin(playerId, skinIndex, tokenId);
+        playerContract.equipSkin(playerId, skinIndex, tokenId, 1);
 
         // Verify skin was equipped
         IPlayer.PlayerStats memory player = playerContract.getPlayer(playerId);
@@ -568,8 +567,7 @@ contract PlayerTest is TestBase {
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
             PLAYER_ONE,
             equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
-            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
-            gameEngine.STANCE_OFFENSIVE()
+            equipmentRequirements.ARMOR_CLOTH()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -638,8 +636,7 @@ contract PlayerTest is TestBase {
         unlockNFT.mintSkin(
             PLAYER_ONE,
             equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
-            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
-            gameEngine.STANCE_BALANCED()
+            equipmentRequirements.ARMOR_CLOTH()
         );
         vm.stopPrank();
 
@@ -647,8 +644,7 @@ contract PlayerTest is TestBase {
         skinNFT.mintSkin(
             address(skinNFT), // Mint to contract itself, not PLAYER_ONE
             equipmentRequirements.WEAPON_SWORD_AND_SHIELD(), // Low str/agi requirements
-            equipmentRequirements.ARMOR_CLOTH(), // No stat requirements
-            gameEngine.STANCE_BALANCED()
+            equipmentRequirements.ARMOR_CLOTH()
         );
         uint16 tokenId = 1;
 
@@ -980,10 +976,7 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         vm.deal(PLAYER_ONE, skinNFT.mintPrice());
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            equipmentRequirements.WEAPON_GREATSWORD(),
-            equipmentRequirements.ARMOR_PLATE(),
-            gameEngine.STANCE_OFFENSIVE()
+            PLAYER_ONE, equipmentRequirements.WEAPON_GREATSWORD(), equipmentRequirements.ARMOR_PLATE()
         );
         uint16 tokenId = 1;
 
@@ -992,7 +985,7 @@ contract PlayerTest is TestBase {
 
         // Expect the requirements not met error
         vm.expectRevert(EquipmentRequirementsNotMet.selector);
-        playerContract.equipSkin(playerId, skinIndex, tokenId);
+        playerContract.equipSkin(playerId, skinIndex, tokenId, 1);
 
         // Verify the skin was not equipped
         stats = playerContract.getPlayer(playerId);
@@ -1032,7 +1025,7 @@ contract PlayerTest is TestBase {
         // This should revert because the player doesn't meet requirements
         vm.startPrank(PLAYER_ONE);
         vm.expectRevert(EquipmentRequirementsNotMet.selector);
-        playerContract.equipSkin(playerId, defaultSkinCollectionIndex, battleaxeSkinTokenId);
+        playerContract.equipSkin(playerId, defaultSkinCollectionIndex, battleaxeSkinTokenId, 1);
         vm.stopPrank();
     }
 
@@ -1042,14 +1035,14 @@ contract PlayerTest is TestBase {
     {
         vm.startPrank(PLAYER_ONE);
         if (shouldSucceed) {
-            playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
+            playerContract.equipSkin(playerId, skinIndexToEquip, tokenId, 1);
             IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
             assertEq(stats.skin.skinIndex, skinIndexToEquip);
             assertEq(stats.skin.skinTokenId, tokenId);
         } else {
             IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo = skinRegistry.getSkin(skinIndexToEquip);
             vm.expectRevert(abi.encodeWithSelector(SkinNotOwned.selector, skinInfo.contractAddress, tokenId));
-            playerContract.equipSkin(playerId, skinIndexToEquip, tokenId);
+            playerContract.equipSkin(playerId, skinIndexToEquip, tokenId, 1);
         }
         vm.stopPrank();
     }

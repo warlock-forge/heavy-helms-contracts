@@ -32,14 +32,16 @@ contract LethalDamageTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
-            })
+            }),
+            stance: 2
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
-            })
+            }),
+            stance: 2
         });
 
         // Get the appropriate Fighter contracts
@@ -69,14 +71,16 @@ contract LethalDamageTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
-            })
+            }),
+            stance: 2
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
-            })
+            }),
+            stance: 2
         });
 
         // Get the appropriate Fighter contracts
@@ -122,14 +126,16 @@ contract LethalDamageTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
-            })
+            }),
+            stance: 2
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
-            })
+            }),
+            stance: 2
         });
 
         // Get the appropriate Fighter contracts
@@ -175,14 +181,16 @@ contract LethalDamageTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
-            })
+            }),
+            stance: 2
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1
-            })
+            }),
+            stance: 0
         });
 
         // Get the appropriate Fighter contracts
@@ -229,14 +237,16 @@ contract LethalDamageTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
-            })
+            }),
+            stance: 2
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
-            })
+            }),
+            stance: 2
         });
 
         // Get the appropriate Fighter contracts

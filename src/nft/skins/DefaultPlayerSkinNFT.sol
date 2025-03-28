@@ -8,14 +8,12 @@ contract DefaultPlayerSkinNFT is GameOwnedNFT {
 
     constructor() GameOwnedNFT("Heavy Helms Default Player Skins", "HHSKIN", 2000) {}
 
-    function mintDefaultPlayerSkin(
-        uint8 weapon,
-        uint8 armor,
-        uint8 stance,
-        string memory ipfsCID,
-        uint16 desiredTokenId
-    ) external onlyOwner returns (uint16) {
-        uint16 tokenId = _mintGameSkin(weapon, armor, stance, ipfsCID, desiredTokenId);
+    function mintDefaultPlayerSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
+        external
+        onlyOwner
+        returns (uint16)
+    {
+        uint16 tokenId = _mintGameSkin(weapon, armor, ipfsCID, desiredTokenId);
         emit DefaultPlayerSkinMinted(tokenId);
         return tokenId;
     }

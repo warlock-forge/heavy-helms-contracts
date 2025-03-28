@@ -122,6 +122,58 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         return stats.skin;
     }
 
+    /// @notice Gets the current stance for a default player
+    /// @param playerId The ID of the default player to query
+    /// @return The default player's current stance
+    function getCurrentStance(uint32 playerId)
+        public
+        view
+        override(Fighter, IDefaultPlayer)
+        defaultPlayerExists(playerId)
+        returns (uint8)
+    {
+        return _defaultPlayers[playerId].stance;
+    }
+
+    /// @notice Get the current attributes for a default player
+    /// @param playerId The ID of the default player
+    /// @return attributes The default player's current base attributes
+    function getCurrentAttributes(uint32 playerId)
+        public
+        view
+        override(Fighter, IDefaultPlayer)
+        defaultPlayerExists(playerId)
+        returns (Attributes memory)
+    {
+        return _defaultPlayers[playerId].attributes;
+    }
+
+    /// @notice Get the current combat record for a default player
+    /// @param playerId The ID of the default player
+    /// @return The default player's current win/loss/kill record
+    function getCurrentRecord(uint32 playerId)
+        public
+        view
+        override(Fighter, IDefaultPlayer)
+        defaultPlayerExists(playerId)
+        returns (Record memory)
+    {
+        return _defaultPlayers[playerId].record;
+    }
+
+    /// @notice Get the current name for a default player
+    /// @param playerId The ID of the default player
+    /// @return The default player's current name
+    function getCurrentName(uint32 playerId)
+        public
+        view
+        override(IDefaultPlayer)
+        defaultPlayerExists(playerId)
+        returns (IPlayer.PlayerName memory)
+    {
+        return _defaultPlayers[playerId].name;
+    }
+
     /// @notice Get the complete stats for a default player
     /// @param playerId The ID of the default player to query
     /// @return PlayerStats struct containing all player data
@@ -200,17 +252,5 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         _defaultPlayers[playerId] = newStats;
 
         emit DefaultPlayerStatsUpdated(playerId, newStats);
-    }
-
-    //==============================================================//
-    //                    INTERNAL FUNCTIONS                        //
-    //==============================================================//
-    /// @notice Get the base attributes for a default player
-    /// @param playerId The ID of the default player
-    /// @return attributes The default player's base attributes
-    /// @dev Used by the Fighter base contract for stat-based calculations
-    function getFighterAttributes(uint32 playerId) internal view override returns (Attributes memory) {
-        IPlayer.PlayerStats memory stats = _defaultPlayers[playerId];
-        return stats.attributes;
     }
 }

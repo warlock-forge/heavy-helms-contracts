@@ -34,14 +34,16 @@ contract CombatLogHealthTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
-            })
+            }),
+            stance: 1
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_TWO_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1
-            })
+            }),
+            stance: 1
         });
 
         // Get the appropriate Fighter contracts
@@ -178,14 +180,16 @@ contract CombatLogHealthTest is TestBase {
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
-            })
+            }),
+            stance: 1
         });
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_TWO_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
                 skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1
-            })
+            }),
+            stance: 1
         });
 
         // Get the appropriate Fighter contracts

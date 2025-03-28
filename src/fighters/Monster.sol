@@ -165,6 +165,66 @@ contract Monster is IMonster, Owned, Fighter {
         return stats.skin;
     }
 
+    /// @notice Gets the current stance for a monster
+    /// @param monsterId The ID of the monster to query
+    /// @return The monster's current stance
+    function getCurrentStance(uint32 monsterId)
+        public
+        view
+        override(Fighter, IMonster)
+        monsterExists(monsterId)
+        returns (uint8)
+    {
+        // Note: since monsters don't have stance in the struct, return a default value of 0
+        return 0;
+    }
+
+    /// @notice Get the current attributes for a monster
+    /// @param monsterId The ID of the monster
+    /// @return attributes The monster's current base attributes
+    function getCurrentAttributes(uint32 monsterId)
+        public
+        view
+        override(Fighter, IMonster)
+        monsterExists(monsterId)
+        returns (Attributes memory)
+    {
+        return _monsters[monsterId].attributes;
+    }
+
+    /// @notice Get the current combat record for a monster
+    /// @param monsterId The ID of the monster
+    /// @return The monster's current win/loss/kill record
+    function getCurrentRecord(uint32 monsterId)
+        public
+        view
+        override(Fighter, IMonster)
+        monsterExists(monsterId)
+        returns (Record memory)
+    {
+        return _monsters[monsterId].record;
+    }
+
+    /// @notice Get the current name for a monster
+    /// @param monsterId The ID of the monster
+    /// @return The monster's current name
+    function getCurrentName(uint32 monsterId)
+        public
+        view
+        override(IMonster)
+        monsterExists(monsterId)
+        returns (MonsterName memory)
+    {
+        return _monsters[monsterId].name;
+    }
+
+    /// @notice Get the current tier/level for a monster
+    /// @param monsterId The ID of the monster
+    /// @return The monster's current tier/level
+    function getCurrentTier(uint32 monsterId) public view override(IMonster) monsterExists(monsterId) returns (uint8) {
+        return _monsters[monsterId].tier;
+    }
+
     /// @notice Gets the complete stats for a monster
     /// @param monsterId The ID of the monster to query
     /// @return The monster's complete stats and attributes
@@ -285,17 +345,5 @@ contract Monster is IMonster, Owned, Fighter {
     function setGameContractPermissions(address gameContract, GamePermissions memory permissions) external onlyOwner {
         _gameContractPermissions[gameContract] = permissions;
         emit GameContractPermissionsUpdated(gameContract, permissions);
-    }
-
-    //==============================================================//
-    //                    INTERNAL FUNCTIONS                        //
-    //==============================================================//
-    /// @notice Get the base attributes for a monster
-    /// @param monsterId The ID of the monster
-    /// @return attributes The monster's base attributes
-    /// @dev Used by the Fighter base contract for stat-based calculations
-    function getFighterAttributes(uint32 monsterId) internal view override returns (Attributes memory) {
-        MonsterStats memory stats = _monsters[monsterId];
-        return stats.attributes;
     }
 }

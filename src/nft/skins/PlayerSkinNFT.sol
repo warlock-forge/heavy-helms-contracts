@@ -46,7 +46,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
         mintPrice = _mintPrice;
     }
 
-    function mintSkin(address to, uint8 weapon, uint8 armor, uint8 stance) external payable returns (uint16) {
+    function mintSkin(address to, uint8 weapon, uint8 armor) external payable returns (uint16) {
         // Owner can mint for free, others must pay
         if (msg.sender != owner) {
             if (!mintingEnabled) revert MintingDisabled();
@@ -58,9 +58,9 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
         uint16 newTokenId = _currentTokenId++;
         _mint(to, newTokenId);
 
-        _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor, stance: stance});
+        _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor});
 
-        emit SkinMinted(to, newTokenId, weapon, armor, stance);
+        emit PlayerSkinMinted(newTokenId, weapon, armor);
         return newTokenId;
     }
 

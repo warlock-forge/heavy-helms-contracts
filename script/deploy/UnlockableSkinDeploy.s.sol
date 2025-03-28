@@ -26,7 +26,7 @@ contract UnlockableSkinDeployScript is Script {
         skinRegistry.setRequiredNFT(unlockableSkinIndex, 0x05aA491820662b131d285757E5DA4b74BD0F0e5F);
 
         // Set the IPFS base URI
-        unlockableSkin.setBaseURI("ipfs://bafybeigbd4zxryqak5ycdzcbn4bxv6igodonsmibwnzm6pyxxeajfo6am4/");
+        unlockableSkin.setBaseURI("ipfs://bafybeidyvui7z7e3c35eymdthhkbnn7etnrrukpfaakzramu6vihvpoexe/");
 
         // Enable minting
         unlockableSkin.setMintingEnabled(true);
@@ -37,24 +37,21 @@ contract UnlockableSkinDeployScript is Script {
         unlockableSkin.mintSkin(
             address(unlockableSkin),
             5, // WEAPON_QUARTERSTAFF
-            0, // ARMOR_CLOTH
-            1 // STANCE_BALANCED
+            0 // ARMOR_CLOTH
         );
 
         // Mint Mace Guardian (ID 2)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
             0, // WEAPON_SWORD_AND_SHIELD
-            3, // ARMOR_PLATE
-            0 // STANCE_DEFENSIVE
+            3 // ARMOR_PLATE
         );
 
         // Mint Battle Master (ID 3)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
             4, // WEAPON_BATTLEAXE
-            1, // ARMOR_LEATHER
-            2 // STANCE_OFFENSIVE
+            1 // ARMOR_LEATHER
         );
 
         // Set the collection as verified
