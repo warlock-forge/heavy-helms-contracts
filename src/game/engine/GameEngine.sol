@@ -1176,9 +1176,8 @@ contract GameEngine is IGameEngine {
 
     function getStanceMultiplier(uint8 stance) public pure returns (StanceMultiplier memory) {
         if (stance == STANCE_DEFENSIVE) return DEFENSIVE_STANCE();
-        if (stance == STANCE_BALANCED) return BALANCED_STANCE();
         if (stance == STANCE_OFFENSIVE) return OFFENSIVE_STANCE();
-        revert("Invalid stance type");
+        return BALANCED_STANCE();
     }
 
     function isLethalDamage(

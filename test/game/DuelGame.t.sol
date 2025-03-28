@@ -333,7 +333,7 @@ contract DuelGameTest is TestBase {
         vm.deal(PLAYER_ONE, wagerAmount);
 
         Fighter.PlayerLoadout memory loadout =
-            Fighter.PlayerLoadout({playerId: 999, skin: Fighter.SkinInfo({skinIndex: 1, skinTokenId: 1})});
+            Fighter.PlayerLoadout({playerId: 999, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1});
 
         vm.expectRevert("Unsupported player ID for Duel mode");
         game.initiateChallenge{value: wagerAmount}(loadout, PLAYER_TWO_ID, wagerAmount);

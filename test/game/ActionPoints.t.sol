@@ -20,12 +20,14 @@ contract ActionPointsTest is TestBase {
 
         Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
             playerId: fastWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId}),
+            stance: 1
         });
 
         Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
             playerId: slowWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId}),
+            stance: 1
         });
 
         IGameEngine.FighterStats memory fastStats =
@@ -68,12 +70,14 @@ contract ActionPointsTest is TestBase {
 
         Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
             playerId: fastWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId})
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: fastWeaponId}),
+            stance: 1
         });
 
         Fighter.PlayerLoadout memory slowLoadout = Fighter.PlayerLoadout({
             playerId: slowWeaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId})
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: slowWeaponId}),
+            stance: 1
         });
 
         bytes memory results = gameEngine.processGame(
@@ -110,12 +114,14 @@ contract ActionPointsTest is TestBase {
 
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: weaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId})
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}),
+            stance: 1
         });
 
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
             playerId: weaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId})
+            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}),
+            stance: 1
         });
 
         bytes memory results = gameEngine.processGame(

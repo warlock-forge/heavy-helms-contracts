@@ -169,11 +169,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param immortal The new immortality status
     event PlayerImmortalityChanged(uint32 indexed playerId, address indexed caller, bool immortal);
 
-    /// @notice Emitted when a player equips a new skin
+    /// @notice Emitted when a player equips a new skin and sets stance
     /// @param playerId The ID of the player
     /// @param skinIndex The index of the skin collection in the registry
     /// @param tokenId The token ID of the specific skin being equipped
-    event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 tokenId);
+    /// @param stance The new stance value (0=Defensive, 1=Balanced, 2=Offensive)
+    event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 tokenId, uint8 stance);
 
     /// @notice Emitted when a VRF request for player creation is fulfilled with all player data
     /// @param requestId The VRF request ID
@@ -311,6 +312,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Emitted when VRF request timeout is updated
     event VrfRequestTimeoutUpdated(uint256 oldValue, uint256 newValue);
 
+    /// @notice Emitted when a player's stance is updated
+    /// @param playerId The ID of the player
+    /// @param stance The new stance value
+    event StanceUpdated(uint32 indexed playerId, uint8 stance);
+
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
@@ -378,8 +384,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Packs player data into a compact bytes32 format for efficient storage/transmission
     /// @param playerId The ID of the player to encode
     /// @param stats The player's stats and attributes to encode
-    /// @return bytes32 Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][names(4)][records(6)]
-    /// @dev Byte layout: [0-3:playerId][4-9:stats][10-13:skinIndex][14-25:other data]
+    /// @return bytes32 Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][stance(1)][names(4)][records(6)]
+    /// @dev Byte layout: [0-3:playerId][4-9:stats][10-13:skinIndex][14-15:tokenId][16:stance][17-26:other data]
     function encodePlayerData(uint32 playerId, PlayerStats memory stats) external pure returns (bytes32) {
         bytes memory packed = new bytes(32);
 
@@ -403,26 +409,28 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         packed[12] = bytes1(uint8(stats.skin.skinIndex >> 8));
         packed[13] = bytes1(uint8(stats.skin.skinIndex));
 
-        // Pack uint16 values (14 bytes)
+        // Pack tokenId (2 bytes)
         packed[14] = bytes1(uint8(stats.skin.skinTokenId >> 8));
         packed[15] = bytes1(uint8(stats.skin.skinTokenId));
 
-        packed[16] = bytes1(uint8(stats.name.firstNameIndex >> 8));
-        packed[17] = bytes1(uint8(stats.name.firstNameIndex));
+        // Pack stance (1 byte)
+        packed[16] = bytes1(stats.stance);
 
-        packed[18] = bytes1(uint8(stats.name.surnameIndex >> 8));
-        packed[19] = bytes1(uint8(stats.name.surnameIndex));
+        // Pack name indices (4 bytes)
+        packed[17] = bytes1(uint8(stats.name.firstNameIndex >> 8));
+        packed[18] = bytes1(uint8(stats.name.firstNameIndex));
+        packed[19] = bytes1(uint8(stats.name.surnameIndex >> 8));
+        packed[20] = bytes1(uint8(stats.name.surnameIndex));
 
-        packed[20] = bytes1(uint8(stats.record.wins >> 8));
-        packed[21] = bytes1(uint8(stats.record.wins));
+        // Pack record data (6 bytes)
+        packed[21] = bytes1(uint8(stats.record.wins >> 8));
+        packed[22] = bytes1(uint8(stats.record.wins));
+        packed[23] = bytes1(uint8(stats.record.losses >> 8));
+        packed[24] = bytes1(uint8(stats.record.losses));
+        packed[25] = bytes1(uint8(stats.record.kills >> 8));
+        packed[26] = bytes1(uint8(stats.record.kills));
 
-        packed[22] = bytes1(uint8(stats.record.losses >> 8));
-        packed[23] = bytes1(uint8(stats.record.losses));
-
-        packed[24] = bytes1(uint8(stats.record.kills >> 8));
-        packed[25] = bytes1(uint8(stats.record.kills));
-
-        // Last 6 bytes are padded with zeros by default
+        // Last 5 bytes are padded with zeros by default
 
         return bytes32(packed);
     }
@@ -455,15 +463,21 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             | uint32(uint8(packed[12])) << 8 | uint32(uint8(packed[13]));
         uint16 skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
 
-        // Decode uint16 values
-        stats.name.firstNameIndex = uint16(uint8(packed[16])) << 8 | uint16(uint8(packed[17]));
-        stats.name.surnameIndex = uint16(uint8(packed[18])) << 8 | uint16(uint8(packed[19]));
-        stats.record.wins = uint16(uint8(packed[20])) << 8 | uint16(uint8(packed[21]));
-        stats.record.losses = uint16(uint8(packed[22])) << 8 | uint16(uint8(packed[23]));
-        stats.record.kills = uint16(uint8(packed[24])) << 8 | uint16(uint8(packed[25]));
+        // Decode stance
+        uint8 stance = uint8(packed[16]);
 
-        // Construct skin
+        // Decode name indices
+        stats.name.firstNameIndex = uint16(uint8(packed[17])) << 8 | uint16(uint8(packed[18]));
+        stats.name.surnameIndex = uint16(uint8(packed[19])) << 8 | uint16(uint8(packed[20]));
+
+        // Decode record data
+        stats.record.wins = uint16(uint8(packed[21])) << 8 | uint16(uint8(packed[22]));
+        stats.record.losses = uint16(uint8(packed[23])) << 8 | uint16(uint8(packed[24]));
+        stats.record.kills = uint16(uint8(packed[25])) << 8 | uint16(uint8(packed[26]));
+
+        // Construct skin and set stance
         stats.skin = SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId});
+        stats.stance = stance;
 
         return (playerId, stats);
     }
@@ -589,8 +603,53 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param playerId The ID of the player
     /// @return The player's equipped skin information (index and token ID)
     function getCurrentSkin(uint32 playerId) public view override(Fighter, IPlayer) returns (SkinInfo memory) {
-        PlayerStats memory stats = _players[playerId];
-        return stats.skin;
+        return _players[playerId].skin;
+    }
+
+    /// @notice Gets the current stance for a player
+    /// @param playerId The ID of the player to query
+    /// @return The player's current stance
+    function getCurrentStance(uint32 playerId)
+        public
+        view
+        override(Fighter, IPlayer)
+        playerExists(playerId)
+        returns (uint8)
+    {
+        return _players[playerId].stance;
+    }
+
+    /// @notice Get the current attributes for a player
+    /// @param playerId The ID of the player
+    /// @return attributes The player's current base attributes
+    function getCurrentAttributes(uint32 playerId)
+        public
+        view
+        override(Fighter, IPlayer)
+        playerExists(playerId)
+        returns (Attributes memory)
+    {
+        return _players[playerId].attributes;
+    }
+
+    /// @notice Get the current combat record for a player
+    /// @param playerId The ID of the player
+    /// @return The player's current win/loss/kill record
+    function getCurrentRecord(uint32 playerId)
+        public
+        view
+        override(Fighter, IPlayer)
+        playerExists(playerId)
+        returns (Record memory)
+    {
+        return _players[playerId].record;
+    }
+
+    /// @notice Get the current name for a player
+    /// @param playerId The ID of the player
+    /// @return The player's current name
+    function getCurrentName(uint32 playerId) public view playerExists(playerId) returns (PlayerName memory) {
+        return _players[playerId].name;
     }
 
     // State-Changing Functions
@@ -616,15 +675,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit PlayerCreationRequested(requestId, msg.sender);
     }
 
-    /// @notice Equips a skin to a player
+    /// @notice Equips a skin and sets stance for a player
     /// @param playerId The ID of the player to modify
     /// @param skinIndex The index of the skin collection in the registry
     /// @param skinTokenId The token ID of the specific skin being equipped
+    /// @param stance The new stance value (0=Defensive, 1=Balanced, 2=Offensive)
     /// @dev Verifies ownership and collection requirements. Reverts if player is retired
-    function equipSkin(uint32 playerId, uint32 skinIndex, uint16 skinTokenId) external {
-        // Verify player exists and is owned by sender
-        if (!_exists(playerId) || _ownerOf(playerId) != msg.sender) {
-            revert PlayerDoesNotExist(playerId);
+    function equipSkin(uint32 playerId, uint32 skinIndex, uint16 skinTokenId, uint8 stance)
+        external
+        playerExists(playerId)
+    {
+        // Check ownership
+        if (_playerOwners[playerId] != msg.sender) {
+            revert NotPlayerOwner();
         }
 
         // Check if player is retired
@@ -644,11 +707,30 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             _equipmentRequirements
         );
 
-        // Update player's skin
+        // Update player's skin and stance
         _players[playerId].skin.skinIndex = skinIndex;
         _players[playerId].skin.skinTokenId = skinTokenId;
+        _players[playerId].stance = stance;
 
-        emit PlayerSkinEquipped(playerId, skinIndex, skinTokenId);
+        emit PlayerSkinEquipped(playerId, skinIndex, skinTokenId, stance);
+    }
+
+    /// @notice Sets a player's stance
+    /// @param playerId The ID of the player to modify
+    /// @param stance The new stance value (0=Defensive, 1=Balanced, 2=Offensive)
+    function setStance(uint32 playerId, uint8 stance) external playerExists(playerId) {
+        // Check ownership
+        if (_playerOwners[playerId] != msg.sender) {
+            revert NotPlayerOwner();
+        }
+
+        // Check if player is retired
+        if (_retiredPlayers[playerId]) {
+            revert PlayerIsRetired(playerId);
+        }
+
+        _players[playerId].stance = stance;
+        emit StanceUpdated(playerId, stance);
     }
 
     /// @notice Purchase additional player slots
@@ -744,7 +826,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @dev Retired players cannot be used in games but can still be viewed
     function retireOwnPlayer(uint32 playerId) external playerExists(playerId) {
         // Check caller owns it
-        if (_ownerOf(playerId) != msg.sender) revert NotPlayerOwner();
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
 
         // Prevent double retirement
         if (_retiredPlayers[playerId]) revert PlayerIsRetired(playerId);
@@ -1115,23 +1197,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: PlayerName({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
-            record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills})
+            record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills}),
+            stance: 1 // Initialize to BALANCED stance
         });
-    }
-
-    // View helpers
-    /// @notice Checks if a player ID exists
-    /// @param playerId The ID to check
-    /// @return True if the player exists, false otherwise
-    function _exists(uint32 playerId) private view returns (bool) {
-        return _playerOwners[playerId] != address(0);
-    }
-
-    /// @notice Gets the owner of a player
-    /// @param playerId The ID of the player
-    /// @return Address of the player's owner
-    function _ownerOf(uint32 playerId) private view returns (address) {
-        return _playerOwners[playerId];
     }
 
     // State-modifying helpers
@@ -1222,7 +1290,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             }),
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: PlayerName({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            stance: 1 // Initialize to BALANCED stance
         });
 
         // Validate and fix if necessary
@@ -1271,13 +1340,5 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         else if (attr == Attribute.AGILITY) player.attributes.agility = value;
         else if (attr == Attribute.STAMINA) player.attributes.stamina = value;
         else player.attributes.luck = value;
-    }
-
-    /// @notice Get the base attributes for a player
-    /// @param playerId The ID of the player
-    /// @return attributes The player's base attributes
-    function getFighterAttributes(uint32 playerId) internal view override returns (Attributes memory) {
-        PlayerStats memory stats = _players[playerId];
-        return stats.attributes;
     }
 }

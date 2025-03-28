@@ -22,13 +22,13 @@ library MonsterLibrary {
         MonsterType monsterType
     ) internal returns (uint32) {
         // Get monster data based on type
-        (uint8 weapon, uint8 armor, uint8 stance, IMonster.MonsterStats memory stats, string memory ipfsCID) =
+        (uint8 weapon, uint8 armor, IMonster.MonsterStats memory stats, string memory ipfsCID) =
             _getMonsterData(monsterType, skinIndex, tokenId);
 
         // Create the monster first
         uint32 monsterId = monster.createMonster(stats);
         // Then mint the skin
-        monsterSkin.mintMonsterSkin(weapon, armor, stance, ipfsCID, tokenId);
+        monsterSkin.mintMonsterSkin(weapon, armor, ipfsCID, tokenId);
 
         return monsterId;
     }
@@ -44,7 +44,7 @@ library MonsterLibrary {
     function _getMonsterData(MonsterType monsterType, uint32 skinIndex, uint16 tokenId)
         private
         pure
-        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+        returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         if (monsterType == MonsterType.Goblin) {
             return _getGoblinData(skinIndex, tokenId);
@@ -61,11 +61,12 @@ library MonsterLibrary {
     function _getGoblinData(uint32 skinIndex, uint16 tokenId)
         private
         pure
-        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+        returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 8, constitution: 8, size: 6, agility: 14, stamina: 10, luck: 12}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
@@ -74,7 +75,6 @@ library MonsterLibrary {
         return (
             0, // WEAPON_SWORD_AND_SHIELD
             0, // ARMOR_CLOTH
-            0, // STANCE_DEFENSIVE
             stats,
             "Qm..." // Add actual IPFS CID
         );
@@ -83,11 +83,12 @@ library MonsterLibrary {
     function _getOrcData(uint32 skinIndex, uint16 tokenId)
         private
         pure
-        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+        returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 14, constitution: 14, size: 14, agility: 8, stamina: 12, luck: 8}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
@@ -96,7 +97,6 @@ library MonsterLibrary {
         return (
             4, // WEAPON_BATTLEAXE
             2, // ARMOR_CHAIN
-            2, // STANCE_OFFENSIVE
             stats,
             "Qm..." // Add actual IPFS CID
         );
@@ -105,11 +105,12 @@ library MonsterLibrary {
     function _getTrollData(uint32 skinIndex, uint16 tokenId)
         private
         pure
-        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+        returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 16, constitution: 16, size: 16, agility: 6, stamina: 14, luck: 6}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
@@ -118,7 +119,6 @@ library MonsterLibrary {
         return (
             3, // WEAPON_GREATSWORD
             3, // ARMOR_PLATE
-            1, // STANCE_BALANCED
             stats,
             "Qm..." // Add actual IPFS CID
         );
@@ -127,11 +127,12 @@ library MonsterLibrary {
     function _getGiantData(uint32 skinIndex, uint16 tokenId)
         private
         pure
-        returns (uint8, uint8, uint8, IMonster.MonsterStats memory, string memory)
+        returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
             attributes: Fighter.Attributes({strength: 18, constitution: 18, size: 18, agility: 4, stamina: 16, luck: 4}),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             tier: 1
@@ -140,7 +141,6 @@ library MonsterLibrary {
         return (
             4, // WEAPON_BATTLEAXE
             3, // ARMOR_PLATE
-            2, // STANCE_OFFENSIVE
             stats,
             "Qm..." // Add actual IPFS CID
         );

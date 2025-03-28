@@ -269,7 +269,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             createdTimestamp: block.timestamp,
             vrfRequestTimestamp: 0,
             challengerLoadout: challengerLoadout,
-            defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0)),
+            defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0), 1),
             state: ChallengeState.OPEN
         });
 
@@ -546,7 +546,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         IGameEngine.FighterStats memory challengerCombat = IGameEngine.FighterStats({
             weapon: challengerAttrs.weapon,
             armor: challengerAttrs.armor,
-            stance: challengerAttrs.stance,
+            stance: challenge.challengerLoadout.stance,
             attributes: challengerStats.attributes
         });
 
@@ -554,7 +554,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         IGameEngine.FighterStats memory defenderCombat = IGameEngine.FighterStats({
             weapon: defenderAttrs.weapon,
             armor: defenderAttrs.armor,
-            stance: defenderAttrs.stance,
+            stance: challenge.defenderLoadout.stance,
             attributes: defenderStats.attributes
         });
 

@@ -28,11 +28,11 @@ contract DuelPlayersScript is Script {
 
         // Create loadout for challenger using their current skin
         Fighter.PlayerLoadout memory challengerLoadout =
-            Fighter.PlayerLoadout({playerId: challengerId, skin: challengerStats.skin});
+            Fighter.PlayerLoadout({playerId: challengerId, skin: challengerStats.skin, stance: challengerStats.stance});
 
         // Create loadout for defender using their current skin
         Fighter.PlayerLoadout memory defenderLoadout =
-            Fighter.PlayerLoadout({playerId: defenderId, skin: defenderStats.skin});
+            Fighter.PlayerLoadout({playerId: defenderId, skin: defenderStats.skin, stance: defenderStats.stance});
 
         // Get minimum duel fee
         uint256 minDuelFee = duelGame.minDuelFee();

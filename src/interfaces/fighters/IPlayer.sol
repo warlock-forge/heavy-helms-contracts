@@ -27,8 +27,9 @@ interface IPlayer {
     /// @param record Record for player -> (wins, losses, kills)
     struct PlayerStats {
         Fighter.Attributes attributes;
-        Fighter.SkinInfo skin;
         PlayerName name;
+        Fighter.SkinInfo skin;
+        uint8 stance;
         Fighter.Record record;
     }
 
@@ -155,6 +156,26 @@ interface IPlayer {
     /// @return The player's equipped skin information (index and token ID)
     function getCurrentSkin(uint32 playerId) external view returns (Fighter.SkinInfo memory);
 
+    /// @notice Gets the current stance for a player
+    /// @param playerId The ID of the player to query
+    /// @return The player's current stance
+    function getCurrentStance(uint32 playerId) external view returns (uint8);
+
+    /// @notice Get the current attributes for a player
+    /// @param playerId The ID of the player
+    /// @return attributes The player's current base attributes
+    function getCurrentAttributes(uint32 playerId) external view returns (Fighter.Attributes memory);
+
+    /// @notice Get the current combat record for a player
+    /// @param playerId The ID of the player
+    /// @return The player's current win/loss/kill record
+    function getCurrentRecord(uint32 playerId) external view returns (Fighter.Record memory);
+
+    /// @notice Get the current name for a player
+    /// @param playerId The ID of the player
+    /// @return The player's current name
+    function getCurrentName(uint32 playerId) external view returns (PlayerName memory);
+
     // Pure Functions
     /// @notice Encodes player data into a compact bytes32 format
     /// @param playerId The ID of the player to encode
@@ -178,7 +199,8 @@ interface IPlayer {
     /// @param playerId The ID of the player
     /// @param skinIndex The index of the skin collection
     /// @param tokenId The token ID of the skin
-    function equipSkin(uint32 playerId, uint32 skinIndex, uint16 tokenId) external;
+    /// @param stance The new stance value
+    function equipSkin(uint32 playerId, uint32 skinIndex, uint16 tokenId, uint8 stance) external;
 
     /// @notice Retires a player owned by the caller
     /// @param playerId The ID of the player to retire
