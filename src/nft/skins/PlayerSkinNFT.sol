@@ -60,7 +60,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
 
         _skinAttributes[newTokenId] = SkinAttributes({weapon: weapon, armor: armor});
 
-        emit PlayerSkinMinted(newTokenId, weapon, armor);
+        emit SkinMinted(newTokenId, weapon, armor);
         return newTokenId;
     }
 

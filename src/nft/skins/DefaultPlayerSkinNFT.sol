@@ -4,8 +4,6 @@ pragma solidity ^0.8.13;
 import "../base/GameOwnedNFT.sol";
 
 contract DefaultPlayerSkinNFT is GameOwnedNFT {
-    event DefaultPlayerSkinMinted(uint16 indexed tokenId);
-
     constructor() GameOwnedNFT("Heavy Helms Default Player Skins", "HHSKIN", 2000) {}
 
     function mintDefaultPlayerSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
@@ -14,7 +12,7 @@ contract DefaultPlayerSkinNFT is GameOwnedNFT {
         returns (uint16)
     {
         uint16 tokenId = _mintGameSkin(weapon, armor, ipfsCID, desiredTokenId);
-        emit DefaultPlayerSkinMinted(tokenId);
+        emit SkinMinted(tokenId, weapon, armor);
         return tokenId;
     }
 }

@@ -13,5 +13,5 @@ interface IPlayerSkinNFT {
     function getSkinAttributes(uint256 tokenId) external view returns (SkinAttributes memory);
     function ownerOf(uint256 tokenId) external view returns (address owner);
 
-    event PlayerSkinMinted(uint16 indexed tokenId, uint8 indexed weapon, uint8 indexed armor);
+    event SkinMinted(uint16 indexed tokenId, uint8 indexed weapon, uint8 indexed armor);
 }
