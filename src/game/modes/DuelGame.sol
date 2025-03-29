@@ -109,7 +109,13 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Emitted when a challenge is forfeited
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
     /// @notice Emitted when a duel is completed
-    event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomness, uint256 winnerPayout);
+    event DuelComplete(
+        uint256 indexed challengeId,
+        uint32 indexed winnerId,
+        uint256 randomness,
+        uint256 winnerPayout,
+        uint256 feeCollected
+    );
     /// @notice Emitted when accumulated fees are withdrawn
     event FeesWithdrawn(uint256 amount);
     /// @notice Emitted when minimum duel fee is updated
@@ -603,7 +609,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         IPlayer(playerContract).incrementLosses(loserId);
 
         // Emit economic results
-        emit DuelComplete(challengeId, winnerId, randomness, winnerPayout);
+        emit DuelComplete(challengeId, winnerId, randomness, winnerPayout, fee);
     }
 
     /// @notice Checks if a player ID is supported in Duel mode

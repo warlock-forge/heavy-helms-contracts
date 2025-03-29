@@ -33,8 +33,12 @@ contract DuelGameTest is TestBase {
     );
     event ChallengeAccepted(uint256 indexed challengeId, uint32 defenderId);
     event ChallengeCancelled(uint256 indexed challengeId);
-    event DuelComplete(
-        uint256 indexed challengeId, uint32 indexed winnerId, uint32 indexed loserId, uint256 winnerPrize
+    event DuelComplete( // This is the key addition
+        uint256 indexed challengeId,
+        uint32 indexed winnerId,
+        uint256 randomness,
+        uint256 winnerPayout,
+        uint256 feeCollected
     );
     event MinDuelFeeUpdated(uint256 oldFee, uint256 newFee);
     event ChallengeForfeited(uint256 indexed challengeId, uint256 amount);
