@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 9;
+    uint16 public constant version = 10;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -391,9 +391,24 @@ contract GameEngine is IGameEngine {
         uint256 currentSeed = randomSeed;
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
-            // Determine if anyone can attack this round
-            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST;
-            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST;
+            // Determine if anyone can attack this round, including stamina check
+            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST && 
+                              state.p1Stamina >= calculateStaminaCost(ActionType.ATTACK, p1Calculated);
+            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST && 
+                              state.p2Stamina >= calculateStaminaCost(ActionType.ATTACK, p2Calculated);
+
+            // Check for exhaustion - if one player can attack but the other can't due to stamina
+            if (!canP1Attack && canP2Attack && state.p1ActionPoints >= ATTACK_ACTION_COST) {
+                // Player 1 exhausted but has action points - end combat
+                state.condition = WinCondition.EXHAUSTION;
+                state.player1Won = false; // Player 2 wins
+                break;
+            } else if (!canP2Attack && canP1Attack && state.p2ActionPoints >= ATTACK_ACTION_COST) {
+                // Player 2 exhausted but has action points - end combat
+                state.condition = WinCondition.EXHAUSTION;
+                state.player1Won = true; // Player 1 wins
+                break;
+            }
 
             // Only process combat if someone can attack
             if (canP1Attack || canP2Attack) {
