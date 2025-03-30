@@ -477,13 +477,41 @@ abstract contract TestBase is Test {
     }
 
     function getWeaponName(uint8 weapon) internal view returns (string memory) {
-        if (weapon == gameEngine.WEAPON_SWORD_AND_SHIELD()) return "SwordAndShield";
-        if (weapon == gameEngine.WEAPON_MACE_AND_SHIELD()) return "MaceAndShield";
-        if (weapon == gameEngine.WEAPON_RAPIER_AND_SHIELD()) return "RapierAndShield";
+        // Traditional one-handed weapons with shields
+        if (weapon == gameEngine.WEAPON_ARMING_SWORD_KITE()) return "ArmingSwordKite";
+        if (weapon == gameEngine.WEAPON_MACE_TOWER()) return "MaceTower";
+        if (weapon == gameEngine.WEAPON_RAPIER_BUCKLER()) return "RapierBuckler";
+        if (weapon == gameEngine.WEAPON_SHORTSWORD_BUCKLER()) return "ShortswordBuckler";
+        if (weapon == gameEngine.WEAPON_SHORTSWORD_TOWER()) return "ShortswordTower";
+        if (weapon == gameEngine.WEAPON_SCIMITAR_BUCKLER()) return "ScimitarBuckler";
+        if (weapon == gameEngine.WEAPON_AXE_KITE()) return "AxeKite";
+        if (weapon == gameEngine.WEAPON_AXE_TOWER()) return "AxeTower";
+        if (weapon == gameEngine.WEAPON_FLAIL_BUCKLER()) return "FlailBuckler";
+        if (weapon == gameEngine.WEAPON_MACE_KITE()) return "MaceKite";
+        if (weapon == gameEngine.WEAPON_CLUB_TOWER()) return "ClubTower";
+        
+        // Two-handed weapons
         if (weapon == gameEngine.WEAPON_GREATSWORD()) return "Greatsword";
         if (weapon == gameEngine.WEAPON_BATTLEAXE()) return "Battleaxe";
         if (weapon == gameEngine.WEAPON_QUARTERSTAFF()) return "Quarterstaff";
         if (weapon == gameEngine.WEAPON_SPEAR()) return "Spear";
+        if (weapon == gameEngine.WEAPON_MAUL()) return "Maul";
+        if (weapon == gameEngine.WEAPON_TRIDENT()) return "Trident";
+        
+        // Dual-wield weapons
+        if (weapon == gameEngine.WEAPON_DUAL_DAGGERS()) return "DualDaggers";
+        if (weapon == gameEngine.WEAPON_RAPIER_DAGGER()) return "RapierDagger";
+        if (weapon == gameEngine.WEAPON_DUAL_SCIMITARS()) return "DualScimitars";
+        if (weapon == gameEngine.WEAPON_DUAL_CLUBS()) return "DualClubs";
+        
+        // Mixed damage type weapons
+        if (weapon == gameEngine.WEAPON_ARMING_SWORD_SHORTSWORD()) return "ArmingSwordShortsword";
+        if (weapon == gameEngine.WEAPON_SCIMITAR_DAGGER()) return "ScimitarDagger";
+        if (weapon == gameEngine.WEAPON_ARMING_SWORD_CLUB()) return "ArmingSwordClub";
+        if (weapon == gameEngine.WEAPON_AXE_MACE()) return "AxeMace";
+        if (weapon == gameEngine.WEAPON_FLAIL_DAGGER()) return "FlailDagger";
+        if (weapon == gameEngine.WEAPON_MACE_SHORTSWORD()) return "MaceShortsword";
+        
         return "Unknown";
     }
 

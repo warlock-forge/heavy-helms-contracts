@@ -267,7 +267,7 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_LEATHER()
+            PLAYER_ONE, gameEngine.WEAPON_ARMING_SWORD_KITE(), gameEngine.ARMOR_LEATHER()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -298,7 +298,7 @@ contract PlayerTest is TestBase {
         vm.deal(otherAddress, 0.01 ether);
         vm.startPrank(otherAddress);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            otherAddress, gameEngine.WEAPON_SWORD_AND_SHIELD(), gameEngine.ARMOR_PLATE()
+            otherAddress, gameEngine.WEAPON_ARMING_SWORD_KITE(), gameEngine.ARMOR_PLATE()
         );
         uint16 tokenId = 1;
         vm.stopPrank();

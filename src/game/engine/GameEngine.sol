@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 7;
+    uint16 public constant version = 8;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -29,7 +29,10 @@ contract GameEngine is IGameEngine {
     enum DamageType {
         Slashing,
         Piercing,
-        Blunt
+        Blunt,
+        Hybrid_Slash_Pierce,  // For weapons mixing slashing and piercing
+        Hybrid_Slash_Blunt,   // For weapons mixing slashing and blunt
+        Hybrid_Pierce_Blunt   // For weapons mixing piercing and blunt
     }
 
     enum ShieldType {
@@ -49,7 +52,6 @@ contract GameEngine is IGameEngine {
         uint16 staminaMultiplier; // Base 100, higher means more stamina drain
         uint16 survivalFactor; // Base 100, higher means better survival chance
         DamageType damageType; // Primary damage type
-        bool isTwoHanded;
         ShieldType shieldType; // NONE, BUCKLER, KITE_SHIELD, or TOWER_SHIELD
     }
 
@@ -125,13 +127,33 @@ contract GameEngine is IGameEngine {
     uint8 private constant MAX_DAMAGE_OVERAGE = 60;
 
     // Weapon Types
-    uint8 public constant WEAPON_SWORD_AND_SHIELD = 0;
-    uint8 public constant WEAPON_MACE_AND_SHIELD = 1;
-    uint8 public constant WEAPON_RAPIER_AND_SHIELD = 2;
+    uint8 public constant WEAPON_ARMING_SWORD_KITE = 0;
+    uint8 public constant WEAPON_MACE_TOWER = 1;
+    uint8 public constant WEAPON_RAPIER_BUCKLER = 2;
     uint8 public constant WEAPON_GREATSWORD = 3;
     uint8 public constant WEAPON_BATTLEAXE = 4;
     uint8 public constant WEAPON_QUARTERSTAFF = 5;
     uint8 public constant WEAPON_SPEAR = 6;
+    uint8 public constant WEAPON_SHORTSWORD_BUCKLER = 7;
+    uint8 public constant WEAPON_SHORTSWORD_TOWER = 8;
+    uint8 public constant WEAPON_DUAL_DAGGERS = 9;
+    uint8 public constant WEAPON_RAPIER_DAGGER = 10;
+    uint8 public constant WEAPON_SCIMITAR_BUCKLER = 11;
+    uint8 public constant WEAPON_AXE_KITE = 12;
+    uint8 public constant WEAPON_AXE_TOWER = 13;
+    uint8 public constant WEAPON_DUAL_SCIMITARS = 14;
+    uint8 public constant WEAPON_FLAIL_BUCKLER = 15;
+    uint8 public constant WEAPON_MACE_KITE = 16;
+    uint8 public constant WEAPON_CLUB_TOWER = 17;
+    uint8 public constant WEAPON_DUAL_CLUBS = 18;
+    uint8 public constant WEAPON_ARMING_SWORD_SHORTSWORD = 19;
+    uint8 public constant WEAPON_SCIMITAR_DAGGER = 20;
+    uint8 public constant WEAPON_ARMING_SWORD_CLUB = 21;
+    uint8 public constant WEAPON_AXE_MACE = 22;
+    uint8 public constant WEAPON_FLAIL_DAGGER = 23;
+    uint8 public constant WEAPON_MACE_SHORTSWORD = 24;
+    uint8 public constant WEAPON_MAUL = 25;
+    uint8 public constant WEAPON_TRIDENT = 26;
 
     // Armor Types
     uint8 public constant ARMOR_CLOTH = 0;
@@ -215,17 +237,19 @@ contract GameEngine is IGameEngine {
     }
 
     function calculateStats(FighterStats memory player) public pure returns (CalculatedStats memory) {
-        // Safe health calculation using uint32 for intermediate values
+        // Enhanced health calculation with stamina contribution
         uint32 healthBase = 75;
-        uint32 healthFromCon = uint32(player.attributes.constitution) * 12;
-        uint32 healthFromSize = uint32(player.attributes.size) * 6;
-        uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize);
+        uint32 healthFromCon = uint32(player.attributes.constitution) * 16;
+        uint32 healthFromSize = uint32(player.attributes.size) * 4;
+        uint32 healthFromStamina = uint32(player.attributes.stamina) * 4;
+        uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize + healthFromStamina);
 
-        // Safe endurance calculation
+        // Enhanced endurance calculation with strength contribution
         uint32 enduranceBase = 45;
-        uint32 enduranceFromStamina = uint32(player.attributes.stamina) * 8;
-        uint32 enduranceFromSize = uint32(player.attributes.size) * 2;
-        uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize);
+        uint32 enduranceFromStamina = uint32(player.attributes.stamina) * 14;
+        uint32 enduranceFromSize = uint32(player.attributes.size) * 2; 
+        uint32 enduranceFromStrength = uint32(player.attributes.strength) * 3;
+        uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize + enduranceFromStrength);
 
         // Safe initiative calculation
         uint32 initiativeBase = 20;
@@ -238,26 +262,28 @@ contract GameEngine is IGameEngine {
         uint16 blockChance =
             uint16(5 + (uint32(player.attributes.constitution) * 8 / 10) + (uint32(player.attributes.size) * 5 / 10));
         uint16 parryChance =
-            uint16(3 + (uint32(player.attributes.strength) * 6 / 10) + (uint32(player.attributes.agility) * 6 / 10));
+            uint16(3 + (uint32(player.attributes.strength) * 6 / 10) + (uint32(player.attributes.agility) * 6 / 10)
+            + (uint32(player.attributes.stamina) * 3 / 10));
 
         // Safe hit chance calculation
-        uint16 hitChance = uint16(30 + (uint32(player.attributes.agility) * 2) + uint32(player.attributes.luck));
+        uint16 hitChance = uint16(30 + uint32(player.attributes.agility) + (uint32(player.attributes.luck) * 2));
 
         // Safe crit calculations
-        uint16 critChance = uint16(2 + uint32(player.attributes.agility) + uint32(player.attributes.luck));
+        uint16 critChance = 2 + uint16(uint32(player.attributes.agility) / 3) + uint16(uint32(player.attributes.luck) / 3);
         uint16 critMultiplier =
-            uint16(150 + (uint32(player.attributes.strength) * 3) + (uint32(player.attributes.luck) * 2));
+            uint16(150 + (uint32(player.attributes.strength) * 3) + (uint32(player.attributes.size) * 2));
 
         // Safe counter chance calculation (strength + agility based)
         uint16 counterChance = uint16(3 + uint32(player.attributes.strength) + uint32(player.attributes.agility));
 
         // Safe riposte chance calculation (agility + luck based)
-        uint16 riposteChance = uint16(3 + uint32(player.attributes.agility) + uint32(player.attributes.luck));
+        uint16 riposteChance = uint16(3 + uint32(player.attributes.agility) + uint32(player.attributes.luck) 
+                              + (uint32(player.attributes.constitution) * 3 / 10));
 
         // Physical power calculation
         uint32 combinedStats = uint32(player.attributes.strength) + uint32(player.attributes.size);
         uint32 tempPowerMod = 25 + ((combinedStats * 4167) / 1000);
-        uint16 physicalPowerMod = uint16(min(tempPowerMod, type(uint16).max));
+        uint16 physicalPowerMod = uint16(minUint256(tempPowerMod, type(uint16).max));
 
         // Calculate base survival rate
         uint16 baseSurvivalRate =
@@ -732,7 +758,11 @@ contract GameEngine is IGameEngine {
         );
     }
 
-    function min(uint256 a, uint256 b) private pure returns (uint256) {
+    function minUint256(uint256 a, uint256 b) private pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function minUint16(uint16 a, uint16 b) private pure returns (uint16) {
         return a < b ? a : b;
     }
 
@@ -770,6 +800,13 @@ contract GameEngine is IGameEngine {
             return armor.pierceResist;
         } else if (damageType == DamageType.Blunt) {
             return armor.bluntResist;
+        } else if (damageType == DamageType.Hybrid_Slash_Pierce) {
+            // Use the lower resistance (more favorable to attacker)
+            return minUint16(armor.slashResist, armor.pierceResist);
+        } else if (damageType == DamageType.Hybrid_Slash_Blunt) {
+            return minUint16(armor.slashResist, armor.bluntResist);
+        } else if (damageType == DamageType.Hybrid_Pierce_Blunt) {
+            return minUint16(armor.pierceResist, armor.bluntResist);
         }
         return 0;
     }
@@ -1037,7 +1074,7 @@ contract GameEngine is IGameEngine {
     // WEAPON STATS
     // =============================================
 
-    function SWORD_AND_SHIELD() public pure returns (WeaponStats memory) {
+    function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 36,
             maxDamage: 48,
@@ -1048,12 +1085,11 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 100,
             survivalFactor: 100,
             damageType: DamageType.Slashing,
-            isTwoHanded: false,
             shieldType: ShieldType.KITE_SHIELD
         });
     }
 
-    function MACE_AND_SHIELD() public pure returns (WeaponStats memory) {
+    function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 40,
             maxDamage: 54,
@@ -1064,12 +1100,11 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 120,
             survivalFactor: 120,
             damageType: DamageType.Blunt,
-            isTwoHanded: false,
             shieldType: ShieldType.TOWER_SHIELD
         });
     }
 
-    function RAPIER_AND_SHIELD() public pure returns (WeaponStats memory) {
+    function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 29,
             maxDamage: 59,
@@ -1080,7 +1115,6 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 80,
             survivalFactor: 120,
             damageType: DamageType.Piercing,
-            isTwoHanded: false,
             shieldType: ShieldType.BUCKLER
         });
     }
@@ -1096,7 +1130,6 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 180,
             survivalFactor: 85,
             damageType: DamageType.Slashing,
-            isTwoHanded: true,
             shieldType: ShieldType.NONE
         });
     }
@@ -1112,7 +1145,6 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 180,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
-            isTwoHanded: true,
             shieldType: ShieldType.NONE
         });
     }
@@ -1128,7 +1160,6 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 100,
             survivalFactor: 100,
             damageType: DamageType.Blunt,
-            isTwoHanded: true,
             shieldType: ShieldType.NONE
         });
     }
@@ -1144,19 +1175,341 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 140,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
-            isTwoHanded: true,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+        function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 32,
+            maxDamage: 44,
+            attackSpeed: 80,
+            parryChance: 110,
+            riposteChance: 115,
+            critMultiplier: 190,
+            staminaMultiplier: 90,
+            survivalFactor: 110,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.BUCKLER
+        });
+    }
+
+    function SHORTSWORD_TOWER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 32,
+            maxDamage: 44,
+            attackSpeed: 75,
+            parryChance: 100,
+            riposteChance: 105,
+            critMultiplier: 190,
+            staminaMultiplier: 105,
+            survivalFactor: 125,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.TOWER_SHIELD
+        });
+    }
+
+    function SCIMITAR_BUCKLER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 34,
+            maxDamage: 50,
+            attackSpeed: 75,
+            parryChance: 105,
+            riposteChance: 110,
+            critMultiplier: 210,
+            staminaMultiplier: 95,
+            survivalFactor: 110,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.BUCKLER
+        });
+    }
+
+    function AXE_KITE() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 45,
+            maxDamage: 55,
+            attackSpeed: 60,
+            parryChance: 80,
+            riposteChance: 75,
+            critMultiplier: 230,
+            staminaMultiplier: 115,
+            survivalFactor: 105,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.KITE_SHIELD
+        });
+    }
+
+    function AXE_TOWER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 45,
+            maxDamage: 55,
+            attackSpeed: 55,
+            parryChance: 70,
+            riposteChance: 65,
+            critMultiplier: 230,
+            staminaMultiplier: 130,
+            survivalFactor: 130,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.TOWER_SHIELD
+        });
+    }
+
+    function FLAIL_BUCKLER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 38,
+            maxDamage: 58,
+            attackSpeed: 65,
+            parryChance: 60,
+            riposteChance: 70,
+            critMultiplier: 240,
+            staminaMultiplier: 110,
+            survivalFactor: 105,
+            damageType: DamageType.Blunt,
+            shieldType: ShieldType.BUCKLER
+        });
+    }
+
+    function MACE_KITE() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 40,
+            maxDamage: 54,
+            attackSpeed: 60,
+            parryChance: 85,
+            riposteChance: 75,
+            critMultiplier: 220,
+            staminaMultiplier: 110,
+            survivalFactor: 110,
+            damageType: DamageType.Blunt,
+            shieldType: ShieldType.KITE_SHIELD
+        });
+    }
+
+    function CLUB_TOWER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 42,
+            maxDamage: 50,
+            attackSpeed: 60,
+            parryChance: 75,
+            riposteChance: 65,
+            critMultiplier: 210,
+            staminaMultiplier: 115,
+            survivalFactor: 125,
+            damageType: DamageType.Blunt,
+            shieldType: ShieldType.TOWER_SHIELD
+        });
+    }
+
+    // Dual-wield weapons
+    function DUAL_DAGGERS() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 20,
+            maxDamage: 46,
+            attackSpeed: 130,
+            parryChance: 110,
+            riposteChance: 125,
+            critMultiplier: 180,
+            staminaMultiplier: 85,
+            survivalFactor: 95,
+            damageType: DamageType.Piercing,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function RAPIER_DAGGER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 28,
+            maxDamage: 55,
+            attackSpeed: 110,
+            parryChance: 125,
+            riposteChance: 135,
+            critMultiplier: 190,
+            staminaMultiplier: 85,
+            survivalFactor: 110,
+            damageType: DamageType.Piercing,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function DUAL_SCIMITARS() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 36,
+            maxDamage: 52,
+            attackSpeed: 95,
+            parryChance: 110,
+            riposteChance: 115,
+            critMultiplier: 210,
+            staminaMultiplier: 100,
+            survivalFactor: 90,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function DUAL_CLUBS() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 40,
+            maxDamage: 54,
+            attackSpeed: 85,
+            parryChance: 90,
+            riposteChance: 80,
+            critMultiplier: 230,
+            staminaMultiplier: 120,
+            survivalFactor: 95,
+            damageType: DamageType.Blunt,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    // Mixed damage type weapons
+    function ARMING_SWORD_SHORTSWORD() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 34,
+            maxDamage: 46,
+            attackSpeed: 80,
+            parryChance: 110,
+            riposteChance: 115,
+            critMultiplier: 195,
+            staminaMultiplier: 95,
+            survivalFactor: 100,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function SCIMITAR_DAGGER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 30,
+            maxDamage: 48,
+            attackSpeed: 105,
+            parryChance: 115,
+            riposteChance: 120,
+            critMultiplier: 200,
+            staminaMultiplier: 90,
+            survivalFactor: 100,
+            damageType: DamageType.Hybrid_Slash_Pierce,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function ARMING_SWORD_CLUB() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 38,
+            maxDamage: 49,
+            attackSpeed: 70,
+            parryChance: 100,
+            riposteChance: 95,
+            critMultiplier: 215,
+            staminaMultiplier: 110,
+            survivalFactor: 100,
+            damageType: DamageType.Hybrid_Slash_Blunt,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function AXE_MACE() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 43,
+            maxDamage: 54,
+            attackSpeed: 60,
+            parryChance: 75,
+            riposteChance: 70,
+            critMultiplier: 225,
+            staminaMultiplier: 125,
+            survivalFactor: 100,
+            damageType: DamageType.Hybrid_Slash_Blunt,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function FLAIL_DAGGER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 34,
+            maxDamage: 52,
+            attackSpeed: 75,
+            parryChance: 85,
+            riposteChance: 90,
+            critMultiplier: 220,
+            staminaMultiplier: 105,
+            survivalFactor: 95,
+            damageType: DamageType.Hybrid_Pierce_Blunt,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function MACE_SHORTSWORD() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 38,
+            maxDamage: 52,
+            attackSpeed: 65,
+            parryChance: 90,
+            riposteChance: 85,
+            critMultiplier: 215,
+            staminaMultiplier: 110,
+            survivalFactor: 105,
+            damageType: DamageType.Hybrid_Slash_Blunt,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    // Additional two-handed weapons
+    function MAUL() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 90,
+            maxDamage: 120,
+            attackSpeed: 40,
+            parryChance: 60,
+            riposteChance: 50,
+            critMultiplier: 280,
+            staminaMultiplier: 175,
+            survivalFactor: 85,
+            damageType: DamageType.Blunt,
+            shieldType: ShieldType.NONE
+        });
+    }
+
+    function TRIDENT() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 75,
+            maxDamage: 95,
+            attackSpeed: 55,
+            parryChance: 90,
+            riposteChance: 80,
+            critMultiplier: 230,
+            staminaMultiplier: 150,
+            survivalFactor: 90,
+            damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE
         });
     }
 
     function getWeaponStats(uint8 weapon) public pure returns (WeaponStats memory) {
-        if (weapon == WEAPON_SWORD_AND_SHIELD) return SWORD_AND_SHIELD();
-        if (weapon == WEAPON_MACE_AND_SHIELD) return MACE_AND_SHIELD();
-        if (weapon == WEAPON_RAPIER_AND_SHIELD) return RAPIER_AND_SHIELD();
+        if (weapon == WEAPON_ARMING_SWORD_KITE) return ARMING_SWORD_KITE();
+        if (weapon == WEAPON_MACE_TOWER) return MACE_TOWER();
+        if (weapon == WEAPON_RAPIER_BUCKLER) return RAPIER_BUCKLER();
         if (weapon == WEAPON_GREATSWORD) return GREATSWORD();
         if (weapon == WEAPON_BATTLEAXE) return BATTLEAXE();
         if (weapon == WEAPON_QUARTERSTAFF) return QUARTERSTAFF();
         if (weapon == WEAPON_SPEAR) return SPEAR();
+        if (weapon == WEAPON_SHORTSWORD_BUCKLER) return SHORTSWORD_BUCKLER();
+        if (weapon == WEAPON_SHORTSWORD_TOWER) return SHORTSWORD_TOWER();
+        if (weapon == WEAPON_DUAL_DAGGERS) return DUAL_DAGGERS();
+        if (weapon == WEAPON_RAPIER_DAGGER) return RAPIER_DAGGER();
+        if (weapon == WEAPON_SCIMITAR_BUCKLER) return SCIMITAR_BUCKLER();
+        if (weapon == WEAPON_AXE_KITE) return AXE_KITE();
+        if (weapon == WEAPON_AXE_TOWER) return AXE_TOWER();
+        if (weapon == WEAPON_DUAL_SCIMITARS) return DUAL_SCIMITARS();
+        if (weapon == WEAPON_FLAIL_BUCKLER) return FLAIL_BUCKLER();
+        if (weapon == WEAPON_MACE_KITE) return MACE_KITE();
+        if (weapon == WEAPON_CLUB_TOWER) return CLUB_TOWER();
+        if (weapon == WEAPON_DUAL_CLUBS) return DUAL_CLUBS();
+        if (weapon == WEAPON_ARMING_SWORD_SHORTSWORD) return ARMING_SWORD_SHORTSWORD();
+        if (weapon == WEAPON_SCIMITAR_DAGGER) return SCIMITAR_DAGGER();
+        if (weapon == WEAPON_ARMING_SWORD_CLUB) return ARMING_SWORD_CLUB();
+        if (weapon == WEAPON_AXE_MACE) return AXE_MACE();
+        if (weapon == WEAPON_FLAIL_DAGGER) return FLAIL_DAGGER();
+        if (weapon == WEAPON_MACE_SHORTSWORD) return MACE_SHORTSWORD();
+        if (weapon == WEAPON_MAUL) return MAUL();
+        if (weapon == WEAPON_TRIDENT) return TRIDENT();
         revert("Invalid weapon type");
     }
 
@@ -1302,4 +1655,5 @@ contract GameEngine is IGameEngine {
 
         return (0, 0, 100, 100); // NONE - no shield bonuses, no dodge penalty
     }
+
 }
