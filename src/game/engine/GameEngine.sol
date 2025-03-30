@@ -32,18 +32,25 @@ contract GameEngine is IGameEngine {
         Blunt
     }
 
+    enum ShieldType {
+        NONE,
+        BUCKLER,
+        KITE_SHIELD,
+        TOWER_SHIELD
+    }
+
     struct WeaponStats {
         uint16 minDamage;
         uint16 maxDamage;
         uint16 attackSpeed; // Base 100, higher is faster
         uint16 parryChance; // Base 100, chance to parry
-        uint16 riposteChance; // Add this new stat
-        uint16 critMultiplier; // Reduce the gap in crit damage
+        uint16 riposteChance; // Base 100, chance to riposte
+        uint16 critMultiplier; // Base 100, higher means better crits
         uint16 staminaMultiplier; // Base 100, higher means more stamina drain
         uint16 survivalFactor; // Base 100, higher means better survival chance
         DamageType damageType; // Primary damage type
         bool isTwoHanded;
-        bool hasShield;
+        ShieldType shieldType; // NONE, BUCKLER, KITE_SHIELD, or TOWER_SHIELD
     }
 
     struct ArmorStats {
@@ -93,15 +100,23 @@ contract GameEngine is IGameEngine {
         COUNTER
     }
 
+    enum ActionType {
+        ATTACK,
+        BLOCK,
+        PARRY,
+        DODGE,
+        COUNTER,
+        RIPOSTE
+    }
+
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 10;
+    uint8 private immutable STAMINA_ATTACK = 9;
     uint8 private immutable STAMINA_BLOCK = 2;
-    uint8 private immutable STAMINA_DODGE = 2;
-    uint8 private immutable STAMINA_COUNTER = 2;
-    uint8 private immutable MAX_ROUNDS = 50;
-    uint8 private immutable MINIMUM_ACTION_COST = 3;
-    uint8 private immutable PARRY_DAMAGE_REDUCTION = 50;
+    uint8 private immutable STAMINA_DODGE = 3;
+    uint8 private immutable STAMINA_COUNTER = 4;
     uint8 private immutable STAMINA_PARRY = 2;
+    uint8 private immutable STAMINA_RIPOSTE = 4;
+    uint8 private immutable MAX_ROUNDS = 50;
     uint8 private constant ATTACK_ACTION_COST = 149;
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
@@ -285,11 +300,22 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint16)
     {
-        // Remove stance modifier application - only apply armor penalty
+        // First convert weight to int256, then negate
         int256 armorPenalty = -int256(uint256(stats.armor.weight));
 
-        // Apply armor penalty to the already stance-modified base dodge chance
-        int256 finalDodge = int256(uint256(baseDodgeChance)) + armorPenalty;
+        // Apply shield effect
+        int256 shieldEffect = 0;
+        if (stats.weapon.shieldType != ShieldType.NONE) {
+            (,, uint16 dodgeModifier,) = getShieldStats(stats.weapon.shieldType);
+
+            // Calculate percentage modification directly in int256
+            int256 baseValue = int256(uint256(baseDodgeChance));
+            int256 modifiedValue = baseValue * int256(uint256(dodgeModifier)) / 100;
+            shieldEffect = modifiedValue - baseValue;
+        }
+
+        // Convert baseDodgeChance to int256 for calculation
+        int256 finalDodge = int256(uint256(baseDodgeChance)) + armorPenalty + shieldEffect;
 
         // Return 0 if negative, otherwise convert back to uint16
         return finalDodge <= 0 ? 0 : uint16(uint256(finalDodge));
@@ -334,11 +360,6 @@ contract GameEngine is IGameEngine {
         uint256 currentSeed = randomSeed;
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
-            // Check exhaustion first
-            if (checkExhaustion(state, currentSeed, p1Calculated, p2Calculated)) {
-                break;
-            }
-
             // Determine if anyone can attack this round
             bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST;
             bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST;
@@ -418,29 +439,6 @@ contract GameEngine is IGameEngine {
     function calculateTotalInitiative(CalculatedCombatStats memory stats) private pure returns (uint32) {
         uint32 equipmentInit = (stats.weapon.attackSpeed * 100) / stats.armor.weight;
         return ((equipmentInit * 90) + (uint32(stats.stats.initiative) * 10)) / 100;
-    }
-
-    function checkExhaustion(
-        CombatState memory state,
-        uint256 seed,
-        CalculatedCombatStats memory p1Calculated,
-        CalculatedCombatStats memory p2Calculated
-    ) private pure returns (bool) {
-        uint256 p1MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p1Calculated);
-        uint256 p2MinCost = calculateStaminaCost(MINIMUM_ACTION_COST, p2Calculated);
-
-        if ((state.p1Stamina < uint32(p1MinCost)) || (state.p2Stamina < uint32(p2MinCost))) {
-            state.condition = WinCondition.EXHAUSTION;
-            if (state.p1Stamina < uint32(p1MinCost) && state.p2Stamina < uint32(p2MinCost)) {
-                // Before random winner selection
-                seed = uint256(keccak256(abi.encodePacked(seed)));
-                state.player1Won = seed.uniform(2) == 0;
-            } else {
-                state.player1Won = state.p2Stamina < uint32(p2MinCost);
-            }
-            return true;
-        }
-        return false;
     }
 
     function processRound(
@@ -565,7 +563,7 @@ contract GameEngine is IGameEngine {
             uint256 newSeed
         )
     {
-        uint256 attackCost = calculateStaminaCost(STAMINA_ATTACK, attacker);
+        uint256 attackCost = calculateStaminaCost(ActionType.ATTACK, attacker);
         if (attackerStamina < attackCost) {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0, seed);
         }
@@ -574,7 +572,7 @@ contract GameEngine is IGameEngine {
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 hitRoll = uint8(seed.uniform(100));
 
-        uint256 modifiedStaminaCost = calculateStaminaCost(STAMINA_ATTACK, attacker);
+        uint256 modifiedStaminaCost = calculateStaminaCost(ActionType.ATTACK, attacker);
 
         if (hitRoll >= finalHitChance) {
             return (
@@ -608,59 +606,82 @@ contract GameEngine is IGameEngine {
         DamageType damageType,
         uint256 seed
     ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
-        // Calculate all stamina costs with stance modifiers and defender's armor
-        uint256 blockStaminaCost = calculateStaminaCost(STAMINA_BLOCK, defender);
-        uint256 parryStaminaCost = calculateStaminaCost(STAMINA_PARRY, defender);
-        uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, defender);
+        // Get base chances
+        uint16 baseBlockChance = defender.stats.blockChance;
+        uint16 effectiveCounterChance = defender.stats.counterChance;
 
-        // Calculate all effective defensive chances with stance modifiers
-        uint16 effectiveBlockChance = defender.stats.blockChance;
+        // Apply shield modifiers if present
+        if (defender.weapon.shieldType != ShieldType.NONE) {
+            // Get shield stats
+            (uint16 shieldBlockBonus, uint16 shieldCounterBonus,,) = getShieldStats(defender.weapon.shieldType);
+            baseBlockChance = uint16((uint32(baseBlockChance) * uint32(shieldBlockBonus)) / 100);
+            effectiveCounterChance = uint16((uint32(effectiveCounterChance) * uint32(shieldCounterBonus)) / 100);
+        }
+
         uint16 effectiveParryChance =
             uint16((uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100);
-        // Calculate final dodge chance with armor and stance
         uint16 finalDodgeChance = calculateFinalDodgeChance(defender.stats.dodgeChance, defender);
 
-        // Block check - only allow if defender has a shield-type weapon
+        // Block check - only allow if defender has a shield
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 blockRoll = uint8(seed.uniform(100));
 
-        if (blockRoll < effectiveBlockChance && defenderStamina >= blockStaminaCost && defender.weapon.hasShield) {
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-            uint8 counterRoll = uint8(seed.uniform(100));
+        if (blockRoll < baseBlockChance && defender.weapon.shieldType != ShieldType.NONE) {
+            // Only calculate stamina cost if needed
+            uint256 blockStaminaCost = calculateStaminaCost(ActionType.BLOCK, defender);
 
-            if (counterRoll < defender.stats.counterChance) {
+            if (defenderStamina >= blockStaminaCost) {
+                // Check for counter
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                (result, damage, staminaCost, seed) = processCounterAttack(defender, seed, CounterType.COUNTER);
+                uint8 counterRoll = uint8(seed.uniform(100));
+
+                if (counterRoll < effectiveCounterChance) {
+                    seed = uint256(keccak256(abi.encodePacked(seed)));
+                    (result, damage, staminaCost, seed) = processCounterAttack(defender, seed, CounterType.COUNTER);
+                    seed = uint256(keccak256(abi.encodePacked(seed)));
+                    return (result, damage, staminaCost, seed);
+                }
+
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                return (result, damage, staminaCost, seed);
+                return (uint8(CombatResultType.BLOCK), 0, uint8(blockStaminaCost), seed);
             }
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-            return (uint8(CombatResultType.BLOCK), 0, uint8(blockStaminaCost), seed);
         }
 
         // Parry check
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 parryRoll = uint8(seed.uniform(100));
-        if (parryRoll < effectiveParryChance && defenderStamina >= parryStaminaCost) {
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-            uint8 riposteRoll = uint8(seed.uniform(100));
 
-            // Calculate effective riposte chance properly
-            uint16 effectiveRiposteChance =
-                uint16((uint32(defender.stats.riposteChance) * uint32(defender.weapon.riposteChance)) / 100);
+        if (parryRoll < effectiveParryChance) {
+            // Only calculate stamina cost if needed
+            uint256 parryStaminaCost = calculateStaminaCost(ActionType.PARRY, defender);
 
-            if (riposteRoll < effectiveRiposteChance) {
+            if (defenderStamina >= parryStaminaCost) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
-                return processCounterAttack(defender, seed, CounterType.PARRY);
+                uint8 riposteRoll = uint8(seed.uniform(100));
+
+                uint16 effectiveRiposteChance =
+                    uint16((uint32(defender.stats.riposteChance) * uint32(defender.weapon.riposteChance)) / 100);
+
+                if (riposteRoll < effectiveRiposteChance) {
+                    seed = uint256(keccak256(abi.encodePacked(seed)));
+                    return processCounterAttack(defender, seed, CounterType.PARRY);
+                }
+
+                return (uint8(CombatResultType.PARRY), 0, uint8(parryStaminaCost), seed);
             }
-            return (uint8(CombatResultType.PARRY), 0, uint8(parryStaminaCost), seed);
         }
 
         // Dodge check
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 dodgeRoll = uint8(seed.uniform(100));
-        if (dodgeRoll < finalDodgeChance && defenderStamina >= dodgeStaminaCost) {
-            return (uint8(CombatResultType.DODGE), 0, uint8(dodgeStaminaCost), seed);
+
+        if (dodgeRoll < finalDodgeChance) {
+            // Only calculate stamina cost if needed
+            uint256 dodgeStaminaCost = calculateStaminaCost(ActionType.DODGE, defender);
+
+            if (defenderStamina >= dodgeStaminaCost) {
+                return (uint8(CombatResultType.DODGE), 0, uint8(dodgeStaminaCost), seed);
+            }
         }
 
         // If all defensive actions fail, apply armor reduction and return fresh seed
@@ -681,13 +702,15 @@ contract GameEngine is IGameEngine {
         uint8 critRoll = uint8(seed.uniform(100));
         bool isCritical = critRoll < defender.stats.critChance;
 
+        // Determine the action type based on counter type
+        ActionType actionType = counterType == CounterType.PARRY ? ActionType.RIPOSTE : ActionType.COUNTER;
+
         if (isCritical) {
             uint32 totalMultiplier =
                 (uint32(defender.stats.critMultiplier) * uint32(defender.weapon.critMultiplier)) / 100;
             counterDamage = uint16((uint32(counterDamage) * totalMultiplier) / 100);
 
-            uint256 critStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-            uint256 critModifiedStaminaCost = calculateStaminaCost(critStaminaCostBase, defender);
+            uint256 critModifiedStaminaCost = calculateStaminaCost(actionType, defender);
 
             seed = uint256(keccak256(abi.encodePacked(seed)));
             return (
@@ -698,8 +721,7 @@ contract GameEngine is IGameEngine {
             );
         }
 
-        uint256 normalStaminaCostBase = counterType == CounterType.PARRY ? STAMINA_PARRY : STAMINA_COUNTER;
-        uint256 normalModifiedStaminaCost = calculateStaminaCost(normalStaminaCostBase, defender);
+        uint256 normalModifiedStaminaCost = calculateStaminaCost(actionType, defender);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         return (
@@ -739,11 +761,6 @@ contract GameEngine is IGameEngine {
         uint32 finalDamage = afterResistance - (armor.defense * 100);
 
         return finalDamage > type(uint16).max ? type(uint16).max : uint16(finalDamage / 100);
-    }
-
-    function safePercentage(uint32 value, uint32 percentage) private pure returns (uint32) {
-        require(percentage <= 10000, "Percentage exceeds maximum");
-        return (value * percentage) / 10000;
     }
 
     function getResistanceForDamageType(ArmorStats memory armor, DamageType damageType) private pure returns (uint16) {
@@ -965,12 +982,55 @@ contract GameEngine is IGameEngine {
         return results;
     }
 
-    function calculateStaminaCost(uint256 baseCost, CalculatedCombatStats memory stats)
+    function calculateStaminaCost(ActionType actionType, CalculatedCombatStats memory stats)
         internal
         pure
         returns (uint256)
     {
-        return (baseCost * stats.stanceMultipliers.staminaCostModifier * stats.weapon.staminaMultiplier) / 10000;
+        // Get base cost by action type
+        uint256 baseCost;
+        if (actionType == ActionType.ATTACK) {
+            baseCost = STAMINA_ATTACK;
+        } else if (actionType == ActionType.BLOCK) {
+            baseCost = STAMINA_BLOCK;
+        } else if (actionType == ActionType.DODGE) {
+            baseCost = STAMINA_DODGE;
+        } else if (actionType == ActionType.PARRY) {
+            baseCost = STAMINA_PARRY;
+        } else if (actionType == ActionType.COUNTER) {
+            baseCost = STAMINA_COUNTER;
+        } else if (actionType == ActionType.RIPOSTE) {
+            baseCost = STAMINA_RIPOSTE;
+        }
+
+        // Apply modifiers
+        uint256 staminaCost = baseCost * stats.stanceMultipliers.staminaCostModifier * stats.weapon.staminaMultiplier;
+
+        // Apply shield modifier only for block action
+        if (actionType == ActionType.BLOCK && stats.weapon.shieldType != ShieldType.NONE) {
+            (,,, uint16 shieldStaminaModifier) = getShieldStats(stats.weapon.shieldType);
+            staminaCost = staminaCost * shieldStaminaModifier;
+        }
+
+        // Apply armor weight modifier - more reasonable scaling
+        uint256 armorImpact;
+        if (actionType == ActionType.DODGE) {
+            // Reduced impact on dodge (1.5x instead of 3x)
+            armorImpact = 100 + (stats.armor.weight * 3 / 2);
+        } else if (
+            actionType == ActionType.ATTACK || actionType == ActionType.PARRY || actionType == ActionType.COUNTER
+                || actionType == ActionType.RIPOSTE
+        ) {
+            // Reduced impact on offensive actions (0.5x instead of 1x)
+            armorImpact = 100 + (stats.armor.weight / 2);
+        } else {
+            // Minimal impact on block (0.25x instead of 0.5x)
+            armorImpact = 100 + (stats.armor.weight / 4);
+        }
+
+        staminaCost = (staminaCost * armorImpact) / 100;
+
+        return staminaCost / 1000000; // Division after all multiplications
     }
 
     // =============================================
@@ -989,7 +1049,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 100,
             damageType: DamageType.Slashing,
             isTwoHanded: false,
-            hasShield: true
+            shieldType: ShieldType.KITE_SHIELD
         });
     }
 
@@ -1005,7 +1065,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 120,
             damageType: DamageType.Blunt,
             isTwoHanded: false,
-            hasShield: true
+            shieldType: ShieldType.TOWER_SHIELD
         });
     }
 
@@ -1021,7 +1081,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 120,
             damageType: DamageType.Piercing,
             isTwoHanded: false,
-            hasShield: true
+            shieldType: ShieldType.BUCKLER
         });
     }
 
@@ -1037,7 +1097,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 85,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
-            hasShield: false
+            shieldType: ShieldType.NONE
         });
     }
 
@@ -1053,7 +1113,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             isTwoHanded: true,
-            hasShield: false
+            shieldType: ShieldType.NONE
         });
     }
 
@@ -1069,7 +1129,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 100,
             damageType: DamageType.Blunt,
             isTwoHanded: true,
-            hasShield: false
+            shieldType: ShieldType.NONE
         });
     }
 
@@ -1085,7 +1145,7 @@ contract GameEngine is IGameEngine {
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             isTwoHanded: true,
-            hasShield: false
+            shieldType: ShieldType.NONE
         });
     }
 
@@ -1225,5 +1285,21 @@ contract GameEngine is IGameEngine {
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         return uint8(seed.uniform(100)) >= survivalChance;
+    }
+
+    function getShieldStats(ShieldType shieldType)
+        internal
+        pure
+        returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
+    {
+        if (shieldType == ShieldType.BUCKLER) {
+            return (80, 130, 95, 90); // Good counter, small dodge penalty, low stamina cost
+        } else if (shieldType == ShieldType.KITE_SHIELD) {
+            return (100, 100, 90, 100); // Balanced, moderate dodge penalty
+        } else if (shieldType == ShieldType.TOWER_SHIELD) {
+            return (130, 70, 80, 120); // Great blocking, poor counter, higher dodge penalty and stamina cost
+        }
+
+        return (0, 0, 100, 100); // NONE - no shield bonuses, no dodge penalty
     }
 }
