@@ -287,10 +287,10 @@ contract GameEngine is IGameEngine {
     {
         // Remove stance modifier application - only apply armor penalty
         int256 armorPenalty = -int256(uint256(stats.armor.weight));
-        
+
         // Apply armor penalty to the already stance-modified base dodge chance
         int256 finalDodge = int256(uint256(baseDodgeChance)) + armorPenalty;
-        
+
         // Return 0 if negative, otherwise convert back to uint16
         return finalDodge <= 0 ? 0 : uint16(uint256(finalDodge));
     }
@@ -615,9 +615,8 @@ contract GameEngine is IGameEngine {
 
         // Calculate all effective defensive chances with stance modifiers
         uint16 effectiveBlockChance = defender.stats.blockChance;
-        uint16 effectiveParryChance = uint16(
-            (uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100
-        );
+        uint16 effectiveParryChance =
+            uint16((uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100);
         // Calculate final dodge chance with armor and stance
         uint16 finalDodgeChance = calculateFinalDodgeChance(defender.stats.dodgeChance, defender);
 
@@ -647,9 +646,8 @@ contract GameEngine is IGameEngine {
             uint8 riposteRoll = uint8(seed.uniform(100));
 
             // Calculate effective riposte chance properly
-            uint16 effectiveRiposteChance = uint16(
-                (uint32(defender.stats.riposteChance) * uint32(defender.weapon.riposteChance)) / 100
-            );
+            uint16 effectiveRiposteChance =
+                uint16((uint32(defender.stats.riposteChance) * uint32(defender.weapon.riposteChance)) / 100);
 
             if (riposteRoll < effectiveRiposteChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
