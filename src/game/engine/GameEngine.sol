@@ -392,10 +392,10 @@ contract GameEngine is IGameEngine {
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
             // Determine if anyone can attack this round, including stamina check
-            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST && 
-                              state.p1Stamina >= calculateStaminaCost(ActionType.ATTACK, p1Calculated);
-            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST && 
-                              state.p2Stamina >= calculateStaminaCost(ActionType.ATTACK, p2Calculated);
+            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST
+                && state.p1Stamina >= calculateStaminaCost(ActionType.ATTACK, p1Calculated);
+            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST
+                && state.p2Stamina >= calculateStaminaCost(ActionType.ATTACK, p2Calculated);
 
             // Check for exhaustion - if one player can attack but the other can't due to stamina
             if (!canP1Attack && canP2Attack && state.p1ActionPoints >= ATTACK_ACTION_COST) {
