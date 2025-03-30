@@ -180,6 +180,42 @@ contract PracticeGameTest is TestBase {
                 string.concat("Invalid action type at index ", vm.toString(i))
             );
         }
+
+        // Verify that at least one player has a non-zero stamina cost in at least one action
+        bool foundNonZeroStamina = false;
+        for (uint256 i = 0; i < actions.length; i++) {
+            if (actions[i].p1StaminaLost > 0 || actions[i].p2StaminaLost > 0) {
+                foundNonZeroStamina = true;
+                break;
+            }
+        }
+
+        assertTrue(foundNonZeroStamina, "No actions had stamina costs greater than zero");
+
+        // Verify that specific actions have appropriate stamina costs
+        bool attackActionFound = false;
+        for (uint256 i = 0; i < actions.length; i++) {
+            // Check if player 1 is attacking
+            if (
+                actions[i].p1Result == IGameEngine.CombatResultType.ATTACK
+                    || actions[i].p1Result == IGameEngine.CombatResultType.CRIT
+            ) {
+                assertTrue(actions[i].p1StaminaLost > 0, "Attack action should have stamina cost");
+                attackActionFound = true;
+                break;
+            }
+            // Check if player 2 is attacking
+            if (
+                actions[i].p2Result == IGameEngine.CombatResultType.ATTACK
+                    || actions[i].p2Result == IGameEngine.CombatResultType.CRIT
+            ) {
+                assertTrue(actions[i].p2StaminaLost > 0, "Attack action should have stamina cost");
+                attackActionFound = true;
+                break;
+            }
+        }
+
+        assertTrue(attackActionFound, "No attack actions found in combat log");
     }
 
     function testStanceInteractions() public {

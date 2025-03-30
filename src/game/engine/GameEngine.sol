@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 8;
+    uint16 public constant version = 9;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -568,8 +568,8 @@ contract GameEngine is IGameEngine {
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint64 baseDamage = uint64(attacker.weapon.minDamage) + uint64(seed.uniform(damageRange + 1));
 
-        uint64 scaledBase = baseDamage * 100;
-        uint64 modifiedDamage = (scaledBase * uint64(attacker.stats.damageModifier)) / 10000;
+        // Apply damage modifier as a percentage
+        uint64 modifiedDamage = (baseDamage * uint64(attacker.stats.damageModifier)) / 100;
 
         nextSeed = uint256(keccak256(abi.encodePacked(seed)));
         return (modifiedDamage > type(uint16).max ? type(uint16).max : uint16(modifiedDamage), nextSeed);
@@ -1045,34 +1045,42 @@ contract GameEngine is IGameEngine {
             baseCost = STAMINA_RIPOSTE;
         }
 
-        // Apply modifiers
-        uint256 staminaCost = baseCost * stats.stanceMultipliers.staminaCostModifier * stats.weapon.staminaMultiplier;
+        // Start with base cost and apply each modifier separately
+        uint256 staminaCost = baseCost;
+
+        // Apply stance modifier
+        staminaCost = (staminaCost * stats.stanceMultipliers.staminaCostModifier) / 100;
+
+        // Apply weapon modifier
+        staminaCost = (staminaCost * stats.weapon.staminaMultiplier) / 100;
 
         // Apply shield modifier only for block action
         if (actionType == ActionType.BLOCK && stats.weapon.shieldType != ShieldType.NONE) {
             (,,, uint16 shieldStaminaModifier) = getShieldStats(stats.weapon.shieldType);
-            staminaCost = staminaCost * shieldStaminaModifier;
+            staminaCost = (staminaCost * shieldStaminaModifier) / 100;
         }
 
-        // Apply armor weight modifier - more reasonable scaling
+        // Calculate armor impact
         uint256 armorImpact;
         if (actionType == ActionType.DODGE) {
-            // Reduced impact on dodge (1.5x instead of 3x)
+            // Higher impact on dodge
             armorImpact = 100 + (stats.armor.weight * 3 / 2);
         } else if (
             actionType == ActionType.ATTACK || actionType == ActionType.PARRY || actionType == ActionType.COUNTER
                 || actionType == ActionType.RIPOSTE
         ) {
-            // Reduced impact on offensive actions (0.5x instead of 1x)
+            // Medium impact on offensive actions
             armorImpact = 100 + (stats.armor.weight / 2);
         } else {
-            // Minimal impact on block (0.25x instead of 0.5x)
+            // Lowest impact on block
             armorImpact = 100 + (stats.armor.weight / 4);
         }
 
+        // Apply armor impact
         staminaCost = (staminaCost * armorImpact) / 100;
 
-        return staminaCost / 1000000; // Division after all multiplications
+        // No final division needed - return the value directly
+        return staminaCost;
     }
 
     // =============================================
@@ -1171,13 +1179,13 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 38,
-            maxDamage: 74,
-            attackSpeed: 60,
-            parryChance: 80,
+            minDamage: 68,
+            maxDamage: 94,
+            attackSpeed: 65,
+            parryChance: 90,
             riposteChance: 90,
             critMultiplier: 260,
-            staminaMultiplier: 140,
+            staminaMultiplier: 130,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE
