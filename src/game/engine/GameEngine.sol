@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 10;
+    uint16 public constant version = 11;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -397,14 +397,23 @@ contract GameEngine is IGameEngine {
             bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST
                 && state.p2Stamina >= calculateStaminaCost(ActionType.ATTACK, p2Calculated);
 
-            // Check for exhaustion - if one player can attack but the other can't due to stamina
+            // First check if any player has 0 health - this should take precedence
+            if (state.p1Health == 0) {
+                state.condition = WinCondition.HEALTH;
+                state.player1Won = false; // Player 2 wins regardless of stamina
+                break;
+            } else if (state.p2Health == 0) {
+                state.condition = WinCondition.HEALTH;
+                state.player1Won = true; // Player 1 wins regardless of stamina
+                break;
+            }
+
+            // Only check exhaustion if both players still have health
             if (!canP1Attack && canP2Attack && state.p1ActionPoints >= ATTACK_ACTION_COST) {
-                // Player 1 exhausted but has action points - end combat
                 state.condition = WinCondition.EXHAUSTION;
                 state.player1Won = false; // Player 2 wins
                 break;
             } else if (!canP2Attack && canP1Attack && state.p2ActionPoints >= ATTACK_ACTION_COST) {
-                // Player 2 exhausted but has action points - end combat
                 state.condition = WinCondition.EXHAUSTION;
                 state.player1Won = true; // Player 1 wins
                 break;
@@ -618,18 +627,14 @@ contract GameEngine is IGameEngine {
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 hitRoll = uint8(seed.uniform(100));
 
-        uint256 modifiedStaminaCost = calculateStaminaCost(ActionType.ATTACK, attacker);
-
         if (hitRoll >= finalHitChance) {
-            return (
-                uint8(CombatResultType.ATTACK), 0, uint8(modifiedStaminaCost), uint8(CombatResultType.MISS), 0, 0, seed
-            );
+            return (uint8(CombatResultType.ATTACK), 0, uint8(attackCost), uint8(CombatResultType.MISS), 0, 0, seed);
         }
 
         uint16 damage;
         (damage, seed) = calculateDamage(attacker, seed);
         (attackDamage, attackResult, seed) = calculateCriticalDamage(attacker, damage, seed);
-        attackStaminaCost = uint8(modifiedStaminaCost);
+        attackStaminaCost = attackCost > 255 ? 255 : uint8(attackCost);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         (defenseResult, defenseDamage, defenseStaminaCost, seed) =
