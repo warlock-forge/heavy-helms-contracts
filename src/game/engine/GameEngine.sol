@@ -119,7 +119,7 @@ contract GameEngine is IGameEngine {
     uint8 private immutable STAMINA_COUNTER = 4;
     uint8 private immutable STAMINA_PARRY = 2;
     uint8 private immutable STAMINA_RIPOSTE = 4;
-    uint8 private immutable MAX_ROUNDS = 50;
+    uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
@@ -416,6 +416,21 @@ contract GameEngine is IGameEngine {
             } else if (!canP2Attack && canP1Attack && state.p2ActionPoints >= ATTACK_ACTION_COST) {
                 state.condition = WinCondition.EXHAUSTION;
                 state.player1Won = true; // Player 1 wins
+                break;
+            }
+
+            // After the other exhaustion checks add:
+            if (
+                !canP1Attack && !canP2Attack && state.p1ActionPoints >= ATTACK_ACTION_COST
+                    && state.p2ActionPoints >= ATTACK_ACTION_COST
+            ) {
+                // Both players are exhausted - decide winner by health percentage
+                uint32 p1HealthPct = (state.p1Health * 100) / p1Calculated.stats.maxHealth;
+                uint32 p2HealthPct = (state.p2Health * 100) / p2Calculated.stats.maxHealth;
+
+                state.condition = WinCondition.EXHAUSTION;
+                // Player with higher health percentage wins (P1 wins ties)
+                state.player1Won = p1HealthPct >= p2HealthPct;
                 break;
             }
 
