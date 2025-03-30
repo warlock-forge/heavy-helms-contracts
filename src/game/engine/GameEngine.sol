@@ -30,9 +30,10 @@ contract GameEngine is IGameEngine {
         Slashing,
         Piercing,
         Blunt,
-        Hybrid_Slash_Pierce,  // For weapons mixing slashing and piercing
-        Hybrid_Slash_Blunt,   // For weapons mixing slashing and blunt
-        Hybrid_Pierce_Blunt   // For weapons mixing piercing and blunt
+        Hybrid_Slash_Pierce, // For weapons mixing slashing and piercing
+        Hybrid_Slash_Blunt, // For weapons mixing slashing and blunt
+        Hybrid_Pierce_Blunt // For weapons mixing piercing and blunt
+
     }
 
     enum ShieldType {
@@ -247,7 +248,7 @@ contract GameEngine is IGameEngine {
         // Enhanced endurance calculation with strength contribution
         uint32 enduranceBase = 45;
         uint32 enduranceFromStamina = uint32(player.attributes.stamina) * 14;
-        uint32 enduranceFromSize = uint32(player.attributes.size) * 2; 
+        uint32 enduranceFromSize = uint32(player.attributes.size) * 2;
         uint32 enduranceFromStrength = uint32(player.attributes.strength) * 3;
         uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromSize + enduranceFromStrength);
 
@@ -261,15 +262,17 @@ contract GameEngine is IGameEngine {
         uint16 dodgeChance = calculateBaseDodgeChance(player.attributes.agility, player.attributes.size);
         uint16 blockChance =
             uint16(5 + (uint32(player.attributes.constitution) * 8 / 10) + (uint32(player.attributes.size) * 5 / 10));
-        uint16 parryChance =
-            uint16(3 + (uint32(player.attributes.strength) * 6 / 10) + (uint32(player.attributes.agility) * 6 / 10)
-            + (uint32(player.attributes.stamina) * 3 / 10));
+        uint16 parryChance = uint16(
+            3 + (uint32(player.attributes.strength) * 6 / 10) + (uint32(player.attributes.agility) * 6 / 10)
+                + (uint32(player.attributes.stamina) * 3 / 10)
+        );
 
         // Safe hit chance calculation
         uint16 hitChance = uint16(30 + uint32(player.attributes.agility) + (uint32(player.attributes.luck) * 2));
 
         // Safe crit calculations
-        uint16 critChance = 2 + uint16(uint32(player.attributes.agility) / 3) + uint16(uint32(player.attributes.luck) / 3);
+        uint16 critChance =
+            2 + uint16(uint32(player.attributes.agility) / 3) + uint16(uint32(player.attributes.luck) / 3);
         uint16 critMultiplier =
             uint16(150 + (uint32(player.attributes.strength) * 3) + (uint32(player.attributes.size) * 2));
 
@@ -277,8 +280,10 @@ contract GameEngine is IGameEngine {
         uint16 counterChance = uint16(3 + uint32(player.attributes.strength) + uint32(player.attributes.agility));
 
         // Safe riposte chance calculation (agility + luck based)
-        uint16 riposteChance = uint16(3 + uint32(player.attributes.agility) + uint32(player.attributes.luck) 
-                              + (uint32(player.attributes.constitution) * 3 / 10));
+        uint16 riposteChance = uint16(
+            3 + uint32(player.attributes.agility) + uint32(player.attributes.luck)
+                + (uint32(player.attributes.constitution) * 3 / 10)
+        );
 
         // Physical power calculation
         uint32 combinedStats = uint32(player.attributes.strength) + uint32(player.attributes.size);
@@ -1179,7 +1184,7 @@ contract GameEngine is IGameEngine {
         });
     }
 
-        function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
+    function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 32,
             maxDamage: 44,
@@ -1655,5 +1660,4 @@ contract GameEngine is IGameEngine {
 
         return (0, 0, 100, 100); // NONE - no shield bonuses, no dodge penalty
     }
-
 }

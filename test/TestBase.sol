@@ -489,7 +489,7 @@ abstract contract TestBase is Test {
         if (weapon == gameEngine.WEAPON_FLAIL_BUCKLER()) return "FlailBuckler";
         if (weapon == gameEngine.WEAPON_MACE_KITE()) return "MaceKite";
         if (weapon == gameEngine.WEAPON_CLUB_TOWER()) return "ClubTower";
-        
+
         // Two-handed weapons
         if (weapon == gameEngine.WEAPON_GREATSWORD()) return "Greatsword";
         if (weapon == gameEngine.WEAPON_BATTLEAXE()) return "Battleaxe";
@@ -497,13 +497,13 @@ abstract contract TestBase is Test {
         if (weapon == gameEngine.WEAPON_SPEAR()) return "Spear";
         if (weapon == gameEngine.WEAPON_MAUL()) return "Maul";
         if (weapon == gameEngine.WEAPON_TRIDENT()) return "Trident";
-        
+
         // Dual-wield weapons
         if (weapon == gameEngine.WEAPON_DUAL_DAGGERS()) return "DualDaggers";
         if (weapon == gameEngine.WEAPON_RAPIER_DAGGER()) return "RapierDagger";
         if (weapon == gameEngine.WEAPON_DUAL_SCIMITARS()) return "DualScimitars";
         if (weapon == gameEngine.WEAPON_DUAL_CLUBS()) return "DualClubs";
-        
+
         // Mixed damage type weapons
         if (weapon == gameEngine.WEAPON_ARMING_SWORD_SHORTSWORD()) return "ArmingSwordShortsword";
         if (weapon == gameEngine.WEAPON_SCIMITAR_DAGGER()) return "ScimitarDagger";
@@ -511,7 +511,7 @@ abstract contract TestBase is Test {
         if (weapon == gameEngine.WEAPON_AXE_MACE()) return "AxeMace";
         if (weapon == gameEngine.WEAPON_FLAIL_DAGGER()) return "FlailDagger";
         if (weapon == gameEngine.WEAPON_MACE_SHORTSWORD()) return "MaceShortsword";
-        
+
         return "Unknown";
     }
 
