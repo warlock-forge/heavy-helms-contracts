@@ -15,13 +15,14 @@ contract GameEngine is IGameEngine {
         uint16 damageModifier;
         uint16 hitChance;
         uint16 blockChance;
+        uint16 parryChance;
         uint16 dodgeChance;
         uint16 maxEndurance;
-        uint16 critChance;
         uint16 initiative;
         uint16 counterChance;
+        uint16 riposteChance;
+        uint16 critChance;
         uint16 critMultiplier;
-        uint16 parryChance;
         uint16 baseSurvivalRate;
     }
 
@@ -62,6 +63,7 @@ contract GameEngine is IGameEngine {
         uint16 parryChance; // Keep parry in check
         uint16 dodgeChance; // Balance dodge with other defensive options
         uint16 counterChance; // Make counter more reliable but less swingy
+        uint16 riposteChance; // New field
         uint16 staminaCostModifier; // Add this new field
         uint16 survivalFactor; // Base 100, higher means better survival chance
     }
@@ -231,8 +233,11 @@ contract GameEngine is IGameEngine {
         uint16 critMultiplier =
             uint16(150 + (uint32(player.attributes.strength) * 3) + (uint32(player.attributes.luck) * 2));
 
-        // Safe counter chance
-        uint16 counterChance = uint16(3 + uint32(player.attributes.agility) + uint32(player.attributes.luck));
+        // Safe counter chance calculation (strength + agility based)
+        uint16 counterChance = uint16(3 + uint32(player.attributes.strength) + uint32(player.attributes.agility));
+
+        // Safe riposte chance calculation (agility + luck based)
+        uint16 riposteChance = uint16(3 + uint32(player.attributes.agility) + uint32(player.attributes.luck));
 
         // Physical power calculation
         uint32 combinedStats = uint32(player.attributes.strength) + uint32(player.attributes.size);
@@ -254,6 +259,7 @@ contract GameEngine is IGameEngine {
             critChance: critChance,
             critMultiplier: critMultiplier,
             counterChance: counterChance,
+            riposteChance: riposteChance,
             damageModifier: physicalPowerMod,
             baseSurvivalRate: baseSurvivalRate
         });
@@ -279,15 +285,12 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint16)
     {
-        // Convert stance modifier from percentage to modifier (e.g., 85% -> -15)
-        int256 stanceModifier = int256(uint256(stats.stanceMultipliers.dodgeChance)) - 100;
-
-        // Convert armor weight to direct penalty
+        // Remove stance modifier application - only apply armor penalty
         int256 armorPenalty = -int256(uint256(stats.armor.weight));
-
-        // Apply all modifiers to base (allowing it to go negative)
-        int256 finalDodge = int256(uint256(baseDodgeChance)) + stanceModifier + armorPenalty;
-
+        
+        // Apply armor penalty to the already stance-modified base dodge chance
+        int256 finalDodge = int256(uint256(baseDodgeChance)) + armorPenalty;
+        
         // Return 0 if negative, otherwise convert back to uint16
         return finalDodge <= 0 ? 0 : uint16(uint256(finalDodge));
     }
@@ -500,7 +503,7 @@ contract GameEngine is IGameEngine {
     function calculateHitChance(CalculatedCombatStats memory attacker) private pure returns (uint8) {
         uint32 baseHitChance = uint32(attacker.stats.hitChance);
         uint32 weaponSpeedMod = 85 + ((uint32(attacker.weapon.attackSpeed) * 15) / 100);
-        uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod * attacker.stanceMultipliers.hitChance) / 10000;
+        uint32 adjustedHitChance = (baseHitChance * weaponSpeedMod) / 100;
         uint32 withMin = adjustedHitChance < 60 ? 60 : adjustedHitChance;
         uint32 withBothBounds = withMin > 95 ? 95 : withMin;
         return uint8(withBothBounds);
@@ -611,13 +614,9 @@ contract GameEngine is IGameEngine {
         uint256 dodgeStaminaCost = calculateStaminaCost(STAMINA_DODGE, defender);
 
         // Calculate all effective defensive chances with stance modifiers
-        uint16 effectiveBlockChance =
-            uint16((uint32(defender.stats.blockChance) * uint32(defender.stanceMultipliers.blockChance)) / 100);
+        uint16 effectiveBlockChance = defender.stats.blockChance;
         uint16 effectiveParryChance = uint16(
-            (
-                uint32(defender.stats.parryChance) * uint32(defender.stanceMultipliers.parryChance)
-                    * uint32(defender.weapon.parryChance)
-            ) / 10000
+            (uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100
         );
         // Calculate final dodge chance with armor and stance
         uint16 finalDodgeChance = calculateFinalDodgeChance(defender.stats.dodgeChance, defender);
@@ -647,7 +646,12 @@ contract GameEngine is IGameEngine {
             seed = uint256(keccak256(abi.encodePacked(seed)));
             uint8 riposteRoll = uint8(seed.uniform(100));
 
-            if (riposteRoll < defender.stats.counterChance) {
+            // Calculate effective riposte chance properly
+            uint16 effectiveRiposteChance = uint16(
+                (uint32(defender.stats.riposteChance) * uint32(defender.weapon.riposteChance)) / 100
+            );
+
+            if (riposteRoll < effectiveRiposteChance) {
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 return processCounterAttack(defender, seed, CounterType.PARRY);
             }
@@ -772,6 +776,7 @@ contract GameEngine is IGameEngine {
             critChance: uint16((uint32(stats.critChance) * uint32(stance.critChance)) / 100),
             critMultiplier: uint16((uint32(stats.critMultiplier) * uint32(stance.critMultiplier)) / 100),
             counterChance: uint16((uint32(stats.counterChance) * uint32(stance.counterChance)) / 100),
+            riposteChance: uint16((uint32(stats.riposteChance) * uint32(stance.riposteChance)) / 100),
             damageModifier: uint16((uint32(stats.damageModifier) * uint32(stance.damageModifier)) / 100),
             baseSurvivalRate: stats.baseSurvivalRate
         });
@@ -1139,6 +1144,7 @@ contract GameEngine is IGameEngine {
             parryChance: 120,
             dodgeChance: 115,
             counterChance: 115,
+            riposteChance: 115,
             staminaCostModifier: 85,
             survivalFactor: 120
         });
@@ -1154,6 +1160,7 @@ contract GameEngine is IGameEngine {
             parryChance: 100,
             dodgeChance: 100,
             counterChance: 100,
+            riposteChance: 100,
             staminaCostModifier: 100,
             survivalFactor: 100
         });
@@ -1169,6 +1176,7 @@ contract GameEngine is IGameEngine {
             parryChance: 85,
             dodgeChance: 85,
             counterChance: 85,
+            riposteChance: 85,
             staminaCostModifier: 150,
             survivalFactor: 60
         });
@@ -1207,9 +1215,8 @@ contract GameEngine is IGameEngine {
         // Apply lethality factor BEFORE defensive bonuses
         survivalChance = uint16((uint32(survivalChance) * 100) / lethalityFactor);
 
-        // Then apply defensive bonuses
-        uint32 modifiedSurvival =
-            (uint32(survivalChance) * weapon.survivalFactor * defenderStance.survivalFactor) / 10000;
+        // Only apply weapon survival factor (defenderStats already has stance effect)
+        uint32 modifiedSurvival = (uint32(survivalChance) * weapon.survivalFactor) / 100;
 
         // Cap survival between MINIMUM_SURVIVAL_CHANCE and BASE_SURVIVAL_CHANCE
         survivalChance = uint16(
