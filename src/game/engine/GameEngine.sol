@@ -425,8 +425,8 @@ contract GameEngine is IGameEngine {
                     && state.p2ActionPoints >= ATTACK_ACTION_COST
             ) {
                 // Both players are exhausted - decide winner by health percentage
-                uint32 p1HealthPct = (state.p1Health * 100) / p1Calculated.stats.maxHealth;
-                uint32 p2HealthPct = (state.p2Health * 100) / p2Calculated.stats.maxHealth;
+                uint32 p1HealthPct = uint32((uint32(state.p1Health) * 100) / p1Calculated.stats.maxHealth);
+                uint32 p2HealthPct = uint32((uint32(state.p2Health) * 100) / p2Calculated.stats.maxHealth);
 
                 state.condition = WinCondition.EXHAUSTION;
                 // Player with higher health percentage wins (P1 wins ties)
