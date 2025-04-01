@@ -101,7 +101,7 @@ contract BalanceTest is Test {
             stats: IGameEngine.FighterStats({
                 attributes: attrs,
                 armor: 0, // ARMOR_CLOTH
-                weapon: 9, // WEAPON_DUAL_DAGGERS
+                weapon: 5, // WEAPON_QUARTERSTAFF
                 stance: 0 // STANCE_DEFENSIVE
             })
         });

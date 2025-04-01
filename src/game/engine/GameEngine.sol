@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 15;
+    uint16 public constant version = 16;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -316,15 +316,15 @@ contract GameEngine is IGameEngine {
     }
 
     function calculateParryChance(uint8 strength, uint8 agility, uint8 stamina) internal pure returns (uint16) {
-        return uint16(2 + (uint32(strength) * 35 / 100) + (uint32(agility) * 30 / 100) + (uint32(stamina) * 20 / 100)); // Increased multipliers
+        return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(agility) * 35 / 100) + (uint32(stamina) * 30 / 100)); // Increased multipliers
     }
 
     // Improve dodge mechanics
     function calculateDodgeChance(uint8 agility, uint8 size) internal pure returns (uint16) {
-        uint32 agilityBonus = uint32(agility) * 70 / 100; // Up from 60
+        uint32 agilityBonus = uint32(agility) * 65 / 100; // Up from 60
 
         if (size <= 21) {
-            uint32 sizeModifier = uint32(21 - size) * 45 / 100; // Up from 40
+            uint32 sizeModifier = uint32(21 - size) * 90 / 100; // Up from 40
             return uint16(agilityBonus + sizeModifier);
         } else {
             uint32 sizeModifier = uint32(size - 21) * 45 / 100; // Down from 50
@@ -771,7 +771,7 @@ contract GameEngine is IGameEngine {
         uint32 baseBlockChance = uint32(defender.stats.blockChance);
         (uint16 shieldBlockBonus,,,) = getShieldStats(defender.weapon.shieldType);
         baseBlockChance = uint32(baseBlockChance * uint32(shieldBlockBonus)) / 100;
-        uint16 adjustedBlockChance = baseBlockChance > 90 ? 90 : uint16(baseBlockChance);
+        uint16 adjustedBlockChance = baseBlockChance > 80 ? 80 : uint16(baseBlockChance);
         return adjustedBlockChance;
     }
 
@@ -793,7 +793,7 @@ contract GameEngine is IGameEngine {
 
         baseParryChance = baseParryChance + speedParryBonus;
 
-        uint16 adjustedParryChance = baseParryChance > 90 ? 90 : uint16(baseParryChance);
+        uint16 adjustedParryChance = baseParryChance > 80 ? 80 : uint16(baseParryChance);
         return adjustedParryChance;
     }
 
@@ -809,9 +809,12 @@ contract GameEngine is IGameEngine {
 
         uint32 baseDodgeChance = uint32(defender.stats.dodgeChance);
 
-        // Calculate speed bonus
-        uint32 attackerSpeedFactor = 200 - uint32(attacker.weapon.attackSpeed);
-        uint32 speedDodgeBonus = attackerSpeedFactor * 40 / 100;
+        // Calculate speed bonus - only against slow two-handed weapons
+        uint32 speedDodgeBonus = 0;
+        if (attacker.weapon.attackSpeed <= 50) {
+            // Only two-handed weapons like Greatsword, Battleaxe, Maul, Trident
+            speedDodgeBonus = 20; // Flat 10% bonus against all heavy weapons
+        }
 
         // Add speed bonus to base dodge
         uint32 totalDodgeBeforeArmor = baseDodgeChance + speedDodgeBonus;
@@ -1273,8 +1276,8 @@ contract GameEngine is IGameEngine {
             minDamage: 39,
             maxDamage: 68,
             attackSpeed: 85,
-            parryChance: 180,
-            riposteChance: 240,
+            parryChance: 250,
+            riposteChance: 200,
             critMultiplier: 180,
             staminaMultiplier: 90,
             survivalFactor: 120,
@@ -1285,13 +1288,13 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 75,
-            maxDamage: 125,
+            minDamage: 72,
+            maxDamage: 111,
             attackSpeed: 50,
-            parryChance: 40,
-            riposteChance: 30,
-            critMultiplier: 325,
-            staminaMultiplier: 180,
+            parryChance: 50,
+            riposteChance: 50,
+            critMultiplier: 240,
+            staminaMultiplier: 200,
             survivalFactor: 85,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE
@@ -1300,13 +1303,13 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 92,
-            maxDamage: 140,
+            minDamage: 102,
+            maxDamage: 142,
             attackSpeed: 40,
             parryChance: 20,
             riposteChance: 20,
-            critMultiplier: 350,
-            staminaMultiplier: 200,
+            critMultiplier: 300,
+            staminaMultiplier: 240,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE
@@ -1315,8 +1318,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 52,
-            maxDamage: 78,
+            minDamage: 46,
+            maxDamage: 58,
             attackSpeed: 85,
             parryChance: 140,
             riposteChance: 140,
@@ -1466,12 +1469,12 @@ contract GameEngine is IGameEngine {
     // Dual-wield weapons
     function DUAL_DAGGERS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 60,
-            maxDamage: 70,
+            minDamage: 62,
+            maxDamage: 74,
             attackSpeed: 130,
             parryChance: 70,
             riposteChance: 200,
-            critMultiplier: 150,
+            critMultiplier: 170,
             staminaMultiplier: 70,
             survivalFactor: 95,
             damageType: DamageType.Piercing,
@@ -1624,7 +1627,7 @@ contract GameEngine is IGameEngine {
             parryChance: 10,
             riposteChance: 10,
             critMultiplier: 300,
-            staminaMultiplier: 200,
+            staminaMultiplier: 280,
             survivalFactor: 85,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE
@@ -1633,13 +1636,13 @@ contract GameEngine is IGameEngine {
 
     function TRIDENT() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 80, // Reduced from 75 (20% reduction)
-            maxDamage: 116, // Reduced from 95 (20% reduction)
+            minDamage: 70, // Reduced from 75 (20% reduction)
+            maxDamage: 98, // Reduced from 95 (20% reduction)
             attackSpeed: 50,
-            parryChance: 90,
+            parryChance: 120,
             riposteChance: 120,
             critMultiplier: 260,
-            staminaMultiplier: 180,
+            staminaMultiplier: 220,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE
@@ -1839,11 +1842,11 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (90, 140, 95, 100);
+            return (70, 140, 95, 100);
         } else if (shieldType == ShieldType.KITE_SHIELD) {
-            return (120, 90, 30, 140);
+            return (130, 90, 30, 140);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (150, 75, 10, 200);
+            return (160, 75, 10, 200);
         }
         return (0, 0, 100, 100);
     }
