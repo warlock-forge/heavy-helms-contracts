@@ -782,7 +782,7 @@ contract GameEngine is IGameEngine {
     {
         // Calculate base parry chance
         uint32 baseParryChance = (uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100;
-        
+
         // Only apply speed bonus against genuinely slow weapons (speed <= 60)
         uint32 speedParryBonus = 0;
         if (attacker.weapon.attackSpeed <= 60) {
@@ -790,9 +790,9 @@ contract GameEngine is IGameEngine {
             uint32 slownessFactor = 60 - uint32(attacker.weapon.attackSpeed);
             speedParryBonus = slownessFactor * 125 / 100; // Scale to get ~25% bonus at speed 40
         }
-        
+
         baseParryChance = baseParryChance + speedParryBonus;
-        
+
         uint16 adjustedParryChance = baseParryChance > 90 ? 90 : uint16(baseParryChance);
         return adjustedParryChance;
     }
@@ -806,34 +806,38 @@ contract GameEngine is IGameEngine {
         if (defender.weapon.attackSpeed <= 50) {
             return 0;
         }
-        
+
         uint32 baseDodgeChance = uint32(defender.stats.dodgeChance);
-        
+
         // Calculate speed bonus
         uint32 attackerSpeedFactor = 200 - uint32(attacker.weapon.attackSpeed);
         uint32 speedDodgeBonus = attackerSpeedFactor * 40 / 100;
-        
+
         // Add speed bonus to base dodge
         uint32 totalDodgeBeforeArmor = baseDodgeChance + speedDodgeBonus;
-        
+
         // Apply armor penalties to the total dodge (base + speed bonus)
         uint32 adjustedDodgeChance;
-        if (defender.armor.weight <= 10) { // Cloth
+        if (defender.armor.weight <= 10) {
+            // Cloth
             adjustedDodgeChance = totalDodgeBeforeArmor; // No penalty
-        } else if (defender.armor.weight <= 30) { // Leather
+        } else if (defender.armor.weight <= 30) {
+            // Leather
             adjustedDodgeChance = (totalDodgeBeforeArmor * 60) / 100;
-        } else if (defender.armor.weight <= 70) { // Chain
+        } else if (defender.armor.weight <= 70) {
+            // Chain
             adjustedDodgeChance = (totalDodgeBeforeArmor * 20) / 100;
-        } else { // Plate
+        } else {
+            // Plate
             adjustedDodgeChance = 0; // Cannot dodge
         }
-        
+
         // Apply shield effect
         if (defender.weapon.shieldType != ShieldType.NONE) {
             (,, uint16 dodgeModifier,) = getShieldStats(defender.weapon.shieldType);
             adjustedDodgeChance = (adjustedDodgeChance * uint32(dodgeModifier)) / 100;
         }
-        
+
         // Cap the dodge chance
         uint32 cappedDodge = adjustedDodgeChance > 70 ? 70 : adjustedDodgeChance;
         return uint16(cappedDodge);
@@ -991,13 +995,13 @@ contract GameEngine is IGameEngine {
         uint16 lethalityFactor
     ) private pure {
         uint96 currentHealth = isPlayer1Attacker ? state.p2Health : state.p1Health;
-        
+
         // Check if this hit would reduce health to zero
         bool wouldKill = damage >= currentHealth;
-        
+
         // Apply damage normally
         currentHealth = applyDamage(currentHealth, damage);
-        
+
         if (isPlayer1Attacker) {
             state.p2Health = currentHealth;
         } else {
@@ -1015,7 +1019,7 @@ contract GameEngine is IGameEngine {
                 seed,
                 lethalityFactor
             );
-            
+
             // If they survived the lethal blow, give them 1 health
             if (survived) {
                 if (isPlayer1Attacker) {

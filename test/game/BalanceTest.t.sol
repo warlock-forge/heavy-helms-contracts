@@ -394,15 +394,13 @@ contract BalanceTest is Test {
 
         // Dodger should win 50% of matches against greatsword
         assertTrue(
-            dodgerStats.wins >= matchCount * 50 / 100, 
-            "Dodger should counter Greatsword (expected 50%+ win rate)"
+            dodgerStats.wins >= matchCount * 50 / 100, "Dodger should counter Greatsword (expected 50%+ win rate)"
         );
     }
 
     // Test 4: Berserker vs Shield Tank (Offensive vs Defensive)
     // Berserker should have an advantage against shield tanks
     function testBerserkerVsShieldTank() public {
-
         TestFighter memory berserker = createBerserker();
         TestFighter memory shieldTank = createShieldTank();
 
@@ -455,10 +453,9 @@ contract BalanceTest is Test {
         // Test Greatsword vs Dual Daggers
         (gsStats, ddStats) = runDuel(greatsword, dualDaggers);
 
-
         // Test Battleaxe vs Sword+Shield
         (baStats, ssStats) = runDuel(battleaxe, swordShield);
-    
+
         // No weapon should have more than a 63% advantage when all other factors are equal
         assertTrue(
             gsStats.wins <= matchCount * 70 / 100 && baStats.wins <= matchCount * 80 / 100,
@@ -513,7 +510,6 @@ contract BalanceTest is Test {
             "Low stamina berserker should die more from exhaustion than damage"
         );
     }
-
 
     // Add this test function to your BalanceTest.t.sol file
     function testArmorTypeVsVariousWeapons() public {
