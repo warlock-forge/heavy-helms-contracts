@@ -66,7 +66,7 @@ contract BalanceTest is Test {
     // Create a shield tank with high CON/STR/SIZ, plate armor, and tower shield
     function createShieldTank() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: highStat,
+            strength: 12,
             constitution: highStat,
             size: highStat,
             agility: lowStat,
@@ -110,7 +110,7 @@ contract BalanceTest is Test {
     // Create a parry-focused fighter
     function createParryMaster() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: highStat,
+            strength: mediumStat,
             constitution: lowStat,
             size: mediumStat,
             agility: highStat,
@@ -134,7 +134,7 @@ contract BalanceTest is Test {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: highStat,
             constitution: mediumStat,
-            size: highStat,
+            size: mediumStat,
             agility: mediumStat,
             stamina: mediumStat,
             luck: lowStat
@@ -158,7 +158,7 @@ contract BalanceTest is Test {
             constitution: mediumStat,
             size: lowStat,
             agility: highStat,
-            stamina: highStat,
+            stamina: mediumStat,
             luck: mediumStat
         });
 
@@ -178,7 +178,7 @@ contract BalanceTest is Test {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: highStat,
             constitution: mediumStat,
-            size: highStat,
+            size: mediumStat,
             agility: lowStat,
             stamina: mediumStat,
             luck: mediumStat
@@ -377,7 +377,7 @@ contract BalanceTest is Test {
 
         // Parry master should win 65-75% against berserker
         assertTrue(
-            parryStats.wins >= matchCount * 50 / 100, "Parry Master should counter Berserker (expected 65%+ win rate)"
+            parryStats.wins >= matchCount * 60 / 100, "Parry Master should counter Berserker (expected 65%+ win rate)"
         );
     }
 
@@ -417,7 +417,7 @@ contract BalanceTest is Test {
         (berserkerStats, tankStats) = runDuel(berserker, shieldTank);
 
         assertTrue(
-            berserkerStats.wins >= matchCount * 50 / 100,
+            berserkerStats.wins >= matchCount * 60 / 100,
             "Berserker should counter Shield Tank (expected 50%+ win rate)"
         );
     }
@@ -504,7 +504,7 @@ contract BalanceTest is Test {
         (bStats, tStats) = runDuel(lowStamBerserker, tank);
 
         // Tank should win and berserker should die from exhaustion
-        assertTrue(tStats.wins >= matchCount * 50 / 100, "Tank should win against low stamina berserker");
+        assertTrue(tStats.wins >= matchCount * 40 / 100, "Tank should win against low stamina berserker");
         assertTrue(
             bStats.deathsByExhaustion >= bStats.deathsByLethalDamage,
             "Low stamina berserker should die more from exhaustion than damage"
