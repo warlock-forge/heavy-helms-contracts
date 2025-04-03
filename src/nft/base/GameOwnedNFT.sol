@@ -20,6 +20,7 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
 
     // Common events
     event SkinAttributesUpdated(uint16 indexed tokenId, uint8 weapon, uint8 armor);
+    event CIDUpdated(uint16 indexed tokenId, string newCID);
 
     constructor(string memory name, string memory symbol, uint16 maxSupply) ERC721(name, symbol) Owned(msg.sender) {
         _MAX_SUPPLY = maxSupply;
@@ -67,6 +68,7 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
         if (bytes(ipfsCID).length == 0) revert InvalidCID();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
         _tokenCIDs[tokenId] = ipfsCID;
+        emit CIDUpdated(uint16(tokenId), ipfsCID);
     }
 
     function updateSkinAttributes(uint256 tokenId, uint8 weapon, uint8 armor) external onlyOwner {
