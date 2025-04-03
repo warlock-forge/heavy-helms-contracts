@@ -32,7 +32,7 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 0, surnameIndex: 155}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreiglzkgadrw6rtoiduiibg2v6mtw764bwvi7rw2uepsc6akv2isjqq";
+        ipfsCID = "bafkreifbjayatwb3chcfacso3cligrob3l3ykliyqev4j4cmzgpls2saeq";
     }
 
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
