@@ -529,24 +529,26 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             skinIndex: challenge.challengerLoadout.skin.skinIndex,
             skinTokenId: challenge.challengerLoadout.skin.skinTokenId
         });
+        challengerStats.stance = challenge.challengerLoadout.stance;
 
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(challenge.defenderId);
         defenderStats.skin = Fighter.SkinInfo({
             skinIndex: challenge.defenderLoadout.skin.skinIndex,
             skinTokenId: challenge.defenderLoadout.skin.skinTokenId
         });
+        defenderStats.stance = challenge.defenderLoadout.stance;
 
         // Get challenger skin attributes
         IPlayerSkinRegistry.SkinCollectionInfo memory challengerSkinInfo =
-            playerContract.skinRegistry().getSkin(challenge.challengerLoadout.skin.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory challengerAttrs = IPlayerSkinNFT(challengerSkinInfo.contractAddress)
-            .getSkinAttributes(challenge.challengerLoadout.skin.skinTokenId);
+            playerContract.skinRegistry().getSkin(challengerStats.skin.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory challengerAttrs =
+            IPlayerSkinNFT(challengerSkinInfo.contractAddress).getSkinAttributes(challengerStats.skin.skinTokenId);
 
         // Get defender skin attributes
         IPlayerSkinRegistry.SkinCollectionInfo memory defenderSkinInfo =
-            playerContract.skinRegistry().getSkin(challenge.defenderLoadout.skin.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory defenderAttrs = IPlayerSkinNFT(defenderSkinInfo.contractAddress)
-            .getSkinAttributes(challenge.defenderLoadout.skin.skinTokenId);
+            playerContract.skinRegistry().getSkin(defenderStats.skin.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory defenderAttrs =
+            IPlayerSkinNFT(defenderSkinInfo.contractAddress).getSkinAttributes(defenderStats.skin.skinTokenId);
 
         // Create FighterStats
         IGameEngine.FighterStats memory challengerCombat = IGameEngine.FighterStats({
