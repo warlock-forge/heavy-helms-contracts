@@ -100,10 +100,18 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint32 indexed challengerId,
         uint32 indexed defenderId,
         uint256 wagerAmount,
-        uint256 createdAtBlock
+        uint32 challengerSkinIndex,
+        uint16 challengerSkinTokenId,
+        uint8 challengerStance
     );
     /// @notice Emitted when a challenge is accepted
-    event ChallengeAccepted(uint256 indexed challengeId, uint32 defenderId);
+    event ChallengeAccepted(
+        uint256 indexed challengeId,
+        uint32 indexed defenderId,
+        uint32 defenderSkinIndex,
+        uint16 defenderSkinTokenId,
+        uint8 defenderStance
+    );
     /// @notice Emitted when a challenge is cancelled
     event ChallengeCancelled(uint256 indexed challengeId);
     /// @notice Emitted when a challenge is forfeited
@@ -279,7 +287,15 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             state: ChallengeState.OPEN
         });
 
-        emit ChallengeCreated(challengeId, challengerLoadout.playerId, defenderId, wagerAmount, block.number);
+        emit ChallengeCreated(
+            challengeId, 
+            challengerLoadout.playerId, 
+            defenderId, 
+            wagerAmount,
+            challengerLoadout.skin.skinIndex,
+            challengerLoadout.skin.skinTokenId,
+            challengerLoadout.stance
+        );
 
         return challengeId;
     }
@@ -331,7 +347,13 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             IPlayer(playerContract).equipmentRequirements()
         );
 
-        emit ChallengeAccepted(challengeId, defenderLoadout.playerId);
+        emit ChallengeAccepted(
+            challengeId, 
+            defenderLoadout.playerId,
+            defenderLoadout.skin.skinIndex,
+            defenderLoadout.skin.skinTokenId,
+            defenderLoadout.stance
+        );
     }
 
     /// @notice Cancels a duel challenge (challenger only)

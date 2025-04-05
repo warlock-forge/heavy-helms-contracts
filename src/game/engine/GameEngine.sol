@@ -8,7 +8,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 18;
+    uint16 public constant version = 19;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -113,7 +113,7 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 14;
+    uint8 private immutable STAMINA_ATTACK = 13;
     uint8 private immutable STAMINA_BLOCK = 3;
     uint8 private immutable STAMINA_DODGE = 4;
     uint8 private immutable STAMINA_COUNTER = 7;
@@ -240,9 +240,9 @@ contract GameEngine is IGameEngine {
     function calculateStats(FighterStats memory player) public pure returns (CalculatedStats memory) {
         // Health calculation remains unchanged
         uint32 healthBase = 50;
-        uint32 healthFromCon = uint32(player.attributes.constitution) * 14;
-        uint32 healthFromSize = uint32(player.attributes.size) * 4;
-        uint32 healthFromStamina = uint32(player.attributes.stamina) * 4;
+        uint32 healthFromCon = uint32(player.attributes.constitution) * 15;
+        uint32 healthFromSize = uint32(player.attributes.size) * 6;
+        uint32 healthFromStamina = uint32(player.attributes.stamina) * 3;
         uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize + healthFromStamina);
 
         // Moderate endurance adjustment - less severe than before
@@ -258,7 +258,7 @@ contract GameEngine is IGameEngine {
         uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
 
         // Safe defensive stats calculation
-        uint16 dodgeChance = calculateDodgeChance(player.attributes.agility, player.attributes.size);
+        uint16 dodgeChance = calculateDodgeChance(player.attributes.agility, player.attributes.size,player.attributes.stamina);
         uint16 blockChance = calculateBlockChance(player.attributes.constitution, player.attributes.size);
         uint16 parryChance =
             calculateParryChance(player.attributes.strength, player.attributes.agility, player.attributes.stamina);
@@ -318,15 +318,18 @@ contract GameEngine is IGameEngine {
         return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(agility) * 35 / 100) + (uint32(stamina) * 30 / 100)); // Increased multipliers
     }
 
-    function calculateDodgeChance(uint8 agility, uint8 size) internal pure returns (uint16) {
-        uint32 agilityBonus = uint32(agility) * 25 / 100;
+    function calculateDodgeChance(uint8 agility, uint8 size,uint8 stamina) internal pure returns (uint16) {
+        uint16 baseDodge = 3;
+        uint32 agilityBonus = uint32(agility) * 30 / 100;
+        uint32 staminaBonus = uint32(stamina) * 20 / 100;
+        baseDodge += uint16(agilityBonus + staminaBonus);
 
         if (size <= 21) {
-            uint32 sizeModifier = uint32(21 - size) * 60 / 100;
-            return uint16(agilityBonus + sizeModifier);
+            uint32 sizeModifier = uint32(21 - size) * 10 / 100;
+            return uint16(baseDodge + sizeModifier);
         } else {
-            uint32 sizeModifier = uint32(size - 21) * 20 / 100;
-            return sizeModifier >= agilityBonus ? 0 : uint16(agilityBonus - sizeModifier);
+            uint32 sizeModifier = uint32(size - 21) * 10 / 100;
+            return sizeModifier >= baseDodge ? 0 : uint16(baseDodge - sizeModifier);
         }
     }
 
@@ -845,13 +848,13 @@ contract GameEngine is IGameEngine {
             adjustedDodgeChance = totalDodgeBeforeArmor; // No penalty
         } else if (defender.armor.weight <= 30) {
             // Leather
-            adjustedDodgeChance = (totalDodgeBeforeArmor * 85) / 100;
+            adjustedDodgeChance = (totalDodgeBeforeArmor * 80) / 100;
         } else if (defender.armor.weight <= 70) {
             // Chain
-            adjustedDodgeChance = (totalDodgeBeforeArmor * 50) / 100;
+            adjustedDodgeChance = (totalDodgeBeforeArmor * 60) / 100;
         } else {
             // Plate
-            adjustedDodgeChance = 0; // Cannot dodge
+            adjustedDodgeChance = (totalDodgeBeforeArmor * 20) / 100; // Minimal dodge
         }
 
         // Apply shield effect
@@ -1262,10 +1265,10 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 38,
-            maxDamage: 58,
+            minDamage: 58,
+            maxDamage: 70,
             attackSpeed: 75,
-            parryChance: 180,
+            parryChance: 120,
             riposteChance: 100,
             critMultiplier: 200,
             staminaMultiplier: 90,
@@ -1277,12 +1280,12 @@ contract GameEngine is IGameEngine {
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 30,
-            maxDamage: 49,
+            minDamage: 36,
+            maxDamage: 58,
             attackSpeed: 65,
-            parryChance: 100,
+            parryChance: 160,
             riposteChance: 70,
-            critMultiplier: 300,
+            critMultiplier: 200,
             staminaMultiplier: 100,
             survivalFactor: 120,
             damageType: DamageType.Blunt,
@@ -1292,10 +1295,10 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 34,
-            maxDamage: 60,
+            minDamage: 39,
+            maxDamage: 65,
             attackSpeed: 85,
-            parryChance: 340,
+            parryChance: 300,
             riposteChance: 200,
             critMultiplier: 180,
             staminaMultiplier: 90,
@@ -1313,7 +1316,7 @@ contract GameEngine is IGameEngine {
             parryChance: 50,
             riposteChance: 50,
             critMultiplier: 280,
-            staminaMultiplier: 300,
+            staminaMultiplier: 240,
             survivalFactor: 85,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE
@@ -1328,7 +1331,7 @@ contract GameEngine is IGameEngine {
             parryChance: 20,
             riposteChance: 20,
             critMultiplier: 350,
-            staminaMultiplier: 340,
+            staminaMultiplier: 280,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE
@@ -1358,7 +1361,7 @@ contract GameEngine is IGameEngine {
             parryChance: 100,
             riposteChance: 100,
             critMultiplier: 250,
-            staminaMultiplier: 140,
+            staminaMultiplier: 180,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE
@@ -1503,11 +1506,11 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_DAGGER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 30,
-            maxDamage: 56,
+            minDamage: 40,
+            maxDamage: 76,
             attackSpeed: 110,
             parryChance: 140,
-            riposteChance: 340,
+            riposteChance: 300,
             critMultiplier: 190,
             staminaMultiplier: 85,
             survivalFactor: 110,
@@ -1646,7 +1649,7 @@ contract GameEngine is IGameEngine {
             parryChance: 10,
             riposteChance: 10,
             critMultiplier: 300,
-            staminaMultiplier: 400,
+            staminaMultiplier: 320,
             survivalFactor: 85,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE
@@ -1661,7 +1664,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 140,
             critMultiplier: 260,
-            staminaMultiplier: 280,
+            staminaMultiplier: 220,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE
@@ -1734,14 +1737,14 @@ contract GameEngine is IGameEngine {
     function DEFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
             damageModifier: 80,
-            hitChance: 85,
+            hitChance: 70,
             critChance: 70,
             critMultiplier: 90,
-            blockChance: 150, // Down from 160 - make defensive bonuses less extreme
-            parryChance: 150, // Down from 160
-            dodgeChance: 150, // Down from 160
-            counterChance: 150,
-            riposteChance: 150,
+            blockChance: 140,
+            parryChance: 140,
+            dodgeChance: 180,
+            counterChance: 120,
+            riposteChance: 120,
             staminaCostModifier: 85,
             survivalFactor: 120
         });
@@ -1766,12 +1769,12 @@ contract GameEngine is IGameEngine {
     function OFFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
             damageModifier: 120,
-            hitChance: 150,
+            hitChance: 130,
             critChance: 115,
             critMultiplier: 145,
-            blockChance: 10,
-            parryChance: 10,
-            dodgeChance: 10,
+            blockChance: 60,
+            parryChance: 60,
+            dodgeChance: 60,
             counterChance: 85,
             riposteChance: 85,
             staminaCostModifier: 120,
@@ -1837,11 +1840,11 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (100, 160, 100, 100);
+            return (100, 160, 120, 80);
         } else if (shieldType == ShieldType.KITE_SHIELD) {
-            return (140, 100, 50, 120);
+            return (130, 100, 75, 120);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (180, 50, 10, 140);
+            return (175, 50, 30, 160);
         }
         return (0, 0, 100, 100);
     }

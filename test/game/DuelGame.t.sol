@@ -29,9 +29,17 @@ contract DuelGameTest is TestBase {
         uint32 indexed challengerId,
         uint32 indexed defenderId,
         uint256 wagerAmount,
-        uint256 createdAtBlock
+        uint32 challengerSkinIndex,
+        uint16 challengerSkinTokenId,
+        uint8 challengerStance
     );
-    event ChallengeAccepted(uint256 indexed challengeId, uint32 defenderId);
+    event ChallengeAccepted(
+        uint256 indexed challengeId,
+        uint32 indexed defenderId,
+        uint32 defenderSkinIndex,
+        uint16 defenderSkinTokenId,
+        uint8 defenderStance
+    );
     event ChallengeCancelled(uint256 indexed challengeId);
     event DuelComplete( // This is the key addition
         uint256 indexed challengeId,
@@ -86,7 +94,7 @@ contract DuelGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         vm.expectEmit(true, true, true, true);
-        emit ChallengeCreated(0, PLAYER_ONE_ID, PLAYER_TWO_ID, wagerAmount, block.number);
+        emit ChallengeCreated(0, PLAYER_ONE_ID, PLAYER_TWO_ID, wagerAmount, loadout.skin.skinIndex, loadout.skin.skinTokenId, loadout.stance);
 
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
 
