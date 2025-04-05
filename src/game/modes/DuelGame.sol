@@ -288,9 +288,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         });
 
         emit ChallengeCreated(
-            challengeId, 
-            challengerLoadout.playerId, 
-            defenderId, 
+            challengeId,
+            challengerLoadout.playerId,
+            defenderId,
             wagerAmount,
             challengerLoadout.skin.skinIndex,
             challengerLoadout.skin.skinTokenId,
@@ -348,7 +348,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         );
 
         emit ChallengeAccepted(
-            challengeId, 
+            challengeId,
             defenderLoadout.playerId,
             defenderLoadout.skin.skinIndex,
             defenderLoadout.skin.skinTokenId,

@@ -92,19 +92,23 @@ contract PracticeGameTest is TestBase {
 
         for (uint256 i = 0; i < actions.length; i++) {
             // Player 1 acts if they deal damage, have a defensive result, or attempt an attack
-            if (actions[i].p1Damage > 0 || _isDefensiveResult(actions[i].p1Result) || 
-                actions[i].p1Result == IGameEngine.CombatResultType.ATTACK || 
-                actions[i].p1Result == IGameEngine.CombatResultType.CRIT) {
+            if (
+                actions[i].p1Damage > 0 || _isDefensiveResult(actions[i].p1Result)
+                    || actions[i].p1Result == IGameEngine.CombatResultType.ATTACK
+                    || actions[i].p1Result == IGameEngine.CombatResultType.CRIT
+            ) {
                 player1Action = true;
             }
-            
+
             // Player 2 acts if they deal damage, have a defensive result, or attempt an attack
-            if (actions[i].p2Damage > 0 || _isDefensiveResult(actions[i].p2Result) || 
-                actions[i].p2Result == IGameEngine.CombatResultType.ATTACK || 
-                actions[i].p2Result == IGameEngine.CombatResultType.CRIT) {
+            if (
+                actions[i].p2Damage > 0 || _isDefensiveResult(actions[i].p2Result)
+                    || actions[i].p2Result == IGameEngine.CombatResultType.ATTACK
+                    || actions[i].p2Result == IGameEngine.CombatResultType.CRIT
+            ) {
                 player2Action = true;
             }
-            
+
             if (player1Action && player2Action) break;
         }
 

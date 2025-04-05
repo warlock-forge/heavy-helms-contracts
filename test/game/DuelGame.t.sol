@@ -94,7 +94,15 @@ contract DuelGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         vm.expectEmit(true, true, true, true);
-        emit ChallengeCreated(0, PLAYER_ONE_ID, PLAYER_TWO_ID, wagerAmount, loadout.skin.skinIndex, loadout.skin.skinTokenId, loadout.stance);
+        emit ChallengeCreated(
+            0,
+            PLAYER_ONE_ID,
+            PLAYER_TWO_ID,
+            wagerAmount,
+            loadout.skin.skinIndex,
+            loadout.skin.skinTokenId,
+            loadout.stance
+        );
 
         uint256 challengeId = game.initiateChallenge{value: totalAmount}(loadout, PLAYER_TWO_ID, wagerAmount);
 

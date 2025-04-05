@@ -258,7 +258,8 @@ contract GameEngine is IGameEngine {
         uint16 initiative = uint16(initiativeBase + initiativeFromAgility + initiativeFromLuck);
 
         // Safe defensive stats calculation
-        uint16 dodgeChance = calculateDodgeChance(player.attributes.agility, player.attributes.size,player.attributes.stamina);
+        uint16 dodgeChance =
+            calculateDodgeChance(player.attributes.agility, player.attributes.size, player.attributes.stamina);
         uint16 blockChance = calculateBlockChance(player.attributes.constitution, player.attributes.size);
         uint16 parryChance =
             calculateParryChance(player.attributes.strength, player.attributes.agility, player.attributes.stamina);
@@ -318,7 +319,7 @@ contract GameEngine is IGameEngine {
         return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(agility) * 35 / 100) + (uint32(stamina) * 30 / 100)); // Increased multipliers
     }
 
-    function calculateDodgeChance(uint8 agility, uint8 size,uint8 stamina) internal pure returns (uint16) {
+    function calculateDodgeChance(uint8 agility, uint8 size, uint8 stamina) internal pure returns (uint16) {
         uint16 baseDodge = 3;
         uint32 agilityBonus = uint32(agility) * 30 / 100;
         uint32 staminaBonus = uint32(stamina) * 20 / 100;
