@@ -968,7 +968,7 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         vm.deal(PLAYER_ONE, skinNFT.mintPrice());
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, equipmentRequirements.WEAPON_BATTLEAXE(), equipmentRequirements.ARMOR_PLATE()
+            PLAYER_ONE, equipmentRequirements.WEAPON_SCIMITAR_DAGGER(), equipmentRequirements.ARMOR_PLATE()
         );
         uint16 tokenId = 1;
 
