@@ -13,12 +13,16 @@ import {IDefaultPlayer} from "../../src/interfaces/fighters/IDefaultPlayer.sol";
 import {Monster} from "../../src/fighters/Monster.sol";
 import {MonsterLibrary} from "../../src/fighters/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/nft/skins/MonsterSkinNFT.sol";
-import {EquipmentRequirements} from "../../src/game/engine/EquipmentRequirements.sol";
 
 contract FighterDeployScript is Script {
     function setUp() public {}
 
-    function run(address skinRegistryAddr, address nameRegistryAddr, address monsterNameRegistryAddr) public {
+    function run(
+        address skinRegistryAddr,
+        address nameRegistryAddr,
+        address monsterNameRegistryAddr,
+        address equipmentRequirementsAddr
+    ) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -29,17 +33,14 @@ contract FighterDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy EquipmentRequirements contract
-        EquipmentRequirements equipmentRequirements = new EquipmentRequirements();
+        // 1. Deploy Player contract with Gelato VRF operator and equipment requirements
+        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, equipmentRequirementsAddr, operator);
 
-        // 2. Deploy Player contract with Gelato VRF operator and equipment requirements
-        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, address(equipmentRequirements), operator);
-
-        // 3. Deploy DefaultPlayer and Monster contracts
+        // 2. Deploy DefaultPlayer and Monster contracts
         DefaultPlayer defaultPlayerContract = new DefaultPlayer(skinRegistryAddr, nameRegistryAddr);
         Monster monsterContract = new Monster(skinRegistryAddr, monsterNameRegistryAddr);
 
-        // 4. Deploy and setup DefaultPlayerSkinNFT
+        // 3. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
         MonsterSkinNFT monsterSkin = new MonsterSkinNFT();
 
@@ -59,7 +60,7 @@ contract FighterDeployScript is Script {
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(defaultSkinIndex, true);
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(monsterSkinIndex, true);
 
-        // 5. Mint initial characters
+        // 4. Mint initial characters
         console2.log("\n=== Minting Default Characters ===");
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
 
@@ -67,7 +68,6 @@ contract FighterDeployScript is Script {
         MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
 
         console2.log("\n=== Deployed Addresses ===");
-        console2.log("EquipmentRequirements:", address(equipmentRequirements));
         console2.log("Player:", address(playerContract));
         console2.log("DefaultPlayer:", address(defaultPlayerContract));
         console2.log("Monster:", address(monsterContract));

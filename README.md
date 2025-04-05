@@ -188,31 +188,35 @@ forge install
 ```bash
 forge script script/deploy/GameEngineDeploy.s.sol
 ```
-4. Deploy PlayerSkinRegistry: *(add --broadcast to send tx)*
+4. Deploy EquipmentRequirements contract *(add --broadcast to send tx)*
+```bash
+forge script script/deploy/EquipmentRequirementsDeploy.s.sol
+```
+5. Deploy PlayerSkinRegistry: *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/PlayerSkinRegistryDeploy.s.sol
 ```
-5. Deploy NameRegistry: *(add --broadcast to send tx)*
+6. Deploy NameRegistry: *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/NameRegistryDeploy.s.sol
 ```
-6. Deploy Fighter: *(add --broadcast to send tx)*
+7. Deploy Fighter: *(add --broadcast to send tx)*
 ```bash
-forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,address)" <SKIN_REGISTRY_ADDRESS> <PLAYER_NAME_REGISTRY_ADDRESS> <MONSTER_NAME_REGISTRY_ADDRESS>
+forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,address,address)" <SKIN_REGISTRY_ADDRESS> <PLAYER_NAME_REGISTRY_ADDRESS> <MONSTER_NAME_REGISTRY_ADDRESS> <EQUIPMENT_REQUIREMENTS_ADDRESS>
 ```
-7. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
+8. Deploy Unlockable Skin Collection (Optional): *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
 ```
-8. Deploy PracticeGame *(add --broadcast to send tx)*
+9. Deploy PracticeGame *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
 ```
-9. Deploy DuelGame *(add --broadcast to send tx)*
+10. Deploy DuelGame *(add --broadcast to send tx)*
 ```bash
 forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
-10. Setup VRF
+11. Setup VRF
 ```bash
 Use Gelato dashboard to add VRF tasks for Player + Duel Game contracts
 ```
