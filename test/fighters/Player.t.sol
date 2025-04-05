@@ -530,9 +530,7 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            equipmentRequirements.WEAPON_QUARTERSTAFF(),
-            equipmentRequirements.ARMOR_CLOTH()
+            PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -565,9 +563,7 @@ contract PlayerTest is TestBase {
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE,
-            equipmentRequirements.WEAPON_QUARTERSTAFF(),
-            equipmentRequirements.ARMOR_CLOTH()
+            PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
@@ -633,11 +629,7 @@ contract PlayerTest is TestBase {
 
         // Mint unlock NFT to player with low requirements
         vm.startPrank(PLAYER_ONE);
-        unlockNFT.mintSkin(
-            PLAYER_ONE,
-            equipmentRequirements.WEAPON_QUARTERSTAFF(),
-            equipmentRequirements.ARMOR_CLOTH()
-        );
+        unlockNFT.mintSkin(PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH());
         vm.stopPrank();
 
         // Mint skin but keep it in contract
