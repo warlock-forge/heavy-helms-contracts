@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with PoolTogether.  If not, see <https://www.gnu.org/licenses/>.
  */
-//SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
 /**
