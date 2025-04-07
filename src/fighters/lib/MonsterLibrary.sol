@@ -41,10 +41,10 @@ library MonsterLibrary {
 
     function createAllMonsters(MonsterSkinNFT monsterSkin, Monster monster, uint32 skinIndex) internal {
         uint16 tokenId = 1;
-        createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Goblin);
-        createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Orc);
-        createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Troll);
-        createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Giant);
+        // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Goblin);
+        // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Orc);
+        // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Troll);
+        // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Giant);
     }
 
     function _getMonsterData(MonsterType monsterType, uint32 skinIndex, uint16 tokenId)

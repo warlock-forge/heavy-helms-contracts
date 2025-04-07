@@ -107,6 +107,8 @@ contract PracticeGame is BaseGame {
         view
         returns (bytes memory)
     {
+        // Fights with same playerId cause inconsistent results
+        require(player1.playerId != player2.playerId, "Cannot fight yourself");
         // Get the appropriate Fighter contracts
         Fighter p1Fighter = _getFighterContract(player1.playerId);
         Fighter p2Fighter = _getFighterContract(player2.playerId);

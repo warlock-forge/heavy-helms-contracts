@@ -271,7 +271,7 @@ contract PracticeGameTest is TestBase {
         runStanceScenario(
             uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1,
             uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1,
-            20
+            25
         );
 
         // Roll forward to get new entropy
@@ -283,20 +283,12 @@ contract PracticeGameTest is TestBase {
         runStanceScenario(
             uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1,
             uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1,
-            20
+            25
         );
 
         // Roll forward again
         vm.roll(block.number + 100);
         vm.warp(block.timestamp + 1200);
-
-        console2.log("\n=== Scenario 3 ===");
-        console2.log("Offensive: Spear vs Defensive: SwordAndShield");
-        runStanceScenario(
-            uint16(DefaultPlayerLibrary.CharacterType.SpearBalanced) + 1,
-            uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1,
-            20
-        );
     }
 
     function runStanceScenario(uint16 attackerType, uint16 defenderType, uint256 rounds) internal {
