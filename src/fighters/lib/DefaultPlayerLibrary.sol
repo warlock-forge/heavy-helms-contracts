@@ -20,7 +20,12 @@ library DefaultPlayerLibrary {
         BattleaxeOffensive, // ID 4
         SpearBalanced, // ID 5
         MaceAndShieldDefensive, // ID 6
-        RapierAndShieldDefensive // ID 7
+        RapierAndShieldDefensive, // ID 7
+        DaggersUser, // ID 8
+        ScimitarAndBucklerUser, // ID 9
+        DualClubsWarrior, // ID 10
+        AxeKitePlateBalancedWarrior, // ID 11
+        DualScimitarsWarrior // ID 12
 
     }
 
@@ -143,6 +148,91 @@ library DefaultPlayerLibrary {
         ipfsCID = "bafkreib5umhjzlug3a4mxabqbsdgo4q5xwpubixjyhvcv36gjhty5sadwu";
     }
 
+    function getDaggersUser(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 9; // WEAPON_DUAL_DAGGERS
+        armor = 1; // ARMOR_LEATHER
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 14, constitution: 6, size: 10, agility: 16, stamina: 10, luck: 16}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 2,
+            name: IPlayer.PlayerName({firstNameIndex: 1043, surnameIndex: 158}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreichxvcymgfql6t2qrbiyjlerxcrei7kriqv4abc7d2f5xjbi54zpy";
+    }
+
+    function getScimitarAndBucklerUser(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 11; // WEAPON_SCIMITAR_BUCKLER
+        armor = 0; // ARMOR_CLOTH
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 12, constitution: 14, size: 8, agility: 14, stamina: 12, luck: 12}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 0,
+            name: IPlayer.PlayerName({firstNameIndex: 1139, surnameIndex: 216}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreihmbsfcov2jy7vlebsh5jg7i7k7pnzgcdthnd55drts7ode2wjm3y";
+    }
+
+    function getDualClubsWarrior(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 18; // WEAPON_DUAL_CLUBS
+        armor = 1; // ARMOR_LEATHER
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 16, constitution: 8, size: 16, agility: 8, stamina: 12, luck: 12}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 2,
+            name: IPlayer.PlayerName({firstNameIndex: 1071, surnameIndex: 37}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreid5ufeacbogoagtcfba2367nmnpjyxa5czu36btghg7d3af34vtnu";
+    }
+
+    function getAxeKitePlateBalancedWarrior(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 12; // WEAPON_AXE_KITE
+        armor = 3; // ARMOR_PLATE
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 12, constitution: 18, size: 12, agility: 8, stamina: 14, luck: 8}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 1,
+            name: IPlayer.PlayerName({firstNameIndex: 1145, surnameIndex: 4}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreicyyzq5tv4akfqblvixftzct5mifs4ymg7l56koy52zomnhxkosky";
+    }
+
+    function getDualScimitarsWarrior(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 14; // WEAPON_DUAL_SCIMITARS
+        armor = 0; // ARMOR_CLOTH
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 16, constitution: 4, size: 12, agility: 16, stamina: 12, luck: 12}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 2,
+            name: IPlayer.PlayerName({firstNameIndex: 1084, surnameIndex: 242}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreif2wab4gyi45koar4mzitvryg3npik4s4dxwka73zvyfrqpp3g5iu";
+    }
+
     function createDefaultCharacter(
         DefaultPlayerSkinNFT defaultSkin,
         IDefaultPlayer defaultPlayer,
@@ -181,6 +271,16 @@ library DefaultPlayerLibrary {
             return getRapierAndShieldUser(skinIndex, tokenId);
         } else if (charType == CharacterType.BalancedWarrior) {
             return getBalancedWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.DaggersUser) {
+            return getDaggersUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.ScimitarAndBucklerUser) {
+            return getScimitarAndBucklerUser(skinIndex, tokenId);
+        } else if (charType == CharacterType.DualClubsWarrior) {
+            return getDualClubsWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.AxeKitePlateBalancedWarrior) {
+            return getAxeKitePlateBalancedWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.DualScimitarsWarrior) {
+            return getDualScimitarsWarrior(skinIndex, tokenId);
         }
     }
 
@@ -189,7 +289,7 @@ library DefaultPlayerLibrary {
         IDefaultPlayer defaultPlayer,
         uint32 defaultSkinIndex
     ) internal {
-        for (uint16 i = 1; i <= 7; i++) {
+        for (uint16 i = 1; i <= 12; i++) {
             createDefaultCharacter(
                 defaultSkin,
                 defaultPlayer,
