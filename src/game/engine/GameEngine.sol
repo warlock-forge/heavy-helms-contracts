@@ -119,12 +119,12 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 13;
+    uint8 private immutable STAMINA_ATTACK = 12;
     uint8 private immutable STAMINA_BLOCK = 3;
     uint8 private immutable STAMINA_DODGE = 4;
-    uint8 private immutable STAMINA_COUNTER = 7;
+    uint8 private immutable STAMINA_COUNTER = 6;
     uint8 private immutable STAMINA_PARRY = 4;
-    uint8 private immutable STAMINA_RIPOSTE = 7;
+    uint8 private immutable STAMINA_RIPOSTE = 6;
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
     // Add base survival constant
@@ -400,6 +400,19 @@ contract GameEngine is IGameEngine {
             if (!canP1Attack && canP2Attack && state.p1ActionPoints >= ATTACK_ACTION_COST) {
                 state.condition = WinCondition.EXHAUSTION;
                 state.player1Won = false; // Player 2 wins
+
+                // Add this - record the exhaustion in the combat log
+                results = appendCombatAction(
+                    results,
+                    uint8(CombatResultType.EXHAUSTED), // P1 result (exhausted)
+                    0, // No damage
+                    0, // No stamina cost
+                    uint8(CombatResultType.HIT), // P2 result (HIT with 0 damage)
+                    0, // No damage
+                    0, // No stamina cost
+                    true // P1 is "attacking" (for log purposes)
+                );
+
                 break;
             } else if (!canP2Attack && canP1Attack && state.p2ActionPoints >= ATTACK_ACTION_COST) {
                 state.condition = WinCondition.EXHAUSTION;
@@ -780,14 +793,14 @@ contract GameEngine is IGameEngine {
             // Scale from 0% at speed 60 to -25% at speed 40 or below
             uint32 slownessFactor = neutralSpeed - uint32(attacker.weapon.attackSpeed);
             slownessFactor = slownessFactor > 20 ? 20 : slownessFactor; // Cap at 20 points difference
-            uint32 blockPenalty = slownessFactor * 125 / 100; // 1.25% per point below 60
+            uint32 blockPenalty = slownessFactor * 42 / 100;
             baseBlockChance = baseBlockChance > blockPenalty ? baseBlockChance - blockPenalty : 0;
         } else if (attacker.weapon.attackSpeed > neutralSpeed) {
             // Fast weapon - easier to block (bonus)
             // Scale from 0% at speed 60 to +25% at speed 130 or above
             uint32 speedFactor = uint32(attacker.weapon.attackSpeed) - neutralSpeed;
             speedFactor = speedFactor > 70 ? 70 : speedFactor; // Cap at 70 points difference
-            uint32 blockBonus = speedFactor * 36 / 100; // ~0.36% per point above 60
+            uint32 blockBonus = speedFactor * 12 / 100;
             baseBlockChance = baseBlockChance + blockBonus;
         }
 
@@ -953,7 +966,7 @@ contract GameEngine is IGameEngine {
         if (attackSpeed <= 50 && armor.weight >= 50) {
             // Only slowest weapons (speed 50 or less) vs heavy armors
             // More aggressive penetration for true heavy weapons
-            armorPen = (100 - attackSpeed) * 2 / 3; // Max 40% penetration for slowest weapons
+            armorPen = (100 - attackSpeed) * 1 / 2;
         }
 
         // Then apply percentage reduction with armor penetration
@@ -1333,7 +1346,7 @@ contract GameEngine is IGameEngine {
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 106,
-            maxDamage: 169,
+            maxDamage: 159,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
@@ -1499,12 +1512,12 @@ contract GameEngine is IGameEngine {
     function DUAL_DAGGERS() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 46,
-            maxDamage: 60,
+            maxDamage: 64,
             attackSpeed: 120,
             parryChance: 70,
             riposteChance: 140,
-            critMultiplier: 150,
-            staminaMultiplier: 90,
+            critMultiplier: 200,
+            staminaMultiplier: 75,
             survivalFactor: 95,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE
@@ -1528,13 +1541,13 @@ contract GameEngine is IGameEngine {
 
     function DUAL_SCIMITARS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 65,
-            maxDamage: 90,
+            minDamage: 60,
+            maxDamage: 86,
             attackSpeed: 95,
             parryChance: 80,
             riposteChance: 80,
             critMultiplier: 200,
-            staminaMultiplier: 240,
+            staminaMultiplier: 200,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE
@@ -1543,13 +1556,13 @@ contract GameEngine is IGameEngine {
 
     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 55,
-            maxDamage: 70,
+            minDamage: 59,
+            maxDamage: 74,
             attackSpeed: 85,
             parryChance: 130,
-            riposteChance: 80,
-            critMultiplier: 240,
-            staminaMultiplier: 120,
+            riposteChance: 70,
+            critMultiplier: 220,
+            staminaMultiplier: 110,
             survivalFactor: 95,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE
@@ -1561,11 +1574,11 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 63,
             maxDamage: 80,
-            attackSpeed: 80,
+            attackSpeed: 85,
             parryChance: 130,
-            riposteChance: 225,
-            critMultiplier: 200,
-            staminaMultiplier: 125,
+            riposteChance: 150,
+            critMultiplier: 180,
+            staminaMultiplier: 130,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE
@@ -1650,8 +1663,8 @@ contract GameEngine is IGameEngine {
     // Additional two-handed weapons
     function MAUL() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 135,
-            maxDamage: 192,
+            minDamage: 115,
+            maxDamage: 166,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
@@ -1714,19 +1727,19 @@ contract GameEngine is IGameEngine {
     // =============================================
 
     function CLOTH() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 1, weight: 5, slashResist: 5, pierceResist: 5, bluntResist: 8});
+        return ArmorStats({defense: 1, weight: 5, slashResist: 2, pierceResist: 2, bluntResist: 6});
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 3, weight: 15, slashResist: 12, pierceResist: 8, bluntResist: 14});
+        return ArmorStats({defense: 3, weight: 15, slashResist: 8, pierceResist: 8, bluntResist: 12});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 8, weight: 50, slashResist: 30, pierceResist: 15, bluntResist: 30});
+        return ArmorStats({defense: 6, weight: 50, slashResist: 25, pierceResist: 10, bluntResist: 25});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 15, weight: 100, slashResist: 50, pierceResist: 50, bluntResist: 15});
+        return ArmorStats({defense: 12, weight: 100, slashResist: 40, pierceResist: 40, bluntResist: 15});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
@@ -1847,11 +1860,11 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (100, 160, 120, 80);
+            return (80, 180, 120, 80);
         } else if (shieldType == ShieldType.KITE_SHIELD) {
-            return (150, 100, 75, 120);
+            return (120, 120, 75, 120);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (200, 50, 30, 160);
+            return (160, 50, 30, 160);
         }
         return (0, 0, 100, 100);
     }

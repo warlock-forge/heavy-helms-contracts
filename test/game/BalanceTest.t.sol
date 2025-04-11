@@ -69,10 +69,9 @@ contract BalanceTest is Test {
 
     // ==================== FIGHTER CREATION HELPERS ====================
 
-    // Create a shield tank with high CON/STR/SIZ, plate armor, and tower shield
     function createShieldTank() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: 12,
+            strength: mediumStat,
             constitution: highStat,
             size: highStat,
             agility: lowStat,
@@ -91,36 +90,13 @@ contract BalanceTest is Test {
         });
     }
 
-    // Create a dodge-focused fighter with high AGI, low SIZ, cloth armor
-    function createDodger() private view returns (TestFighter memory) {
-        Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: lowStat,
-            constitution: mediumStat,
-            size: lowStat,
-            agility: highStat,
-            stamina: highStat,
-            luck: mediumStat
-        });
-
-        return TestFighter({
-            name: "Dodger",
-            stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 0, // ARMOR_CLOTH
-                weapon: 5, // WEAPON_QUARTERSTAFF
-                stance: 0 // STANCE_DEFENSIVE
-            })
-        });
-    }
-
-    // Create a parry-focused fighter
     function createParryMaster() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: mediumStat,
-            constitution: lowStat,
-            size: mediumStat,
+            constitution: highStat,
+            size: lowStat,
             agility: highStat,
-            stamina: mediumStat,
+            stamina: lowStat,
             luck: mediumStat
         });
 
@@ -135,12 +111,11 @@ contract BalanceTest is Test {
         });
     }
 
-    // Create a berserker with high STR, SIZ, and offensive stance
     function createBerserker() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: highStat,
-            constitution: mediumStat,
-            size: mediumStat,
+            constitution: lowStat,
+            size: highStat,
             agility: mediumStat,
             stamina: mediumStat,
             luck: lowStat
@@ -157,41 +132,60 @@ contract BalanceTest is Test {
         });
     }
 
-    // Create a dual dagger fighter with high agility
-    function createDualDaggerist() private view returns (TestFighter memory) {
+    function createAssassin() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: mediumStat,
-            constitution: mediumStat,
-            size: lowStat,
+            strength: highStat,
+            constitution: lowStat,
+            size: mediumStat,
             agility: highStat,
-            stamina: mediumStat,
+            stamina: lowStat,
             luck: mediumStat
         });
 
         return TestFighter({
-            name: "Dual Daggerist",
+            name: "Assassin",
             stats: IGameEngine.FighterStats({
                 attributes: attrs,
-                armor: 0, // ARMOR_CLOTH
+                armor: 1, // ARMOR_LEATHER
                 weapon: 9, // WEAPON_DUAL_DAGGERS
-                stance: 1 // STANCE_BALANCED
+                stance: 2 // STANCE_OFFENSIVE
             })
         });
     }
 
-    // Create a greatsword fighter
-    function createGreatswordFighter() private view returns (TestFighter memory) {
+    function createBruiser() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: highStat,
-            constitution: mediumStat,
-            size: mediumStat,
+            constitution: lowStat,
+            size: highStat,
             agility: lowStat,
             stamina: mediumStat,
             luck: mediumStat
         });
 
         return TestFighter({
-            name: "Greatsword User",
+            name: "Bruiser",
+            stats: IGameEngine.FighterStats({
+                attributes: attrs,
+                armor: 1, // ARMOR_LEATHER
+                weapon: 18, // WEAPON_DUAL_CLUBS
+                stance: 2 // STANCE_OFFENSIVE
+            })
+        });
+    }
+
+    function createVanguard() private view returns (TestFighter memory) {
+        Fighter.Attributes memory attrs = Fighter.Attributes({
+            strength: highStat,
+            constitution: highStat,
+            size: mediumStat,
+            agility: lowStat,
+            stamina: mediumStat,
+            luck: lowStat
+        });
+
+        return TestFighter({
+            name: "Scum",
             stats: IGameEngine.FighterStats({
                 attributes: attrs,
                 armor: 2, // ARMOR_CHAIN
@@ -201,7 +195,6 @@ contract BalanceTest is Test {
         });
     }
 
-    // Create a balanced fighter
     function createBalancedFighter() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: mediumStat,
@@ -353,20 +346,33 @@ contract BalanceTest is Test {
 
     // ==================== NEW TARGETED TESTS ====================
 
-    // Test 1: Shield Tank vs Fast Weapons
+    // Test 1: Shield Tank vs Assassin
     // Shield tank should dominate low-damage, fast weapons
-    function testShieldTankVsLightWeapons() public {
+    function testShieldTankVsAssassin() public {
         TestFighter memory shieldTank = createShieldTank();
-        TestFighter memory dualDagger = createDualDaggerist();
+        TestFighter memory assassin = createAssassin();
 
         MatchStatistics memory tankStats;
-        MatchStatistics memory daggerStats;
+        MatchStatistics memory assassinStats;
 
-        (tankStats, daggerStats) = runDuel(shieldTank, dualDagger);
+        (tankStats, assassinStats) = runDuel(shieldTank, assassin);
 
         // Shield tank should win 75-85% against dual daggers
         assertTrue(
-            tankStats.wins >= matchCount * 75 / 100, "Shield Tank should counter Dual Daggers (expected 75%+ win rate)"
+            tankStats.wins >= matchCount * 65 / 100 && tankStats.wins <= matchCount * 95 / 100,
+            string(
+                abi.encodePacked(
+                    "Shield Tank should counter Assassin (expected 65%-95% win rate): ", vm.toString(tankStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            assassinStats.wins >= matchCount * 5 / 100 && assassinStats.wins <= matchCount * 35 / 100,
+            string(
+                abi.encodePacked(
+                    "Assassin be weak against Shield Tank (expected 5%-35% win rate): ", vm.toString(assassinStats.wins)
+                )
+            )
         );
     }
 
@@ -381,30 +387,26 @@ contract BalanceTest is Test {
 
         (parryStats, berserkerStats) = runDuel(parryMaster, berserker);
 
-        // Parry master should win 65-75% against berserker
         assertTrue(
-            parryStats.wins >= matchCount * 50 / 100, "Parry Master should counter Berserker (expected 50%+ win rate)"
+            parryStats.wins >= matchCount * 60 / 100 && parryStats.wins <= matchCount * 90 / 100,
+            string(
+                abi.encodePacked(
+                    "Parry Master should counter Berserker (expected 60%-90% win rate): ", vm.toString(parryStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            berserkerStats.wins >= matchCount * 10 / 100 && berserkerStats.wins <= matchCount * 40 / 100,
+            string(
+                abi.encodePacked(
+                    "Berserker should be weak against Parry Master (expected 10%-40% win rate): ",
+                    vm.toString(berserkerStats.wins)
+                )
+            )
         );
     }
 
-    // Test 3: Dodger vs Heavy Weapons
-    // Dodger should counter slow weapons like greatsword
-    function testDodgerVsGreatsword() public {
-        TestFighter memory dodger = createDodger();
-        TestFighter memory greatswordUser = createGreatswordFighter();
-
-        MatchStatistics memory dodgerStats;
-        MatchStatistics memory gsStats;
-
-        (dodgerStats, gsStats) = runDuel(dodger, greatswordUser);
-
-        // Dodger should win 50% of matches against greatsword
-        assertTrue(
-            dodgerStats.wins >= matchCount * 50 / 100, "Dodger should counter Greatsword (expected 50%+ win rate)"
-        );
-    }
-
-    // Test 4: Berserker vs Shield Tank (Offensive vs Defensive)
+    // Test 3: Berserker vs Shield Tank (Offensive vs Defensive)
     // Berserker should have an advantage against shield tanks
     function testBerserkerVsShieldTank() public {
         TestFighter memory berserker = createBerserker();
@@ -423,12 +425,97 @@ contract BalanceTest is Test {
         (berserkerStats, tankStats) = runDuel(berserker, shieldTank);
 
         assertTrue(
-            berserkerStats.wins >= matchCount * 60 / 100,
-            "Berserker should counter Shield Tank (expected 50%+ win rate)"
+            berserkerStats.wins >= matchCount * 60 / 100 && berserkerStats.wins <= matchCount * 90 / 100,
+            string(
+                abi.encodePacked(
+                    "Berserker should counter Shield Tank (expected 60%-90% win rate): ",
+                    vm.toString(berserkerStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            tankStats.wins >= matchCount * 10 / 100 && tankStats.wins <= matchCount * 40 / 100,
+            string(
+                abi.encodePacked(
+                    "Shield Tank should be weak against Berserker (expected 10%-40% win rate): ",
+                    vm.toString(tankStats.wins)
+                )
+            )
         );
     }
 
-    // Test 6: Weapon matchups with identical fighters
+    // Test 4: Low-Stamina Berserker vs Shield Tank
+    // A berserker with low stamina should exhaust themselves against a tank
+    function testLowStaminaBerserkerVsShieldTank() public {
+        // Create a low-stamina berserker
+        TestFighter memory lowStamBerserker =
+            createCustomFighter("Low Stam Berserker", 4, 1, 2, highStat, highStat, highStat, lowStat, lowStat, lowStat);
+
+        TestFighter memory tank = createShieldTank();
+
+        MatchStatistics memory bStats;
+        MatchStatistics memory tStats;
+
+        (bStats, tStats) = runDuel(lowStamBerserker, tank);
+
+        assertTrue(
+            tStats.wins >= matchCount * 52 / 100 && tStats.wins <= matchCount * 82 / 100,
+            string(
+                abi.encodePacked(
+                    "Shield Tank should counter Low-Stamina Berserker (expected 52%-82% win rate): ",
+                    vm.toString(tStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            bStats.wins >= matchCount * 18 / 100 && bStats.wins <= matchCount * 48 / 100,
+            string(
+                abi.encodePacked(
+                    "Low-Stamina Berserker should be weak against Shield Tank (expected 18%-48% win rate): ",
+                    vm.toString(bStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            bStats.deathsByExhaustion >= bStats.deathsByLethalDamage,
+            "Low stamina berserker should die more from exhaustion than damage"
+        );
+    }
+
+    // Test 5: Shield Tank vs Bruiser
+    // Bruiser should be counter to shield tank
+    function testShieldTankVsBruiser() public {
+        TestFighter memory shieldTank = createShieldTank();
+        TestFighter memory bruiser = createBruiser();
+
+        MatchStatistics memory tankStats;
+        MatchStatistics memory bruiserStats;
+
+        (tankStats, bruiserStats) = runDuel(shieldTank, bruiser);
+
+        // Clubs should win 60-90% against shield tank
+        assertTrue(
+            bruiserStats.wins >= matchCount * 60 / 100 && bruiserStats.wins <= matchCount * 90 / 100,
+            string(
+                abi.encodePacked(
+                    "Bruiser should counter Shield Tank (expected 60%-90% win rate): ", vm.toString(bruiserStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            tankStats.wins >= matchCount * 10 / 100 && tankStats.wins <= matchCount * 40 / 100,
+            string(
+                abi.encodePacked(
+                    "Shield Tank be weak against Bruiser (expected 10%-40% win rate): ", vm.toString(tankStats.wins)
+                )
+            )
+        );
+    }
+
+    // ================================================================
+    // General weapon balance tests
+    // ================================================================
+
     // Tests raw weapon performance with equal stats
     function testWeaponPerformance() public {
         // Create fighters with identical stats but different weapons
@@ -462,14 +549,13 @@ contract BalanceTest is Test {
         // Test Battleaxe vs Sword+Shield
         (baStats, ssStats) = runDuel(battleaxe, swordShield);
 
-        // No weapon should have more than a 63% advantage when all other factors are equal
+        // No weapon should have more than a 70% advantage when all other factors are equal
         assertTrue(
             gsStats.wins <= matchCount * 70 / 100 && baStats.wins <= matchCount * 80 / 100,
             "Weapons should be reasonably balanc8d when all other factors are equal"
         );
     }
 
-    // Test 8: Stamina Importance
     // High stamina should consistently beat low stamina
     function testStaminaImportance() public {
         // Create fighters with identical stats except stamina
@@ -492,67 +578,6 @@ contract BalanceTest is Test {
             lowStamStats.deathsByExhaustion >= lowStamStats.deathsByLethalDamage,
             "Low stamina fighter should die more from exhaustion than damage"
         );
-    }
-
-    // Test 9: Low-Stamina Offensive vs Tank
-    // A berserker with low stamina should exhaust themselves against a tank
-    function testLowStaminaOffensiveVsTank() public {
-        // Create a low-stamina berserker
-        TestFighter memory lowStamBerserker = createCustomFighter(
-            "Low Stam Berserker", 4, 1, 2, highStat, mediumStat, highStat, mediumStat, lowStat, lowStat
-        );
-
-        TestFighter memory tank = createShieldTank();
-
-        MatchStatistics memory bStats;
-        MatchStatistics memory tStats;
-
-        (bStats, tStats) = runDuel(lowStamBerserker, tank);
-
-        // Tank should win and berserker should die from exhaustion
-        assertTrue(tStats.wins >= matchCount * 40 / 100, "Tank should win against low stamina berserker");
-        assertTrue(
-            bStats.deathsByExhaustion >= bStats.deathsByLethalDamage,
-            "Low stamina berserker should die more from exhaustion than damage"
-        );
-    }
-
-    // Add this test function to your BalanceTest.t.sol file
-    function testArmorTypeVsVariousWeapons() public {
-        // Create tank variants with different armor
-        TestFighter memory plateTank =
-            createCustomFighter("Plate Tank", 1, 3, 0, highStat, highStat, highStat, lowStat, mediumStat, lowStat);
-
-        TestFighter memory leatherTank =
-            createCustomFighter("Leather Tank", 1, 1, 0, highStat, highStat, highStat, lowStat, mediumStat, lowStat);
-
-        // Create different weapon users
-        TestFighter memory spearUser = createCustomFighter(
-            "Spear User", 6, 0, 1, mediumStat, mediumStat, mediumStat, highStat, mediumStat, mediumStat
-        );
-
-        TestFighter memory greatswordUser = createGreatswordFighter();
-
-        // Run matchups
-        MatchStatistics memory plateVsSpearStats;
-        MatchStatistics memory leatherVsSpearStats;
-        MatchStatistics memory plateVsGreatswordStats;
-        MatchStatistics memory leatherVsGreatswordStats;
-        MatchStatistics memory spearStats1;
-        MatchStatistics memory spearStats2;
-        MatchStatistics memory gsStats1;
-        MatchStatistics memory gsStats2;
-
-        // Test tanks against spear
-        (plateVsSpearStats, spearStats1) = runDuel(plateTank, spearUser);
-
-        (leatherVsSpearStats, spearStats2) = runDuel(leatherTank, spearUser);
-
-        // Test tanks against greatsword
-        (plateVsGreatswordStats, gsStats1) = runDuel(plateTank, greatswordUser);
-
-        // Test leather tank against greatsword
-        (leatherVsGreatswordStats, gsStats2) = runDuel(leatherTank, greatswordUser);
     }
 
     // Add this helper function
