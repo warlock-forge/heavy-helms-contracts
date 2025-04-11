@@ -14,7 +14,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 20;
+    uint16 public constant version = 21;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -60,6 +60,7 @@ contract GameEngine is IGameEngine {
         uint16 survivalFactor; // Base 100, higher means better survival chance
         DamageType damageType; // Primary damage type
         ShieldType shieldType; // NONE, BUCKLER, KITE_SHIELD, or TOWER_SHIELD
+        uint16 dodgeBonus; // New field for dodge bonus
     }
 
     struct ArmorStats {
@@ -119,7 +120,7 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 12;
+    uint8 private immutable STAMINA_ATTACK = 13;
     uint8 private immutable STAMINA_BLOCK = 3;
     uint8 private immutable STAMINA_DODGE = 4;
     uint8 private immutable STAMINA_COUNTER = 6;
@@ -723,6 +724,22 @@ contract GameEngine is IGameEngine {
             if (blockRoll < finalBlockChance) {
                 uint256 blockStaminaCost = calculateStaminaCost(ActionType.BLOCK, defender);
                 if (defenderStamina >= blockStaminaCost) {
+                    // Add block breakthrough chance for slow weapons
+                    if (attacker.weapon.attackSpeed <= 55) {
+                        seed = uint256(keccak256(abi.encodePacked(seed)));
+                        uint8 breakthroughRoll = uint8(seed.uniform(100));
+
+                        uint16 breakthroughChance = 10 + ((55 - attacker.weapon.attackSpeed) * 5 / 3);
+                        // Then if needed, cap it before converting
+                        breakthroughChance = breakthroughChance > 35 ? 35 : breakthroughChance;
+                        uint8 finalChance = uint8(breakthroughChance);
+
+                        if (breakthroughRoll < finalChance) {
+                            return (uint8(CombatResultType.HIT), 0, 0, seed);
+                        }
+                    }
+
+                    // Regular block success logic continues...
                     // Check for counter
                     seed = uint256(keccak256(abi.encodePacked(seed)));
                     uint8 counterRoll = uint8(seed.uniform(100));
@@ -748,6 +765,22 @@ contract GameEngine is IGameEngine {
         if (parryRoll < finalParryChance) {
             uint256 parryStaminaCost = calculateStaminaCost(ActionType.PARRY, defender);
             if (defenderStamina >= parryStaminaCost) {
+                // Add parry breakthrough chance for slow weapons
+                if (attacker.weapon.attackSpeed <= 55) {
+                    seed = uint256(keccak256(abi.encodePacked(seed)));
+                    uint8 breakthroughRoll = uint8(seed.uniform(100));
+
+                    uint16 breakthroughChance = 10 + ((55 - attacker.weapon.attackSpeed) * 5 / 3);
+                    // Cap it at 45%
+                    breakthroughChance = breakthroughChance > 35 ? 35 : breakthroughChance;
+                    uint8 finalChance = uint8(breakthroughChance);
+
+                    if (breakthroughRoll < finalChance) {
+                        return (uint8(CombatResultType.HIT), 0, 0, seed);
+                    }
+                }
+
+                // Continue with existing riposte check...
                 seed = uint256(keccak256(abi.encodePacked(seed)));
                 uint8 riposteRoll = uint8(seed.uniform(100));
 
@@ -818,21 +851,6 @@ contract GameEngine is IGameEngine {
         // Calculate base parry chance
         uint32 baseParryChance = (uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100;
 
-        // Speed-based parry bonus with sweet spot
-        uint32 speedParryBonus = 0;
-        if (attacker.weapon.attackSpeed > 50 && attacker.weapon.attackSpeed <= 65) {
-            // Medium-slow weapons (50-65) are optimal to parry
-            uint32 parryFactor = 65 - uint32(attacker.weapon.attackSpeed);
-            speedParryBonus = parryFactor * 150 / 100; // Higher bonus in sweet spot
-        } else if (attacker.weapon.attackSpeed > 40 && attacker.weapon.attackSpeed <= 50) {
-            // Heavy weapons (40-50) are harder to parry
-            speedParryBonus = 5; // Flat small bonus
-        } else if (attacker.weapon.attackSpeed <= 40) {
-            // Extremely heavy weapons (≤40) are very difficult to parry
-            speedParryBonus = 0; // No bonus
-        }
-
-        baseParryChance = baseParryChance + speedParryBonus;
         uint16 adjustedParryChance = baseParryChance > 80 ? 80 : uint16(baseParryChance);
         return adjustedParryChance;
     }
@@ -843,11 +861,13 @@ contract GameEngine is IGameEngine {
         returns (uint16)
     {
         // Heavy weapons cannot dodge at all
-        if (defender.weapon.attackSpeed <= 50) {
+        if (defender.weapon.attackSpeed <= 55) {
             return 0;
         }
 
         uint32 baseDodgeChance = uint32(defender.stats.dodgeChance);
+        // Add weapon dodge bonus
+        baseDodgeChance += uint32(defender.weapon.dodgeBonus);
 
         // Calculate speed bonus - scale based on weapon speed
         uint32 speedDodgeBonus = 0;
@@ -963,10 +983,10 @@ contract GameEngine is IGameEngine {
 
         // Calculate armor penetration for TRUE heavy weapons vs heavy armor
         uint32 armorPen = 0;
-        if (attackSpeed <= 50 && armor.weight >= 50) {
+        if (attackSpeed <= 55 && armor.weight >= 50) {
             // Only slowest weapons (speed 50 or less) vs heavy armors
             // More aggressive penetration for true heavy weapons
-            armorPen = (100 - attackSpeed) * 1 / 2;
+            armorPen = (100 - attackSpeed) * 1 / 2; // Reduced from 3/4 to 1/2
         }
 
         // Then apply percentage reduction with armor penetration
@@ -1285,23 +1305,24 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 58,
-            maxDamage: 75,
+            minDamage: 48,
+            maxDamage: 64,
             attackSpeed: 75,
-            parryChance: 120,
+            parryChance: 130,
             riposteChance: 100,
             critMultiplier: 160,
             staminaMultiplier: 100,
             survivalFactor: 100,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.KITE_SHIELD
+            shieldType: ShieldType.KITE_SHIELD,
+            dodgeBonus: 0
         });
     }
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 68,
+            minDamage: 40,
+            maxDamage: 55,
             attackSpeed: 65,
             parryChance: 120,
             riposteChance: 70,
@@ -1309,37 +1330,40 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 120,
             survivalFactor: 120,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.TOWER_SHIELD
+            shieldType: ShieldType.TOWER_SHIELD,
+            dodgeBonus: 0
         });
     }
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 49,
-            maxDamage: 69,
+            minDamage: 45,
+            maxDamage: 65,
             attackSpeed: 85,
-            parryChance: 300,
+            parryChance: 320,
             riposteChance: 200,
             critMultiplier: 160,
             staminaMultiplier: 90,
             survivalFactor: 120,
             damageType: DamageType.Piercing,
-            shieldType: ShieldType.BUCKLER
+            shieldType: ShieldType.BUCKLER,
+            dodgeBonus: 20
         });
     }
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 92,
-            maxDamage: 122,
-            attackSpeed: 50,
-            parryChance: 80,
+            minDamage: 98,
+            maxDamage: 132,
+            attackSpeed: 55,
+            parryChance: 100,
             riposteChance: 50,
-            critMultiplier: 200,
-            staminaMultiplier: 280,
+            critMultiplier: 250,
+            staminaMultiplier: 240,
             survivalFactor: 85,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1354,7 +1378,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 300,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1369,7 +1394,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 160,
             survivalFactor: 100,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 20
         });
     }
 
@@ -1384,37 +1410,40 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 170,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 10
         });
     }
 
     function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 46,
-            maxDamage: 58,
+            minDamage: 39,
+            maxDamage: 52,
             attackSpeed: 90,
-            parryChance: 130,
-            riposteChance: 300,
+            parryChance: 260,
+            riposteChance: 200,
             critMultiplier: 160,
             staminaMultiplier: 90,
             survivalFactor: 110,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.BUCKLER
+            shieldType: ShieldType.BUCKLER,
+            dodgeBonus: 20
         });
     }
 
     function SHORTSWORD_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 46,
-            maxDamage: 58,
+            minDamage: 39,
+            maxDamage: 50,
             attackSpeed: 85,
-            parryChance: 160,
-            riposteChance: 100,
+            parryChance: 1200,
+            riposteChance: 80,
             critMultiplier: 100,
             staminaMultiplier: 100,
             survivalFactor: 125,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.TOWER_SHIELD
+            shieldType: ShieldType.TOWER_SHIELD,
+            dodgeBonus: 0
         });
     }
 
@@ -1423,20 +1452,21 @@ contract GameEngine is IGameEngine {
             minDamage: 50,
             maxDamage: 70,
             attackSpeed: 85,
-            parryChance: 185,
+            parryChance: 200,
             riposteChance: 200,
             critMultiplier: 180,
             staminaMultiplier: 95,
             survivalFactor: 110,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.BUCKLER
+            shieldType: ShieldType.BUCKLER,
+            dodgeBonus: 20
         });
     }
 
     function AXE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 55,
-            maxDamage: 75,
+            minDamage: 50,
+            maxDamage: 67,
             attackSpeed: 70,
             parryChance: 120,
             riposteChance: 85,
@@ -1444,14 +1474,15 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 115,
             survivalFactor: 105,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.KITE_SHIELD
+            shieldType: ShieldType.KITE_SHIELD,
+            dodgeBonus: 0
         });
     }
 
     function AXE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 80,
+            minDamage: 48,
+            maxDamage: 65,
             attackSpeed: 65,
             parryChance: 120,
             riposteChance: 65,
@@ -1459,7 +1490,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 135,
             survivalFactor: 120,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.TOWER_SHIELD
+            shieldType: ShieldType.TOWER_SHIELD,
+            dodgeBonus: 0
         });
     }
 
@@ -1474,14 +1506,15 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 140,
             survivalFactor: 105,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.BUCKLER
+            shieldType: ShieldType.BUCKLER,
+            dodgeBonus: 0
         });
     }
 
     function MACE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 55,
-            maxDamage: 72,
+            minDamage: 49,
+            maxDamage: 62,
             attackSpeed: 65,
             parryChance: 160,
             riposteChance: 100,
@@ -1489,14 +1522,15 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 105,
             survivalFactor: 110,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.KITE_SHIELD
+            shieldType: ShieldType.KITE_SHIELD,
+            dodgeBonus: 0
         });
     }
 
     function CLUB_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 52,
-            maxDamage: 68,
+            maxDamage: 64,
             attackSpeed: 70,
             parryChance: 75,
             riposteChance: 65,
@@ -1504,23 +1538,25 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 90,
             survivalFactor: 125,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.TOWER_SHIELD
+            shieldType: ShieldType.TOWER_SHIELD,
+            dodgeBonus: 0
         });
     }
 
     // Dual-wield weapons
     function DUAL_DAGGERS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 46,
-            maxDamage: 64,
+            minDamage: 42,
+            maxDamage: 62,
             attackSpeed: 120,
             parryChance: 70,
-            riposteChance: 140,
+            riposteChance: 70,
             critMultiplier: 200,
             staminaMultiplier: 75,
             survivalFactor: 95,
             damageType: DamageType.Piercing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 20
         });
     }
 
@@ -1535,7 +1571,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 100,
             survivalFactor: 110,
             damageType: DamageType.Piercing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 20
         });
     }
 
@@ -1550,22 +1587,24 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 200,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 5
         });
     }
 
     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 59,
-            maxDamage: 74,
-            attackSpeed: 85,
-            parryChance: 130,
-            riposteChance: 70,
-            critMultiplier: 220,
-            staminaMultiplier: 110,
+            minDamage: 50,
+            maxDamage: 70,
+            attackSpeed: 80,
+            parryChance: 50,
+            riposteChance: 50,
+            critMultiplier: 180,
+            staminaMultiplier: 130,
             survivalFactor: 95,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1581,7 +1620,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 130,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1596,7 +1636,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 90,
             survivalFactor: 100,
             damageType: DamageType.Hybrid_Slash_Pierce,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1611,7 +1652,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 110,
             survivalFactor: 100,
             damageType: DamageType.Hybrid_Slash_Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1626,7 +1668,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 115,
             survivalFactor: 90,
             damageType: DamageType.Hybrid_Slash_Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1641,7 +1684,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 125,
             survivalFactor: 95,
             damageType: DamageType.Hybrid_Pierce_Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1656,7 +1700,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 110,
             survivalFactor: 105,
             damageType: DamageType.Hybrid_Slash_Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1672,7 +1717,8 @@ contract GameEngine is IGameEngine {
             staminaMultiplier: 320,
             survivalFactor: 85,
             damageType: DamageType.Blunt,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1680,14 +1726,15 @@ contract GameEngine is IGameEngine {
         return WeaponStats({
             minDamage: 82,
             maxDamage: 118,
-            attackSpeed: 50,
-            parryChance: 140,
-            riposteChance: 140,
-            critMultiplier: 260,
+            attackSpeed: 55,
+            parryChance: 100,
+            riposteChance: 100,
+            critMultiplier: 210,
             staminaMultiplier: 240,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
-            shieldType: ShieldType.NONE
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 0
         });
     }
 
@@ -1735,7 +1782,7 @@ contract GameEngine is IGameEngine {
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 6, weight: 50, slashResist: 25, pierceResist: 10, bluntResist: 25});
+        return ArmorStats({defense: 6, weight: 50, slashResist: 30, pierceResist: 10, bluntResist: 35});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
@@ -1760,9 +1807,9 @@ contract GameEngine is IGameEngine {
             hitChance: 80,
             critChance: 70,
             critMultiplier: 90,
-            blockChance: 140,
-            parryChance: 140,
-            dodgeChance: 140,
+            blockChance: 135,
+            parryChance: 135,
+            dodgeChance: 150,
             counterChance: 120,
             riposteChance: 120,
             staminaCostModifier: 85,
@@ -1860,7 +1907,7 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (80, 180, 120, 80);
+            return (80, 150, 150, 80);
         } else if (shieldType == ShieldType.KITE_SHIELD) {
             return (120, 120, 75, 120);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {

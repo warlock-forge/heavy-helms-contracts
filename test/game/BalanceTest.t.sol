@@ -185,7 +185,7 @@ contract BalanceTest is Test {
         });
 
         return TestFighter({
-            name: "Scum",
+            name: "Vanguard",
             stats: IGameEngine.FighterStats({
                 attributes: attrs,
                 armor: 2, // ARMOR_CHAIN
@@ -195,7 +195,28 @@ contract BalanceTest is Test {
         });
     }
 
-    function createBalancedFighter() private view returns (TestFighter memory) {
+    function createMage() private view returns (TestFighter memory) {
+        Fighter.Attributes memory attrs = Fighter.Attributes({
+            strength: mediumStat,
+            constitution: mediumStat,
+            size: mediumStat,
+            agility: mediumStat,
+            stamina: highStat,
+            luck: lowStat
+        });
+
+        return TestFighter({
+            name: "Mage",
+            stats: IGameEngine.FighterStats({
+                attributes: attrs,
+                armor: 0, // ARMOR_CLOTH
+                weapon: 5, // WEAPON_QUARTERSTAFF
+                stance: 0 // STANCE_DEFENSIVE
+            })
+        });
+    }
+
+    function createBalanced() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
             strength: mediumStat,
             constitution: mediumStat,
@@ -507,6 +528,193 @@ contract BalanceTest is Test {
             string(
                 abi.encodePacked(
                     "Shield Tank be weak against Bruiser (expected 10%-40% win rate): ", vm.toString(tankStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 6: Mage vs Vanguard
+    // Mage should counter Vanguard due to blunt damage and high parry/dodge
+    function testMageVsVanguard() public {
+        TestFighter memory mage = createMage();
+        TestFighter memory vanguard = createVanguard();
+
+        MatchStatistics memory mageStats;
+        MatchStatistics memory vanguardStats;
+
+        (mageStats, vanguardStats) = runDuel(mage, vanguard);
+
+        assertTrue(
+            mageStats.wins >= matchCount * 55 / 100 && mageStats.wins <= matchCount * 85 / 100,
+            string(
+                abi.encodePacked(
+                    "Mage should counter Vanguard (expected 55%-85% win rate): ", vm.toString(mageStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            vanguardStats.wins >= matchCount * 15 / 100 && vanguardStats.wins <= matchCount * 45 / 100,
+            string(
+                abi.encodePacked(
+                    "Vanguard should be weak against Mage (expected 15%-45% win rate): ",
+                    vm.toString(vanguardStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 7: Assassin vs Berserker
+    // Fast, agile fighters should dominate slow, heavy hitters
+    function testAssassinVsBerserker() public {
+        TestFighter memory assassin = createAssassin();
+        TestFighter memory berserker = createBerserker();
+
+        MatchStatistics memory assassinStats;
+        MatchStatistics memory berserkerStats;
+
+        (assassinStats, berserkerStats) = runDuel(assassin, berserker);
+
+        assertTrue(
+            assassinStats.wins >= matchCount * 65 / 100 && assassinStats.wins <= matchCount * 95 / 100,
+            string(
+                abi.encodePacked(
+                    "Assassin should counter Berserker (expected 65%-95% win rate): ", vm.toString(assassinStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            berserkerStats.wins >= matchCount * 5 / 100 && berserkerStats.wins <= matchCount * 35 / 100,
+            string(
+                abi.encodePacked(
+                    "Berserker should be weak against Assassin (expected 5%-35% win rate): ",
+                    vm.toString(berserkerStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 8: Balanced vs Mage
+    // Even matchup between balanced and technical fighters
+    function testBalancedVsMage() public {
+        TestFighter memory balanced = createBalanced();
+        TestFighter memory mage = createMage();
+
+        MatchStatistics memory balancedStats;
+        MatchStatistics memory mageStats;
+
+        (balancedStats, mageStats) = runDuel(balanced, mage);
+
+        assertTrue(
+            balancedStats.wins >= matchCount * 40 / 100 && balancedStats.wins <= matchCount * 60 / 100,
+            string(
+                abi.encodePacked(
+                    "Balanced should be even with Mage (expected 40%-60% win rate): ", vm.toString(balancedStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            mageStats.wins >= matchCount * 40 / 100 && mageStats.wins <= matchCount * 60 / 100,
+            string(
+                abi.encodePacked(
+                    "Mage should be even with Balanced (expected 40%-60% win rate): ", vm.toString(mageStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 9: Bruiser vs Parry Master
+    // Parry Master should counter Bruiser with superior technical skill
+    function testBruiserVsParryMaster() public {
+        TestFighter memory bruiser = createBruiser();
+        TestFighter memory parryMaster = createParryMaster();
+
+        MatchStatistics memory bruiserStats;
+        MatchStatistics memory parryStats;
+
+        (bruiserStats, parryStats) = runDuel(bruiser, parryMaster);
+
+        assertTrue(
+            parryStats.wins >= matchCount * 55 / 100 && parryStats.wins <= matchCount * 85 / 100,
+            string(
+                abi.encodePacked(
+                    "Parry Master should counter Bruiser (expected 55%-85% win rate): ", vm.toString(parryStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            bruiserStats.wins >= matchCount * 15 / 100 && bruiserStats.wins <= matchCount * 45 / 100,
+            string(
+                abi.encodePacked(
+                    "Bruiser should be weak against Parry Master (expected 15%-45% win rate): ",
+                    vm.toString(bruiserStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 10: Vanguard vs Bruiser
+    // Vanguard should counter Bruiser with superior reach and damage
+    function testVanguardVsBruiser() public {
+        TestFighter memory vanguard = createVanguard();
+        TestFighter memory bruiser = createBruiser();
+
+        // Run just one fight for detailed analysis
+        uint256 singleSeed = _generateTestSeed();
+        bytes memory results = gameEngine.processGame(vanguard.stats, bruiser.stats, singleSeed, lethalityFactor);
+
+        (bool vanguardWon,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+
+        // Now run the full statistical test
+        MatchStatistics memory vanguardStats;
+        MatchStatistics memory bruiserStats;
+
+        (vanguardStats, bruiserStats) = runDuel(vanguard, bruiser);
+
+        assertTrue(
+            vanguardStats.wins >= matchCount * 55 / 100 && vanguardStats.wins <= matchCount * 85 / 100,
+            string(
+                abi.encodePacked(
+                    "Vanguard should counter Bruiser (expected 55%-85% win rate): ", vm.toString(vanguardStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            bruiserStats.wins >= matchCount * 15 / 100 && bruiserStats.wins <= matchCount * 45 / 100,
+            string(
+                abi.encodePacked(
+                    "Bruiser should be weak against Vanguard (expected 15%-45% win rate): ",
+                    vm.toString(bruiserStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 11: Vanguard vs Assassin
+    // Fast Assassin should counter slow Vanguard
+    function testVanguardVsAssassin() public {
+        TestFighter memory vanguard = createVanguard();
+        TestFighter memory assassin = createAssassin();
+
+        MatchStatistics memory vanguardStats;
+        MatchStatistics memory assassinStats;
+
+        (vanguardStats, assassinStats) = runDuel(vanguard, assassin);
+
+        assertTrue(
+            assassinStats.wins >= matchCount * 60 / 100 && assassinStats.wins <= matchCount * 85 / 100,
+            string(
+                abi.encodePacked(
+                    "Assassin should counter Vanguard (expected 60%-85% win rate): ", vm.toString(assassinStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            vanguardStats.wins >= matchCount * 15 / 100 && vanguardStats.wins <= matchCount * 40 / 100,
+            string(
+                abi.encodePacked(
+                    "Vanguard should be weak against Assassin (expected 15%-40% win rate): ",
+                    vm.toString(vanguardStats.wins)
                 )
             )
         );
