@@ -1,0 +1,92 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: Rules for testing the GauntletGame contract
+globs: test/game/GauntletGame.t.sol
+alwaysApply: true
+---
+# GauntletGame Testing Rules
+
+## Core Testing Requirements
+
+- Test all queue management functions thoroughly:
+  - `queueForGauntlet`: Test successful queue entry and all validation conditions
+  - `withdrawFromQueue`: Test successful withdrawal and token refunds
+  - `startGauntletFromQueue`: Test selection validation and queue state updates
+  - Verify queue data structures remain consistent after operations
+
+- Test `swap-and-pop` logic exhaustively:
+  - Test removal of items from middle of queue
+  - Test removal of items from beginning of queue
+  - Test removal of items from end of queue
+  - Test removal when queue has exactly 16 elements
+  - Test removal when queue has more than 16 elements
+
+- Test off-chain runner security:
+  - Verify only authorized runner can call `startGauntletFromQueue`
+  - Test runner address update mechanisms 
+  - Test providing incorrect playerIds or indices
+
+- Test VRF completion workflow:
+  - Mock VRF callbacks properly using patterns from DuelGame tests
+  - Test substitution of retired players with default players
+  - Test player state transitions through entire process
+  - Verify player registration status is properly cleared after completed gauntlet
+
+- Test gauntlet completion with each possible outcome:
+  - Test end-to-end gauntlet runs with random seeds
+  - Verify prize distribution mechanics
+  - Verify win/loss record updates for players
+  - Verify fees accumulation
+- Test recovery mechanisms:
+  - Test VRF timeout recovery
+  - Test handling of impossible edge cases (e.g., all 16 players retired)
+  - Test fee handling during recovery process
+
+## Gas Optimization Testing
+
+- Test gas usage patterns with varying queue sizes:
+  - Measure gas used when selecting first 16 players from queue
+  - Measure gas used when selecting players from various positions
+  - Benchmark gas costs for queue operations with 100+ players
+  - Identify gas usage patterns to inform optimization
+
+- Test VRF fulfillment gas usage:
+  - Measure gas used for the entire tournament execution
+  - Benchmark with various combinations of default vs. real players
+  - Ensure gas usage stays below block gas limits
+  - Analyze if any functions can be split for gas optimization
+
+## Economic Tests
+
+- Test fee calculations and distributions:
+  - Verify correct fee percentages are taken
+  - Test fee withdrawal mechanics
+  - Verify prize calculations
+  - Test edge cases like all default player participants
+
+- Test time-based mechanics:
+  - Test registration deadlines
+  - Test VRF timeout periods
+  - Test interactions between timeouts and fee handling
+
+## Invariant Testing
+
+- Define and test key invariants:
+  - Queue size never exceeds max allowed players
+  - A player cannot be in multiple gauntlets simultaneously
+  - A player cannot be queued multiple times
+  - Total fees + prize pool always equals total entry fees collected
+  - Player state always transitions properly (NONE -> QUEUED -> IN_GAUNTLET -> NONE)
+  - Gauntlet state always follows expected transitions
+
+## Security-Focused Tests
+
+- Test reentrancy protection in withdrawal functions
+- Test player ownership verification
+- Test fee handling edge cases (over/underflow)
+- Test proper payment of winners
+- Test proper handling of fees
