@@ -370,12 +370,7 @@ contract GauntletGameTest is TestBase {
         // Debug: Verify the queue state and make sure indices match
         assertEq(game.getQueueSize(), gauntletSize, "Queue should have 16 players");
 
-        // Log queue size
-        console2.log("Queue size before startGauntletFromQueue:");
-        console2.log(game.getQueueSize());
-
         // Verify and print each player's position in the queue
-        console2.log("Verifying queue indices:");
         uint32[16] memory selectedIds;
         uint256[16] memory selectedIndices;
 
@@ -384,14 +379,6 @@ contract GauntletGameTest is TestBase {
             uint32 playerId = game.queueIndex(i);
             uint256 storedIndex = game.playerIndexInQueue(playerId); // 1-based index
             uint256 actualIndex = storedIndex - 1; // Convert to 0-based for the call
-
-            // Log debug info
-            console2.log("Player ID:");
-            console2.log(playerId);
-            console2.log("Stored index (1-based):");
-            console2.log(storedIndex);
-            console2.log("Actual index for call (0-based):");
-            console2.log(actualIndex);
 
             selectedIds[i] = playerId;
             selectedIndices[i] = actualIndex; // Use actual 0-based index for the call
@@ -405,7 +392,6 @@ contract GauntletGameTest is TestBase {
         uint256 txGasStart = gasleft();
         game.startGauntletFromQueue(selectedIds, selectedIndices);
         uint256 txGasEnd = gasleft();
-        console2.log("Gas used by startGauntletFromQueue (16 players):", txGasStart - txGasEnd);
 
         // Verify state changes using other means
         assertEq(game.getQueueSize(), 0, "Queue should be empty after start");
@@ -486,7 +472,6 @@ contract GauntletGameTest is TestBase {
         uint256 txGasStart = gasleft();
         game.startGauntletFromQueue(selectedIds, selectedIndices);
         uint256 txGasEnd = gasleft();
-        console2.log("Gas used by startGauntletFromQueue (>16 players):", txGasStart - txGasEnd);
 
         // Verify state changes
         assertEq(game.getQueueSize(), queueStartSize - gauntletSize, "Queue size should be 4 (20-16)");
@@ -661,5 +646,129 @@ contract GauntletGameTest is TestBase {
         vm.prank(game.owner());
         vm.expectRevert(ZeroAddress.selector);
         game.setOffChainRunner(address(0));
+    }
+
+    //==============================================================//
+    //                    VRF FULFILLMENT TESTS                   //
+    //==============================================================//
+
+    function testFulfillRandomness_CompletesGauntlet() public {
+        uint8 gauntletSize = game.GAUNTLET_SIZE();
+        uint256 entryFee = game.ENTRY_FEE();
+        uint256 totalFeesCollected = entryFee * gauntletSize;
+        uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000;
+        uint256 expectedPrize = totalFeesCollected - expectedContractFee;
+
+        _queuePlayers(gauntletSize);
+
+        uint32[16] memory selectedIds;
+        uint256[16] memory selectedIndices;
+        for (uint8 i = 0; i < gauntletSize; i++) {
+            uint32 pId = game.queueIndex(i);
+            selectedIds[i] = pId;
+            selectedIndices[i] = game.playerIndexInQueue(pId) - 1; // 0-based index
+        }
+
+        vm.recordLogs(); // Start recording before the action that emits events
+        vm.prank(OFF_CHAIN_RUNNER);
+        game.startGauntletFromQueue(selectedIds, selectedIndices);
+
+        // Extract Request ID from GauntletStarted event AND Round ID from RequestedRandomness event
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        uint256 vrfRequestId = 0; // Request ID specific to the GauntletGame logic
+        uint256 vrfRoundId = 0; // Round ID from the base Gelato VRF request
+        bytes memory vrfEventData; // Data from RequestedRandomness event
+
+        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint32[16],uint256)");
+        bytes32 requestedRandomnessSig = keccak256("RequestedRandomness(uint256,bytes)");
+        uint256 gauntletId = 0; // We are testing the first gauntlet
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            // Find GauntletStarted event for gauntletId 0
+            if (
+                vrfRequestId == 0 && entries[i].topics[0] == gauntletStartedSig
+                    && uint256(entries[i].topics[1]) == gauntletId
+            ) {
+                (, uint256 reqId) = abi.decode(entries[i].data, (uint32[16], uint256));
+                vrfRequestId = reqId;
+            }
+            // Find the FIRST RequestedRandomness event (should correspond to our startGauntlet call)
+            if (vrfRoundId == 0 && entries[i].topics[0] == requestedRandomnessSig) {
+                (vrfRoundId, vrfEventData) = abi.decode(entries[i].data, (uint256, bytes));
+            }
+            // Exit loop once both are found
+            if (vrfRequestId != 0 && vrfRoundId != 0) {
+                break;
+            }
+        }
+        require(vrfRoundId != 0, "RequestedRandomness Round ID not found in logs");
+
+        // Simulate VRF fulfillment USING TestBase HELPER and block-derived randomness
+        // Derive randomness from block context + roundId to leverage TestBase setup
+        uint256 randomnessFromBlock =
+            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
+
+        bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
+
+        // Call fulfillRandomness on the game contract as the operator
+        vm.prank(operator);
+        uint256 gasBeforeFulfill = gasleft();
+        // Use the block-derived randomness
+        game.fulfillRandomness(randomnessFromBlock, dataWithRound);
+        uint256 gasAfterFulfill = gasleft();
+        console2.log("Gas used by fulfillRandomness (Gauntlet Completion):", gasBeforeFulfill - gasAfterFulfill);
+        vm.stopPrank(); // Stop prank after fulfillRandomness
+
+        // == Verify GauntletCompleted Event and Fees ==
+        // Fetch logs again *after* fulfillment or re-use if recorded
+        // Assuming vm.getRecordedLogs() includes logs from fulfillRandomness if called after startPrank/stopPrank block
+        bytes32 gauntletCompletedSig = keccak256("GauntletCompleted(uint256,uint32,uint256,uint256)");
+        uint256 actualPrizeAwarded = 0;
+        uint256 actualFeeCollected = 0;
+        bool foundCompletedEvent = false;
+
+        // Re-fetch logs if necessary, or parse from the existing `entries` if they cover fulfillment
+        Vm.Log[] memory finalEntries = vm.getRecordedLogs(); // Get all logs up to this point
+
+        for (uint256 i = 0; i < finalEntries.length; i++) {
+            if (finalEntries[i].topics[0] == gauntletCompletedSig && uint256(finalEntries[i].topics[1]) == gauntletId) {
+                // Event signature: GauntletCompleted(uint256 indexed gauntletId, uint32 indexed championId, uint256 prizeAwarded, uint256 feeCollected)
+                // Non-indexed args are in data
+                (actualPrizeAwarded, actualFeeCollected) = abi.decode(finalEntries[i].data, (uint256, uint256));
+                foundCompletedEvent = true;
+                break;
+            }
+        }
+        assertTrue(foundCompletedEvent, "GauntletCompleted event not found for gauntletId 0");
+        assertEq(actualPrizeAwarded, expectedPrize, "Prize awarded in event mismatch");
+        assertEq(actualFeeCollected, expectedContractFee, "Fee collected in event mismatch");
+        assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch");
+
+        // == Assertions for Gauntlet 0 State ==
+        (
+            uint256 id,
+            GauntletGame.GauntletState state,
+            ,
+            uint256 vrfRequestTimestamp,
+            uint256 completionTimestamp,
+            uint32 championId
+        ) = game.gauntlets(gauntletId);
+
+        console2.log("Gauntlet completed. Champion ID:", championId);
+
+        assertEq(uint8(state), uint8(GauntletGame.GauntletState.COMPLETED), "Gauntlet 0 state");
+        assertTrue(championId != 0, "Gauntlet 0 Champion ID should be set");
+        assertTrue(completionTimestamp > 0, "Completion timestamp should be set");
+        assertEq(game.requestToGauntletId(vrfRequestId), 0, "Request ID mapping should be cleared");
+
+        // Check player statuses are reset
+        for (uint8 i = 0; i < gauntletSize; i++) {
+            assertEq(
+                uint8(game.playerStatus(selectedIds[i])),
+                uint8(GauntletGame.PlayerStatus.NONE),
+                "Player status should be NONE after completion"
+            );
+            assertEq(game.playerCurrentGauntlet(selectedIds[i]), 0, "Player current gauntlet should be cleared");
+        }
     }
 }

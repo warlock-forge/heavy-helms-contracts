@@ -138,7 +138,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Fees collected by the contract owner from completed gauntlets
     uint256 public contractFeesCollected;
     /// @notice Percentage fee taken from the prize pool of each gauntlet
-    uint256 public feePercentage = 200;
+    uint256 public feePercentage = 1000;
 
     /// @notice Game enabled state (controls queuing)
     bool public isGameEnabled = true;
