@@ -28,7 +28,10 @@ library DefaultPlayerLibrary {
         DualScimitarsWarrior, // ID 12
         ShortswordTowerdWarrior, // ID 13
         VanguardWarrior, // ID 14
-        MageWarrior // ID 15
+        MageWarrior, // ID 15
+        ValkyrieWarrior, // ID 16
+        LowStaminaClubsWarrior, // ID 17
+        AltDaggersUser // ID 18
 
     }
 
@@ -287,6 +290,57 @@ library DefaultPlayerLibrary {
         ipfsCID = "bafkreihndxzbu7vyxb4jnzrdlyhvmjzxivvbtnkbaq7fn6ejfuvmjwenxa";
     }
 
+    function getValkyrieWarrior(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 0; // WEAPON_ARMING_SWORD_KITE
+        armor = 3; // ARMOR_PLATE
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 12, constitution: 14, size: 11, agility: 9, stamina: 17, luck: 9}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 1,
+            name: IPlayer.PlayerName({firstNameIndex: 10, surnameIndex: 188}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreibzvmc7skc5v7lsghi6ug5vehttoxcqpsi7nraewkr6z72pcjhfwy";
+    }
+
+    function getLowStaminaClubsWarrior(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 18; // WEAPON_DUAL_CLUBS
+        armor = 0; // ARMOR_CLOTH
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 19, constitution: 5, size: 19, agility: 12, stamina: 5, luck: 12}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 1,
+            name: IPlayer.PlayerName({firstNameIndex: 83, surnameIndex: 232}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreiaio3mlfiqnoshu35qgpnmid2c24wwmivi2h3tbb67yvguo66btky";
+    }
+
+    function getAltDaggersUser(uint32 skinIndex, uint16 tokenId)
+        internal
+        pure
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    {
+        weapon = 9; // WEAPON_DUAL_DAGGERS
+        armor = 1; // ARMOR_LEATHER
+        stats = IPlayer.PlayerStats({
+            attributes: Fighter.Attributes({strength: 12, constitution: 7, size: 12, agility: 17, stamina: 9, luck: 15}),
+            skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
+            stance: 2,
+            name: IPlayer.PlayerName({firstNameIndex: 95, surnameIndex: 5}),
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+        });
+        ipfsCID = "bafkreieh2vw6eobqqawgujacaq7z6oc5gzqptczxa3ko42rlewahtyoxpe";
+    }
+
     function createDefaultCharacter(
         DefaultPlayerSkinNFT defaultSkin,
         IDefaultPlayer defaultPlayer,
@@ -341,6 +395,12 @@ library DefaultPlayerLibrary {
             return getVanguardWarrior(skinIndex, tokenId);
         } else if (charType == CharacterType.MageWarrior) {
             return getMageWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.ValkyrieWarrior) {
+            return getValkyrieWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.LowStaminaClubsWarrior) {
+            return getLowStaminaClubsWarrior(skinIndex, tokenId);
+        } else if (charType == CharacterType.AltDaggersUser) {
+            return getAltDaggersUser(skinIndex, tokenId);
         }
     }
 
@@ -349,7 +409,7 @@ library DefaultPlayerLibrary {
         IDefaultPlayer defaultPlayer,
         uint32 defaultSkinIndex
     ) internal {
-        for (uint16 i = 1; i <= 15; i++) {
+        for (uint16 i = 1; i <= 18; i++) {
             createDefaultCharacter(
                 defaultSkin,
                 defaultPlayer,
