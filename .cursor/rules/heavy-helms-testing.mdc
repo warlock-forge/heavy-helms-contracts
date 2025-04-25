@@ -1,0 +1,159 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Cursor Rules for Heavy Helms Contract Tests
+
+## Overview
+This rules file defines the guidelines and best practices for writing tests for the Heavy Helms Contracts project. All tests must follow these rules to maintain consistency and leverage existing helper methods in the TestBase.sol file.
+
+## General Test Structure
+- All test files must inherit from the project's `TestBase.sol` contract
+- Use the standard Foundry test pattern with `setUp()` function and test functions prefixed with `test`
+- Prefer fuzzing when applicable using the `testFuzz_` prefix
+- Use the `setUp()` function to initialize contracts and test state
+- Do not reinvent functionality that already exists in helper methods
+- Follow the existing test organization pattern established in other test files
+
+## Required Helper Methods
+
+### Player Management
+- **Always** use the existing player creation helpers from TestBase
+- Do not create new player initialization functions or directly deploy player contracts
+- Use the TestBase helper methods for:
+  - Creating players with appropriate attributes
+  - Managing player state and interactions
+  - Setting up player equipment and stats
+  - Any player validation or verification
+
+### Game Mechanics Testing
+- **Always** use existing helper methods for testing game mechanics
+- Never create custom methods for testing outcomes when helpers already exist
+- Use TestBase helpers for:
+  - Setting up game states
+  - Testing interactions between players
+  - Validating game outcomes
+  - Simulating turns and actions
+
+### Duels and Combat
+- Use established patterns for testing combat interactions
+- Leverage existing helper methods for duel setup and validation
+- Follow the standardized approach for:
+  - Initiating combat scenarios
+  - Validating combat results
+  - Checking state changes after combat
+  - Testing special combat abilities
+
+### State Validation
+- Use existing assertion helpers for validating contract state
+- Do not create new assertion patterns when standard ones are available
+- Leverage Forge's built-in assertions via the Test contract
+- For complex state validation, use the helper methods in TestBase
+- When validating emission of events, use the event assertion helpers
+- For token balance checks, use the balance validation helpers
+- Maintain consistent validation patterns across tests
+
+## Test Organization
+- Group related tests logically following the existing pattern in other test files
+- Include clear, descriptive test names that indicate what's being tested
+- Separate setup logic in the `setUp()` function
+- Add comments to explain complex test scenarios
+- Organize tests by feature or contract functionality
+- Follow the standard naming conventions established in other tests
+- Structure test files consistently with other tests in the repository
+- Use appropriate prefixes for different test types (e.g., `testFuzz_`, `testRevert_`)
+
+## Test Best Practices
+- Keep tests focused on a single piece of functionality
+- Write both positive tests (expected behavior) and negative tests (error conditions)
+- Use meaningful variable names that reflect their purpose
+- Avoid hardcoded values without explanation
+- Use events for debugging (leveraging Forge's verbosity options)
+- Maintain consistent testing patterns across similar features
+- Use the same approach for time manipulation as existing tests
+- Follow the established patterns for handling blockchain state
+- Structure test files consistently with other tests in the repository
+- Respect the existing test isolation patterns in the codebase
+- Use the proper test modifiers consistent with other tests
+- Follow gas optimization patterns used in existing tests
+
+## Logging and Debugging
+- Use `console.log` (via Test.sol) for debugging
+- When running tests with verbose output, use the `-vv` flag
+- Add clear failure messages in assertions
+- Follow these debugging best practices:
+  - Use structured logging for complex objects
+  - Maintain a consistent logging format
+  - Include context in log messages
+  - Use appropriate log levels
+  - Clean up debug logs before committing code
+  - Leverage Foundry's tracing capabilities for complex issues
+  - Use event logs strategically for important state changes
+  - Include informative custom error messages
+
+## Project-Specific Guidelines
+- Follow the established pattern for testing game mechanics
+- Respect the existing architecture for NFT and token interactions
+- Use the project's standard approaches for time manipulation and testing
+- For Heavy Helms-specific concepts:
+  - Use the proper helper methods for equipment testing
+  - Follow the established patterns for testing attributes and stats
+  - Use the standard approach for testing game-specific tokens
+  - Maintain consistency with other tests regarding game mechanics
+  - Use appropriate helper methods for testing special abilities
+  - Structure game state transitions consistently with other tests
+  - Follow the established pattern for testing item crafting and upgrades
+  - Use standard methods for testing player interactions and competitions
+
+## Context Handling
+- If using forking, follow the established pattern in existing tests
+- Maintain consistent chain state management across tests
+- Use appropriate initializers for different network contexts
+- When dealing with different blockchain contexts:
+  - Use the proper helpers for state setup
+  - Follow the established patterns for forking mainnet or other networks
+  - Use consistent approaches for handling time-based testing
+  - Maintain the same initialization sequence across similar tests
+  - Follow the project standards for handling different chain IDs
+  - Use appropriate block number references
+  - Be consistent with the approach to genesis setup
+  - Properly clean up test state between runs
+## When Extending TestBase
+- Only add new helper methods when absolutely necessary
+- Document any additions thoroughly
+- Ensure new helpers follow the same patterns as existing ones
+- Get approval before significantly modifying test infrastructure
+- When adding new helper methods:
+  - Follow the naming conventions of existing helpers
+  - Maintain consistent parameter patterns
+  - Add appropriate documentation
+  - Ensure reusability across multiple tests
+  - Keep the same error handling approach
+  - Test the helper itself thoroughly
+  - Consider backward compatibility
+  - Minimize dependencies on other helpers
+
+## Documentation and Comments
+- Thoroughly document test scenarios
+- Include explanations for complex game mechanics testing
+- Document assumptions made in tests
+- Use consistent comment styles across test files
+- Explain why certain test approaches were chosen
+- Document any edge cases being tested
+- Include references to game mechanics where appropriate
+
+## Error Handling
+- Use the established pattern for testing reverts
+- Test appropriate error messages are returned
+- Follow consistent patterns for testing authorization failures
+- Test boundary conditions using the same approach as other tests
+- Use standard approaches to test state consistency after errors
+
+## Gas Optimization Testing
+- Use the project's established approach for gas testing
+- Maintain consistent gas benchmarking methods
+- Follow the pattern for reporting gas usage
+- Use appropriate gas assertions where necessary
+
+By following these rules, we maintain consistency across our test suite and ensure that all tests leverage the established test infrastructure properly. This leads to more maintainable, readable, and reliable tests that accurately validate the Heavy Helms contract behavior.
