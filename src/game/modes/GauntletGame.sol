@@ -151,7 +151,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint8 public currentGauntletSize = 8;
 
     /// @notice The maximum ID to use when randomly selecting a default player substitute. Must be kept in sync with DefaultPlayer contract.
-    uint32 public maxDefaultPlayerSubstituteId = 15;
+    uint32 public maxDefaultPlayerSubstituteId = 18;
 
     //==============================================================//
     //                          EVENTS                              //
