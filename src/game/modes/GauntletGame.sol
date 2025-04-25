@@ -41,14 +41,16 @@ error NotOffChainRunner();
 error InsufficientQueueLength();
 error InvalidPlayerSelection();
 error InvalidQueueIndex();
+error InvalidGauntletSize(uint8 size);
+error QueueNotEmpty();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
 //                         GAUNTLET GAME                        //
 //==============================================================//
 /// @title Gauntlet Game Mode for Heavy Helms
-/// @notice Manages a queue of players and triggers 16-player elimination brackets (Gauntlets)
-///         when the queue is sufficiently full, initiated by an off-chain runner.
+/// @notice Manages a queue of players and triggers elimination brackets (Gauntlets)
+///         of dynamic size (8, 16, or 32) with a dynamic entry fee.
 /// @dev Relies on a trusted off-chain runner. VRF fulfillment is still gas-intensive.
 contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     using UniformRandomNumber for uint256;
@@ -57,8 +59,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                         CONSTANTS                            //
     //==============================================================//
-    uint8 public constant GAUNTLET_SIZE = 16;
-    uint256 public constant ENTRY_FEE = 0.001 ether;
     uint32 internal constant DEFAULT_PLAYER_START_ID = 1;
 
     //==============================================================//
@@ -86,6 +86,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Structure storing data for a specific Gauntlet run instance
     struct Gauntlet {
         uint256 id;
+        uint8 size;
+        uint256 entryFee;
         GauntletState state;
         uint256 vrfRequestId;
         uint256 vrfRequestTimestamp;
@@ -143,19 +145,33 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Game enabled state (controls queuing)
     bool public isGameEnabled = true;
 
+    // --- Dynamic Settings ---
+    uint256 public currentEntryFee = 0.0005 ether;
+    uint8 public currentGauntletSize = 8;
+
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
-    event PlayerQueued(uint32 indexed playerId, uint256 queueSize);
+    event PlayerQueued(uint32 indexed playerId, uint256 queueSize, uint256 entryFee);
     event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
-    event GauntletStarted(uint256 indexed gauntletId, uint32[GAUNTLET_SIZE] participantIds, uint256 vrfRequestId);
+    event GauntletStarted(
+        uint256 indexed gauntletId, uint8 size, uint256 entryFee, uint32[] participantIds, uint256 vrfRequestId
+    );
     event GauntletCompleted(
-        uint256 indexed gauntletId, uint32 indexed championId, uint256 prizeAwarded, uint256 feeCollected
+        uint256 indexed gauntletId,
+        uint8 size,
+        uint256 entryFee,
+        uint32 indexed championId,
+        uint256 prizeAwarded,
+        uint256 feeCollected
     );
     event GauntletRecovered(uint256 indexed gauntletId);
     event FeesWithdrawn(uint256 amount);
     event OffChainRunnerSet(address indexed newRunner);
     event DefaultPlayerContractSet(address indexed newContract);
+    event EntryFeeSet(uint256 oldFee, uint256 newFee);
+    event GauntletSizeSet(uint8 oldSize, uint8 newSize);
+    event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -217,7 +233,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             revert InvalidLoadout();
         }
 
-        if (msg.value != ENTRY_FEE) revert("Incorrect entry fee");
+        if (msg.value != currentEntryFee) revert("Incorrect entry fee");
         queuedFeesPool += msg.value;
 
         uint32 playerId = loadout.playerId;
@@ -226,7 +242,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         playerIndexInQueue[playerId] = queueIndex.length;
         playerStatus[playerId] = PlayerStatus.QUEUED;
 
-        emit PlayerQueued(playerId, queueIndex.length);
+        emit PlayerQueued(playerId, queueIndex.length, currentEntryFee);
     }
 
     /// @notice Allows a player to withdraw from the queue before being selected
@@ -239,8 +255,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Now check status
         if (playerStatus[playerId] != PlayerStatus.QUEUED) revert PlayerNotInQueue();
 
-        queuedFeesPool -= ENTRY_FEE;
-        SafeTransferLib.safeTransferETH(payable(msg.sender), ENTRY_FEE); // Send to msg.sender (owner)
+        queuedFeesPool -= currentEntryFee;
+        SafeTransferLib.safeTransferETH(payable(msg.sender), currentEntryFee); // Send to msg.sender (owner)
 
         _removePlayerFromQueueArrayIndex(playerId);
 
@@ -263,21 +279,29 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @dev Callable only by the trusted offChainRunner.
     /// @param selectedPlayerIds The exact 16 player IDs chosen by the runner.
     /// @param selectedPlayerIndices The current indices of these 16 players in the queueIndex array.
-    function startGauntletFromQueue(
-        uint32[GAUNTLET_SIZE] calldata selectedPlayerIds,
-        uint256[GAUNTLET_SIZE] calldata selectedPlayerIndices
-    ) external onlyOffChainRunnerCheck nonReentrant {
-        if (queueIndex.length < GAUNTLET_SIZE) revert InsufficientQueueLength();
+    function startGauntletFromQueue(uint32[] calldata selectedPlayerIds, uint256[] calldata selectedPlayerIndices)
+        external
+        onlyOffChainRunnerCheck
+        nonReentrant
+    {
+        uint8 size = currentGauntletSize;
+        uint256 fee = currentEntryFee;
+
+        if (queueIndex.length < size) revert InsufficientQueueLength();
+        if (selectedPlayerIds.length != size) revert InvalidPlayerSelection();
+        if (selectedPlayerIndices.length != size) revert InvalidPlayerSelection();
 
         uint256 gauntletId = nextGauntletId++;
         Gauntlet storage newGauntlet = gauntlets[gauntletId];
         newGauntlet.id = gauntletId;
+        newGauntlet.size = size;
+        newGauntlet.entryFee = fee;
         newGauntlet.state = GauntletState.PENDING;
-        newGauntlet.participants = new RegisteredPlayer[](GAUNTLET_SIZE);
+        newGauntlet.participants = new RegisteredPlayer[](size);
 
-        RegisteredPlayer[GAUNTLET_SIZE] memory participantsData;
+        RegisteredPlayer[] memory participantsData = new RegisteredPlayer[](size);
 
-        for (uint256 i = GAUNTLET_SIZE; i > 0; i--) {
+        for (uint256 i = size; i > 0; i--) {
             uint256 indexInSelection = i - 1;
             uint32 playerId = selectedPlayerIds[indexInSelection];
             uint256 playerArrayIndex = selectedPlayerIndices[indexInSelection];
@@ -296,7 +320,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             playerCurrentGauntlet[playerId] = gauntletId;
         }
 
-        for (uint256 i = 0; i < GAUNTLET_SIZE; i++) {
+        for (uint256 i = 0; i < size; i++) {
             newGauntlet.participants[i] = participantsData[i];
         }
 
@@ -305,7 +329,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         requestToGauntletId[requestId] = gauntletId;
         newGauntlet.vrfRequestId = requestId;
 
-        emit GauntletStarted(gauntletId, selectedPlayerIds, requestId);
+        emit GauntletStarted(gauntletId, size, fee, selectedPlayerIds, requestId);
     }
 
     //==============================================================//
@@ -324,13 +348,16 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         delete requestToGauntletId[requestId];
 
+        uint8 size = gauntlet.size;
+        uint256 entryFee = gauntlet.entryFee;
+
         RegisteredPlayer[] storage initialParticipants = gauntlet.participants;
-        uint32[] memory activeParticipants = new uint32[](GAUNTLET_SIZE);
-        IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](GAUNTLET_SIZE);
-        bytes32[] memory participantEncodedData = new bytes32[](GAUNTLET_SIZE);
+        uint32[] memory activeParticipants = new uint32[](size);
+        IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](size);
+        bytes32[] memory participantEncodedData = new bytes32[](size);
         uint32 defaultPlayerCounter = 0;
 
-        for (uint256 i = 0; i < GAUNTLET_SIZE; i++) {
+        for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             if (playerContract.isPlayerRetired(regPlayer.playerId)) {
                 uint32 defaultId = DEFAULT_PLAYER_START_ID + defaultPlayerCounter++;
@@ -357,16 +384,16 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             }
         }
 
-        uint32[] memory shuffledParticipantIds = new uint32[](GAUNTLET_SIZE);
-        IGameEngine.FighterStats[] memory shuffledParticipantStats = new IGameEngine.FighterStats[](GAUNTLET_SIZE);
-        bytes32[] memory shuffledParticipantData = new bytes32[](GAUNTLET_SIZE);
+        uint32[] memory shuffledParticipantIds = new uint32[](size);
+        IGameEngine.FighterStats[] memory shuffledParticipantStats = new IGameEngine.FighterStats[](size);
+        bytes32[] memory shuffledParticipantData = new bytes32[](size);
 
         uint256 shuffleRand = randomness;
-        bool[] memory picked = new bool[](GAUNTLET_SIZE);
+        bool[] memory picked = new bool[](size);
         uint256 count = 0;
-        while (count < GAUNTLET_SIZE) {
+        while (count < size) {
             shuffleRand = uint256(keccak256(abi.encodePacked(shuffleRand, count)));
-            uint256 k = shuffleRand % GAUNTLET_SIZE;
+            uint256 k = shuffleRand % size;
             if (!picked[k]) {
                 shuffledParticipantIds[count] = activeParticipants[k];
                 shuffledParticipantStats[count] = participantStats[k];
@@ -385,10 +412,21 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         bytes32[] memory nextRoundData;
 
         uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, requestId)));
-        gauntlet.winners = new uint32[](15);
+        gauntlet.winners = new uint32[](size - 1);
         uint256 winnerIndex = 0;
 
-        for (uint256 roundIndex = 0; roundIndex < 4; roundIndex++) {
+        // Determine rounds based on the validated size
+        uint8 rounds;
+        if (size == 8) {
+            rounds = 3;
+        } else if (size == 16) {
+            rounds = 4;
+        } else {
+            // size == 32 (guaranteed by setGauntletSize)
+            rounds = 5;
+        }
+
+        for (uint256 roundIndex = 0; roundIndex < rounds; roundIndex++) {
             uint256 currentRoundSize = currentRoundIds.length;
             uint256 nextRoundSize = currentRoundSize / 2;
             nextRoundIds = new uint32[](nextRoundSize);
@@ -426,7 +464,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                     nextRoundData[nextRoundArrayIndex] = p2Data;
                 }
 
-                if (winnerIndex < 15) {
+                if (winnerIndex < size - 1) {
                     gauntlet.winners[winnerIndex++] = winnerId;
                 }
                 emit CombatResult(p1Data, p2Data, winnerId, results);
@@ -444,13 +482,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         gauntlet.completionTimestamp = block.timestamp;
         gauntlet.state = GauntletState.COMPLETED;
 
-        uint256 prizePool = ENTRY_FEE * GAUNTLET_SIZE;
+        uint256 prizePool = entryFee * size;
         uint256 feeAmount = (prizePool * feePercentage) / 10000;
         uint256 winnerPayout = prizePool - feeAmount;
 
         contractFeesCollected += feeAmount;
 
-        for (uint256 i = 0; i < initialParticipants.length; i++) {
+        for (uint256 i = 0; i < size; i++) {
             uint32 pId = initialParticipants[i].playerId;
             if (playerStatus[pId] == PlayerStatus.IN_GAUNTLET && playerCurrentGauntlet[pId] == gauntletId) {
                 playerStatus[pId] = PlayerStatus.NONE;
@@ -463,7 +501,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             SafeTransferLib.safeTransferETH(winnerOwner, winnerPayout);
         }
 
-        emit GauntletCompleted(gauntletId, finalWinnerId, winnerPayout, feeAmount);
+        emit GauntletCompleted(gauntletId, size, entryFee, finalWinnerId, winnerPayout, feeAmount);
     }
 
     //==============================================================//
@@ -512,6 +550,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         encodedData = playerContract.encodePlayerData(playerId, pStats);
     }
 
+    /// @notice Returns the full data for a specific Gauntlet.
+    function getGauntletData(uint256 gauntletId) external view returns (Gauntlet memory) {
+        if (gauntlets[gauntletId].id != gauntletId && gauntletId != 0) revert GauntletDoesNotExist(); // Add basic check
+        return gauntlets[gauntletId];
+    }
+
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
     //==============================================================//
@@ -538,21 +582,31 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         if (gauntlet.state != GauntletState.PENDING) revert GauntletNotPending();
         if (block.timestamp < gauntlet.vrfRequestTimestamp + vrfRequestTimeout) revert("Timeout not reached");
 
-        uint256 forfeitedPool = ENTRY_FEE * GAUNTLET_SIZE;
-        contractFeesCollected += forfeitedPool;
-
+        // Mark gauntlet as completed/aborted
         gauntlet.state = GauntletState.COMPLETED;
         gauntlet.completionTimestamp = block.timestamp;
 
         RegisteredPlayer[] storage participants = gauntlet.participants;
-        for (uint256 i = 0; i < participants.length; i++) {
+        uint8 size = gauntlet.size;
+        uint256 entryFee = gauntlet.entryFee;
+
+        for (uint256 i = 0; i < size; i++) {
             uint32 pId = participants[i].playerId;
+
+            // Check if the player needs state cleanup (was actually stuck in this gauntlet)
             if (playerStatus[pId] == PlayerStatus.IN_GAUNTLET && playerCurrentGauntlet[pId] == gauntletId) {
+                // Only refund actual players, not default placeholders
+                if (_getFighterType(pId) == Fighter.FighterType.PLAYER) {
+                    address owner = playerContract.getPlayerOwner(pId);
+                    SafeTransferLib.safeTransferETH(payable(owner), entryFee);
+                }
+
                 playerStatus[pId] = PlayerStatus.NONE;
                 delete playerCurrentGauntlet[pId];
             }
         }
 
+        // Clean up the VRF request ID mapping
         if (gauntlet.vrfRequestId != 0) {
             delete requestToGauntletId[gauntlet.vrfRequestId];
         }
@@ -564,6 +618,73 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         if (newAddress == address(0)) revert ZeroAddress();
         defaultPlayerContract = IDefaultPlayer(newAddress);
         emit DefaultPlayerContractSet(newAddress);
+    }
+
+    /// @notice Sets the entry fee for joining the queue.
+    /// @dev WARNING: This clears the *entire* current queue, refunding players the *current* entry fee.
+    ///       This is done to prevent players being stuck with an old fee expectation.
+    /// @param newFee The new entry fee in wei.
+    function setEntryFee(uint256 newFee) external onlyOwner nonReentrant {
+        uint256 oldFee = currentEntryFee;
+        if (oldFee == newFee) return;
+
+        emit EntryFeeSet(oldFee, newFee);
+
+        // Clear the queue and refund players
+        uint256 playersRefunded = 0;
+        uint256 totalRefunded = 0;
+        uint256 queueLength = queueIndex.length;
+
+        for (uint256 i = queueLength; i > 0; i--) {
+            uint256 indexToRemove = i - 1;
+            uint32 playerId = queueIndex[indexToRemove];
+
+            if (playerStatus[playerId] == PlayerStatus.QUEUED) {
+                address owner = playerContract.getPlayerOwner(playerId);
+                uint256 refundAmount = oldFee;
+                SafeTransferLib.safeTransferETH(payable(owner), refundAmount);
+                totalRefunded += refundAmount;
+
+                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
+                delete registrationQueue[playerId];
+                playerStatus[playerId] = PlayerStatus.NONE;
+
+                playersRefunded++;
+            } else {
+                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
+                delete registrationQueue[playerId];
+            }
+        }
+
+        if (queuedFeesPool < totalRefunded) {
+            queuedFeesPool = 0;
+        } else {
+            queuedFeesPool -= totalRefunded;
+        }
+
+        currentEntryFee = newFee;
+
+        if (playersRefunded > 0) {
+            emit QueueClearedDueToSettingsChange(playersRefunded, totalRefunded);
+        }
+    }
+
+    /// @notice Sets the number of participants required to start a gauntlet.
+    /// @dev Can only be changed when the queue is empty to simplify logic.
+    /// @param newSize The new gauntlet size (must be 8, 16, or 32).
+    function setGauntletSize(uint8 newSize) external onlyOwner {
+        if (newSize != 8 && newSize != 16 && newSize != 32) {
+            revert InvalidGauntletSize(newSize);
+        }
+        if (queueIndex.length > 0) {
+            revert QueueNotEmpty();
+        }
+
+        uint8 oldSize = currentGauntletSize;
+        if (oldSize == newSize) return;
+
+        currentGauntletSize = newSize;
+        emit GauntletSizeSet(oldSize, newSize);
     }
 
     //==============================================================//

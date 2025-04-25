@@ -30,7 +30,10 @@ import {
     NotOffChainRunner,
     InsufficientQueueLength,
     InvalidQueueIndex,
-    InvalidPlayerSelection
+    InvalidPlayerSelection,
+    InvalidGauntletSize,
+    QueueNotEmpty,
+    GauntletDoesNotExist
 } from "../../src/game/modes/GauntletGame.sol";
 import {ZeroAddress} from "../../src/game/modes/BaseGame.sol"; // Import ZeroAddress from BaseGame
 
@@ -50,14 +53,24 @@ contract GauntletGameTest is TestBase {
     uint32 public PLAYER_THREE_ID;
 
     // Events to test
-    event PlayerQueued(uint32 indexed playerId, uint256 queueSize);
+    event PlayerQueued(uint32 indexed playerId, uint256 queueSize, uint256 entryFee);
     event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
-    event GauntletStarted(uint256 indexed gauntletId, uint32[16] participantIds, uint256 vrfRequestId);
+    event GauntletStarted(
+        uint256 indexed gauntletId, uint8 size, uint256 entryFee, uint32[] participantIds, uint256 vrfRequestId
+    );
     event GauntletCompleted(
-        uint256 indexed gauntletId, uint32 indexed championId, uint256 prizeAwarded, uint256 feeCollected
+        uint256 indexed gauntletId,
+        uint8 size,
+        uint256 entryFee,
+        uint32 indexed championId,
+        uint256 prizeAwarded,
+        uint256 feeCollected
     );
     event GauntletRecovered(uint256 indexed gauntletId);
     event OffChainRunnerSet(address indexed newRunner);
+    event EntryFeeSet(uint256 oldFee, uint256 newFee);
+    event GauntletSizeSet(uint8 oldSize, uint8 newSize);
+    event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
 
     function setUp() public override {
         super.setUp();
@@ -133,15 +146,15 @@ contract GauntletGameTest is TestBase {
     function testQueueForGauntlet() public {
         vm.startPrank(PLAYER_ONE);
 
-        // Get fee amount
-        uint256 entryFee = game.ENTRY_FEE();
+        // Get fee amount from state variable
+        uint256 entryFee = game.currentEntryFee();
 
         // Create loadout for player
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         // Test event emission
         vm.expectEmit(true, true, false, true);
-        emit PlayerQueued(PLAYER_ONE_ID, 1);
+        emit PlayerQueued(PLAYER_ONE_ID, 1, entryFee);
 
         // Queue for gauntlet
         game.queueForGauntlet{value: entryFee}(loadout);
@@ -167,6 +180,8 @@ contract GauntletGameTest is TestBase {
     }
 
     function testQueueMultiplePlayers() public {
+        uint256 entryFee = game.currentEntryFee();
+
         // Queue all three test players
         for (uint256 i = 0; i < 3; i++) {
             address player = i == 0 ? PLAYER_ONE : (i == 1 ? PLAYER_TWO : PLAYER_THREE);
@@ -174,7 +189,7 @@ contract GauntletGameTest is TestBase {
 
             vm.startPrank(player);
             Fighter.PlayerLoadout memory loadout = _createLoadout(playerId);
-            game.queueForGauntlet{value: game.ENTRY_FEE()}(loadout);
+            game.queueForGauntlet{value: entryFee}(loadout);
             vm.stopPrank();
         }
 
@@ -207,14 +222,16 @@ contract GauntletGameTest is TestBase {
         );
 
         // Verify fee pool
-        assertEq(game.queuedFeesPool(), game.ENTRY_FEE() * 3, "Fee pool should have three entry fees");
+        assertEq(game.queuedFeesPool(), entryFee * 3, "Fee pool should have three entry fees");
     }
 
     function testWithdrawFromQueue() public {
+        uint256 entryFee = game.currentEntryFee();
+
         // First queue a player
         vm.startPrank(PLAYER_ONE);
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
-        game.queueForGauntlet{value: game.ENTRY_FEE()}(loadout);
+        game.queueForGauntlet{value: entryFee}(loadout);
 
         // Record balance before withdraw
         uint256 balanceBefore = address(PLAYER_ONE).balance;
@@ -237,7 +254,7 @@ contract GauntletGameTest is TestBase {
         assertEq(game.playerIndexInQueue(PLAYER_ONE_ID), 0, "Player index should be cleared (0)");
 
         // Verify player was refunded
-        assertEq(address(PLAYER_ONE).balance, balanceBefore + game.ENTRY_FEE(), "Player should be refunded entry fee");
+        assertEq(address(PLAYER_ONE).balance, balanceBefore + entryFee, "Player should be refunded entry fee");
 
         // Verify fee pool
         assertEq(game.queuedFeesPool(), 0, "Fee pool should be empty");
@@ -247,11 +264,10 @@ contract GauntletGameTest is TestBase {
         // Queue player one
         vm.startPrank(PLAYER_ONE);
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
-        uint256 entryFee = game.ENTRY_FEE();
+        uint256 entryFee = game.currentEntryFee();
         game.queueForGauntlet{value: entryFee}(loadout);
 
         // Try to queue again - should revert
-        // Use direct selector after import
         vm.expectRevert(AlreadyInQueue.selector);
         game.queueForGauntlet{value: entryFee}(loadout);
         vm.stopPrank();
@@ -262,12 +278,12 @@ contract GauntletGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         // Send wrong fee amount
-        uint256 entryFee = game.ENTRY_FEE();
+        uint256 entryFee = game.currentEntryFee();
         vm.expectRevert("Incorrect entry fee");
-        game.queueForGauntlet{value: entryFee - 0.0001 ether}(loadout);
+        game.queueForGauntlet{value: entryFee == 0 ? 1 : entryFee - 1}(loadout);
 
         vm.expectRevert("Incorrect entry fee");
-        game.queueForGauntlet{value: entryFee + 0.0001 ether}(loadout);
+        game.queueForGauntlet{value: entryFee + 1}(loadout);
 
         vm.stopPrank();
     }
@@ -277,8 +293,7 @@ contract GauntletGameTest is TestBase {
         vm.startPrank(PLAYER_TWO);
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID); // Using player one's ID
 
-        // Use direct selector after import
-        uint256 entryFee = game.ENTRY_FEE();
+        uint256 entryFee = game.currentEntryFee();
         vm.expectRevert(CallerNotPlayerOwner.selector);
         game.queueForGauntlet{value: entryFee}(loadout);
         vm.stopPrank();
@@ -292,8 +307,7 @@ contract GauntletGameTest is TestBase {
         // Now try to queue retired player
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
-        // Use direct selector after import
-        uint256 entryFee = game.ENTRY_FEE();
+        uint256 entryFee = game.currentEntryFee();
         vm.expectRevert(PlayerIsRetired.selector);
         game.queueForGauntlet{value: entryFee}(loadout);
         vm.stopPrank();
@@ -308,8 +322,7 @@ contract GauntletGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
-        // Use direct selector after import
-        uint256 entryFee = game.ENTRY_FEE();
+        uint256 entryFee = game.currentEntryFee();
         vm.expectRevert(GameDisabled.selector);
         game.queueForGauntlet{value: entryFee}(loadout);
         vm.stopPrank();
@@ -334,7 +347,7 @@ contract GauntletGameTest is TestBase {
 
         queuedIds = new uint32[](count);
         queuedAddrs = new address[](count);
-        uint256 entryFee = game.ENTRY_FEE();
+        uint256 entryFee = game.currentEntryFee();
 
         for (uint256 i = 0; i < count; i++) {
             // Create new address and player for each slot
@@ -361,76 +374,60 @@ contract GauntletGameTest is TestBase {
     }
 
     function testStartGauntlet_Success_16Players() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE(); // 16
-        uint256 entryFee = game.ENTRY_FEE();
+        uint8 gauntletSize = game.currentGauntletSize();
+        uint256 entryFee = game.currentEntryFee();
 
-        // Queue exactly 16 players
         (uint32[] memory queuedIds,) = _queuePlayers(gauntletSize);
+        assertEq(game.getQueueSize(), gauntletSize, "Queue should have correct number of players");
 
-        // Debug: Verify the queue state and make sure indices match
-        assertEq(game.getQueueSize(), gauntletSize, "Queue should have 16 players");
-
-        // Verify and print each player's position in the queue
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
-
-        // Important: We need to get the actual playerIndexInQueue and convert from 1-based to 0-based
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             uint32 playerId = game.queueIndex(i);
-            uint256 storedIndex = game.playerIndexInQueue(playerId); // 1-based index
-            uint256 actualIndex = storedIndex - 1; // Convert to 0-based for the call
-
             selectedIds[i] = playerId;
-            selectedIndices[i] = actualIndex; // Use actual 0-based index for the call
+            selectedIndices[i] = game.playerIndexInQueue(playerId) - 1;
         }
 
-        // Record logs for event verification
-        vm.recordLogs();
-
-        // Prank as runner and start
+        vm.recordLogs(); // Start recording BEFORE the call
         vm.prank(OFF_CHAIN_RUNNER);
-        uint256 txGasStart = gasleft();
         game.startGauntletFromQueue(selectedIds, selectedIndices);
-        uint256 txGasEnd = gasleft();
+        Vm.Log[] memory entries = vm.getRecordedLogs(); // Get logs AFTER the call
 
-        // Verify state changes using other means
         assertEq(game.getQueueSize(), 0, "Queue should be empty after start");
         assertEq(game.nextGauntletId(), 1, "Next gauntlet ID should be 1");
 
-        // Check if a GauntletStarted event was emitted with gauntletId 0
-        bool foundGauntletStartedEvent = false;
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint32[16],uint256)");
-
-        for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == gauntletStartedSig) {
-                // Check if gauntletId is 0 (first topic after event sig)
-                if (uint256(entries[i].topics[1]) == 0) {
-                    foundGauntletStartedEvent = true;
-                    break;
-                }
-            }
-        }
-
-        assertTrue(foundGauntletStartedEvent, "GauntletStarted event not found");
-
-        // Find the emitted event to get the actual vrfRequestId
+        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint8,uint256,uint32[],uint256)");
         uint256 actualVrfRequestId = 0;
-        for (uint256 i = 0; i < entries.length; ++i) {
-            if (entries[i].topics[0] == gauntletStartedSig) {
-                // Assuming requestId is the third indexed param
-                if (entries[i].topics.length > 3) {
-                    actualVrfRequestId = uint256(entries[i].topics[3]);
-                    break;
+        bool foundGauntletStartedEvent = false;
+
+        // Simple loop to find and decode the event
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (
+                entries[i].topics.length > 1 && entries[i].topics[0] == gauntletStartedSig
+                    && uint256(entries[i].topics[1]) == 0 // Check gauntletId = 0
+            ) {
+                // Direct decoding - assumes this is the correct log
+                (uint8 size, uint256 fee, uint32[] memory pIds, uint256 reqId) =
+                    abi.decode(entries[i].data, (uint8, uint256, uint32[], uint256));
+
+                actualVrfRequestId = reqId;
+                foundGauntletStartedEvent = true;
+                assertEq(size, gauntletSize, "Event size mismatch");
+                assertEq(fee, entryFee, "Event fee mismatch");
+                assertEq(pIds.length, gauntletSize, "Event participant count mismatch");
+                // Basic check on participant IDs
+                if (pIds.length == selectedIds.length) {
+                    for (uint256 j = 0; j < pIds.length; j++) {
+                        assertEq(pIds[j], selectedIds[j], "Mismatch participant ID in event");
+                    }
                 }
+                break; // Found the event, exit loop
             }
         }
+        assertTrue(foundGauntletStartedEvent, "GauntletStarted event not found for gauntletId 0");
 
-        // Only assert VRF request ID if we found one
-        if (actualVrfRequestId != 0) {
-            assertEq(game.requestToGauntletId(actualVrfRequestId), 0, "Request ID should map to Gauntlet ID 0");
-        }
-
+        // Check the mapping regardless of the ID value
+        assertEq(game.requestToGauntletId(actualVrfRequestId), 0, "Request ID should map to Gauntlet ID 0");
         // Check player statuses
         for (uint8 i = 0; i < gauntletSize; i++) {
             uint32 pId = selectedIds[i];
@@ -444,72 +441,60 @@ contract GauntletGameTest is TestBase {
     }
 
     function testStartGauntlet_Success_MoreThan16Players() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE(); // 16
-        uint256 queueStartSize = 20;
+        uint8 gauntletSize = game.currentGauntletSize();
+        uint256 entryFee = game.currentEntryFee();
+        uint256 queueStartSize = gauntletSize + 4;
 
-        // Queue 20 players
         (uint32[] memory queuedIds,) = _queuePlayers(queueStartSize);
-        assertEq(game.getQueueSize(), queueStartSize, "Queue should have 20 players");
+        assertEq(game.getQueueSize(), queueStartSize, "Queue should have correct initial number of players");
 
-        // Select first 16 for the gauntlet
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
-
-        // Get the actual player IDs and their correct indices from the contract
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             uint32 playerId = game.queueIndex(i);
-            uint256 storedIndex = game.playerIndexInQueue(playerId); // 1-based index
-            uint256 actualIndex = storedIndex - 1; // Convert to 0-based for the call
-
             selectedIds[i] = playerId;
-            selectedIndices[i] = actualIndex; // Use actual 0-based index for the call
+            selectedIndices[i] = game.playerIndexInQueue(playerId) - 1;
         }
 
-        // Record logs for event verification
-        vm.recordLogs();
-
+        vm.recordLogs(); // Start recording BEFORE the call
         vm.prank(OFF_CHAIN_RUNNER);
-        uint256 txGasStart = gasleft();
         game.startGauntletFromQueue(selectedIds, selectedIndices);
-        uint256 txGasEnd = gasleft();
+        Vm.Log[] memory entries = vm.getRecordedLogs(); // Get logs AFTER the call
 
-        // Verify state changes
-        assertEq(game.getQueueSize(), queueStartSize - gauntletSize, "Queue size should be 4 (20-16)");
+        assertEq(game.getQueueSize(), queueStartSize - gauntletSize, "Queue size should be reduced correctly");
         assertEq(game.nextGauntletId(), 1, "Next gauntlet ID should be 1");
 
-        // Check if a GauntletStarted event was emitted with gauntletId 0
-        bool foundGauntletStartedEvent = false;
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint32[16],uint256)");
-
-        for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == gauntletStartedSig) {
-                // Check if gauntletId is 0 (first topic after event sig)
-                if (uint256(entries[i].topics[1]) == 0) {
-                    foundGauntletStartedEvent = true;
-                    break;
-                }
-            }
-        }
-
-        assertTrue(foundGauntletStartedEvent, "GauntletStarted event not found");
-
-        // Find the emitted event to get the actual vrfRequestId
+        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint8,uint256,uint32[],uint256)");
         uint256 actualVrfRequestId = 0;
-        for (uint256 i = 0; i < entries.length; ++i) {
-            if (entries[i].topics[0] == gauntletStartedSig) {
-                if (entries[i].topics.length > 3) {
-                    actualVrfRequestId = uint256(entries[i].topics[3]);
-                    break;
+        bool foundGauntletStartedEvent = false;
+
+        // Simple loop to find and decode the event
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (
+                entries[i].topics.length > 1 && entries[i].topics[0] == gauntletStartedSig
+                    && uint256(entries[i].topics[1]) == 0 // Check gauntletId = 0
+            ) {
+                // Direct decoding
+                (uint8 size, uint256 fee, uint32[] memory pIds, uint256 reqId) =
+                    abi.decode(entries[i].data, (uint8, uint256, uint32[], uint256));
+
+                actualVrfRequestId = reqId;
+                foundGauntletStartedEvent = true;
+                assertEq(size, gauntletSize, "Event size mismatch");
+                assertEq(fee, entryFee, "Event fee mismatch");
+                assertEq(pIds.length, gauntletSize, "Event participant count mismatch");
+                if (pIds.length == selectedIds.length) {
+                    for (uint256 j = 0; j < pIds.length; j++) {
+                        assertEq(pIds[j], selectedIds[j], "Mismatch participant ID in event");
+                    }
                 }
+                break; // Found the event, exit loop
             }
         }
+        assertTrue(foundGauntletStartedEvent, "GauntletStarted event not found for gauntletId 0");
 
-        // Only assert VRF request ID if we found one
-        if (actualVrfRequestId != 0) {
-            assertEq(game.requestToGauntletId(actualVrfRequestId), 0, "Request ID should map to Gauntlet ID 0");
-        }
-
+        // Check the mapping regardless of the ID value
+        assertEq(game.requestToGauntletId(actualVrfRequestId), 0, "Request ID should map to Gauntlet ID 0");
         // Verify remaining players are still queued correctly (swap-and-pop check)
         for (uint256 i = 0; i < game.getQueueSize(); i++) {
             uint32 queuedId = game.queueIndex(i);
@@ -533,12 +518,11 @@ contract GauntletGameTest is TestBase {
     }
 
     function testRevertWhen_StartGauntlet_NotRunner() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE();
+        uint8 gauntletSize = game.currentGauntletSize();
         _queuePlayers(gauntletSize);
 
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
-        // (populate arrays as in success test...)
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             selectedIds[i] = game.queueIndex(i); // Get IDs from queue
             selectedIndices[i] = i;
@@ -552,12 +536,14 @@ contract GauntletGameTest is TestBase {
     }
 
     function testRevertWhen_StartGauntlet_InsufficientPlayers() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE();
-        _queuePlayers(gauntletSize - 1); // Queue only 15 players
+        uint8 gauntletSize = game.currentGauntletSize();
+        _queuePlayers(gauntletSize - 1); // Queue one less than needed
 
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
-        // Dummy arrays, won't be used as it reverts before checking them
+        // Prepare dummy arrays - size doesn't strictly matter as length check fails first
+        // But initialize correctly to avoid unrelated reverts
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
+        // No need to populate as the check should fail before using them
 
         vm.prank(OFF_CHAIN_RUNNER);
         vm.expectRevert(InsufficientQueueLength.selector);
@@ -565,18 +551,18 @@ contract GauntletGameTest is TestBase {
     }
 
     function testRevertWhen_StartGauntlet_InvalidIndex() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE();
+        uint8 gauntletSize = game.currentGauntletSize();
         _queuePlayers(gauntletSize);
 
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             selectedIds[i] = game.queueIndex(i);
             selectedIndices[i] = i;
         }
 
         // Make one index invalid (out of bounds)
-        selectedIndices[5] = 100;
+        selectedIndices[gauntletSize > 0 ? gauntletSize / 2 : 0] = 100; // Use index relative to size
 
         vm.prank(OFF_CHAIN_RUNNER);
         vm.expectRevert(InvalidQueueIndex.selector);
@@ -584,18 +570,18 @@ contract GauntletGameTest is TestBase {
     }
 
     function testRevertWhen_StartGauntlet_MismatchedSelection() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE();
+        uint8 gauntletSize = game.currentGauntletSize();
         _queuePlayers(gauntletSize);
 
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             selectedIds[i] = game.queueIndex(i);
             selectedIndices[i] = i;
         }
 
         // Make one ID not match the ID at its supposed index
-        selectedIds[3] = 99999; // An ID not in the queue
+        selectedIds[gauntletSize > 0 ? gauntletSize / 2 : 0] = 99999; // An ID not in the queue
 
         vm.prank(OFF_CHAIN_RUNNER);
         vm.expectRevert(InvalidPlayerSelection.selector);
@@ -603,26 +589,27 @@ contract GauntletGameTest is TestBase {
     }
 
     function testRevertWhen_StartGauntlet_PlayerNotInQueueStatus() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE();
+        uint8 gauntletSize = game.currentGauntletSize();
         (uint32[] memory queuedIds, address[] memory queuedAddrs) = _queuePlayers(gauntletSize);
 
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             selectedIds[i] = queuedIds[i];
-            selectedIndices[i] = i; // Use original indices for this test case
+            selectedIndices[i] = game.playerIndexInQueue(queuedIds[i]) - 1;
         }
 
-        // Manually withdraw one player after queuing
-        vm.startPrank(queuedAddrs[2]);
-        game.withdrawFromQueue(queuedIds[2]); // Queue size is now 15
+        // Manually withdraw one player *after* queuing
+        uint256 indexToWithdraw = gauntletSize > 0 ? gauntletSize / 2 : 0;
+        vm.startPrank(queuedAddrs[indexToWithdraw]);
+        game.withdrawFromQueue(queuedIds[indexToWithdraw]); // Player status is now NONE, queue size reduced
         vm.stopPrank();
 
-        // Now try to start the gauntlet
+        // Now try to start the gauntlet with the original list (including withdrawn player)
+        // AND the original indices (which are now potentially wrong due to swap-and-pop)
         vm.prank(OFF_CHAIN_RUNNER);
-        // *** FIX: Expect InsufficientQueueLength because we withdrew a player ***
         vm.expectRevert(InsufficientQueueLength.selector);
-        game.startGauntletFromQueue(selectedIds, selectedIndices); // Provide original selection
+        game.startGauntletFromQueue(selectedIds, selectedIndices);
     }
 
     function testAdmin_SetOffChainRunner() public {
@@ -653,112 +640,103 @@ contract GauntletGameTest is TestBase {
     //==============================================================//
 
     function testFulfillRandomness_CompletesGauntlet() public {
-        uint8 gauntletSize = game.GAUNTLET_SIZE();
-        uint256 entryFee = game.ENTRY_FEE();
+        uint8 gauntletSize = game.currentGauntletSize();
+        uint256 entryFee = game.currentEntryFee();
         uint256 totalFeesCollected = entryFee * gauntletSize;
         uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000;
         uint256 expectedPrize = totalFeesCollected - expectedContractFee;
 
         _queuePlayers(gauntletSize);
 
-        uint32[16] memory selectedIds;
-        uint256[16] memory selectedIndices;
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
         for (uint8 i = 0; i < gauntletSize; i++) {
             uint32 pId = game.queueIndex(i);
             selectedIds[i] = pId;
-            selectedIndices[i] = game.playerIndexInQueue(pId) - 1; // 0-based index
+            selectedIndices[i] = game.playerIndexInQueue(pId) - 1;
         }
 
-        vm.recordLogs(); // Start recording before the action that emits events
+        vm.recordLogs(); // Record logs covering start + VRF request
         vm.prank(OFF_CHAIN_RUNNER);
         game.startGauntletFromQueue(selectedIds, selectedIndices);
-
-        // Extract Request ID from GauntletStarted event AND Round ID from RequestedRandomness event
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        uint256 vrfRequestId = 0; // Request ID specific to the GauntletGame logic
-        uint256 vrfRoundId = 0; // Round ID from the base Gelato VRF request
-        bytes memory vrfEventData; // Data from RequestedRandomness event
 
-        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint32[16],uint256)");
+        // Extract Request IDs - Simple loop, direct decode
+        uint256 vrfRequestId = 0;
+        uint256 vrfRoundId = 0;
+        uint256 gauntletId = 0;
+
+        bytes32 gauntletStartedSig = keccak256("GauntletStarted(uint256,uint8,uint256,uint32[],uint256)");
         bytes32 requestedRandomnessSig = keccak256("RequestedRandomness(uint256,bytes)");
-        uint256 gauntletId = 0; // We are testing the first gauntlet
 
         for (uint256 i = 0; i < entries.length; i++) {
-            // Find GauntletStarted event for gauntletId 0
             if (
-                vrfRequestId == 0 && entries[i].topics[0] == gauntletStartedSig
+                vrfRequestId == 0 && entries[i].topics.length > 1 && entries[i].topics[0] == gauntletStartedSig
                     && uint256(entries[i].topics[1]) == gauntletId
             ) {
-                (, uint256 reqId) = abi.decode(entries[i].data, (uint32[16], uint256));
+                // Direct decode for GauntletStarted
+                (,,, uint256 reqId) = abi.decode(entries[i].data, (uint8, uint256, uint32[], uint256));
                 vrfRequestId = reqId;
             }
-            // Find the FIRST RequestedRandomness event (should correspond to our startGauntlet call)
-            if (vrfRoundId == 0 && entries[i].topics[0] == requestedRandomnessSig) {
-                (vrfRoundId, vrfEventData) = abi.decode(entries[i].data, (uint256, bytes));
+            if (vrfRoundId == 0 && entries[i].topics.length > 0 && entries[i].topics[0] == requestedRandomnessSig) {
+                // Direct decode for RequestedRandomness
+                (uint256 roundId,) = abi.decode(entries[i].data, (uint256, bytes));
+                vrfRoundId = roundId;
             }
-            // Exit loop once both are found
-            if (vrfRequestId != 0 && vrfRoundId != 0) {
-                break;
-            }
+            if (vrfRequestId != 0 && vrfRoundId != 0) break;
         }
-        require(vrfRoundId != 0, "RequestedRandomness Round ID not found in logs");
+        require(vrfRoundId != 0, "TEST FAIL: RequestedRandomness Round ID not found in logs");
 
-        // Simulate VRF fulfillment USING TestBase HELPER and block-derived randomness
-        // Derive randomness from block context + roundId to leverage TestBase setup
+        // Simulate VRF fulfillment
         uint256 randomnessFromBlock =
             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
+        bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId); // Assuming helper needs vrfRoundId
 
-        bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
-
-        // Call fulfillRandomness on the game contract as the operator
+        // Record logs around the fulfill call to check GauntletCompleted manually
+        vm.recordLogs();
         vm.prank(operator);
-        uint256 gasBeforeFulfill = gasleft();
-        // Use the block-derived randomness
         game.fulfillRandomness(randomnessFromBlock, dataWithRound);
-        uint256 gasAfterFulfill = gasleft();
-        console2.log("Gas used by fulfillRandomness (Gauntlet Completion):", gasBeforeFulfill - gasAfterFulfill);
-        vm.stopPrank(); // Stop prank after fulfillRandomness
+        vm.stopPrank();
+        Vm.Log[] memory finalEntries = vm.getRecordedLogs(); // Get logs emitted *during* fulfill
 
-        // == Verify GauntletCompleted Event and Fees ==
-        // Fetch logs again *after* fulfillment or re-use if recorded
-        // Assuming vm.getRecordedLogs() includes logs from fulfillRandomness if called after startPrank/stopPrank block
-        bytes32 gauntletCompletedSig = keccak256("GauntletCompleted(uint256,uint32,uint256,uint256)");
+        // Verify GauntletCompleted Event manually
+        bytes32 gauntletCompletedSig = keccak256("GauntletCompleted(uint256,uint8,uint256,uint32,uint256,uint256)");
         uint256 actualPrizeAwarded = 0;
         uint256 actualFeeCollected = 0;
+        uint32 actualChampionId = 0; // Initialize to 0
         bool foundCompletedEvent = false;
 
-        // Re-fetch logs if necessary, or parse from the existing `entries` if they cover fulfillment
-        Vm.Log[] memory finalEntries = vm.getRecordedLogs(); // Get all logs up to this point
-
         for (uint256 i = 0; i < finalEntries.length; i++) {
-            if (finalEntries[i].topics[0] == gauntletCompletedSig && uint256(finalEntries[i].topics[1]) == gauntletId) {
-                // Event signature: GauntletCompleted(uint256 indexed gauntletId, uint32 indexed championId, uint256 prizeAwarded, uint256 feeCollected)
-                // Non-indexed args are in data
-                (actualPrizeAwarded, actualFeeCollected) = abi.decode(finalEntries[i].data, (uint256, uint256));
+            // Check correct event signature AND gauntletId topic
+            if (
+                finalEntries[i].topics.length > 2 // Need gauntletId and championId topics
+                    && finalEntries[i].topics[0] == gauntletCompletedSig && uint256(finalEntries[i].topics[1]) == gauntletId // Check gauntletId
+            ) {
+                // Direct decode
+                (uint8 size, uint256 fee, uint256 prize, uint256 collected) =
+                    abi.decode(finalEntries[i].data, (uint8, uint256, uint256, uint256));
+                // Extract championId from indexed topic 2
+                actualChampionId = uint32(uint256(finalEntries[i].topics[2]));
+                actualPrizeAwarded = prize;
+                actualFeeCollected = collected;
                 foundCompletedEvent = true;
-                break;
+                assertEq(size, gauntletSize, "Completed event size mismatch");
+                assertEq(fee, entryFee, "Completed event fee mismatch");
+                break; // Found the event
             }
         }
-        assertTrue(foundCompletedEvent, "GauntletCompleted event not found for gauntletId 0");
+        assertTrue(foundCompletedEvent, "GauntletCompleted event not found or data mismatch for gauntletId 0");
+        // Now we can assert the extracted champion ID is non-zero
+        assertTrue(actualChampionId != 0, "Actual champion ID extracted from event was zero");
         assertEq(actualPrizeAwarded, expectedPrize, "Prize awarded in event mismatch");
         assertEq(actualFeeCollected, expectedContractFee, "Fee collected in event mismatch");
         assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch");
 
-        // == Assertions for Gauntlet 0 State ==
-        (
-            uint256 id,
-            GauntletGame.GauntletState state,
-            ,
-            uint256 vrfRequestTimestamp,
-            uint256 completionTimestamp,
-            uint32 championId
-        ) = game.gauntlets(gauntletId);
-
-        console2.log("Gauntlet completed. Champion ID:", championId);
-
-        assertEq(uint8(state), uint8(GauntletGame.GauntletState.COMPLETED), "Gauntlet 0 state");
-        assertTrue(championId != 0, "Gauntlet 0 Champion ID should be set");
-        assertTrue(completionTimestamp > 0, "Completion timestamp should be set");
+        // Assertions for Gauntlet 0 State
+        GauntletGame.Gauntlet memory completedGauntlet = game.getGauntletData(gauntletId);
+        assertEq(completedGauntlet.championId, actualChampionId, "Stored champion ID mismatch event champion ID"); // Compare stored vs event
+        assertEq(uint8(completedGauntlet.state), uint8(GauntletGame.GauntletState.COMPLETED), "Gauntlet 0 state");
+        assertTrue(completedGauntlet.completionTimestamp > 0, "Completion timestamp should be set");
         assertEq(game.requestToGauntletId(vrfRequestId), 0, "Request ID mapping should be cleared");
 
         // Check player statuses are reset
