@@ -80,12 +80,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                         STRUCTS                              //
     //==============================================================//
-    /// @notice Stores loadout data for a player while they are in the queue.
-    /// @param loadout The player's chosen skin and stance.
-    struct PlayerQueueData {
-        Fighter.PlayerLoadout loadout;
-    }
-
     /// @notice Structure storing data for a specific Gauntlet run instance.
     /// @param id Unique identifier for the Gauntlet.
     /// @param size Number of participants (8, 16, or 32).
@@ -155,7 +149,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
     // --- Queue State ---
     /// @notice Stores loadout data for players currently in the queue.
-    mapping(uint32 => PlayerQueueData) public registrationQueue;
+    mapping(uint32 => Fighter.PlayerLoadout) public registrationQueue;
     /// @notice Array containing the IDs of players currently in the queue. Order matters for swap-and-pop removal.
     uint32[] public queueIndex;
     /// @notice Maps player IDs to their (1-based) index within the `queueIndex` array for O(1) lookup during removal. 0 if not in queue.
@@ -300,7 +294,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Effects
         queuedFeesPool += msg.value;
         uint32 playerId = loadout.playerId;
-        registrationQueue[playerId] = PlayerQueueData({loadout: loadout});
+        registrationQueue[playerId] = loadout;
         queueIndex.push(playerId);
         playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
         playerStatus[playerId] = PlayerStatus.QUEUED;
@@ -334,6 +328,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @return The number of players in `queueIndex`.
     function getQueueSize() external view returns (uint256) {
         return queueIndex.length;
+    }
+
+    /// @notice Returns the loadout for a player from the queue.
+    /// @param playerId The ID of the player to retrieve the loadout for.
+    /// @return The loadout for the specified player.
+    function getPlayerLoadoutFromQueue(uint32 playerId) external view returns (Fighter.PlayerLoadout memory) {
+        return registrationQueue[playerId];
     }
 
     //==============================================================//
@@ -379,8 +380,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             if (playerStatus[playerId] != PlayerStatus.QUEUED) revert InvalidPlayerSelection(); // Should be QUEUED
 
             // Store participant data
-            PlayerQueueData storage queueData = registrationQueue[playerId];
-            participantsData[selectionIndex] = RegisteredPlayer({playerId: playerId, loadout: queueData.loadout});
+            participantsData[selectionIndex] =
+                RegisteredPlayer({playerId: playerId, loadout: registrationQueue[playerId]});
 
             // Remove player from queue (handles swap-and-pop) and update status
             _removePlayerFromQueueArrayIndexWithIndex(playerId, playerArrayIndex);
@@ -796,7 +797,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             // Iterate backwards for safe swap-and-pop during iteration
             for (uint256 i = queueLength; i > 0; i--) {
                 uint256 indexToRemove = i - 1; // Current 0-based index
-                // Need to read the player ID *before* potentially moving another player here
                 uint32 playerId = queueIndex[indexToRemove];
 
                 // Check if player needs refund and state reset
@@ -899,9 +899,4 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             revert UnsupportedPlayerId();
         }
     }
-
-    //==============================================================//
-    //                    FALLBACK FUNCTIONS                        //
-    //==============================================================//
-    // Note: No receive() or fallback() needed as direct ETH transfers are not intended.
 }

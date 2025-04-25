@@ -163,8 +163,9 @@ contract GauntletGameTest is TestBase {
         assertEq(game.queuedFeesPool(), entryFee, "Entry fee should be in fee pool");
 
         // Verify loadout is stored correctly
-        Fighter.PlayerLoadout memory storedLoadout =
-            GauntletGame.PlayerQueueData(game.registrationQueue(PLAYER_ONE_ID)).loadout;
+        Fighter.PlayerLoadout memory storedLoadout = game.getPlayerLoadoutFromQueue(PLAYER_ONE_ID);
+
+        // Assert using the struct variable
         assertEq(storedLoadout.playerId, loadout.playerId, "Stored playerId should match");
         assertEq(storedLoadout.skin.skinIndex, loadout.skin.skinIndex, "Stored skin index should match");
         assertEq(storedLoadout.skin.skinTokenId, loadout.skin.skinTokenId, "Stored skin token ID should match");
