@@ -43,6 +43,8 @@ error InvalidPlayerSelection();
 error InvalidQueueIndex();
 error InvalidGauntletSize(uint8 size);
 error QueueNotEmpty();
+error IncorrectEntryFee(uint256 expected, uint256 actual);
+error InvalidDefaultPlayerRange();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -59,7 +61,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                         CONSTANTS                            //
     //==============================================================//
-    uint32 internal constant DEFAULT_PLAYER_START_ID = 1;
 
     //==============================================================//
     //                          ENUMS                               //
@@ -149,6 +150,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint256 public currentEntryFee = 0.0005 ether;
     uint8 public currentGauntletSize = 8;
 
+    /// @notice The maximum ID to use when randomly selecting a default player substitute. Must be kept in sync with DefaultPlayer contract.
+    uint32 public maxDefaultPlayerSubstituteId = 15;
+
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
@@ -172,6 +176,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event EntryFeeSet(uint256 oldFee, uint256 newFee);
     event GauntletSizeSet(uint8 oldSize, uint8 newSize);
     event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
+    event MaxDefaultPlayerSubstituteIdSet(uint32 newMaxId);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -233,7 +238,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             revert InvalidLoadout();
         }
 
-        if (msg.value != currentEntryFee) revert("Incorrect entry fee");
+        if (msg.value != currentEntryFee) revert IncorrectEntryFee(currentEntryFee, msg.value);
         queuedFeesPool += msg.value;
 
         uint32 playerId = loadout.playerId;
@@ -355,16 +360,28 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint32[] memory activeParticipants = new uint32[](size);
         IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](size);
         bytes32[] memory participantEncodedData = new bytes32[](size);
-        uint32 defaultPlayerCounter = 0;
+
+        // Use the configurable max ID
+        uint32 currentMaxDefaultId = maxDefaultPlayerSubstituteId;
+        // Ensure max ID is at least 1 to avoid modulo by zero if owner sets it incorrectly lower
+        if (currentMaxDefaultId == 0) {
+            currentMaxDefaultId = 1;
+        }
 
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             if (playerContract.isPlayerRetired(regPlayer.playerId)) {
-                uint32 defaultId = DEFAULT_PLAYER_START_ID + defaultPlayerCounter++;
-                activeParticipants[i] = defaultId;
+                // Generate a pseudo-random index based on VRF randomness and loop index
+                uint256 derivedRand = uint256(keccak256(abi.encodePacked(randomness, i)));
+                // Select a random default ID within the configured range [1, maxDefaultPlayerSubstituteId]
+                uint32 defaultId = uint32(derivedRand % currentMaxDefaultId) + 1; // +1 to shift range
 
+                activeParticipants[i] = defaultId; // Assign the randomly selected substitute ID
+
+                // Fetch stats for the EXISTING substitute default player
                 IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(defaultId);
 
+                // Prepare stats and data for game engine (same as before)
                 IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
                     playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
                 IPlayerSkinNFT.SkinAttributes memory skinAttrs =
@@ -378,6 +395,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                 });
                 participantEncodedData[i] = bytes32(uint256(defaultId));
             } else {
+                // Existing logic for non-retired players
                 activeParticipants[i] = regPlayer.playerId;
                 (participantStats[i], participantEncodedData[i]) =
                     _getFighterCombatStats(regPlayer.playerId, regPlayer.loadout);
@@ -496,9 +514,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             }
         }
 
-        if (winnerPayout > 0 && _getFighterType(finalWinnerId) == Fighter.FighterType.PLAYER) {
-            address payable winnerOwner = payable(playerContract.getPlayerOwner(finalWinnerId));
-            SafeTransferLib.safeTransferETH(winnerOwner, winnerPayout);
+        if (winnerPayout > 0) {
+            Fighter.FighterType winnerType = _getFighterType(finalWinnerId);
+            if (winnerType == Fighter.FighterType.DEFAULT_PLAYER) {
+                contractFeesCollected += winnerPayout;
+            } else if (winnerType == Fighter.FighterType.PLAYER) {
+                address payable winnerOwner = payable(playerContract.getPlayerOwner(finalWinnerId));
+                SafeTransferLib.safeTransferETH(winnerOwner, winnerPayout);
+            }
         }
 
         emit GauntletCompleted(gauntletId, size, entryFee, finalWinnerId, winnerPayout, feeAmount);
@@ -621,52 +644,88 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     /// @notice Sets the entry fee for joining the queue.
-    /// @dev WARNING: This clears the *entire* current queue, refunding players the *current* entry fee.
-    ///       This is done to prevent players being stuck with an old fee expectation.
+    /// @dev Allows bypassing queue clearing and refunds to prevent potential gas limit issues with large queues.
     /// @param newFee The new entry fee in wei.
-    function setEntryFee(uint256 newFee) external onlyOwner nonReentrant {
+    /// @param refundPlayers If true and skipReset is false, clears the queue and refunds players the *old* fee.
+    /// @param skipReset If true, bypasses all queue clearing and refund logic, only setting the new fee.
+    function setEntryFee(uint256 newFee, bool refundPlayers, bool skipReset) external onlyOwner nonReentrant {
         uint256 oldFee = currentEntryFee;
-        if (oldFee == newFee) return;
+        if (oldFee == newFee) return; // No change needed
 
         emit EntryFeeSet(oldFee, newFee);
 
-        // Clear the queue and refund players
-        uint256 playersRefunded = 0;
-        uint256 totalRefunded = 0;
-        uint256 queueLength = queueIndex.length;
+        if (skipReset) {
+            // Only set the fee, skip everything else
+            currentEntryFee = newFee;
+            return;
+        }
 
-        for (uint256 i = queueLength; i > 0; i--) {
-            uint256 indexToRemove = i - 1;
-            uint32 playerId = queueIndex[indexToRemove];
+        // --- Proceed only if skipReset is false ---
 
-            if (playerStatus[playerId] == PlayerStatus.QUEUED) {
-                address owner = playerContract.getPlayerOwner(playerId);
-                uint256 refundAmount = oldFee;
-                SafeTransferLib.safeTransferETH(payable(owner), refundAmount);
-                totalRefunded += refundAmount;
+        if (refundPlayers) {
+            // --- Clear queue and refund logic (only if refundPlayers is true) ---
+            uint256 playersRefunded = 0;
+            uint256 totalRefunded = 0;
+            uint256 queueLength = queueIndex.length;
 
-                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
-                delete registrationQueue[playerId];
-                playerStatus[playerId] = PlayerStatus.NONE;
+            // Iterate backwards to handle pop correctly
+            for (uint256 i = queueLength; i > 0; i--) {
+                uint256 indexToRemove = i - 1;
+                uint32 playerId = queueIndex[indexToRemove];
 
-                playersRefunded++;
+                // Check if the player is actually in QUEUED status before refunding/clearing state
+                if (playerStatus[playerId] == PlayerStatus.QUEUED) {
+                    address owner = playerContract.getPlayerOwner(playerId);
+                    uint256 refundAmount = oldFee; // Refund the fee they originally paid
+                    SafeTransferLib.safeTransferETH(payable(owner), refundAmount);
+                    totalRefunded += refundAmount;
+
+                    // Clear player state *only* if they were refunded
+                    delete registrationQueue[playerId];
+                    playerStatus[playerId] = PlayerStatus.NONE;
+                    delete playerIndexInQueue[playerId]; // Ensure mapping is cleared
+
+                    playersRefunded++;
+                }
+                // Always remove from the index array regardless of status,
+                // as the index itself might be invalid if queue length changed drastically.
+                // This requires careful handling of the swap-and-pop within the loop.
+                // A simpler approach is to just pop, but we need the player ID first.
+
+                // Perform swap-and-pop within the loop carefully
+                uint256 lastIdx = queueIndex.length - 1; // Get current last index *inside* loop
+                if (indexToRemove != lastIdx) {
+                    // If we are not removing the last element already
+                    uint32 playerToMove = queueIndex[lastIdx];
+                    queueIndex[indexToRemove] = playerToMove;
+                    // Update the index mapping for the moved player
+                    // Only update if the player being moved has an entry (wasn't already processed/deleted)
+                    if (playerIndexInQueue[playerToMove] != 0) {
+                        playerIndexInQueue[playerToMove] = indexToRemove + 1;
+                    }
+                }
+                // Always pop the last element
+                queueIndex.pop();
+                // Clear the mapping for the player *actually* removed in this iteration (playerId)
+                // This was moved up into the refund block to only clear if refunded
+            }
+
+            // Adjust fee pool
+            if (queuedFeesPool < totalRefunded) {
+                // Should not happen with correct accounting, but safe guard
+                queuedFeesPool = 0;
             } else {
-                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
-                delete registrationQueue[playerId];
+                queuedFeesPool -= totalRefunded;
+            }
+
+            if (playersRefunded > 0) {
+                emit QueueClearedDueToSettingsChange(playersRefunded, totalRefunded);
             }
         }
+        // --- End of refundPlayers block ---
 
-        if (queuedFeesPool < totalRefunded) {
-            queuedFeesPool = 0;
-        } else {
-            queuedFeesPool -= totalRefunded;
-        }
-
+        // Set the new fee regardless of whether refunds happened (if skipReset was false)
         currentEntryFee = newFee;
-
-        if (playersRefunded > 0) {
-            emit QueueClearedDueToSettingsChange(playersRefunded, totalRefunded);
-        }
     }
 
     /// @notice Sets the number of participants required to start a gauntlet.
@@ -685,6 +744,19 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         currentGauntletSize = newSize;
         emit GauntletSizeSet(oldSize, newSize);
+    }
+
+    /// @notice Sets the maximum ID to use for default player substitutions.
+    /// @dev Owner must ensure this ID corresponds to an existing player in DefaultPlayer contract.
+    ///      Must be within the valid range [1, 2000].
+    /// @param _maxId The highest default player ID to consider for substitution.
+    function setMaxDefaultPlayerSubstituteId(uint32 _maxId) external onlyOwner {
+        // Validate against the absolute range defined in DefaultPlayer
+        if (_maxId < 1 || _maxId > 2000) {
+            revert InvalidDefaultPlayerRange(); // Reuse existing error
+        }
+        maxDefaultPlayerSubstituteId = _maxId;
+        emit MaxDefaultPlayerSubstituteIdSet(_maxId);
     }
 
     //==============================================================//
