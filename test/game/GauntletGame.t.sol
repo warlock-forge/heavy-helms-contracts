@@ -19,14 +19,12 @@ import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {DefaultPlayer} from "../../src/fighters/DefaultPlayer.sol";
 import {IDefaultPlayer} from "../../src/interfaces/fighters/IDefaultPlayer.sol";
-// Import custom errors directly
 import {
     AlreadyInQueue,
     CallerNotPlayerOwner,
     PlayerIsRetired,
     GameDisabled,
     PlayerNotInQueue,
-    // Add missing errors from GauntletGame
     NotOffChainRunner,
     InsufficientQueueLength,
     InvalidQueueIndex,
@@ -34,8 +32,12 @@ import {
     InvalidGauntletSize,
     QueueNotEmpty,
     GauntletDoesNotExist,
-    IncorrectEntryFee
-} from "../../src/game/modes/GauntletGame.sol";
+    IncorrectEntryFee,
+    TimeoutNotReached,
+    NoFeesToWithdraw,
+    GauntletNotPending
+} // Also used in recoverTimedOutVRF checks
+from "../../src/game/modes/GauntletGame.sol";
 import {ZeroAddress} from "../../src/game/modes/BaseGame.sol"; // Import ZeroAddress from BaseGame
 
 contract GauntletGameTest is TestBase {
@@ -1599,6 +1601,64 @@ contract GauntletGameTest is TestBase {
         }
     }
 
+    function testRevertWhen_RecoverTimedOutVRF_TimeoutNotReached() public {
+        uint8 gauntletSize = game.currentGauntletSize();
+        uint256 entryFee = game.currentEntryFee();
+
+        // 1. Queue players and start the gauntlet
+        (uint32[] memory participantIds,) = _queuePlayers(gauntletSize);
+        uint32[] memory selectedIds = new uint32[](gauntletSize);
+        uint256[] memory selectedIndices = new uint256[](gauntletSize);
+        for (uint8 i = 0; i < gauntletSize; i++) {
+            selectedIds[i] = game.queueIndex(i);
+            selectedIndices[i] = game.playerIndexInQueue(selectedIds[i]) - 1;
+        }
+        vm.prank(OFF_CHAIN_RUNNER);
+        game.startGauntletFromQueue(selectedIds, selectedIndices);
+        uint256 gauntletId = 0; // First gauntlet
+
+        // 2. Record state (ensure it's PENDING)
+        GauntletGame.Gauntlet memory gauntletData = game.getGauntletData(gauntletId);
+        assertEq(uint8(gauntletData.state), uint8(GauntletGame.GauntletState.PENDING));
+
+        // 3. Try to recover *before* timeout
+        uint256 timeout = game.vrfRequestTimeout();
+        assertTrue(timeout > 0); // Ensure timeout is positive
+        // No need to warp time forward
+
+        // 4. Attempt recovery (should fail)
+        vm.prank(game.owner()); // Or any address, as access is public but timeout check fails first
+        vm.expectRevert(TimeoutNotReached.selector);
+        game.recoverTimedOutVRF(gauntletId);
+    }
+
+    function testRevertWhen_RecoverTimedOutVRF_NotPending() public {
+        uint8 gauntletSize = 8; // Use smaller size
+        vm.prank(game.owner());
+        game.setGauntletSize(gauntletSize);
+
+        // 1. Setup and Start Gauntlet
+        (uint256 gauntletId, uint256 vrfRequestId, uint256 vrfRoundId,,) = _setupAndStartGauntlet(gauntletSize);
+
+        // 2. Fulfill randomness to complete the gauntlet
+        uint256 randomnessFromBlock =
+            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
+        bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
+        vm.prank(operator);
+        game.fulfillRandomness(randomnessFromBlock, dataWithRound);
+        vm.stopPrank();
+
+        // 3. Verify Gauntlet is COMPLETED
+        GauntletGame.Gauntlet memory completedGauntlet = game.getGauntletData(gauntletId);
+        assertEq(uint8(completedGauntlet.state), uint8(GauntletGame.GauntletState.COMPLETED));
+
+        // 4. Attempt recovery on completed gauntlet
+        vm.warp(block.timestamp + game.vrfRequestTimeout() + 1); // Ensure timeout is passed
+        vm.prank(game.owner()); // Or any address
+        vm.expectRevert(GauntletNotPending.selector);
+        game.recoverTimedOutVRF(gauntletId);
+    }
+
     //==============================================================//
     //                 ADMIN FUNCTION TESTS                       //
     //==============================================================//
@@ -1672,7 +1732,8 @@ contract GauntletGameTest is TestBase {
     function testRevertWhen_WithdrawFees_NoFees() public {
         assertEq(game.contractFeesCollected(), 0, "Initial fees should be zero");
         vm.prank(game.owner());
-        vm.expectRevert("No fees to withdraw"); // Using revert string as no custom error defined
+        // --- MODIFIED REVERT CHECK ---
+        vm.expectRevert(NoFeesToWithdraw.selector); // Use the custom error selector
         game.withdrawFees();
     }
 
