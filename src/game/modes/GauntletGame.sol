@@ -27,20 +27,13 @@ import "../../interfaces/fighters/IDefaultPlayer.sol";
 //==============================================================//
 error GauntletDoesNotExist();
 error PlayerNotInQueue();
-error QueueFull();
 error AlreadyInQueue();
 error PlayerIsRetired();
 error InvalidLoadout();
 error InvalidSkin();
 error CallerNotPlayerOwner();
 error GauntletNotPending();
-error GauntletNotCompletable();
-error InvalidStateForAction();
 error GameDisabled();
-error NotOffChainRunner();
-error InsufficientQueueLength();
-error InvalidPlayerSelection();
-error InvalidQueueIndex();
 error InvalidGauntletSize(uint8 size);
 error QueueNotEmpty();
 error IncorrectEntryFee(uint256 expected, uint256 actual);
@@ -117,16 +110,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
 
     // --- Configuration & Roles ---
-    /// @notice Address authorized to start Gauntlets from the queue.
-    address public offChainRunner;
     /// @notice Contract managing default player data.
     IDefaultPlayer public defaultPlayerContract;
-    /// @notice Address of the Gelato VRF operator contract.
     address private immutable _operatorAddress;
-    /// @notice Timeout period in seconds after which a VRF request can be recovered.
     uint256 public vrfRequestTimeout = 4 hours;
-    /// @notice Game enabled state; controls `queueForGauntlet`.
     bool public isGameEnabled = true;
+    uint256 public minTimeBetweenGauntlets = 30 minutes;
+    uint256 public lastGauntletStartTime;
 
     // --- Dynamic Settings ---
     /// @notice Current entry fee in wei required to join the queue.
@@ -192,8 +182,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event GauntletRecovered(uint256 indexed gauntletId);
     /// @notice Emitted when the contract owner withdraws accumulated fees.
     event FeesWithdrawn(uint256 amount);
-    /// @notice Emitted when the off-chain runner address is updated.
-    event OffChainRunnerSet(address indexed newRunner);
     /// @notice Emitted when the default player contract address is updated.
     event DefaultPlayerContractSet(address indexed newContract);
     /// @notice Emitted when the Gauntlet entry fee is changed.
@@ -204,6 +192,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
     /// @notice Emitted when the maximum default player ID for substitutions is updated.
     event MaxDefaultPlayerSubstituteIdSet(uint32 newMaxId);
+    /// @notice Emitted when the minimum time required between starting gauntlets is updated.
+    event MinTimeBetweenGauntletsSet(uint256 newMinTime);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
@@ -215,12 +205,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         _;
     }
 
-    /// @notice Ensures the caller is the authorized off-chain runner. Reverts with `NotOffChainRunner` otherwise.
-    modifier onlyOffChainRunnerCheck() {
-        if (msg.sender != offChainRunner) revert NotOffChainRunner();
-        _;
-    }
-
     //==============================================================//
     //                       CONSTRUCTOR                            //
     //==============================================================//
@@ -229,31 +213,26 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param _playerContract Address of the `Player` contract.
     /// @param _defaultPlayerAddress Address of the `DefaultPlayer` contract.
     /// @param _operatorAddr Address of the Gelato VRF operator.
-    /// @param _initialRunner Address of the initial off-chain runner.
-    constructor(
-        address _gameEngine,
-        address _playerContract,
-        address _defaultPlayerAddress,
-        address _operatorAddr,
-        address _initialRunner
-    ) BaseGame(_gameEngine, _playerContract) GelatoVRFConsumerBase() {
+    constructor(address _gameEngine, address _playerContract, address _defaultPlayerAddress, address _operatorAddr)
+        BaseGame(_gameEngine, _playerContract)
+        GelatoVRFConsumerBase()
+    {
         // Input validation
         if (_operatorAddr == address(0)) revert ZeroAddress();
-        if (_initialRunner == address(0)) revert ZeroAddress();
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
         if (maxDefaultPlayerSubstituteId == 0) revert InvalidDefaultPlayerRange(); // Ensure initial value is valid
 
         // Set immutable/initial state
         _operatorAddress = _operatorAddr;
-        offChainRunner = _initialRunner;
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
+        lastGauntletStartTime = block.timestamp; // Initialize to deployment time
 
         // Emit initial settings (optional, but good practice)
-        emit OffChainRunnerSet(_initialRunner);
         emit DefaultPlayerContractSet(_defaultPlayerAddress);
         emit EntryFeeSet(0, currentEntryFee);
         emit GauntletSizeSet(0, currentGauntletSize);
         emit MaxDefaultPlayerSubstituteIdSet(maxDefaultPlayerSubstituteId);
+        emit MinTimeBetweenGauntletsSet(minTimeBetweenGauntlets);
     }
 
     //==============================================================//
@@ -338,65 +317,90 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     //==============================================================//
-    //                 GAUNTLET LIFECYCLE (Runner Triggered)        //
+    //                 GAUNTLET LIFECYCLE (Triggered Externally)    //
     //==============================================================//
 
-    /// @notice Starts a new Gauntlet run using players selected from the queue.
-    /// @dev Callable only by the trusted `offChainRunner`. Removes selected players from the queue and requests VRF randomness.
-    /// @param selectedPlayerIds Array of player IDs chosen by the runner (must match `currentGauntletSize`).
-    /// @param selectedPlayerIndices The current 0-based indices of these players in the `queueIndex` array.
-    function startGauntletFromQueue(uint32[] calldata selectedPlayerIds, uint256[] calldata selectedPlayerIndices)
-        external
-        onlyOffChainRunnerCheck
-        nonReentrant
-    {
+    /// @notice Attempts to start a new Gauntlet if enough time has passed and the queue has enough players.
+    /// @dev Callable by anyone (e.g., Gelato Automation). Randomly selects N players from the queue using
+    ///      pseudo-randomness derived from block variables. Uses swap-and-pop to remove selected players efficiently.
+    ///      WARNING: Random selection and removal can be more gas-intensive than FIFO, especially with large queues.
+    function tryStartGauntlet() external whenGameEnabled nonReentrant {
         // Checks
+        if (block.timestamp < lastGauntletStartTime + minTimeBetweenGauntlets) {
+            return; // Silently exit if not enough time has passed
+        }
         uint8 size = currentGauntletSize;
-        uint256 fee = currentEntryFee;
-        if (queueIndex.length < size) revert InsufficientQueueLength();
-        if (selectedPlayerIds.length != size) revert InvalidPlayerSelection();
-        if (selectedPlayerIndices.length != size) revert InvalidPlayerSelection();
+        uint256 currentQueueSize = queueIndex.length;
+        if (currentQueueSize < size) {
+            return; // Silently exit if queue isn't large enough
+        }
 
-        // Effects - Prepare Gauntlet struct
+        // --- Condition met, proceed to start Gauntlet ---
+
+        // Effects - Update timing
+        lastGauntletStartTime = block.timestamp; // Prevent re-entry immediately
+
+        // --- Randomly Select Participants ---
+        uint32[] memory selectedPlayerIds = new uint32[](size);
+        RegisteredPlayer[] memory participantsData = new RegisteredPlayer[](size);
+        uint32[] memory availableQueue = new uint32[](currentQueueSize); // Copy queue for selection
+        for (uint256 i = 0; i < currentQueueSize; i++) {
+            availableQueue[i] = queueIndex[i];
+        }
+
+        // Generate pseudo-random seed for selection
+        uint256 selectionSeed =
+            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, address(this), currentQueueSize)));
+        uint256 remainingToSelect = currentQueueSize; // Track size of availableQueue effectively
+
+        for (uint256 i = 0; i < size; i++) {
+            selectionSeed = uint256(keccak256(abi.encodePacked(selectionSeed, i))); // Evolve seed
+            uint256 randomIndex = selectionSeed % remainingToSelect; // Index within the *remaining* available players
+
+            uint32 selectedPlayerId = availableQueue[randomIndex];
+            selectedPlayerIds[i] = selectedPlayerId;
+
+            // Store participant data in memory
+            participantsData[i] =
+                RegisteredPlayer({playerId: selectedPlayerId, loadout: registrationQueue[selectedPlayerId]});
+
+            // Remove selected player from available pool using swap-and-pop for the *temporary* array
+            availableQueue[randomIndex] = availableQueue[remainingToSelect - 1];
+            remainingToSelect--; // Decrease the effective size
+        }
+        // `selectedPlayerIds` and `participantsData` now hold the randomly chosen participants
+
+        // --- Prepare Gauntlet Struct ---
         uint256 gauntletId = nextGauntletId++;
+        uint256 fee = currentEntryFee; // Load into memory
+
         Gauntlet storage newGauntlet = gauntlets[gauntletId];
         newGauntlet.id = gauntletId;
         newGauntlet.size = size;
         newGauntlet.entryFee = fee;
         newGauntlet.state = GauntletState.PENDING;
-        newGauntlet.participants = new RegisteredPlayer[](size); // Initialize dynamic array
+        // Participants assigned *after* removal from main queue
 
-        RegisteredPlayer[] memory participantsData = new RegisteredPlayer[](size); // Temporary memory array
-
-        // Process selections (iterate backwards for safe removal during iteration)
-        for (uint256 i = size; i > 0; i--) {
-            uint256 selectionIndex = i - 1; // 0-based index into selected arrays
-            uint32 playerId = selectedPlayerIds[selectionIndex];
-            uint256 playerArrayIndex = selectedPlayerIndices[selectionIndex]; // 0-based index in queueIndex
-
-            // Validate selection against current queue state
-            if (playerArrayIndex >= queueIndex.length) revert InvalidQueueIndex();
-            if (queueIndex[playerArrayIndex] != playerId) revert InvalidPlayerSelection();
-            if (playerStatus[playerId] != PlayerStatus.QUEUED) revert InvalidPlayerSelection(); // Should be QUEUED
-
-            // Store participant data
-            participantsData[selectionIndex] =
-                RegisteredPlayer({playerId: playerId, loadout: registrationQueue[playerId]});
-
-            // Remove player from queue (handles swap-and-pop) and update status
-            _removePlayerFromQueueArrayIndexWithIndex(playerId, playerArrayIndex);
-            delete registrationQueue[playerId];
-            playerStatus[playerId] = PlayerStatus.IN_GAUNTLET;
-            playerCurrentGauntlet[playerId] = gauntletId;
-        }
-
-        // Copy participant data from memory to storage
+        // --- Remove Selected Participants from Actual Queue & Update State ---
+        // Now remove the *actually selected* players from the main queue structures
         for (uint256 i = 0; i < size; i++) {
-            newGauntlet.participants[i] = participantsData[i];
+            uint32 playerIdToRemove = selectedPlayerIds[i];
+
+            // Remove player from main queueIndex array & playerIndexInQueue mapping
+            // This helper handles the necessary swap-and-pop on the *actual* queueIndex
+            _removePlayerFromQueueArrayIndex(playerIdToRemove);
+
+            // Clear registration data and update status
+            delete registrationQueue[playerIdToRemove];
+            playerStatus[playerIdToRemove] = PlayerStatus.IN_GAUNTLET;
+            playerCurrentGauntlet[playerIdToRemove] = gauntletId;
         }
 
-        // Request VRF Randomness
-        newGauntlet.vrfRequestTimestamp = block.timestamp;
+        // Assign selected participants to storage now that removals are done
+        newGauntlet.participants = participantsData;
+
+        // --- Request VRF Randomness ---
+        newGauntlet.vrfRequestTimestamp = block.timestamp; // Record timestamp *before* request
         uint256 requestId = _requestRandomness(""); // Request randomness from Gelato VRF
         requestToGauntletId[requestId] = gauntletId; // Link VRF request to this gauntlet
         newGauntlet.vrfRequestId = requestId;
@@ -592,22 +596,25 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             }
         }
 
-        // Interactions: Distribute prize money
+        // Interactions: Distribute prize money & Prepare event data
+        uint256 prizeAwardedForEvent = 0; // Default to 0 for event
         if (winnerPayout > 0) {
             Fighter.FighterType winnerType = _getFighterType(finalWinnerId);
             if (winnerType == Fighter.FighterType.DEFAULT_PLAYER) {
                 // If default player wins, add payout to contract fees
                 contractFeesCollected += winnerPayout;
+                // prizeAwardedForEvent remains 0
             } else if (winnerType == Fighter.FighterType.PLAYER) {
                 // If regular player wins, pay out to their owner
                 address payable winnerOwner = payable(playerContract.getPlayerOwner(finalWinnerId));
                 SafeTransferLib.safeTransferETH(winnerOwner, winnerPayout);
+                prizeAwardedForEvent = winnerPayout; // Set actual prize for event
             }
-            // Else (e.g., MONSTER type if supported) - no payout
+            // Else (e.g., MONSTER type if supported) - no payout, prizeAwardedForEvent remains 0
         }
 
-        // Interaction: Emit final completion event
-        emit GauntletCompleted(gauntletId, size, entryFee, finalWinnerId, winnerPayout, feeAmount);
+        // Interaction: Emit final completion event using calculated prize for event
+        emit GauntletCompleted(gauntletId, size, entryFee, finalWinnerId, prizeAwardedForEvent, feeAmount);
     }
 
     //==============================================================//
@@ -689,14 +696,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
     //==============================================================//
-    /// @notice Updates the address authorized to start Gauntlets.
-    /// @param newRunner The address of the new off-chain runner.
-    function setOffChainRunner(address newRunner) external onlyOwner {
-        if (newRunner == address(0)) revert ZeroAddress();
-        offChainRunner = newRunner;
-        emit OffChainRunnerSet(newRunner);
-    }
-
     /// @notice Allows the owner to withdraw accumulated contract fees.
     function withdrawFees() external onlyOwner nonReentrant {
         uint256 amount = contractFeesCollected;
@@ -746,8 +745,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                 // Refund actual players (not default placeholders)
                 if (_getFighterType(pId) == Fighter.FighterType.PLAYER) {
                     address playerOwner = playerContract.getPlayerOwner(pId);
-                    // Interaction: Refund (best effort, continues if transfer fails)
-                    payable(playerOwner).send(entryFee); // Use send for recovery to avoid blocking
+                    // Interaction: Refund (Use SafeTransferLib)
+                    SafeTransferLib.safeTransferETH(playerOwner, entryFee);
                 }
                 // Effects: Clean up player state regardless of refund success
                 playerStatus[pId] = PlayerStatus.NONE;
@@ -804,8 +803,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                     address playerOwner = playerContract.getPlayerOwner(playerId);
                     uint256 refundAmount = oldFee; // Refund the fee they originally paid
 
-                    // Interaction: Refund (Best effort - use send in case of issues)
-                    payable(playerOwner).send(refundAmount);
+                    // Interaction: Refund (Use SafeTransferLib)
+                    SafeTransferLib.safeTransferETH(playerOwner, refundAmount);
                     totalRefunded += refundAmount;
 
                     // Effects: Clear player state *only* if they were QUEUED and processed
@@ -874,6 +873,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Effect & Interaction
         maxDefaultPlayerSubstituteId = _maxId;
         emit MaxDefaultPlayerSubstituteIdSet(_maxId);
+    }
+
+    /// @notice Sets the minimum time required between starting gauntlets.
+    /// @param newMinTime The new minimum time in seconds.
+    function setMinTimeBetweenGauntlets(uint256 newMinTime) external onlyOwner {
+        // Optional: Add reasonable bounds check if desired (e.g., require(newMinTime >= 60 seconds))
+        minTimeBetweenGauntlets = newMinTime;
+        emit MinTimeBetweenGauntletsSet(newMinTime);
     }
 
     //==============================================================//
