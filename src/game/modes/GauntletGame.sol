@@ -41,6 +41,8 @@ error InvalidDefaultPlayerRange();
 error TimeoutNotReached();
 error NoFeesToWithdraw();
 error UnsupportedPlayerId();
+error InsufficientQueueSize(uint256 current, uint8 required);
+error MinTimeNotElapsed();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -326,13 +328,16 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     ///      WARNING: Random selection and removal can be more gas-intensive than FIFO, especially with large queues.
     function tryStartGauntlet() external whenGameEnabled nonReentrant {
         // Checks
-        if (block.timestamp < lastGauntletStartTime + minTimeBetweenGauntlets) {
-            return; // Silently exit if not enough time has passed
+        uint256 requiredTime = lastGauntletStartTime + minTimeBetweenGauntlets;
+        if (block.timestamp < requiredTime) {
+            // REVERT instead of return
+            revert MinTimeNotElapsed();
         }
         uint8 size = currentGauntletSize;
         uint256 currentQueueSize = queueIndex.length;
         if (currentQueueSize < size) {
-            return; // Silently exit if queue isn't large enough
+            // REVERT instead of return
+            revert InsufficientQueueSize(currentQueueSize, size);
         }
 
         // --- Condition met, proceed to start Gauntlet ---

@@ -31,7 +31,9 @@ import {
     IncorrectEntryFee,
     TimeoutNotReached,
     NoFeesToWithdraw,
-    GauntletNotPending
+    GauntletNotPending,
+    InsufficientQueueSize,
+    MinTimeNotElapsed
 } // Also used in recoverTimedOutVRF checks
 from "../../src/game/modes/GauntletGame.sol";
 import {ZeroAddress} from "../../src/game/modes/BaseGame.sol"; // Import ZeroAddress from BaseGame
@@ -653,14 +655,14 @@ contract GauntletGameTest is TestBase {
     // Test that tryStartGauntlet doesn't run if queue is too small
     function testTryStartGauntlet_InsufficientPlayers() public {
         uint8 gauntletSize = game.currentGauntletSize();
-        _queuePlayers(gauntletSize - 1); // Queue one less than needed
+        uint256 playersToQueue = gauntletSize - 1; // Queue one less than needed
+        _queuePlayers(playersToQueue);
 
-        uint256 gauntletIdBefore = game.nextGauntletId();
         _warpPastMinInterval();
-        game.tryStartGauntlet(); // Should return early
 
-        assertEq(game.nextGauntletId(), gauntletIdBefore, "Gauntlet should not have started");
-        assertEq(game.getQueueSize(), gauntletSize - 1, "Queue size should remain unchanged");
+        // Expect revert with specific error and arguments - REMOVE GauntletGame. prefix
+        vm.expectRevert(abi.encodeWithSelector(InsufficientQueueSize.selector, playersToQueue, gauntletSize));
+        game.tryStartGauntlet(); // Should revert now
     }
 
     // Test that tryStartGauntlet doesn't run if not enough time has passed
@@ -668,27 +670,12 @@ contract GauntletGameTest is TestBase {
         uint8 gauntletSize = game.currentGauntletSize();
         _queuePlayers(gauntletSize); // Queue enough players
 
-        uint256 gauntletIdBefore = game.nextGauntletId();
         // DO NOT warp time forward
-        game.tryStartGauntlet(); // Should return early
 
-        assertEq(game.nextGauntletId(), gauntletIdBefore, "Gauntlet should not have started due to time");
-        assertEq(game.getQueueSize(), gauntletSize, "Queue size should remain unchanged");
+        vm.expectRevert(MinTimeNotElapsed.selector);
+        game.tryStartGauntlet(); // Should revert now
     }
 
-    // These tests are no longer applicable as tryStartGauntlet selects first N
-    // function testRevertWhen_StartGauntlet_InvalidIndex() public { ... }
-    // function testRevertWhen_StartGauntlet_MismatchedSelection() public { ... }
-
-    // This scenario is covered by testTryStartGauntlet_InsufficientPlayers
-    // function testRevertWhen_StartGauntlet_PlayerNotInQueueStatus() public { ... }
-
-    // Remove runner admin tests
-    // function testAdmin_SetOffChainRunner() public { ... }
-    // function testRevertWhen_SetOffChainRunner_NotOwner() public { ... }
-    // function testRevertWhen_SetOffChainRunner_ZeroAddress() public { ... }
-
-    // Add test for new time setting admin function
     function testAdmin_SetMinTimeBetweenGauntlets() public {
         uint256 initialTime = game.minTimeBetweenGauntlets();
         uint256 newTime = initialTime * 2; // Example new time
