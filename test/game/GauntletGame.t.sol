@@ -74,6 +74,8 @@ contract GauntletGameTest is TestBase {
     event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
     // ADDED: Event for new timing setting
     event MinTimeBetweenGauntletsSet(uint256 newMinTime);
+    event QueueClearedDueToGameDisabled(uint256 playersRefunded, uint256 totalRefunded);
+    event GameEnabledUpdated(bool gameEnabled);
 
     // Add this receive function to allow the test contract (owner) to receive ETH
     receive() external payable {}
@@ -458,8 +460,14 @@ contract GauntletGameTest is TestBase {
 
     function testTryStartGauntlet_Success_Size8() public {
         uint8 targetSize = 8;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(targetSize); // Set the size first
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 8");
         uint256 entryFee = game.currentEntryFee();
@@ -524,8 +532,14 @@ contract GauntletGameTest is TestBase {
 
     function testTryStartGauntlet_Success_Size32() public {
         uint8 targetSize = 32;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(targetSize); // Set the size first
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 32");
         uint256 entryFee = game.currentEntryFee();
@@ -714,100 +728,23 @@ contract GauntletGameTest is TestBase {
         assertEq(game.minTimeBetweenGauntlets(), initialTime, "Min time changed by non-owner");
     }
 
-    function testSetEntryFee_ClearsQueueAndRefundsCorrectly() public {
-        // FIX: Set a non-zero fee initially for this test
-        uint256 initialTestFee = 0.001 ether;
-        vm.prank(game.owner());
-        game.setEntryFee(initialTestFee, false, false); // Set fee, don't skip reset yet
-        uint256 oldFee = game.currentEntryFee();
-        assertEq(oldFee, initialTestFee, "Test setup failed: initial fee not set");
-        // require(oldFee > 0, "Initial fee is zero, cannot test refund properly"); // Original check removed
-
-        // Queue players
-        uint256 playerCount = 2;
-        Fighter.PlayerLoadout memory loadoutP1 = _createLoadout(PLAYER_ONE_ID);
-        Fighter.PlayerLoadout memory loadoutP2 = _createLoadout(PLAYER_TWO_ID);
-
-        vm.startPrank(PLAYER_ONE);
-        game.queueForGauntlet{value: oldFee}(loadoutP1);
-        vm.stopPrank();
-        vm.startPrank(PLAYER_TWO);
-        game.queueForGauntlet{value: oldFee}(loadoutP2);
-        vm.stopPrank();
-
-        uint256 balanceOneBefore = PLAYER_ONE.balance;
-        uint256 balanceTwoBefore = PLAYER_TWO.balance;
-        uint256 poolBefore = game.queuedFeesPool();
-        assertEq(poolBefore, oldFee * playerCount, "Pool balance mismatch before fee change");
-        assertEq(game.getQueueSize(), playerCount, "Queue size mismatch before fee change");
-
-        // Change fee
-        uint256 newFee = oldFee * 2;
-        uint256 expectedTotalRefund = oldFee * playerCount;
-
-        vm.prank(game.owner());
-        vm.expectEmit(true, false, false, true);
-        emit EntryFeeSet(oldFee, newFee);
-        vm.expectEmit(true, false, false, true);
-        emit QueueClearedDueToSettingsChange(playerCount, expectedTotalRefund);
-        game.setEntryFee(newFee, true, false); // refundPlayers=true, skipReset=false
-
-        // Verify state after change
-        assertEq(game.currentEntryFee(), newFee, "New fee not set correctly");
-        assertEq(game.getQueueSize(), 0, "Queue not cleared");
-        assertEq(game.queuedFeesPool(), 0, "Fee pool not cleared/zeroed");
-        assertEq(PLAYER_ONE.balance, balanceOneBefore + oldFee, "Player one not refunded correctly");
-        assertEq(PLAYER_TWO.balance, balanceTwoBefore + oldFee, "Player two not refunded correctly");
-        assertEq(
-            uint8(game.playerStatus(PLAYER_ONE_ID)),
-            uint8(GauntletGame.PlayerStatus.NONE),
-            "Player one status not reset"
-        );
-        assertEq(
-            uint8(game.playerStatus(PLAYER_TWO_ID)),
-            uint8(GauntletGame.PlayerStatus.NONE),
-            "Player two status not reset"
-        );
-        assertEq(game.playerIndexInQueue(PLAYER_ONE_ID), 0, "Player one index not cleared");
-        assertEq(game.playerIndexInQueue(PLAYER_TWO_ID), 0, "Player two index not cleared");
-
-        // Verify queuing with new fee
-        vm.startPrank(PLAYER_ONE);
-        // Test queuing with the old fee (should fail)
-        Fighter.PlayerLoadout memory attemptLoadout = _createLoadout(PLAYER_ONE_ID);
-        vm.expectRevert(abi.encodeWithSelector(IncorrectEntryFee.selector, newFee, oldFee));
-        game.queueForGauntlet{value: oldFee}(attemptLoadout); // Pass the pre-calculated loadout
-        vm.stopPrank(); // Stop prank before next attempt
-
-        // Test queuing with the new fee (should succeed)
-        vm.startPrank(PLAYER_ONE);
-        vm.expectEmit(true, true, false, true);
-        emit PlayerQueued(PLAYER_ONE_ID, 1, newFee);
-        game.queueForGauntlet{value: newFee}(attemptLoadout);
-        assertEq(game.getQueueSize(), 1, "Failed to queue with new fee");
-        vm.stopPrank();
-    }
-
     function testSetEntryFee_NoChangeWhenFeeIsSame() public {
         uint256 currentFee = game.currentEntryFee();
-        vm.startPrank(PLAYER_ONE);
-        game.queueForGauntlet{value: currentFee}(_createLoadout(PLAYER_ONE_ID));
-        vm.stopPrank();
-
-        assertEq(game.getQueueSize(), 1, "Player not queued initially");
+        // Disable game first
+        vm.prank(game.owner());
+        game.setGameEnabled(false);
 
         vm.prank(game.owner());
         vm.recordLogs();
-        game.setEntryFee(currentFee, false, false); // Flags don't matter here as fee is same, but needed for compilation
+        game.setEntryFee(currentFee); // CORRECTED: Call with 1 arg
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
+        // Re-enable game
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
         assertEq(entries.length, 0, "Events emitted when fee was not changed");
-        assertEq(game.getQueueSize(), 1, "Queue size changed unexpectedly");
-        assertEq(
-            uint8(game.playerStatus(PLAYER_ONE_ID)),
-            uint8(GauntletGame.PlayerStatus.QUEUED),
-            "Player status changed unexpectedly"
-        );
+        assertEq(game.currentEntryFee(), currentFee, "Fee changed unexpectedly");
     }
 
     function testSetGauntletSize_Success() public {
@@ -815,70 +752,92 @@ contract GauntletGameTest is TestBase {
         uint8 newSize8 = 8;
         uint8 newSize32 = 32;
 
+        // Disable game
         vm.prank(game.owner());
-        assertEq(game.getQueueSize(), 0, "Queue should be empty initially");
+        game.setGameEnabled(false);
+        assertFalse(game.isGameEnabled());
 
-        // Set to 8
+        vm.prank(game.owner());
+        assertEq(game.getQueueSize(), 0, "Queue should be empty after disabling");
+
+        // Set to 8 (if different)
+        vm.prank(game.owner());
         if (initialSize != newSize8) {
             vm.expectEmit(true, false, false, true);
             emit GauntletSizeSet(initialSize, newSize8);
             game.setGauntletSize(newSize8);
         } else {
             vm.recordLogs();
-            game.setGauntletSize(newSize8); // Call it anyway
+            game.setGauntletSize(newSize8);
             Vm.Log[] memory entries = vm.getRecordedLogs();
-            assertEq(entries.length, 0, "Event emitted when setting same size");
+            assertEq(entries.length, 0, "Event emitted when setting same size 8");
         }
         assertEq(game.currentGauntletSize(), newSize8, "Failed to set size to 8");
 
         // Set to 32
+        vm.prank(game.owner());
         vm.expectEmit(true, false, false, true);
-        emit GauntletSizeSet(newSize8, newSize32); // Expect emit from 8 to 32
+        emit GauntletSizeSet(newSize8, newSize32);
         game.setGauntletSize(newSize32);
         assertEq(game.currentGauntletSize(), newSize32, "Failed to set size to 32");
 
-        // Set back to initial (optional, only if different from 32)
-        if (initialSize != newSize32) {
-            vm.expectEmit(true, false, false, true);
-            emit GauntletSizeSet(newSize32, initialSize);
-            game.setGauntletSize(initialSize);
-            assertEq(game.currentGauntletSize(), initialSize, "Failed to set size back to initial");
-        }
-    }
-
-    function testRevertWhen_SetGauntletSize_QueueNotEmpty() public {
-        uint256 fee = game.currentEntryFee();
-        vm.startPrank(PLAYER_ONE);
-        game.queueForGauntlet{value: fee}(_createLoadout(PLAYER_ONE_ID));
-        vm.stopPrank();
-
-        assertEq(game.getQueueSize(), 1, "Player not queued");
-
+        // Re-enable game
         vm.prank(game.owner());
-        uint8 currentSize = game.currentGauntletSize();
-        uint8 targetSize = currentSize == 8 ? 16 : 8; // Pick a different valid size
-        vm.expectRevert(QueueNotEmpty.selector);
-        game.setGauntletSize(targetSize);
+        game.setGameEnabled(true);
+        assertTrue(game.isGameEnabled());
     }
 
     function testRevertWhen_SetGauntletSize_InvalidSize() public {
+        // Disable game
+        vm.prank(game.owner());
+        game.setGameEnabled(false);
+        assertFalse(game.isGameEnabled());
+
         vm.prank(game.owner());
 
-        // Test size 0
         vm.expectRevert(abi.encodeWithSelector(InvalidGauntletSize.selector, 0));
         game.setGauntletSize(0);
-
-        // Test size 10
         vm.expectRevert(abi.encodeWithSelector(InvalidGauntletSize.selector, 10));
         game.setGauntletSize(10);
-
-        // Test size 17
         vm.expectRevert(abi.encodeWithSelector(InvalidGauntletSize.selector, 17));
         game.setGauntletSize(17);
-
-        // Test size 33
         vm.expectRevert(abi.encodeWithSelector(InvalidGauntletSize.selector, 33));
         game.setGauntletSize(33);
+
+        // Re-enable game
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+    }
+
+    // --- ADDED TESTS for new revert conditions ---
+    function testRevertWhen_SetEntryFee_GameEnabled() public {
+        uint256 currentFee = game.currentEntryFee();
+        uint256 newFee = currentFee + 1 ether;
+
+        // Ensure game is enabled
+        vm.prank(game.owner());
+        game.setGameEnabled(true); // Ensure it's enabled if it wasn't
+        assertTrue(game.isGameEnabled(), "Setup fail: Game should be enabled");
+
+        // Attempt to set fee while enabled
+        vm.prank(game.owner());
+        vm.expectRevert("Game must be disabled to change entry fee");
+        game.setEntryFee(newFee);
+    }
+
+    function testRevertWhen_SetGauntletSize_GameEnabled() public {
+        uint8 currentSize = game.currentGauntletSize();
+        uint8 newSize = currentSize == 8 ? 16 : 8; // Pick a different valid size
+
+        // Ensure game is enabled
+        vm.prank(game.owner());
+        game.setGameEnabled(true); // Ensure it's enabled if it wasn't
+        assertTrue(game.isGameEnabled(), "Setup fail: Game should be enabled");
+
+        // Attempt to set size while enabled
+        vm.prank(game.owner());
+        vm.expectRevert("Game must be disabled to change gauntlet size");
+        game.setGauntletSize(newSize);
     }
 
     //==============================================================//
@@ -1170,8 +1129,14 @@ contract GauntletGameTest is TestBase {
     // ADDED: New test case for size 4
     function testFulfillRandomness_CompletesGauntlet_Size4() public {
         uint8 targetSize = 4;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(targetSize); // Set the size first
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 4");
 
@@ -1242,8 +1207,14 @@ contract GauntletGameTest is TestBase {
 
     function testFulfillRandomness_CompletesGauntlet_Size8() public {
         uint8 targetSize = 8;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(targetSize); // Set the size first
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 8");
 
@@ -1314,8 +1285,14 @@ contract GauntletGameTest is TestBase {
 
     function testFulfillRandomness_CompletesGauntlet_Size32() public {
         uint8 targetSize = 32;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(targetSize); // Set the size first
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 32");
 
@@ -1460,9 +1437,16 @@ contract GauntletGameTest is TestBase {
     }
 
     function testRevertWhen_RecoverTimedOutVRF_NotPending() public {
-        uint8 gauntletSize = 8; // Use smaller size
+        uint8 targetSize = 8; // Use smaller size
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(gauntletSize);
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
+        uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
 
         // 1. Setup and Start Gauntlet
         (uint256 gauntletId, uint256 vrfRequestId, uint256 vrfRoundId,,) = _setupAndStartGauntlet(gauntletSize);
@@ -1495,15 +1479,23 @@ contract GauntletGameTest is TestBase {
         // FIX: Explicitly set a non-zero fee for this helper's purpose
         uint256 feeForGeneration = 0.0001 ether;
         uint256 initialFee = game.currentEntryFee(); // Store original fee
+        bool wasInitiallyEnabled = game.isGameEnabled();
+
+        // --- Disable, Set Fee, Enable ---
+        if (wasInitiallyEnabled) {
+            vm.prank(game.owner());
+            game.setGameEnabled(false);
+        }
         vm.prank(game.owner());
-        // Use skipReset=true to avoid clearing queue if any exists (unlikely but safer)
-        game.setEntryFee(feeForGeneration, false, true);
+        game.setEntryFee(feeForGeneration); // CORRECTED: Call with 1 arg
+        assertEq(game.currentEntryFee(), feeForGeneration, "Helper fee not set");
+        vm.prank(game.owner());
+        game.setGameEnabled(true); // Always enable to run the gauntlet
+        // --- End Disable/Enable block ---
 
         uint8 gauntletSize = game.currentGauntletSize();
-        uint256 entryFee = game.currentEntryFee(); // Should be feeForGeneration
-        assertEq(entryFee, feeForGeneration, "Helper fee not set"); // Add check
-
-        uint256 initialContractFees = game.contractFeesCollected(); // Fees before running the gauntlet
+        uint256 entryFee = game.currentEntryFee();
+        uint256 initialContractFees = game.contractFeesCollected();
 
         // Start gauntlet using helper, passing the fee
         (
@@ -1522,12 +1514,18 @@ contract GauntletGameTest is TestBase {
         game.fulfillRandomness(randomnessFromBlock, dataWithRound);
         vm.stopPrank(); // Stop operator prank
 
-        // Calculate fees collected *during this specific gauntlet*
         collectedFees = game.contractFeesCollected() - initialContractFees;
 
-        // FIX: Restore original fee
+        // --- Disable, Restore Original Fee, Restore Original Enabled State ---
         vm.prank(game.owner());
-        game.setEntryFee(initialFee, false, true); // Use skipReset=true
+        game.setGameEnabled(false); // Disable again
+        vm.prank(game.owner());
+        game.setEntryFee(initialFee); // CORRECTED: Call with 1 arg
+        if (wasInitiallyEnabled) {
+            vm.prank(game.owner());
+            game.setGameEnabled(true);
+        }
+        // --- End Disable/Enable block ---
 
         return collectedFees; // Return potentially zero fees if default winner + prize = 0
     }
@@ -1582,9 +1580,10 @@ contract GauntletGameTest is TestBase {
 
         // 1. Disable game
         vm.prank(game.owner());
-        // vm.expectEmit(...); // No event for setGameEnabled
+        vm.expectEmit(true, false, false, true); // Expect event for disabling
+        emit GameEnabledUpdated(false);
         game.setGameEnabled(false);
-        assertFalse(game.isGameEnabled(), "Game not disabled"); // Use the correct getter
+        assertFalse(game.isGameEnabled(), "Game not disabled");
 
         // 2. Verify queuing fails
         vm.startPrank(PLAYER_ONE);
@@ -1593,20 +1592,22 @@ contract GauntletGameTest is TestBase {
         vm.stopPrank();
 
         // 3. Verify tryStartGauntlet fails when disabled
-        _warpPastMinInterval(); // Advance time
+        _warpPastMinInterval();
         uint256 nextIdBefore = game.nextGauntletId();
-        vm.expectRevert(GameDisabled.selector); // Expect revert now
+        vm.expectRevert(GameDisabled.selector);
         game.tryStartGauntlet();
-        assertEq(game.nextGauntletId(), nextIdBefore, "Gauntlet started while disabled"); // Verify no state change
+        assertEq(game.nextGauntletId(), nextIdBefore, "Gauntlet started while disabled");
 
         // 4. Re-enable game
         vm.prank(game.owner());
+        vm.expectEmit(true, false, false, true); // Expect event for enabling
+        emit GameEnabledUpdated(true);
         game.setGameEnabled(true);
-        assertTrue(game.isGameEnabled(), "Game not re-enabled"); // Use the correct getter
+        assertTrue(game.isGameEnabled(), "Game not re-enabled");
 
         // 5. Verify queuing succeeds
         vm.startPrank(PLAYER_ONE);
-        vm.expectEmit(true, true, false, true); // Expect PlayerQueued event
+        vm.expectEmit(true, true, false, true);
         emit PlayerQueued(PLAYER_ONE_ID, 1, entryFee);
         game.queueForGauntlet{value: entryFee}(loadout);
         assertEq(game.getQueueSize(), 1, "Failed to queue after re-enabling");
@@ -1665,16 +1666,40 @@ contract GauntletGameTest is TestBase {
     //==============================================================//
 
     function testFulfillRandomness_WithRetiredPlayerSubstitution() public {
-        uint8 gauntletSize = 8; // Use smaller size for simplicity
+        uint8 targetSize = 8;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(gauntletSize); // Ensure size is 8
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
 
-        // --- 100% FEE SETUP ---
+        uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
+
+        // Wrap setFeePercentage
+        vm.prank(game.owner());
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
         game.setFeePercentage(10000); // Set 100% fee
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
         assertEq(game.feePercentage(), 10000, "Fee percentage not set to 100%");
-        // --- END 100% FEE SETUP ---
 
-        uint256 entryFee = game.currentEntryFee(); // Get the potentially non-zero entry fee
+        uint256 entryFee = game.currentEntryFee();
+        if (entryFee == 0) {
+            uint256 tempFee = 0.001 ether;
+            // Wrap setEntryFee
+            vm.prank(game.owner());
+            game.setGameEnabled(false);
+            vm.prank(game.owner());
+            game.setEntryFee(tempFee); // CORRECTED: Call with 1 arg
+            vm.prank(game.owner());
+            game.setGameEnabled(true);
+            entryFee = tempFee;
+            assertGt(entryFee, 0, "Entry fee setup failed in substitution test");
+        }
+
         uint256 totalPrizePool = entryFee * gauntletSize;
 
         // 1. Start the gauntlet using the helper (with default entry fee)
@@ -1807,10 +1832,30 @@ contract GauntletGameTest is TestBase {
 
     // Modify the existing test function:
     function testFulfillRandomness_AllDefaultPlayersWinScenario() public {
-        uint8 gauntletSize = 8;
+        uint8 targetSize = 8;
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(gauntletSize);
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
+        uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
+
         uint256 entryFee = game.currentEntryFee();
+        if (entryFee == 0) {
+            uint256 tempFee = 0.001 ether;
+            // Wrap setEntryFee
+            vm.prank(game.owner());
+            game.setGameEnabled(false);
+            vm.prank(game.owner());
+            game.setEntryFee(tempFee); // CORRECTED: Call with 1 arg
+            vm.prank(game.owner());
+            game.setGameEnabled(true);
+            entryFee = tempFee;
+            assertGt(entryFee, 0, "Entry fee setup failed in all default test");
+        }
 
         // 1. Setup and Start using helper
         (
@@ -1997,155 +2042,34 @@ contract GauntletGameTest is TestBase {
         assertEq(game.queuedFeesPool(), entryFee * (queueSize - 1), "Fee pool should decrease by one entry fee");
     }
 
-    function testSetEntryFee_SkipReset() public {
-        // FIX: Set a non-zero fee initially for this test
-        uint256 initialTestFee = 0.001 ether;
-        vm.prank(game.owner());
-        game.setEntryFee(initialTestFee, false, false); // Set fee first
-        uint256 oldFee = game.currentEntryFee();
-        assertEq(oldFee, initialTestFee, "Test setup failed: initial fee not set");
-        // require(oldFee > 0, "Initial fee is zero, cannot test"); // Original check removed
-
-        // Queue players
-        uint256 playerCount = 2;
-        Fighter.PlayerLoadout memory loadoutP1 = _createLoadout(PLAYER_ONE_ID);
-        Fighter.PlayerLoadout memory loadoutP2 = _createLoadout(PLAYER_TWO_ID);
-
-        vm.startPrank(PLAYER_ONE);
-        game.queueForGauntlet{value: oldFee}(loadoutP1);
-        vm.stopPrank();
-        vm.startPrank(PLAYER_TWO);
-        game.queueForGauntlet{value: oldFee}(loadoutP2);
-        vm.stopPrank();
-
-        uint256 balanceOneBefore = PLAYER_ONE.balance;
-        uint256 balanceTwoBefore = PLAYER_TWO.balance;
-        uint256 poolBefore = game.queuedFeesPool();
-        assertEq(game.getQueueSize(), playerCount, "Queue size mismatch before fee change");
-
-        // Change fee with skipReset = true
-        uint256 newFee = oldFee * 2;
-
-        vm.prank(game.owner());
-        vm.expectEmit(true, false, false, true); // Only EntryFeeSet should be emitted
-        emit EntryFeeSet(oldFee, newFee);
-        game.setEntryFee(newFee, false, true); // refundPlayers=false (doesn't matter), skipReset=true
-
-        // Verify state after change
-        assertEq(game.currentEntryFee(), newFee, "New fee not set correctly");
-        assertEq(game.getQueueSize(), playerCount, "Queue SHOULD NOT be cleared");
-        assertEq(game.queuedFeesPool(), poolBefore, "Fee pool SHOULD NOT be cleared/zeroed");
-        assertEq(PLAYER_ONE.balance, balanceOneBefore, "Player one SHOULD NOT be refunded");
-        assertEq(PLAYER_TWO.balance, balanceTwoBefore, "Player two SHOULD NOT be refunded");
-        assertEq(
-            uint8(game.playerStatus(PLAYER_ONE_ID)),
-            uint8(GauntletGame.PlayerStatus.QUEUED), // Status should remain QUEUED
-            "Player one status SHOULD NOT reset"
-        );
-        assertEq(
-            uint8(game.playerStatus(PLAYER_TWO_ID)),
-            uint8(GauntletGame.PlayerStatus.QUEUED), // Status should remain QUEUED
-            "Player two status SHOULD NOT reset"
-        );
-        assertEq(game.playerIndexInQueue(PLAYER_ONE_ID), 1, "Player one index SHOULD NOT clear"); // Check original index + 1
-        assertEq(game.playerIndexInQueue(PLAYER_TWO_ID), 2, "Player two index SHOULD NOT clear"); // Check original index + 1
-
-        // Verify queuing with new fee
-        address PLAYER_FOUR = address(0xdF4);
-        uint32 PLAYER_FOUR_ID = _createPlayerAndFulfillVRF(PLAYER_FOUR, playerContract, false);
-        vm.deal(PLAYER_FOUR, 1 ether);
-        vm.startPrank(PLAYER_FOUR);
-        Fighter.PlayerLoadout memory loadoutP4 = _createLoadout(PLAYER_FOUR_ID);
-        // Test queuing with the old fee (should fail)
-        vm.expectRevert(abi.encodeWithSelector(IncorrectEntryFee.selector, newFee, oldFee));
-        game.queueForGauntlet{value: oldFee}(loadoutP4);
-        // Test queuing with the new fee (should succeed)
-        game.queueForGauntlet{value: newFee}(loadoutP4);
-        assertEq(game.getQueueSize(), playerCount + 1, "Failed to queue with new fee after skipReset");
-        vm.stopPrank();
-    }
-
-    function testSetEntryFee_NoRefund() public {
-        // FIX: Set a non-zero fee initially for this test
-        uint256 initialTestFee = 0.001 ether;
-        vm.prank(game.owner());
-        game.setEntryFee(initialTestFee, false, false); // Set fee first
-        uint256 oldFee = game.currentEntryFee();
-        assertEq(oldFee, initialTestFee, "Test setup failed: initial fee not set");
-        // require(oldFee > 0, "Initial fee is zero, cannot test"); // Original check removed
-
-        // Queue players
-        uint256 playerCount = 2;
-        Fighter.PlayerLoadout memory loadoutP1 = _createLoadout(PLAYER_ONE_ID);
-        Fighter.PlayerLoadout memory loadoutP2 = _createLoadout(PLAYER_TWO_ID);
-
-        vm.startPrank(PLAYER_ONE);
-        game.queueForGauntlet{value: oldFee}(loadoutP1);
-        vm.stopPrank();
-        vm.startPrank(PLAYER_TWO);
-        game.queueForGauntlet{value: oldFee}(loadoutP2);
-        vm.stopPrank();
-
-        uint256 balanceOneBefore = PLAYER_ONE.balance;
-        uint256 balanceTwoBefore = PLAYER_TWO.balance;
-        uint256 poolBefore = game.queuedFeesPool();
-        assertEq(game.getQueueSize(), playerCount, "Queue size mismatch before fee change");
-
-        // Change fee with refundPlayers = false, skipReset = false
-        uint256 newFee = oldFee * 2;
-
-        vm.prank(game.owner());
-        vm.expectEmit(true, false, false, true); // Only EntryFeeSet should be emitted
-        emit EntryFeeSet(oldFee, newFee);
-        game.setEntryFee(newFee, false, false); // refundPlayers=false, skipReset=false
-
-        // Verify state after change
-        assertEq(game.currentEntryFee(), newFee, "New fee not set correctly");
-        assertEq(game.getQueueSize(), playerCount, "Queue SHOULD NOT be cleared"); // Queue remains
-        assertEq(game.queuedFeesPool(), poolBefore, "Fee pool SHOULD NOT be cleared/zeroed"); // Pool remains
-        assertEq(PLAYER_ONE.balance, balanceOneBefore, "Player one SHOULD NOT be refunded");
-        assertEq(PLAYER_TWO.balance, balanceTwoBefore, "Player two SHOULD NOT be refunded");
-        assertEq(
-            uint8(game.playerStatus(PLAYER_ONE_ID)),
-            uint8(GauntletGame.PlayerStatus.QUEUED), // Status should remain QUEUED
-            "Player one status SHOULD NOT reset"
-        );
-        assertEq(
-            uint8(game.playerStatus(PLAYER_TWO_ID)),
-            uint8(GauntletGame.PlayerStatus.QUEUED), // Status should remain QUEUED
-            "Player two status SHOULD NOT reset"
-        );
-        assertEq(game.playerIndexInQueue(PLAYER_ONE_ID), 1, "Player one index SHOULD NOT clear"); // Check original index + 1
-        assertEq(game.playerIndexInQueue(PLAYER_TWO_ID), 2, "Player two index SHOULD NOT clear"); // Check original index + 1
-
-        // Verify queuing with new fee still works
-        address PLAYER_FOUR = address(0xdF4);
-        uint32 PLAYER_FOUR_ID = _createPlayerAndFulfillVRF(PLAYER_FOUR, playerContract, false);
-        vm.deal(PLAYER_FOUR, 1 ether);
-        vm.startPrank(PLAYER_FOUR);
-        Fighter.PlayerLoadout memory loadoutP4 = _createLoadout(PLAYER_FOUR_ID);
-        // Test queuing with the old fee (should fail)
-        vm.expectRevert(abi.encodeWithSelector(IncorrectEntryFee.selector, newFee, oldFee));
-        game.queueForGauntlet{value: oldFee}(loadoutP4);
-        // Test queuing with the new fee (should succeed)
-        game.queueForGauntlet{value: newFee}(loadoutP4);
-        assertEq(game.getQueueSize(), playerCount + 1, "Failed to queue with new fee after noRefund");
-        vm.stopPrank();
-    }
-
     // REVERTED this test to its state before the problematic balance/address checks were added
     function testFulfillRandomness_WithMultipleRetiredPlayerSubstitutions() public {
-        uint8 gauntletSize = 8; // Use smaller size for simplicity
+        uint8 targetSize = 8; // Use smaller size for simplicity
+        // Wrap setGauntletSize
         vm.prank(game.owner());
-        game.setGauntletSize(gauntletSize); // Ensure size is 8
+        game.setGameEnabled(false);
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize);
+        vm.prank(game.owner());
+        game.setGameEnabled(true);
+
+        uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
 
         // FIX: Explicitly set a non-zero fee for this test if default is 0
         uint256 initialTestFee = 0.0005 ether; // Or any non-zero value
-        if (game.currentEntryFee() == 0) {
+        uint256 entryFee = game.currentEntryFee(); // Read current fee
+
+        if (entryFee == 0) {
+            // --- Wrap setEntryFee Correctly ---
             vm.prank(game.owner());
-            game.setEntryFee(initialTestFee, false, true); // Set fee, skip reset
+            game.setGameEnabled(false); // Disable before setting
+            vm.prank(game.owner());
+            game.setEntryFee(initialTestFee); // CORRECTED: Only 1 argument
+            vm.prank(game.owner());
+            game.setGameEnabled(true); // Re-enable after setting
+            // --- End Wrap ---
+            entryFee = game.currentEntryFee(); // Re-read the fee after setting
         }
-        uint256 entryFee = game.currentEntryFee();
         require(entryFee > 0, "Test setup failed: entry fee is zero"); // Ensure fee is non-zero
 
         uint256 numToRetire = 3; // Retire multiple players
@@ -2273,5 +2197,154 @@ contract GauntletGameTest is TestBase {
             // REVERTED: Removed else block for default winner balance check
         }
         // REVERTED: Removed separate loser balance check loop
+    }
+
+    // --- NEW/MODIFIED Tests for Gaps ---
+
+    /// @notice Tests successful setting of a NEW entry fee, including event emission.
+    function testSetEntryFee_Success_Emit() public {
+        uint256 initialFee = game.currentEntryFee();
+        uint256 newFee = initialFee + 0.01 ether; // Ensure it's different
+
+        // --- Disable, Set Fee, Enable ---
+        vm.prank(game.owner());
+        game.setGameEnabled(false); // Disable before setting
+        assertFalse(game.isGameEnabled());
+
+        vm.prank(game.owner());
+        vm.expectEmit(true, false, false, true); // Expect event
+        emit EntryFeeSet(initialFee, newFee);
+        game.setEntryFee(newFee); // Set the new fee
+
+        // Verify fee updated
+        assertEq(game.currentEntryFee(), newFee, "New fee not set correctly");
+
+        vm.prank(game.owner());
+        game.setGameEnabled(true); // Re-enable after setting
+        assertTrue(game.isGameEnabled());
+        // --- End Disable/Enable block ---
+    }
+
+    /// @notice Tests that disabling the game clears the queue, refunds players (non-zero fee), and emits events.
+    function testSetGameEnabled_False_ClearsQueueAndRefunds() public {
+        // 1. Set a non-zero entry fee
+        uint256 entryFee = 0.005 ether;
+        vm.prank(game.owner());
+        game.setGameEnabled(false); // Disable to set fee
+        vm.prank(game.owner());
+        game.setEntryFee(entryFee);
+        vm.prank(game.owner());
+        game.setGameEnabled(true); // Re-enable for queuing
+        assertEq(game.currentEntryFee(), entryFee, "Setup failed: Fee not set");
+        assertTrue(game.isGameEnabled(), "Setup failed: Game not enabled");
+
+        // 2. Queue multiple players
+        uint256 playerCount = 3;
+        Fighter.PlayerLoadout memory loadoutP1 = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadoutP2 = _createLoadout(PLAYER_TWO_ID);
+        Fighter.PlayerLoadout memory loadoutP3 = _createLoadout(PLAYER_THREE_ID);
+
+        vm.startPrank(PLAYER_ONE);
+        game.queueForGauntlet{value: entryFee}(loadoutP1);
+        vm.stopPrank();
+        vm.startPrank(PLAYER_TWO);
+        game.queueForGauntlet{value: entryFee}(loadoutP2);
+        vm.stopPrank();
+        vm.startPrank(PLAYER_THREE);
+        game.queueForGauntlet{value: entryFee}(loadoutP3);
+        vm.stopPrank();
+
+        assertEq(game.getQueueSize(), playerCount, "Setup failed: Players not queued");
+        assertEq(game.queuedFeesPool(), entryFee * playerCount, "Setup failed: Fee pool incorrect");
+
+        // 3. Record balances and state before disabling
+        uint256 balanceOneBefore = PLAYER_ONE.balance;
+        uint256 balanceTwoBefore = PLAYER_TWO.balance;
+        uint256 balanceThreeBefore = PLAYER_THREE.balance;
+        uint256 expectedTotalRefund = entryFee * playerCount;
+
+        // 4. Disable the game and expect events
+        vm.prank(game.owner());
+        vm.expectEmit(true, false, false, true);
+        emit QueueClearedDueToGameDisabled(playerCount, expectedTotalRefund);
+        vm.expectEmit(true, false, false, true);
+        emit GameEnabledUpdated(false);
+        game.setGameEnabled(false);
+
+        // 5. Verify state after disabling
+        assertFalse(game.isGameEnabled(), "Game was not disabled");
+        assertEq(game.getQueueSize(), 0, "Queue was not cleared");
+        assertEq(game.queuedFeesPool(), 0, "Fee pool was not zeroed");
+
+        // Verify refunds
+        assertEq(PLAYER_ONE.balance, balanceOneBefore + entryFee, "Player one not refunded");
+        assertEq(PLAYER_TWO.balance, balanceTwoBefore + entryFee, "Player two not refunded");
+        assertEq(PLAYER_THREE.balance, balanceThreeBefore + entryFee, "Player three not refunded");
+
+        // Verify player state reset
+        assertEq(uint8(game.playerStatus(PLAYER_ONE_ID)), uint8(GauntletGame.PlayerStatus.NONE), "P1 status");
+        assertEq(uint8(game.playerStatus(PLAYER_TWO_ID)), uint8(GauntletGame.PlayerStatus.NONE), "P2 status");
+        assertEq(uint8(game.playerStatus(PLAYER_THREE_ID)), uint8(GauntletGame.PlayerStatus.NONE), "P3 status");
+        assertEq(game.playerIndexInQueue(PLAYER_ONE_ID), 0, "P1 index");
+        assertEq(game.playerIndexInQueue(PLAYER_TWO_ID), 0, "P2 index");
+        assertEq(game.playerIndexInQueue(PLAYER_THREE_ID), 0, "P3 index");
+    }
+
+    /// @notice Tests that disabling the game clears the queue when the entry fee is zero.
+    function testSetGameEnabled_False_ClearsQueue_ZeroFee() public {
+        // 1. Ensure entry fee is zero
+        uint256 initialFee = game.currentEntryFee();
+        if (initialFee != 0) {
+            vm.prank(game.owner());
+            game.setGameEnabled(false); // Disable to set fee
+            vm.prank(game.owner());
+            game.setEntryFee(0);
+            vm.prank(game.owner());
+            game.setGameEnabled(true); // Re-enable for queuing
+        }
+        assertEq(game.currentEntryFee(), 0, "Setup failed: Fee not zero");
+        assertTrue(game.isGameEnabled(), "Setup failed: Game not enabled");
+
+        // 2. Queue multiple players (with zero fee)
+        uint256 playerCount = 2;
+        Fighter.PlayerLoadout memory loadoutP1 = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadoutP2 = _createLoadout(PLAYER_TWO_ID);
+
+        vm.startPrank(PLAYER_ONE);
+        game.queueForGauntlet{value: 0}(loadoutP1);
+        vm.stopPrank();
+        vm.startPrank(PLAYER_TWO);
+        game.queueForGauntlet{value: 0}(loadoutP2);
+        vm.stopPrank();
+
+        assertEq(game.getQueueSize(), playerCount, "Setup failed: Players not queued (zero fee)");
+        assertEq(game.queuedFeesPool(), 0, "Setup failed: Fee pool incorrect (zero fee)");
+
+        // 3. Record balances before disabling
+        uint256 balanceOneBefore = PLAYER_ONE.balance;
+        uint256 balanceTwoBefore = PLAYER_TWO.balance;
+
+        // 4. Disable the game and expect events (totalRefunded should be 0)
+        vm.prank(game.owner());
+        vm.expectEmit(true, false, false, true);
+        emit QueueClearedDueToGameDisabled(playerCount, 0); // Expect 0 total refunded
+        vm.expectEmit(true, false, false, true);
+        emit GameEnabledUpdated(false);
+        game.setGameEnabled(false);
+
+        // 5. Verify state after disabling
+        assertFalse(game.isGameEnabled(), "Game was not disabled (zero fee)");
+        assertEq(game.getQueueSize(), 0, "Queue was not cleared (zero fee)");
+        assertEq(game.queuedFeesPool(), 0, "Fee pool should remain zero (zero fee)");
+
+        // Verify NO refund occurred
+        assertEq(PLAYER_ONE.balance, balanceOneBefore, "Player one incorrectly refunded (zero fee)");
+        assertEq(PLAYER_TWO.balance, balanceTwoBefore, "Player two incorrectly refunded (zero fee)");
+
+        // Verify player state reset
+        assertEq(uint8(game.playerStatus(PLAYER_ONE_ID)), uint8(GauntletGame.PlayerStatus.NONE), "P1 status (zero fee)");
+        assertEq(uint8(game.playerStatus(PLAYER_TWO_ID)), uint8(GauntletGame.PlayerStatus.NONE), "P2 status (zero fee)");
+        assertEq(game.playerIndexInQueue(PLAYER_ONE_ID), 0, "P1 index (zero fee)");
+        assertEq(game.playerIndexInQueue(PLAYER_TWO_ID), 0, "P2 index (zero fee)");
     }
 }

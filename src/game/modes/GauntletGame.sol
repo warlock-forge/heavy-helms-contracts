@@ -201,6 +201,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Emitted when the gauntlet fee percentage is updated.
     event FeePercentageSet(uint256 oldPercentage, uint256 newPercentage);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
+    /// @notice Emitted when the game enabled state is updated.
+    event GameEnabledUpdated(bool enabled);
+    /// @notice Emitted when the queue is cleared due to the game being disabled.
+    event QueueClearedDueToGameDisabled(uint256 playersRefunded, uint256 totalRefunded);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -722,10 +726,67 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     /// @notice Toggles the ability for players to queue for Gauntlets.
+    /// @dev If set to `false`, clears the current queue and refunds all players the `currentEntryFee`.
     /// @param enabled The desired state (true = enabled, false = disabled).
-    function setGameEnabled(bool enabled) external onlyOwner {
+    function setGameEnabled(bool enabled) external onlyOwner nonReentrant {
+        if (isGameEnabled == enabled) return; // No change needed
+
         isGameEnabled = enabled;
-        // Consider emitting an event if needed: emit GameEnabledUpdated(enabled);
+
+        // If disabling the game, clear the queue and refund players
+        if (!enabled) {
+            uint256 playersRefunded = 0;
+            uint256 totalRefunded = 0;
+            uint256 queueLength = queueIndex.length; // Cache initial length
+            uint256 feeToRefund = currentEntryFee; // Cache the fee players paid
+
+            // Iterate backwards for safe swap-and-pop during iteration
+            for (uint256 i = queueLength; i > 0; i--) {
+                uint256 indexToRemove = i - 1; // Current 0-based index
+                uint32 playerId = queueIndex[indexToRemove];
+
+                // Check if player needs refund and state reset (should always be QUEUED if in queueIndex)
+                if (playerStatus[playerId] == PlayerStatus.QUEUED) {
+                    address playerOwner = playerContract.getPlayerOwner(playerId);
+                    uint256 refundAmount = feeToRefund; // Refund the fee they originally paid
+
+                    // Interaction: Refund (Use SafeTransferLib)
+                    // Ensure owner address is valid before attempting transfer
+                    if (playerOwner != address(0)) {
+                        SafeTransferLib.safeTransferETH(playerOwner, refundAmount);
+                        totalRefunded += refundAmount;
+                    }
+                    // Note: If owner somehow became address(0), refund is skipped, but state is still cleared.
+
+                    // Effects: Clear player state *only* if they were QUEUED and processed
+                    delete registrationQueue[playerId];
+                    playerStatus[playerId] = PlayerStatus.NONE;
+                    // Note: playerIndexInQueue[playerId] deletion handled by _removePlayer... below
+
+                    playersRefunded++;
+                }
+
+                // Effect: Always remove from queue array via swap-and-pop
+                // Use the helper that takes the index directly
+                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
+            }
+
+            // Effect: Adjust fee pool after processing all players
+            // It's safer to recalculate based on the total refunded amount rather than assuming subtraction is safe
+            if (queuedFeesPool < totalRefunded) {
+                queuedFeesPool = 0; // Avoid underflow (should not happen with correct logic)
+            } else {
+                queuedFeesPool -= totalRefunded;
+            }
+
+            // Interaction: Emit event if refunds occurred
+            if (playersRefunded > 0) {
+                emit QueueClearedDueToGameDisabled(playersRefunded, totalRefunded);
+            }
+        }
+
+        // Always emit the state change event
+        emit GameEnabledUpdated(enabled);
     }
 
     /// @notice Sets the Gelato VRF operator address.
@@ -800,86 +861,34 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     }
 
     /// @notice Sets the entry fee required to join the queue.
-    /// @dev Can optionally clear the queue and refund existing players to avoid fee mismatches.
-    ///      Provides flags to bypass clearing/refunding for gas safety with large queues.
+    /// @dev The game must be disabled via `setGameEnabled(false)` before calling this function.
+    ///      Disabling the game automatically clears the queue and refunds players.
     /// @param newFee The new entry fee in wei.
-    /// @param refundPlayers If true (and `skipReset` is false), clears the queue and refunds players the *old* fee.
-    /// @param skipReset If true, bypasses all queue clearing and refund logic, only setting the new fee.
-    function setEntryFee(uint256 newFee, bool refundPlayers, bool skipReset) external onlyOwner nonReentrant {
+    function setEntryFee(uint256 newFee) external onlyOwner {
+        // Require game to be disabled. Disabling clears the queue.
+        require(!isGameEnabled, "Game must be disabled to change entry fee");
+
         uint256 oldFee = currentEntryFee;
         if (oldFee == newFee) return; // No change needed
 
-        // Emit event immediately
-        emit EntryFeeSet(oldFee, newFee);
-
-        if (skipReset) {
-            // If skipping reset, just update the fee and exit
-            currentEntryFee = newFee;
-            return;
-        }
-
-        // --- Proceed only if skipReset is false ---
-
-        if (refundPlayers) {
-            // --- Perform queue clear and refund logic ---
-            uint256 playersRefunded = 0;
-            uint256 totalRefunded = 0;
-            uint256 queueLength = queueIndex.length; // Cache initial length
-
-            // Iterate backwards for safe swap-and-pop during iteration
-            for (uint256 i = queueLength; i > 0; i--) {
-                uint256 indexToRemove = i - 1; // Current 0-based index
-                uint32 playerId = queueIndex[indexToRemove];
-
-                // Check if player needs refund and state reset
-                if (playerStatus[playerId] == PlayerStatus.QUEUED) {
-                    address playerOwner = playerContract.getPlayerOwner(playerId);
-                    uint256 refundAmount = oldFee; // Refund the fee they originally paid
-
-                    // Interaction: Refund (Use SafeTransferLib)
-                    SafeTransferLib.safeTransferETH(playerOwner, refundAmount);
-                    totalRefunded += refundAmount;
-
-                    // Effects: Clear player state *only* if they were QUEUED and processed
-                    delete registrationQueue[playerId];
-                    playerStatus[playerId] = PlayerStatus.NONE;
-                    // Note: playerIndexInQueue[playerId] deletion handled by _removePlayer... below
-
-                    playersRefunded++;
-                }
-
-                // Effect: Always remove from queue array via swap-and-pop
-                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
-            }
-
-            // Effect: Adjust fee pool after processing all players
-            if (queuedFeesPool < totalRefunded) {
-                queuedFeesPool = 0; // Avoid underflow (shouldn't happen)
-            } else {
-                queuedFeesPool -= totalRefunded;
-            }
-
-            // Interaction: Emit event if refunds occurred
-            if (playersRefunded > 0) {
-                emit QueueClearedDueToSettingsChange(playersRefunded, totalRefunded);
-            }
-        }
-        // --- End of refundPlayers block ---
-
-        // Effect: Set the new fee (if skipReset was false)
+        // Effect: Set the new fee
         currentEntryFee = newFee;
+
+        // Interaction: Emit event
+        emit EntryFeeSet(oldFee, newFee);
     }
 
     /// @notice Sets the number of participants required to start a gauntlet (4, 8, 16, or 32).
-    /// @dev Can only be changed when the queue is empty to prevent inconsistencies.
+    /// @dev The game must be disabled via `setGameEnabled(false)` before calling this function.
+    ///      Disabling the game automatically clears the queue.
     /// @param newSize The new gauntlet size.
     function setGauntletSize(uint8 newSize) external onlyOwner {
-        // Checks
+        // Require game to be disabled. Disabling clears the queue.
+        require(!isGameEnabled, "Game must be disabled to change gauntlet size");
+
+        // Checks for valid size parameter
         if (newSize != 4 && newSize != 8 && newSize != 16 && newSize != 32) {
             revert InvalidGauntletSize(newSize);
-        }
-        if (queueIndex.length > 0) {
-            revert QueueNotEmpty();
         }
 
         uint8 oldSize = currentGauntletSize;
