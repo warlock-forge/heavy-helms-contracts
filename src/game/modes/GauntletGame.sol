@@ -114,7 +114,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     // --- Configuration & Roles ---
     /// @notice Contract managing default player data.
     IDefaultPlayer public defaultPlayerContract;
-    address private immutable _operatorAddress;
+    address private _operatorAddress;
     uint256 public vrfRequestTimeout = 4 hours;
     bool public isGameEnabled = true;
     uint256 public minTimeBetweenGauntlets = 30 minutes;
@@ -122,7 +122,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
     // --- Dynamic Settings ---
     /// @notice Current entry fee in wei required to join the queue.
-    uint256 public currentEntryFee = 0.0005 ether;
+    uint256 public currentEntryFee = 0 ether;
     /// @notice Current number of participants required to start a Gauntlet (8, 16, or 32).
     uint8 public currentGauntletSize = 8;
     /// @notice The maximum ID used when randomly substituting retired players with defaults.
@@ -196,6 +196,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event MaxDefaultPlayerSubstituteIdSet(uint32 newMaxId);
     /// @notice Emitted when the minimum time required between starting gauntlets is updated.
     event MinTimeBetweenGauntletsSet(uint256 newMinTime);
+    /// @notice Emitted when the Gelato VRF operator address is updated.
+    event OperatorSet(address indexed newOperator);
+    /// @notice Emitted when the gauntlet fee percentage is updated.
+    event FeePercentageSet(uint256 oldPercentage, uint256 newPercentage);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
@@ -224,7 +228,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
         if (maxDefaultPlayerSubstituteId == 0) revert InvalidDefaultPlayerRange(); // Ensure initial value is valid
 
-        // Set immutable/initial state
+        // Set initial state (operator is no longer immutable)
         _operatorAddress = _operatorAddr;
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
         lastGauntletStartTime = block.timestamp; // Initialize to deployment time
@@ -235,6 +239,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit GauntletSizeSet(0, currentGauntletSize);
         emit MaxDefaultPlayerSubstituteIdSet(maxDefaultPlayerSubstituteId);
         emit MinTimeBetweenGauntletsSet(minTimeBetweenGauntlets);
+        emit OperatorSet(_operatorAddr); // Emit initial operator address
+        emit FeePercentageSet(0, feePercentage); // Emit initial fee percentage
     }
 
     //==============================================================//
@@ -719,6 +725,27 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     function setGameEnabled(bool enabled) external onlyOwner {
         isGameEnabled = enabled;
         // Consider emitting an event if needed: emit GameEnabledUpdated(enabled);
+    }
+
+    /// @notice Sets the Gelato VRF operator address.
+    /// @param newOperator The new operator address.
+    function setOperator(address newOperator) external onlyOwner {
+        if (newOperator == address(0)) revert ZeroAddress();
+        if (newOperator == _operatorAddress) return; // No change needed
+        _operatorAddress = newOperator;
+        emit OperatorSet(newOperator);
+    }
+
+    /// @notice Sets the percentage fee taken from the prize pool.
+    /// @param _newFeePercentage The new fee percentage in basis points (e.g., 1000 = 10%). Max 10000 (100%).
+    function setFeePercentage(uint256 _newFeePercentage) external onlyOwner {
+        // Require fee to be between 0% and 100% inclusive
+        require(_newFeePercentage <= 10000, "Fee cannot exceed 100%");
+        uint256 oldPercentage = feePercentage;
+        if (oldPercentage == _newFeePercentage) return; // No change needed
+
+        feePercentage = _newFeePercentage;
+        emit FeePercentageSet(oldPercentage, _newFeePercentage);
     }
 
     /// @notice Allows anyone to trigger recovery for a timed-out Gauntlet.
