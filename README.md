@@ -86,9 +86,13 @@ forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address,a
 ```bash
 forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
 ```
-11. Setup VRF
+11. Deploy GauntletGame *(add --broadcast to send tx)*
 ```bash
-Use Gelato dashboard to add VRF tasks for Player + Duel Game contracts
+forge script script/deploy/GauntletGameDeploy.s.sol --sig "run(address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS>
+```
+12. Setup VRF
+```bash
+Use Gelato dashboard to add VRF tasks for Player + Duel Game + Gauntlet Game contracts
 ```
 
 ### Test

@@ -1167,6 +1167,79 @@ contract GauntletGameTest is TestBase {
         // --- END CORRECTED VERIFICATION ---
     }
 
+    // ADDED: New test case for size 4
+    function testFulfillRandomness_CompletesGauntlet_Size4() public {
+        uint8 targetSize = 4;
+        vm.prank(game.owner());
+        game.setGauntletSize(targetSize); // Set the size first
+        uint8 gauntletSize = game.currentGauntletSize();
+        assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 4");
+
+        uint256 entryFee = game.currentEntryFee();
+        uint256 totalFeesCollected = entryFee * gauntletSize;
+        uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000;
+        uint256 expectedPrize = totalFeesCollected - expectedContractFee;
+
+        // --- Start Gauntlet using helper ---
+        (
+            uint256 gauntletId,
+            uint256 vrfRequestId,
+            uint256 vrfRoundId,
+            uint32[] memory actualParticipantIds, // These are the first N selected
+                /* address[] memory participantAddrs */ // Don't need addresses here
+        ) = _setupAndStartGauntlet(gauntletSize);
+        // --- End Start Gauntlet ---
+
+        uint256 randomnessFromBlock =
+            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
+        bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
+
+        // --- PRE-FULFILLMENT STATE CAPTURE (Based on actualParticipantIds) ---
+        uint32[] memory nonDefaultParticipantIds = new uint32[](gauntletSize);
+        Fighter.Record[] memory recordsBefore = new Fighter.Record[](gauntletSize);
+        uint256 nonDefaultCount = 0;
+        for (uint256 i = 0; i < actualParticipantIds.length; i++) {
+            if (!game.defaultPlayerContract().isValidId(actualParticipantIds[i])) {
+                nonDefaultParticipantIds[nonDefaultCount] = actualParticipantIds[i];
+                recordsBefore[nonDefaultCount] = playerContract.getPlayer(actualParticipantIds[i]).record;
+                nonDefaultCount++;
+            }
+        }
+        // --- End PRE-FULFILLMENT ---
+
+        vm.recordLogs();
+        vm.prank(operator);
+        game.fulfillRandomness(randomnessFromBlock, dataWithRound);
+        vm.stopPrank();
+        Vm.Log[] memory finalEntries = vm.getRecordedLogs();
+
+        // --- Verify Event and State (using _verify functions) ---
+        uint32 actualChampionId = _verifyGauntletCompletedEvent(
+            finalEntries, gauntletId, gauntletSize, entryFee, expectedPrize, expectedContractFee
+        );
+        _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
+        // --- End Verify ---
+
+        assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch");
+
+        // --- CORRECTED WIN RECORD VERIFICATION ---
+        if (!game.defaultPlayerContract().isValidId(actualChampionId)) {
+            Fighter.Record memory recordAfter = playerContract.getPlayer(actualChampionId).record;
+            Fighter.Record memory recordBeforeChampion;
+            bool foundRecord = false;
+            for (uint256 i = 0; i < nonDefaultCount; i++) {
+                if (nonDefaultParticipantIds[i] == actualChampionId) {
+                    recordBeforeChampion = recordsBefore[i];
+                    foundRecord = true;
+                    break;
+                }
+            }
+            assertTrue(foundRecord, "Failed to find pre-fulfillment record for champion (Size 4)");
+            assertTrue(recordAfter.wins > recordBeforeChampion.wins, "Champion win count did not increase (Size 4)");
+        }
+        // --- END CORRECTED VERIFICATION ---
+    }
+
     function testFulfillRandomness_CompletesGauntlet_Size8() public {
         uint8 targetSize = 8;
         vm.prank(game.owner());

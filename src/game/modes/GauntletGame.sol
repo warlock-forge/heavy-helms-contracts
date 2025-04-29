@@ -524,7 +524,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Determine number of rounds based on size
         uint8 rounds;
-        if (size == 8) rounds = 3;
+        if (size == 4) rounds = 2;
+        else if (size == 8) rounds = 3;
         else if (size == 16) rounds = 4;
         else rounds = 5; // size == 32 (guaranteed by setGauntletSize)
 
@@ -869,12 +870,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         currentEntryFee = newFee;
     }
 
-    /// @notice Sets the number of participants required to start a gauntlet (8, 16, or 32).
+    /// @notice Sets the number of participants required to start a gauntlet (4, 8, 16, or 32).
     /// @dev Can only be changed when the queue is empty to prevent inconsistencies.
     /// @param newSize The new gauntlet size.
     function setGauntletSize(uint8 newSize) external onlyOwner {
         // Checks
-        if (newSize != 8 && newSize != 16 && newSize != 32) {
+        if (newSize != 4 && newSize != 8 && newSize != 16 && newSize != 32) {
             revert InvalidGauntletSize(newSize);
         }
         if (queueIndex.length > 0) {
