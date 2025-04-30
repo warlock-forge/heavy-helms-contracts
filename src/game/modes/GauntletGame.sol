@@ -50,7 +50,7 @@ error MinTimeNotElapsed();
 //==============================================================//
 /// @title Gauntlet Game Mode for Heavy Helms
 /// @notice Manages a queue of players and triggers elimination brackets (Gauntlets)
-///         of dynamic size (8, 16, or 32) with a dynamic entry fee.
+///         of dynamic size (4, 8, 16, or 32) with a dynamic entry fee.
 /// @dev Relies on a trusted off-chain runner and Gelato VRF for randomness.
 ///      VRF fulfillment and potentially the queue clearing in setEntryFee can be gas-intensive.
 contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
@@ -77,7 +77,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     /// @notice Structure storing data for a specific Gauntlet run instance.
     /// @param id Unique identifier for the Gauntlet.
-    /// @param size Number of participants (8, 16, or 32).
+    /// @param size Number of participants (4, 8, 16, or 32).
     /// @param entryFee The entry fee required for this Gauntlet.
     /// @param state Current state of the Gauntlet (PENDING or COMPLETED).
     /// @param vrfRequestId The ID of the VRF request associated with this Gauntlet.
@@ -117,19 +117,19 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     address private _operatorAddress;
     uint256 public vrfRequestTimeout = 4 hours;
     bool public isGameEnabled = true;
-    uint256 public minTimeBetweenGauntlets = 30 minutes;
+    uint256 public minTimeBetweenGauntlets = 5 minutes;
     uint256 public lastGauntletStartTime;
 
     // --- Dynamic Settings ---
     /// @notice Current entry fee in wei required to join the queue.
     uint256 public currentEntryFee = 0 ether;
-    /// @notice Current number of participants required to start a Gauntlet (8, 16, or 32).
-    uint8 public currentGauntletSize = 8;
+    /// @notice Current number of participants required to start a Gauntlet (4, 8, 16, or 32).
+    uint8 public currentGauntletSize = 4;
     /// @notice The maximum ID used when randomly substituting retired players with defaults.
     /// @dev Must be kept in sync with the highest valid ID in the `DefaultPlayer` contract.
     uint32 public maxDefaultPlayerSubstituteId = 18;
     /// @notice Percentage fee (basis points) taken from the total prize pool of each completed gauntlet.
-    uint256 public feePercentage = 1000; // 10.00%
+    uint256 public feePercentage = 10000; // 100.00%
 
     // --- Gauntlet State ---
     /// @notice Counter for assigning unique Gauntlet IDs.

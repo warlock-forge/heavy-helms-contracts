@@ -10,10 +10,10 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {GauntletGame} from "../../../../src/game/modes/GauntletGame.sol";
 
-contract SetGauntletSizeScript is Script {
+contract SetEntryFeeScript is Script {
     function setUp() public {}
 
-    function run(address gauntletGameAddr, uint8 size) public {
+    function run(address gauntletGameAddr, uint256 newFee) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -28,14 +28,14 @@ contract SetGauntletSizeScript is Script {
         console.log("Disabling game...");
         gauntletGame.setGameEnabled(false);
 
-        console.log("Setting gauntlet size to:", size);
-        gauntletGame.setGauntletSize(size);
+        console.log("Setting entry fee to:", newFee);
+        gauntletGame.setEntryFee(newFee);
 
         console.log("Re-enabling game...");
         gauntletGame.setGameEnabled(true);
         // --- END NEW LOGIC ---
 
-        console.log("Gauntlet size set successfully.");
+        console.log("Entry fee set successfully.");
 
         vm.stopBroadcast();
     }
