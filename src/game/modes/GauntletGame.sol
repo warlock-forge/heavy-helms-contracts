@@ -168,17 +168,19 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
     /// @notice Emitted when a new Gauntlet run is started by the off-chain runner.
     event GauntletStarted(
-        uint256 indexed gauntletId, uint8 size, uint256 entryFee, uint32[] participantIds, uint256 vrfRequestId
+        uint256 indexed gauntletId, uint8 size, uint256 entryFee, RegisteredPlayer[] participants, uint256 vrfRequestId
     );
     /// @notice Emitted when a Gauntlet is successfully completed via VRF fulfillment.
     // Amount added to contractFeesCollected for this gauntlet
-    event GauntletCompleted( // Amount paid to winner (0 if default player wins)
+    event GauntletCompleted(
         uint256 indexed gauntletId,
         uint8 size,
         uint256 entryFee,
         uint32 indexed championId,
         uint256 prizeAwarded,
-        uint256 feeCollected
+        uint256 feeCollected,
+        uint32[] participantIds,
+        uint32[] roundWinners
     );
     /// @notice Emitted when a pending Gauntlet is recovered after VRF timeout.
     event GauntletRecovered(uint256 indexed gauntletId);
@@ -421,7 +423,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         newGauntlet.vrfRequestId = requestId;
 
         // Interactions (Event Emission)
-        emit GauntletStarted(gauntletId, size, fee, selectedPlayerIds, requestId);
+        emit GauntletStarted(gauntletId, size, fee, participantsData, requestId);
     }
 
     //==============================================================//
@@ -629,8 +631,17 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             // Else (e.g., MONSTER type if supported) - no payout, prizeAwardedForEvent remains 0
         }
 
-        // Interaction: Emit final completion event using calculated prize for event
-        emit GauntletCompleted(gauntletId, size, entryFee, finalWinnerId, prizeAwardedForEvent, feeAmount);
+        // Interaction: Emit final completion event with additional data
+        emit GauntletCompleted(
+            gauntletId,
+            size,
+            entryFee,
+            finalWinnerId,
+            prizeAwardedForEvent,
+            feeAmount,
+            shuffledParticipantIds,
+            gauntlet.winners
+        );
     }
 
     //==============================================================//
