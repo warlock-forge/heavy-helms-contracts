@@ -202,11 +202,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event OperatorSet(address indexed newOperator);
     /// @notice Emitted when the gauntlet fee percentage is updated.
     event FeePercentageSet(uint256 oldPercentage, uint256 newPercentage);
-    // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
     /// @notice Emitted when the game enabled state is updated.
     event GameEnabledUpdated(bool enabled);
     /// @notice Emitted when the queue is cleared due to the game being disabled.
-    event QueueClearedDueToGameDisabled(uint256 playersRefunded, uint256 totalRefunded);
+    /// @param playerIds Array of player IDs removed from the queue.
+    /// @param totalRefunded Total amount of ETH refunded to the players.
+    event QueueClearedDueToGameDisabled(uint32[] playerIds, uint256 totalRefunded);
+    // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -746,15 +748,21 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // If disabling the game, clear the queue and refund players
         if (!enabled) {
-            uint256 playersRefunded = 0;
+            uint256 playersRefundedCount = 0; // Keep track of how many were actually refunded
             uint256 totalRefunded = 0;
             uint256 queueLength = queueIndex.length; // Cache initial length
             uint256 feeToRefund = currentEntryFee; // Cache the fee players paid
+
+            // Prepare array to store removed player IDs
+            uint32[] memory removedPlayerIds = new uint32[](queueLength); // Max possible size
 
             // Iterate backwards for safe swap-and-pop during iteration
             for (uint256 i = queueLength; i > 0; i--) {
                 uint256 indexToRemove = i - 1; // Current 0-based index
                 uint32 playerId = queueIndex[indexToRemove];
+
+                // Store the ID being removed *before* state check, as it's removed regardless
+                removedPlayerIds[playersRefundedCount] = playerId; // Use count as index
 
                 // Check if player needs refund and state reset (should always be QUEUED if in queueIndex)
                 if (playerStatus[playerId] == PlayerStatus.QUEUED) {
@@ -773,9 +781,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                     delete registrationQueue[playerId];
                     playerStatus[playerId] = PlayerStatus.NONE;
                     // Note: playerIndexInQueue[playerId] deletion handled by _removePlayer... below
-
-                    playersRefunded++;
                 }
+                // Increment count *after* storing ID, regardless of refund status
+                playersRefundedCount++;
 
                 // Effect: Always remove from queue array via swap-and-pop
                 // Use the helper that takes the index directly
@@ -790,9 +798,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                 queuedFeesPool -= totalRefunded;
             }
 
-            // Interaction: Emit event if refunds occurred
-            if (playersRefunded > 0) {
-                emit QueueClearedDueToGameDisabled(playersRefunded, totalRefunded);
+            // Interaction: Emit event if players were removed
+            // Note: playersRefundedCount might be different from removedPlayerIds.length if array wasn't resized
+            if (playersRefundedCount > 0) {
+                // Resize the array to the actual number of removed players if necessary
+                // (Assembly needed for efficient resizing, or accept slightly higher gas for event emission)
+                // For simplicity here, we emit the potentially oversized array.
+                // Subgraph can handle filtering zero IDs if they occur (though they shouldn't with current logic).
+                emit QueueClearedDueToGameDisabled(removedPlayerIds, totalRefunded);
             }
         }
 

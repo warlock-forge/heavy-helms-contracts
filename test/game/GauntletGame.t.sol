@@ -77,7 +77,7 @@ contract GauntletGameTest is TestBase {
     event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
     // ADDED: Event for new timing setting
     event MinTimeBetweenGauntletsSet(uint256 newMinTime);
-    event QueueClearedDueToGameDisabled(uint256 playersRefunded, uint256 totalRefunded);
+    event QueueClearedDueToGameDisabled(uint32[] playerIds, uint256 totalRefunded);
     event GameEnabledUpdated(bool gameEnabled);
 
     // Add this receive function to allow the test contract (owner) to receive ETH
@@ -2261,10 +2261,19 @@ contract GauntletGameTest is TestBase {
         uint256 balanceThreeBefore = PLAYER_THREE.balance;
         uint256 expectedTotalRefund = entryFee * playerCount;
 
+        // Prepare expected player IDs array (order might vary due to implementation details, get from contract state)
+        // Note: The order in the emitted array depends on the backwards iteration and swap-and-pop in setGameEnabled.
+        // It will be the reverse of the queue order at the time of disabling.
+        uint32[] memory expectedPlayerIds = new uint32[](playerCount);
+        expectedPlayerIds[0] = PLAYER_THREE_ID; // Last in queue becomes first in emitted array
+        expectedPlayerIds[1] = PLAYER_TWO_ID;
+        expectedPlayerIds[2] = PLAYER_ONE_ID; // First in queue becomes last in emitted array
+
         // 4. Disable the game and expect events
         vm.prank(game.owner());
+        // Expect the event with the new signature and the player ID array
         vm.expectEmit(true, false, false, true);
-        emit QueueClearedDueToGameDisabled(playerCount, expectedTotalRefund);
+        emit QueueClearedDueToGameDisabled(expectedPlayerIds, expectedTotalRefund);
         vm.expectEmit(true, false, false, true);
         emit GameEnabledUpdated(false);
         game.setGameEnabled(false);
@@ -2322,10 +2331,16 @@ contract GauntletGameTest is TestBase {
         uint256 balanceOneBefore = PLAYER_ONE.balance;
         uint256 balanceTwoBefore = PLAYER_TWO.balance;
 
+        // Prepare expected player IDs array (reverse order of queuing)
+        uint32[] memory expectedPlayerIds = new uint32[](playerCount);
+        expectedPlayerIds[0] = PLAYER_TWO_ID; // Last in queue becomes first in emitted array
+        expectedPlayerIds[1] = PLAYER_ONE_ID; // First in queue becomes last in emitted array
+
         // 4. Disable the game and expect events (totalRefunded should be 0)
         vm.prank(game.owner());
+        // Expect the event with the new signature and the player ID array
         vm.expectEmit(true, false, false, true);
-        emit QueueClearedDueToGameDisabled(playerCount, 0); // Expect 0 total refunded
+        emit QueueClearedDueToGameDisabled(expectedPlayerIds, 0); // Expect 0 total refunded
         vm.expectEmit(true, false, false, true);
         emit GameEnabledUpdated(false);
         game.setGameEnabled(false);
