@@ -53,7 +53,7 @@ cd auto_battler_game_contracts
 ```
 2. Install dependencies:
 ```bash
-forge install
+forge install --no-git foundry-rs/forge-std@1eea5ba transmissions11/solmate@c93f771 gelatodigital/vrf-contracts@fdb85db
 ```
 3. Deploy GameEngine contract *(add --broadcast to send tx)*
 ```bash
