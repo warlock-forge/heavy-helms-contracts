@@ -29,6 +29,10 @@ jobs:
         run: |
           forge --version
 
+      - name: Install Foundry dependencies         # <---- ADD THIS STEP
+        run: |
+          forge install
+
       - name: Run Forge fmt
         run: |
           forge fmt --check
