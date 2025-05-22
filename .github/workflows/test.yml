@@ -1,49 +1,34 @@
 name: CI
-
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
+on: [push, pull_request, workflow_dispatch]
 
 env:
   FOUNDRY_PROFILE: ci
 
 jobs:
   check:
-    strategy:
-      fail-fast: true
-
-    name: Foundry project
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install Foundry
+      - name: Install Foundry (nightly)
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
-      - name: Show Forge version
-        run: |
-          forge --version
+      - run: forge --version
 
-      - name: Install Foundry dependencies         # <---- ADD THIS STEP
+      - name: Install deps
         run: |
-          forge install
+          forge install --no-git \
+            foundry-rs/forge-std@v1.9.7 \
+            transmissions11/solmate@main \
+            gelatodigital/vrf-contracts@main
 
       - name: Run Forge fmt
-        run: |
-          forge fmt --check
-        id: fmt
+        run: forge fmt --check
 
-      - name: Run Forge build
-        run: |
-          forge build
-        id: build
+      - name: Build contracts
+        run: forge build
 
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
+      - name: Run tests
+        run: forge test -vvv
