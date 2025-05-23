@@ -258,10 +258,28 @@ contract PlayerTest is TestBase {
     }
 
     function testEquipSkin() public {
-        // Create a player with deterministic seed that ensures sufficient stats
-        // for arming sword (str: 12, size: 5, stamina: 5) + leather armor (str: 5)
-        // Requirements: strength >= 12, size >= 5, stamina >= 5
-        uint32 playerId = _createPlayerWithDeterministicStats(PLAYER_ONE, false);
+        // Use equipment with low but meaningful requirements that we can guarantee
+        // DUAL_DAGGERS requires agility >= 8, LEATHER requires strength >= 5
+        // Since stats range from 3-21, we'll keep creating players until we get one that meets these modest requirements
+
+        uint32 playerId;
+        bool foundSuitablePlayer = false;
+
+        // Try up to 50 players to find one with agility >= 8 and strength >= 5
+        for (uint256 i = 0; i < 50 && !foundSuitablePlayer; i++) {
+            playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+
+            // Check if player meets DUAL_DAGGERS (agi >= 8) + LEATHER (str >= 5) requirements
+            if (stats.attributes.agility >= 8 && stats.attributes.strength >= 5) {
+                foundSuitablePlayer = true;
+                break;
+            }
+        }
+
+        assertTrue(
+            foundSuitablePlayer, "Could not find player meeting dual daggers + leather requirements after 50 attempts"
+        );
 
         // Register a new skin collection
         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
@@ -271,16 +289,16 @@ contract PlayerTest is TestBase {
         uint32 skinIndex = _registerSkin(address(skinNFT));
         skinRegistry.setSkinVerification(skinIndex, true);
 
-        // Mint skin to player
+        // Mint skin with meaningful requirements: DUAL_DAGGERS (agi >= 8) + LEATHER (str >= 5)
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
         skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, gameEngine.WEAPON_ARMING_SWORD_KITE(), gameEngine.ARMOR_LEATHER()
+            PLAYER_ONE, equipmentRequirements.WEAPON_DUAL_DAGGERS(), equipmentRequirements.ARMOR_LEATHER()
         );
         uint16 tokenId = 1;
         vm.stopPrank();
 
-        // Equip the skin
+        // Equip the skin (should work since we verified the player meets requirements)
         _equipSkinToPlayer(playerId, skinIndex, tokenId, true);
 
         // Verify the skin was equipped
