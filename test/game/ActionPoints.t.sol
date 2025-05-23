@@ -18,6 +18,9 @@ import {Fighter} from "../../src/fighters/Fighter.sol";
 contract ActionPointsTest is TestBase {
     function setUp() public override {
         super.setUp();
+        // Disable VRF mock for these tests since they don't use VRF
+        // and we want deterministic seeds based purely on block state
+        _setVRFMockMode(false);
     }
 
     function test_DoubleAttack() public view {
@@ -41,7 +44,10 @@ contract ActionPointsTest is TestBase {
         IGameEngine.FighterStats memory slowStats =
             _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout);
 
-        bytes memory results = gameEngine.processGame(fastStats, slowStats, _generateGameSeed(), 0);
+        // Use a fixed seed for deterministic behavior
+        uint256 fixedSeed = 0x1111111111111111111111111111111111111111111111111111111111111111;
+
+        bytes memory results = gameEngine.processGame(fastStats, slowStats, fixedSeed, 0);
 
         (
             bool player1Won,
@@ -86,10 +92,13 @@ contract ActionPointsTest is TestBase {
             stance: 1
         });
 
+        // Use a fixed seed for deterministic behavior
+        uint256 fixedSeed = 0x2222222222222222222222222222222222222222222222222222222222222222;
+
         bytes memory results = gameEngine.processGame(
             _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
             _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
-            _generateGameSeed(),
+            fixedSeed,
             0
         );
 
@@ -130,10 +139,13 @@ contract ActionPointsTest is TestBase {
             stance: 1
         });
 
+        // Use a fixed seed to ensure deterministic behavior regardless of test order
+        uint256 fixedSeed = 0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd;
+
         bytes memory results = gameEngine.processGame(
             _getFighterContract(p1Loadout.playerId).convertToFighterStats(p1Loadout),
             _getFighterContract(p2Loadout.playerId).convertToFighterStats(p2Loadout),
-            _generateGameSeed(),
+            fixedSeed,
             0
         );
 

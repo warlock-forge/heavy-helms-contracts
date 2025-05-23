@@ -10,6 +10,7 @@ pragma solidity ^0.8.13;
 import {Test, console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {GelatoVRFConsumerBase} from "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import {GelatoVRFAutoMock} from "./mocks/GelatoVRFAutoMock.sol";
 
 // Interfaces
 import {IPlayer} from "../src/interfaces/fighters/IPlayer.sol";
@@ -42,6 +43,11 @@ abstract contract TestBase is Test {
     uint256 private constant DEFAULT_FORK_BLOCK = 19_000_000;
     uint256 private constant VRF_ROUND = 335;
     address public operator;
+
+    // VRF Mock System
+    GelatoVRFAutoMock public vrfMock;
+    bool public useVRFMock = true;
+
     Player public playerContract;
     DefaultPlayer public defaultPlayerContract;
     Monster public monsterContract;
@@ -55,6 +61,9 @@ abstract contract TestBase is Test {
     uint32 public monsterSkinIndex;
     MonsterNameRegistry public monsterNameRegistry;
 
+    /// @notice Event signatures for VRF event detection
+    bytes32 constant VRF_REQUESTED_EVENT_SIG = keccak256("RequestedRandomness(uint256,bytes)");
+
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
     modifier skipInCI() {
@@ -65,6 +74,10 @@ abstract contract TestBase is Test {
 
     function setUp() public virtual {
         operator = address(0x42);
+
+        // Initialize VRF mock system
+        vrfMock = new GelatoVRFAutoMock(operator);
+
         setupRandomness();
         skinRegistry = new PlayerSkinRegistry();
         defaultSkin = new DefaultPlayerSkinNFT();
@@ -161,51 +174,128 @@ abstract contract TestBase is Test {
         return requestId;
     }
 
-    // Helper function to create a player with VRF
-    function _createPlayerAndFulfillVRF(address owner, Player contractInstance, bool useSetB)
+    /**
+     * @notice Enhanced VRF fulfillment using the new mock system
+     * @dev Automatically captures VRF requests and fulfills them
+     */
+    function _fulfillVRFWithMock(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
+        if (useVRFMock) {
+            // Use the VRF mock system
+            vrfMock.fulfillVRFRequest(requestId, randomSeed);
+        } else {
+            // Fallback to old method
+            _fulfillVRFLegacy(requestId, randomSeed, vrfConsumer);
+        }
+    }
+
+    /**
+     * @notice Enhanced player creation with automatic VRF handling
+     */
+    function _createPlayerAndFulfillVRFWithMock(address owner, Player contractInstance, bool useSetB)
         internal
         returns (uint32)
     {
-        // Give enough ETH to cover the fee
-        vm.deal(owner, contractInstance.createPlayerFeeAmount());
-
-        // Request player creation
-        uint256 requestId = _createPlayerRequest(owner, contractInstance, useSetB);
-
-        // Prepare to capture the event
+        // Start recording logs BEFORE creating the request to capture VRF events
         vm.recordLogs();
 
-        // Fulfill VRF request
-        _fulfillVRF(
-            requestId,
-            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, VRF_ROUND))),
-            address(contractInstance)
-        );
+        // Create the player request
+        vm.deal(owner, contractInstance.createPlayerFeeAmount());
+        uint256 requestId = _createPlayerRequest(owner, contractInstance, useSetB);
 
-        // Get logs and extract player ID
+        if (useVRFMock) {
+            // Capture VRF requests from the logs
+            _captureVRFRequestsFromLogs();
+
+            // Generate deterministic randomness
+            uint256 randomness = vrfMock.generateDeterministicRandomness(
+                uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, requestId)))
+            );
+
+            // Fulfill the VRF request
+            vrfMock.fulfillVRFRequest(requestId, randomness);
+
+            // Extract player ID from logs
+            return _getPlayerIdFromLogs(owner, requestId);
+        } else {
+            // Legacy VRF fulfillment
+            _fulfillVRFLegacy(
+                requestId, uint256(keccak256(abi.encodePacked("test randomness"))), address(contractInstance)
+            );
+            return _getPlayerIdFromLogs(owner, requestId);
+        }
+    }
+
+    /**
+     * @notice Legacy VRF fulfillment method (kept for compatibility)
+     */
+    function _fulfillVRFLegacy(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
+        bytes memory extraData = "";
+        bytes memory data = abi.encode(requestId, extraData);
+        bytes memory dataWithRound = abi.encode(VRF_ROUND, data);
+
+        // Call fulfillRandomness as operator
+        vm.prank(operator);
+        playerContract.fulfillRandomness(randomSeed, dataWithRound);
+    }
+
+    /**
+     * @notice Automatically captures VRF requests from logs
+     * @dev Processes recent logs to capture any VRF requests
+     */
+    function _captureVRFRequestsFromLogs() internal {
+        if (!useVRFMock) return;
+
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        // The PlayerCreationComplete event signature
-        bytes32 playerCreationEventSig = keccak256(
-            "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)"
-        );
-
-        // Find the PlayerCreationComplete event with our requestId
-        uint32 playerId;
         for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == playerCreationEventSig) {
-                // Check if the requestId matches (first indexed parameter)
-                if (uint256(logs[i].topics[1]) == requestId) {
-                    // Extract playerId from second indexed parameter
-                    playerId = uint32(uint256(logs[i].topics[2]));
-                    break;
-                }
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == VRF_REQUESTED_EVENT_SIG) {
+                // Decode the RequestedRandomness event
+                (uint256 round, bytes memory data) = abi.decode(logs[i].data, (uint256, bytes));
+
+                // Capture the request in our mock
+                vrfMock.captureVRFRequest(logs[i].emitter, round, data);
             }
         }
+    }
 
-        require(playerId != 0, "Player ID not found in logs");
+    /**
+     * @notice Toggle between VRF mock and legacy mode
+     */
+    function _setVRFMockMode(bool enabled) internal {
+        useVRFMock = enabled;
+    }
 
-        return playerId;
+    /**
+     * @notice Get VRF mock for advanced testing scenarios
+     */
+    function _getVRFMock() internal view returns (GelatoVRFAutoMock) {
+        return vrfMock;
+    }
+
+    /**
+     * @notice Helper to fulfill all pending VRF requests with deterministic randomness
+     */
+    function _fulfillAllPendingVRFRequests() internal {
+        if (!useVRFMock) return;
+
+        // Capture any new VRF requests from recent activity
+        _captureVRFRequestsFromLogs();
+
+        // Generate deterministic randomness
+        uint256 randomness = vrfMock.generateDeterministicRandomness(
+            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao)))
+        );
+
+        // Fulfill all pending requests
+        vrfMock.fulfillAllRequests(randomness);
+    }
+
+    /**
+     * @notice Helper to get the number of pending VRF requests for a consumer
+     */
+    function _getPendingVRFRequestCount(address consumer) internal view returns (uint256) {
+        if (!useVRFMock) return 0;
+        return vrfMock.getUnfulfilledRequestCount(consumer);
     }
 
     // Helper function to assert stat ranges
@@ -327,11 +417,13 @@ abstract contract TestBase is Test {
 
     // Helper function to check if a combat result is defensive
     function _isDefensiveResult(IGameEngine.CombatResultType result) internal pure returns (bool) {
-        return result == IGameEngine.CombatResultType.PARRY || result == IGameEngine.CombatResultType.BLOCK
-            || result == IGameEngine.CombatResultType.DODGE || result == IGameEngine.CombatResultType.MISS
-            || result == IGameEngine.CombatResultType.HIT || result == IGameEngine.CombatResultType.COUNTER
+        // Defensive results are when the player is defending (successfully or unsuccessfully)
+        return result == IGameEngine.CombatResultType.MISS || result == IGameEngine.CombatResultType.HIT
+            || result == IGameEngine.CombatResultType.PARRY || result == IGameEngine.CombatResultType.BLOCK
+            || result == IGameEngine.CombatResultType.DODGE || result == IGameEngine.CombatResultType.COUNTER
             || result == IGameEngine.CombatResultType.COUNTER_CRIT || result == IGameEngine.CombatResultType.RIPOSTE
             || result == IGameEngine.CombatResultType.RIPOSTE_CRIT;
+        // Note: ATTACK/CRIT/EXHAUSTED are offensive actions
     }
 
     // Helper function to generate a deterministic but unpredictable seed for game actions
@@ -443,6 +535,13 @@ abstract contract TestBase is Test {
     // Helper functions
     function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint32) {
         return _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
+    }
+
+    function _createPlayerAndFulfillVRF(address owner, Player contractInstance, bool useSetB)
+        internal
+        returns (uint32)
+    {
+        return _createPlayerAndFulfillVRFWithMock(owner, contractInstance, useSetB);
     }
 
     function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
