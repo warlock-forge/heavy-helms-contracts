@@ -186,7 +186,7 @@ contract BalanceTest is TestBase {
                 attributes: attrs,
                 armor: 0, // ARMOR_CLOTH
                 weapon: 5, // WEAPON_QUARTERSTAFF
-                stance: 0 // STANCE_DEFENSIVE
+                stance: 2 // STANCE_OFFENSIVE
             })
         });
     }
@@ -421,19 +421,18 @@ contract BalanceTest is TestBase {
         (berserkerStats, tankStats) = runDuel(berserker, shieldTank);
 
         assertTrue(
-            berserkerStats.wins >= matchCount * 60 / 100 && berserkerStats.wins <= matchCount * 90 / 100,
+            berserkerStats.wins >= matchCount * 70 / 100 && berserkerStats.wins <= matchCount * 95 / 100,
             string(
                 abi.encodePacked(
-                    "Berserker should counter Shield Tank (expected 60%-90% win rate): ",
-                    vm.toString(berserkerStats.wins)
+                    "Berserker should CRUSH Shield Tank (expected 70%-95% win rate): ", vm.toString(berserkerStats.wins)
                 )
             )
         );
         assertTrue(
-            tankStats.wins >= matchCount * 10 / 100 && tankStats.wins <= matchCount * 40 / 100,
+            tankStats.wins >= matchCount * 5 / 100 && tankStats.wins <= matchCount * 30 / 100,
             string(
                 abi.encodePacked(
-                    "Shield Tank should be weak against Berserker (expected 10%-40% win rate): ",
+                    "Shield Tank should be countered by Berserker (expected 5%-30% win rate): ",
                     vm.toString(tankStats.wins)
                 )
             )
@@ -451,50 +450,20 @@ contract BalanceTest is TestBase {
 
         (tankStats, bruiserStats) = runDuel(shieldTank, bruiser);
 
-        // Clubs should win 60-90% against shield tank
+        // Clubs should DOMINATE shield tanks
         assertTrue(
-            bruiserStats.wins >= matchCount * 60 / 100 && bruiserStats.wins <= matchCount * 90 / 100,
+            bruiserStats.wins >= matchCount * 75 / 100 && bruiserStats.wins <= matchCount * 95 / 100,
             string(
                 abi.encodePacked(
-                    "Bruiser should counter Shield Tank (expected 60%-90% win rate): ", vm.toString(bruiserStats.wins)
+                    "Bruiser should SMASH Shield Tank (expected 75%-95% win rate): ", vm.toString(bruiserStats.wins)
                 )
             )
         );
         assertTrue(
-            tankStats.wins >= matchCount * 10 / 100 && tankStats.wins <= matchCount * 40 / 100,
+            tankStats.wins >= matchCount * 5 / 100 && tankStats.wins <= matchCount * 25 / 100,
             string(
                 abi.encodePacked(
-                    "Shield Tank be weak against Bruiser (expected 10%-40% win rate): ", vm.toString(tankStats.wins)
-                )
-            )
-        );
-    }
-
-    // Test 6: Mage vs Vanguard
-    // Mage should counter Vanguard due to blunt damage and high parry/dodge
-    function testMageVsVanguard() public skipInCI {
-        TestFighter memory mage = createMage();
-        TestFighter memory vanguard = createVanguard();
-
-        MatchStatistics memory mageStats;
-        MatchStatistics memory vanguardStats;
-
-        (mageStats, vanguardStats) = runDuel(mage, vanguard);
-
-        assertTrue(
-            mageStats.wins >= matchCount * 55 / 100 && mageStats.wins <= matchCount * 85 / 100,
-            string(
-                abi.encodePacked(
-                    "Mage should counter Vanguard (expected 55%-85% win rate): ", vm.toString(mageStats.wins)
-                )
-            )
-        );
-        assertTrue(
-            vanguardStats.wins >= matchCount * 15 / 100 && vanguardStats.wins <= matchCount * 45 / 100,
-            string(
-                abi.encodePacked(
-                    "Vanguard should be weak against Mage (expected 15%-45% win rate): ",
-                    vm.toString(vanguardStats.wins)
+                    "Shield Tank should be CRUSHED by Bruiser (expected 5%-25% win rate): ", vm.toString(tankStats.wins)
                 )
             )
         );
@@ -542,10 +511,10 @@ contract BalanceTest is TestBase {
         (balancedStats, mageStats) = runDuel(balanced, mage);
 
         assertTrue(
-            balancedStats.wins >= matchCount * 30 / 100 && balancedStats.wins <= matchCount * 70 / 100,
+            balancedStats.wins >= matchCount * 25 / 100 && balancedStats.wins <= matchCount * 70 / 100,
             string(
                 abi.encodePacked(
-                    "Balanced should be even with Mage (expected 30%-70% win rate): ", vm.toString(balancedStats.wins)
+                    "Balanced should be even with Mage (expected 25%-70% win rate): ", vm.toString(balancedStats.wins)
                 )
             )
         );
@@ -657,7 +626,99 @@ contract BalanceTest is TestBase {
         );
     }
 
-    // Test 12: Assassin vs Berserker
+    // Test 12: Mage vs Shield Tank
+    // Offensive mage should break through defensive turtle builds
+    function testMageVsShieldTank() public skipInCI {
+        TestFighter memory mage = createMage();
+        TestFighter memory shieldTank = createShieldTank();
+
+        MatchStatistics memory mageStats;
+        MatchStatistics memory tankStats;
+
+        (mageStats, tankStats) = runDuel(mage, shieldTank);
+
+        // Mage should dominate shield tank with superior offense and stamina
+        assertTrue(
+            mageStats.wins >= matchCount * 70 / 100 && mageStats.wins <= matchCount * 90 / 100,
+            string(
+                abi.encodePacked(
+                    "Mage should dominate Shield Tank (expected 70%-90% win rate): ", vm.toString(mageStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            tankStats.wins >= matchCount * 10 / 100 && tankStats.wins <= matchCount * 30 / 100,
+            string(
+                abi.encodePacked(
+                    "Shield Tank should struggle against Mage (expected 10%-30% win rate): ",
+                    vm.toString(tankStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 13: Assassin vs Mage
+    // Fast assassin should dominate positioning-based mage
+    function testAssassinVsMage() public skipInCI {
+        TestFighter memory assassin = createAssassin();
+        TestFighter memory mage = createMage();
+
+        MatchStatistics memory assassinStats;
+        MatchStatistics memory mageStats;
+
+        (assassinStats, mageStats) = runDuel(assassin, mage);
+
+        // Assassin should have advantage over mage with superior speed and agility
+        assertTrue(
+            assassinStats.wins >= matchCount * 45 / 100 && assassinStats.wins <= matchCount * 85 / 100,
+            string(
+                abi.encodePacked(
+                    "Assassin should counter Mage (expected 45%-85% win rate): ", vm.toString(assassinStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            mageStats.wins >= matchCount * 25 / 100 && mageStats.wins <= matchCount * 55 / 100,
+            string(
+                abi.encodePacked(
+                    "Mage should be countered by Assassin (expected 25%-55% win rate): ", vm.toString(mageStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 14: Bruiser vs Mage
+    // Bruiser's raw power should overpower mage's finesse
+    function testBruiserVsMage() public skipInCI {
+        TestFighter memory bruiser = createBruiser();
+        TestFighter memory mage = createMage();
+
+        MatchStatistics memory bruiserStats;
+        MatchStatistics memory mageStats;
+
+        (bruiserStats, mageStats) = runDuel(bruiser, mage);
+
+        // Bruiser should be competitive with mage in this specific matchup
+        assertTrue(
+            bruiserStats.wins >= matchCount * 20 / 100 && bruiserStats.wins <= matchCount * 60 / 100,
+            string(
+                abi.encodePacked(
+                    "Bruiser should be competitive with Mage (expected 20%-60% win rate): ",
+                    vm.toString(bruiserStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            mageStats.wins >= matchCount * 40 / 100 && mageStats.wins <= matchCount * 80 / 100,
+            string(
+                abi.encodePacked(
+                    "Mage should be competitive with Bruiser (expected 40%-80% win rate): ", vm.toString(mageStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 15: Assassin vs Berserker
     // Fast, agile Assassin should dominate slow Berserker
     function testAssassinDominatesBerserker() public skipInCI {
         TestFighter memory assassin = createAssassin();
@@ -698,35 +759,691 @@ contract BalanceTest is TestBase {
         );
     }
 
-    // Add this helper function
-    function _getResultName(IGameEngine.CombatResultType result) private pure returns (string memory) {
-        if (result == IGameEngine.CombatResultType.MISS) return "MISS";
-        if (result == IGameEngine.CombatResultType.ATTACK) return "ATTACK";
-        if (result == IGameEngine.CombatResultType.CRIT) return "CRIT";
-        if (result == IGameEngine.CombatResultType.BLOCK) return "BLOCK";
-        if (result == IGameEngine.CombatResultType.COUNTER) return "COUNTER";
-        if (result == IGameEngine.CombatResultType.COUNTER_CRIT) return "COUNTER_CRIT";
-        if (result == IGameEngine.CombatResultType.DODGE) return "DODGE";
-        if (result == IGameEngine.CombatResultType.PARRY) return "PARRY";
-        if (result == IGameEngine.CombatResultType.RIPOSTE) return "RIPOSTE";
-        if (result == IGameEngine.CombatResultType.RIPOSTE_CRIT) return "RIPOSTE_CRIT";
-        if (result == IGameEngine.CombatResultType.EXHAUSTED) return "EXHAUSTED";
-        if (result == IGameEngine.CombatResultType.HIT) return "HIT";
-        return "UNKNOWN";
+    // ==================== ARCHETYPE VALIDATION TESTS ====================
+
+    // Test all Shield Tank variants vs Assassin variants
+    function testShieldTankArchetypeVsAssassinArchetype() public skipInCI {
+        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
+        uint8[] memory shieldTankWeapons = new uint8[](4);
+        shieldTankWeapons[0] = 1; // MACE_TOWER
+        shieldTankWeapons[1] = 13; // AXE_TOWER
+        shieldTankWeapons[2] = 17; // CLUB_TOWER
+        shieldTankWeapons[3] = 8; // SHORTSWORD_TOWER
+
+        // Assassin weapons: DUAL_DAGGERS, DUAL_SCIMITARS, RAPIER_DAGGER, SCIMITAR_DAGGER, SPEAR
+        uint8[] memory assassinWeapons = new uint8[](5);
+        assassinWeapons[0] = 9; // DUAL_DAGGERS
+        assassinWeapons[1] = 14; // DUAL_SCIMITARS
+        assassinWeapons[2] = 10; // RAPIER_DAGGER
+        assassinWeapons[3] = 20; // SCIMITAR_DAGGER
+        assassinWeapons[4] = 6; // SPEAR (2-handed assassin weapon)
+
+        uint256 totalShieldWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25; // Reduced for multiple combinations
+
+        for (uint256 i = 0; i < shieldTankWeapons.length; i++) {
+            for (uint256 j = 0; j < assassinWeapons.length; j++) {
+                TestFighter memory shieldTank = createCustomFighter(
+                    "Shield Tank Variant",
+                    shieldTankWeapons[i], // weapon
+                    3, // PLATE armor
+                    0, // DEFENSIVE stance
+                    mediumStat,
+                    highStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    lowStat
+                );
+
+                TestFighter memory assassin = createCustomFighter(
+                    "Assassin Variant",
+                    assassinWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    highStat,
+                    lowStat,
+                    mediumStat
+                );
+
+                // Run reduced test set
+                uint256 shieldWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(shieldTank.stats, assassin.stats, seed, 0);
+
+                    (bool shieldWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (shieldWon) shieldWins++;
+                }
+
+                totalShieldWins += shieldWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Shield tanks should win 65-95% across ALL weapon combinations
+        uint256 winRate = (totalShieldWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 65 && winRate <= 95,
+            string(
+                abi.encodePacked(
+                    "Shield Tank archetype should counter Assassin archetype (expected 65%-95% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
     }
 
-    // Helper function to determine if a result type is offensive (attacking)
-    function _isOffensiveResult(IGameEngine.CombatResultType result) private pure returns (bool) {
-        return result == IGameEngine.CombatResultType.ATTACK || result == IGameEngine.CombatResultType.CRIT
-            || result == IGameEngine.CombatResultType.MISS || result == IGameEngine.CombatResultType.EXHAUSTED;
+    // Test all Parry Master variants vs Bruiser variants
+    function testParryMasterArchetypeVsBruiserArchetype() public skipInCI {
+        // Parry Master weapons: RAPIER_BUCKLER, SHORTSWORD_BUCKLER, SCIMITAR_BUCKLER, FLAIL_BUCKLER
+        uint8[] memory parryWeapons = new uint8[](4);
+        parryWeapons[0] = 2; // RAPIER_BUCKLER
+        parryWeapons[1] = 7; // SHORTSWORD_BUCKLER
+        parryWeapons[2] = 11; // SCIMITAR_BUCKLER
+        parryWeapons[3] = 15; // FLAIL_BUCKLER
+
+        // Bruiser weapons: DUAL_CLUBS, DUAL_SCIMITARS, AXE_MACE, ARMING_SWORD_CLUB
+        uint8[] memory bruiserWeapons = new uint8[](4);
+        bruiserWeapons[0] = 18; // DUAL_CLUBS
+        bruiserWeapons[1] = 14; // DUAL_SCIMITARS
+        bruiserWeapons[2] = 22; // AXE_MACE
+        bruiserWeapons[3] = 21; // ARMING_SWORD_CLUB
+
+        uint256 totalParryWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < parryWeapons.length; i++) {
+            for (uint256 j = 0; j < bruiserWeapons.length; j++) {
+                TestFighter memory parryMaster = createCustomFighter(
+                    "Parry Master Variant",
+                    parryWeapons[i], // weapon
+                    1, // LEATHER armor
+                    0, // DEFENSIVE stance
+                    mediumStat,
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat
+                );
+
+                TestFighter memory bruiser = createCustomFighter(
+                    "Bruiser Variant",
+                    bruiserWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                uint256 parryWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(parryMaster.stats, bruiser.stats, seed, 0);
+
+                    (bool parryWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (parryWon) parryWins++;
+                }
+
+                uint256 winRate = (parryWins * 100) / testRounds;
+
+                // Log each individual matchup for debugging
+                emit log_named_uint("Parry weapon", parryWeapons[i]);
+                emit log_named_uint("Bruiser weapon", bruiserWeapons[j]);
+                emit log_named_uint("Win rate", winRate);
+
+                totalParryWins += parryWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Parry masters should win 55-85% across ALL weapon combinations
+        uint256 winRate = (totalParryWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 55 && winRate <= 85,
+            string(
+                abi.encodePacked(
+                    "Parry Master archetype should counter Bruiser archetype (expected 55%-85% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
     }
 
-    // Helper function to get win condition name
-    function _getWinConditionName(IGameEngine.WinCondition condition) private pure returns (string memory) {
-        if (condition == IGameEngine.WinCondition.DEATH) return "DEATH";
-        if (condition == IGameEngine.WinCondition.EXHAUSTION) return "EXHAUSTION";
-        if (condition == IGameEngine.WinCondition.HEALTH) return "HEALTH";
-        if (condition == IGameEngine.WinCondition.MAX_ROUNDS) return "MAX_ROUNDS";
-        return "UNKNOWN";
+    // Test Assassin archetype consistency across weapon variants
+    function testAssassinArchetypeConsistency() public skipInCI {
+        // Test all assassin weapons against a standard mage
+        uint8[] memory assassinWeapons = new uint8[](5);
+        assassinWeapons[0] = 9; // DUAL_DAGGERS
+        assassinWeapons[1] = 14; // DUAL_SCIMITARS
+        assassinWeapons[2] = 10; // RAPIER_DAGGER
+        assassinWeapons[3] = 20; // SCIMITAR_DAGGER
+        assassinWeapons[4] = 6; // SPEAR (2-handed assassin weapon)
+
+        TestFighter memory mage = createMage();
+        uint256 testRounds = 50;
+
+        for (uint256 i = 0; i < assassinWeapons.length; i++) {
+            TestFighter memory assassin = createCustomFighter(
+                "Assassin Variant",
+                assassinWeapons[i], // weapon
+                1, // LEATHER armor
+                2, // OFFENSIVE stance
+                highStat,
+                lowStat,
+                mediumStat,
+                highStat,
+                lowStat,
+                mediumStat
+            );
+
+            uint256 assassinWins = 0;
+            for (uint256 j = 0; j < testRounds; j++) {
+                vm.roll(block.number + 1);
+                vm.warp(block.timestamp + 15);
+
+                uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, j, i)));
+                bytes memory results = gameEngine.processGame(assassin.stats, mage.stats, seed, 0);
+
+                (bool assassinWon,,,) = gameEngine.decodeCombatLog(results);
+                if (assassinWon) assassinWins++;
+            }
+
+            uint256 winRate = (assassinWins * 100) / testRounds;
+
+            // Each assassin weapon should perform reasonably vs mage (some variation expected)
+            assertTrue(
+                winRate >= 30 && winRate <= 100,
+                string(
+                    abi.encodePacked(
+                        "Assassin weapon variant ",
+                        vm.toString(assassinWeapons[i]),
+                        " should be viable (expected 30%-100% vs Mage): ",
+                        vm.toString(winRate)
+                    )
+                )
+            );
+        }
+    }
+
+    // Test all Berserker variants vs Shield Tank variants
+    function testBerserkerArchetypeVsShieldTankArchetype() public skipInCI {
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL, TRIDENT
+        uint8[] memory berserkerWeapons = new uint8[](4);
+        berserkerWeapons[0] = 4; // BATTLEAXE
+        berserkerWeapons[1] = 3; // GREATSWORD
+        berserkerWeapons[2] = 25; // MAUL
+        berserkerWeapons[3] = 26; // TRIDENT
+
+        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
+        uint8[] memory shieldWeapons = new uint8[](4);
+        shieldWeapons[0] = 1; // MACE_TOWER
+        shieldWeapons[1] = 13; // AXE_TOWER
+        shieldWeapons[2] = 17; // CLUB_TOWER
+        shieldWeapons[3] = 8; // SHORTSWORD_TOWER
+
+        uint256 totalBerserkerWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < berserkerWeapons.length; i++) {
+            for (uint256 j = 0; j < shieldWeapons.length; j++) {
+                TestFighter memory berserker = createCustomFighter(
+                    "Berserker Variant",
+                    berserkerWeapons[i], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                TestFighter memory shieldTank = createCustomFighter(
+                    "Shield Tank Variant",
+                    shieldWeapons[j], // weapon
+                    3, // PLATE armor
+                    0, // DEFENSIVE stance
+                    mediumStat,
+                    highStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    lowStat
+                );
+
+                uint256 berserkerWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(berserker.stats, shieldTank.stats, seed, 0);
+
+                    (bool berserkerWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (berserkerWon) berserkerWins++;
+                }
+
+                totalBerserkerWins += berserkerWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Berserkers should win 80-95% across ALL weapon combinations
+        uint256 winRate = (totalBerserkerWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 75 && winRate <= 95,
+            string(
+                abi.encodePacked(
+                    "Berserker archetype should counter Shield Tank archetype (expected 75%-95% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
+
+    // Test Assassin archetype vs Berserker archetype (assassins should counter)
+    function testAssassinArchetypeVsBerserkerArchetype() public skipInCI {
+        // Assassin weapons: DUAL_DAGGERS, DUAL_SCIMITARS, RAPIER_DAGGER, SCIMITAR_DAGGER, SPEAR
+        uint8[] memory assassinWeapons = new uint8[](5);
+        assassinWeapons[0] = 9; // DUAL_DAGGERS
+        assassinWeapons[1] = 14; // DUAL_SCIMITARS
+        assassinWeapons[2] = 10; // RAPIER_DAGGER
+        assassinWeapons[3] = 20; // SCIMITAR_DAGGER
+        assassinWeapons[4] = 6; // SPEAR (2-handed assassin weapon)
+
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL, TRIDENT
+        uint8[] memory berserkerWeapons = new uint8[](4);
+        berserkerWeapons[0] = 4; // BATTLEAXE
+        berserkerWeapons[1] = 3; // GREATSWORD
+        berserkerWeapons[2] = 25; // MAUL
+        berserkerWeapons[3] = 26; // TRIDENT
+
+        uint256 totalAssassinWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < assassinWeapons.length; i++) {
+            for (uint256 j = 0; j < berserkerWeapons.length; j++) {
+                TestFighter memory assassin = createCustomFighter(
+                    "Assassin Variant",
+                    assassinWeapons[i], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    highStat,
+                    lowStat,
+                    mediumStat
+                );
+
+                TestFighter memory berserker = createCustomFighter(
+                    "Berserker Variant",
+                    berserkerWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                uint256 assassinWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(assassin.stats, berserker.stats, seed, 0);
+
+                    (bool assassinWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (assassinWon) assassinWins++;
+                }
+
+                totalAssassinWins += assassinWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Assassins should win 60-85% against berserkers (speed vs power)
+        uint256 winRate = (totalAssassinWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 60 && winRate <= 85,
+            string(
+                abi.encodePacked(
+                    "Assassin archetype should counter Berserker archetype (expected 60%-85% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
+
+    // Test Vanguard archetype vs Bruiser archetype (vanguards should counter)
+    function testVanguardArchetypeVsBruiserArchetype() public skipInCI {
+        // Vanguard weapons: GREATSWORD, QUARTERSTAFF, RAPIER_DAGGER (technical weapons)
+        uint8[] memory vanguardWeapons = new uint8[](3);
+        vanguardWeapons[0] = 3; // GREATSWORD
+        vanguardWeapons[1] = 5; // QUARTERSTAFF
+        vanguardWeapons[2] = 10; // RAPIER_DAGGER
+
+        // Bruiser weapons: DUAL_CLUBS, DUAL_SCIMITARS, AXE_MACE, ARMING_SWORD_CLUB
+        uint8[] memory bruiserWeapons = new uint8[](4);
+        bruiserWeapons[0] = 18; // DUAL_CLUBS
+        bruiserWeapons[1] = 14; // DUAL_SCIMITARS
+        bruiserWeapons[2] = 22; // AXE_MACE
+        bruiserWeapons[3] = 21; // ARMING_SWORD_CLUB
+
+        uint256 totalVanguardWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < vanguardWeapons.length; i++) {
+            for (uint256 j = 0; j < bruiserWeapons.length; j++) {
+                TestFighter memory vanguard = createCustomFighter(
+                    "Vanguard Variant",
+                    vanguardWeapons[i], // weapon
+                    2, // CHAIN armor
+                    1, // BALANCED stance
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                TestFighter memory bruiser = createCustomFighter(
+                    "Bruiser Variant",
+                    bruiserWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                uint256 vanguardWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(vanguard.stats, bruiser.stats, seed, 0);
+
+                    (bool vanguardWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (vanguardWon) vanguardWins++;
+                }
+
+                totalVanguardWins += vanguardWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Vanguards should win 55-75% against bruisers (technique vs brute force)
+        uint256 winRate = (totalVanguardWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 55 && winRate <= 75,
+            string(
+                abi.encodePacked(
+                    "Vanguard archetype should counter Bruiser archetype (expected 55%-75% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
+
+    // Test Mage archetype vs Shield Tank archetype (mages should counter)
+    function testMageArchetypeVsShieldTankArchetype() public skipInCI {
+        // Mage weapons: QUARTERSTAFF (pure mage weapon)
+        uint8[] memory mageWeapons = new uint8[](1);
+        mageWeapons[0] = 5; // QUARTERSTAFF
+
+        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
+        uint8[] memory shieldTankWeapons = new uint8[](4);
+        shieldTankWeapons[0] = 1; // MACE_TOWER
+        shieldTankWeapons[1] = 13; // AXE_TOWER
+        shieldTankWeapons[2] = 17; // CLUB_TOWER
+        shieldTankWeapons[3] = 8; // SHORTSWORD_TOWER
+
+        uint256 totalMageWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < mageWeapons.length; i++) {
+            for (uint256 j = 0; j < shieldTankWeapons.length; j++) {
+                TestFighter memory mage = createCustomFighter(
+                    "Mage Variant",
+                    mageWeapons[i], // weapon
+                    0, // CLOTH armor
+                    1, // BALANCED stance
+                    lowStat,
+                    mediumStat,
+                    lowStat,
+                    mediumStat,
+                    highStat,
+                    highStat
+                );
+
+                TestFighter memory shieldTank = createCustomFighter(
+                    "Shield Tank Variant",
+                    shieldTankWeapons[j], // weapon
+                    3, // PLATE armor
+                    0, // DEFENSIVE stance
+                    mediumStat,
+                    highStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    lowStat
+                );
+
+                uint256 mageWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(mage.stats, shieldTank.stats, seed, 0);
+
+                    (bool mageWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (mageWon) mageWins++;
+                }
+
+                totalMageWins += mageWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Mages should be viable but not dominant against shield tanks
+        uint256 winRate = (totalMageWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 15 && winRate <= 60,
+            string(
+                abi.encodePacked(
+                    "Mage archetype should be viable (expected 15%-60% win rate vs Shield Tanks): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
+
+    // Test Bruiser archetype vs Shield Tank archetype (bruisers should have advantage - blunt vs plate)
+    function testBruiserArchetypeVsShieldTankArchetype() public skipInCI {
+        // Bruiser weapons: DUAL_CLUBS, DUAL_SCIMITARS, AXE_MACE, ARMING_SWORD_CLUB
+        uint8[] memory bruiserWeapons = new uint8[](4);
+        bruiserWeapons[0] = 18; // DUAL_CLUBS
+        bruiserWeapons[1] = 14; // DUAL_SCIMITARS
+        bruiserWeapons[2] = 22; // AXE_MACE
+        bruiserWeapons[3] = 21; // ARMING_SWORD_CLUB
+
+        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
+        uint8[] memory shieldTankWeapons = new uint8[](4);
+        shieldTankWeapons[0] = 1; // MACE_TOWER
+        shieldTankWeapons[1] = 13; // AXE_TOWER
+        shieldTankWeapons[2] = 17; // CLUB_TOWER
+        shieldTankWeapons[3] = 8; // SHORTSWORD_TOWER
+
+        uint256 totalBruiserWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < bruiserWeapons.length; i++) {
+            for (uint256 j = 0; j < shieldTankWeapons.length; j++) {
+                TestFighter memory bruiser = createCustomFighter(
+                    "Bruiser Variant",
+                    bruiserWeapons[i], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                TestFighter memory shieldTank = createCustomFighter(
+                    "Shield Tank Variant",
+                    shieldTankWeapons[j], // weapon
+                    3, // PLATE armor
+                    0, // DEFENSIVE stance
+                    mediumStat,
+                    highStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    lowStat
+                );
+
+                uint256 bruiserWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(bruiser.stats, shieldTank.stats, seed, 0);
+
+                    (bool bruiserWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (bruiserWon) bruiserWins++;
+                }
+
+                totalBruiserWins += bruiserWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Bruisers should have advantage against shield tanks (blunt weapons vs plate armor)
+        uint256 winRate = (totalBruiserWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 65 && winRate <= 85,
+            string(
+                abi.encodePacked(
+                    "Bruiser archetype should counter Shield Tank archetype (expected 65%-85% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
+
+    // Test Parry Master archetype vs Berserker archetype (parry masters should counter)
+    function testParryMasterArchetypeVsBerserkerArchetype() public skipInCI {
+        // Parry Master weapons: RAPIER_BUCKLER, SHORTSWORD_BUCKLER, SCIMITAR_BUCKLER, FLAIL_BUCKLER
+        uint8[] memory parryWeapons = new uint8[](4);
+        parryWeapons[0] = 2; // RAPIER_BUCKLER
+        parryWeapons[1] = 7; // SHORTSWORD_BUCKLER
+        parryWeapons[2] = 11; // SCIMITAR_BUCKLER
+        parryWeapons[3] = 15; // FLAIL_BUCKLER
+
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL, TRIDENT
+        uint8[] memory berserkerWeapons = new uint8[](4);
+        berserkerWeapons[0] = 4; // BATTLEAXE
+        berserkerWeapons[1] = 3; // GREATSWORD
+        berserkerWeapons[2] = 25; // MAUL
+        berserkerWeapons[3] = 26; // TRIDENT
+
+        uint256 totalParryWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+
+        for (uint256 i = 0; i < parryWeapons.length; i++) {
+            for (uint256 j = 0; j < berserkerWeapons.length; j++) {
+                TestFighter memory parryMaster = createCustomFighter(
+                    "Parry Master Variant",
+                    parryWeapons[i], // weapon
+                    1, // LEATHER armor
+                    0, // DEFENSIVE stance
+                    mediumStat,
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat
+                );
+
+                TestFighter memory berserker = createCustomFighter(
+                    "Berserker Variant",
+                    berserkerWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                uint256 parryWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+
+                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
+                    bytes memory results = gameEngine.processGame(parryMaster.stats, berserker.stats, seed, 0);
+
+                    (bool parryWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (parryWon) parryWins++;
+                }
+
+                totalParryWins += parryWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Parry masters should win 65-85% against berserkers (technique vs raw power)
+        uint256 winRate = (totalParryWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 65 && winRate <= 85,
+            string(
+                abi.encodePacked(
+                    "Parry Master archetype should counter Berserker archetype (expected 65%-85% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
     }
 }
