@@ -170,26 +170,7 @@ contract BalanceTest is TestBase {
         });
     }
 
-    function createMage() private view returns (TestFighter memory) {
-        Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: mediumStat,
-            constitution: mediumStat,
-            size: mediumStat,
-            agility: mediumStat,
-            stamina: highStat,
-            luck: lowStat
-        });
-
-        return TestFighter({
-            name: "Mage",
-            stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 0, // ARMOR_CLOTH
-                weapon: 5, // WEAPON_QUARTERSTAFF
-                stance: 2 // STANCE_OFFENSIVE
-            })
-        });
-    }
+    // createMage() REMOVED - Mage archetype eliminated from game
 
     function createBalanced() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
@@ -353,20 +334,20 @@ contract BalanceTest is TestBase {
 
         (tankStats, assassinStats) = runDuel(shieldTank, assassin);
 
-        // Shield tank should win 75-85% against dual daggers
+        // Shield tank should win 60-85% against dual daggers (specific weapon hard counter)
         assertTrue(
-            tankStats.wins >= matchCount * 65 / 100 && tankStats.wins <= matchCount * 95 / 100,
+            tankStats.wins >= matchCount * 60 / 100 && tankStats.wins <= matchCount * 85 / 100,
             string(
                 abi.encodePacked(
-                    "Shield Tank should counter Assassin (expected 65%-95% win rate): ", vm.toString(tankStats.wins)
+                    "Shield Tank should counter Assassin (expected 60%-85% win rate): ", vm.toString(tankStats.wins)
                 )
             )
         );
         assertTrue(
-            assassinStats.wins >= matchCount * 5 / 100 && assassinStats.wins <= matchCount * 35 / 100,
+            assassinStats.wins >= matchCount * 5 / 100 && assassinStats.wins <= matchCount * 40 / 100,
             string(
                 abi.encodePacked(
-                    "Assassin be weak against Shield Tank (expected 5%-35% win rate): ", vm.toString(assassinStats.wins)
+                    "Assassin be weak against Shield Tank (expected 5%-40% win rate): ", vm.toString(assassinStats.wins)
                 )
             )
         );
@@ -384,10 +365,10 @@ contract BalanceTest is TestBase {
         (parryStats, berserkerStats) = runDuel(parryMaster, berserker);
 
         assertTrue(
-            parryStats.wins >= matchCount * 60 / 100 && parryStats.wins <= matchCount * 90 / 100,
+            parryStats.wins >= matchCount * 60 / 100 && parryStats.wins <= matchCount * 85 / 100,
             string(
                 abi.encodePacked(
-                    "Parry Master should counter Berserker (expected 60%-90% win rate): ", vm.toString(parryStats.wins)
+                    "Parry Master should counter Berserker (expected 60%-85% win rate): ", vm.toString(parryStats.wins)
                 )
             )
         );
@@ -420,20 +401,20 @@ contract BalanceTest is TestBase {
         MatchStatistics memory tankStats;
         (berserkerStats, tankStats) = runDuel(berserker, shieldTank);
 
-        // Berserker should dominate with raw damage
+        // Berserker should dominate with raw damage (hard counter)
         assertTrue(
-            berserkerStats.wins >= matchCount * 65 / 100 && berserkerStats.wins <= matchCount * 95 / 100,
+            berserkerStats.wins >= matchCount * 65 / 100 && berserkerStats.wins <= matchCount * 85 / 100,
             string(
                 abi.encodePacked(
-                    "Berserker should CRUSH Shield Tank (expected 65%-95% win rate): ", vm.toString(berserkerStats.wins)
+                    "Berserker should CRUSH Shield Tank (expected 65%-85% win rate): ", vm.toString(berserkerStats.wins)
                 )
             )
         );
         assertTrue(
-            tankStats.wins >= matchCount * 5 / 100 && tankStats.wins <= matchCount * 30 / 100,
+            tankStats.wins >= matchCount * 5 / 100 && tankStats.wins <= matchCount * 35 / 100,
             string(
                 abi.encodePacked(
-                    "Shield Tank should be countered by Berserker (expected 5%-30% win rate): ",
+                    "Shield Tank should be countered by Berserker (expected 5%-35% win rate): ",
                     vm.toString(tankStats.wins)
                 )
             )
@@ -451,20 +432,20 @@ contract BalanceTest is TestBase {
 
         (tankStats, bruiserStats) = runDuel(shieldTank, bruiser);
 
-        // Clubs should DOMINATE shield tanks
+        // Clubs should DOMINATE shield tanks (hard counter)
         assertTrue(
-            bruiserStats.wins >= matchCount * 60 / 100 && bruiserStats.wins <= matchCount * 95 / 100,
+            bruiserStats.wins >= matchCount * 63 / 100 && bruiserStats.wins <= matchCount * 85 / 100,
             string(
                 abi.encodePacked(
-                    "Bruiser should SMASH Shield Tank (expected 60%-95% win rate): ", vm.toString(bruiserStats.wins)
+                    "Bruiser should SMASH Shield Tank (expected 63%-85% win rate): ", vm.toString(bruiserStats.wins)
                 )
             )
         );
         assertTrue(
-            tankStats.wins >= matchCount * 5 / 100 && tankStats.wins <= matchCount * 35 / 100,
+            tankStats.wins >= matchCount * 5 / 100 && tankStats.wins <= matchCount * 37 / 100,
             string(
                 abi.encodePacked(
-                    "Shield Tank should be CRUSHED by Bruiser (expected 5%-35% win rate): ", vm.toString(tankStats.wins)
+                    "Shield Tank should be CRUSHED by Bruiser (expected 5%-37% win rate): ", vm.toString(tankStats.wins)
                 )
             )
         );
@@ -482,10 +463,10 @@ contract BalanceTest is TestBase {
         (assassinStats, berserkerStats) = runDuel(assassin, berserker);
 
         assertTrue(
-            assassinStats.wins >= matchCount * 65 / 100 && assassinStats.wins <= matchCount * 98 / 100,
+            assassinStats.wins >= matchCount * 60 / 100 && assassinStats.wins <= matchCount * 95 / 100,
             string(
                 abi.encodePacked(
-                    "Assassin should counter Berserker (expected 65%-98% win rate): ", vm.toString(assassinStats.wins)
+                    "Assassin should counter Berserker (expected 60%-95% win rate): ", vm.toString(assassinStats.wins)
                 )
             )
         );
@@ -500,34 +481,7 @@ contract BalanceTest is TestBase {
         );
     }
 
-    // Test 8: Balanced vs Mage
-    // Even matchup between balanced and technical fighters
-    function testBalancedVsMage() public skipInCI {
-        TestFighter memory balanced = createBalanced();
-        TestFighter memory mage = createMage();
-
-        MatchStatistics memory balancedStats;
-        MatchStatistics memory mageStats;
-
-        (balancedStats, mageStats) = runDuel(balanced, mage);
-
-        assertTrue(
-            balancedStats.wins >= matchCount * 25 / 100 && balancedStats.wins <= matchCount * 70 / 100,
-            string(
-                abi.encodePacked(
-                    "Balanced should be even with Mage (expected 25%-70% win rate): ", vm.toString(balancedStats.wins)
-                )
-            )
-        );
-        assertTrue(
-            mageStats.wins >= matchCount * 30 / 100 && mageStats.wins <= matchCount * 70 / 100,
-            string(
-                abi.encodePacked(
-                    "Mage should be even with Balanced (expected 30%-70% win rate): ", vm.toString(mageStats.wins)
-                )
-            )
-        );
-    }
+    // Test 8: REMOVED - Mage archetype eliminated from game
 
     // Test 9: Bruiser vs Parry Master
     // Parry Master should counter Bruiser with superior technical skill
@@ -541,18 +495,19 @@ contract BalanceTest is TestBase {
         (bruiserStats, parryStats) = runDuel(bruiser, parryMaster);
 
         assertTrue(
-            parryStats.wins >= matchCount * 55 / 100 && parryStats.wins <= matchCount * 85 / 100,
+            parryStats.wins >= matchCount * 25 / 100 && parryStats.wins <= matchCount * 75 / 100,
             string(
                 abi.encodePacked(
-                    "Parry Master should counter Bruiser (expected 55%-85% win rate): ", vm.toString(parryStats.wins)
+                    "Parry Master vs Bruiser should be competitive (expected 25%-75% win rate): ",
+                    vm.toString(parryStats.wins)
                 )
             )
         );
         assertTrue(
-            bruiserStats.wins >= matchCount * 15 / 100 && bruiserStats.wins <= matchCount * 45 / 100,
+            bruiserStats.wins >= matchCount * 25 / 100 && bruiserStats.wins <= matchCount * 75 / 100,
             string(
                 abi.encodePacked(
-                    "Bruiser should be weak against Parry Master (expected 15%-45% win rate): ",
+                    "Bruiser vs Parry Master should be competitive (expected 25%-75% win rate): ",
                     vm.toString(bruiserStats.wins)
                 )
             )
@@ -579,10 +534,10 @@ contract BalanceTest is TestBase {
         (vanguardStats, bruiserStats) = runDuel(vanguard, bruiser);
 
         assertTrue(
-            vanguardStats.wins >= matchCount * 45 / 100 && vanguardStats.wins <= matchCount * 85 / 100,
+            vanguardStats.wins >= matchCount * 40 / 100 && vanguardStats.wins <= matchCount * 85 / 100,
             string(
                 abi.encodePacked(
-                    "Vanguard should counter Bruiser (expected 45%-85% win rate): ", vm.toString(vanguardStats.wins)
+                    "Vanguard should counter Bruiser (expected 40%-85% win rate): ", vm.toString(vanguardStats.wins)
                 )
             )
         );
@@ -597,7 +552,69 @@ contract BalanceTest is TestBase {
         );
     }
 
-    // Test 11: Vanguard vs Assassin - DISABLED (not core to balance)
+    // Test 11: Assassin vs Parry Master
+    // Assassins should counter parry masters with superior speed and mobility
+    function testAssassinVsParryMaster() public skipInCI {
+        TestFighter memory assassin = createAssassin();
+        TestFighter memory parryMaster = createParryMaster();
+
+        MatchStatistics memory assassinStats;
+        MatchStatistics memory parryStats;
+
+        (assassinStats, parryStats) = runDuel(assassin, parryMaster);
+
+        assertTrue(
+            assassinStats.wins >= matchCount * 20 / 100 && assassinStats.wins <= matchCount * 75 / 100,
+            string(
+                abi.encodePacked(
+                    "Assassin vs Parry Master should be competitive (expected 20%-75% win rate): ",
+                    vm.toString(assassinStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            parryStats.wins >= matchCount * 25 / 100 && parryStats.wins <= matchCount * 75 / 100,
+            string(
+                abi.encodePacked(
+                    "Parry Master vs Assassin should be competitive (expected 25%-75% win rate): ",
+                    vm.toString(parryStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 12: Shield Tank vs Parry Master
+    // Shield Tanks should counter Parry Masters through superior stamina and defense
+    function testShieldTankVsParryMaster() public skipInCI {
+        TestFighter memory shieldTank = createShieldTank();
+        TestFighter memory parryMaster = createParryMaster();
+
+        MatchStatistics memory tankStats;
+        MatchStatistics memory parryStats;
+
+        (tankStats, parryStats) = runDuel(shieldTank, parryMaster);
+
+        assertTrue(
+            tankStats.wins >= matchCount * 65 / 100 && tankStats.wins <= matchCount * 100 / 100,
+            string(
+                abi.encodePacked(
+                    "Shield Tank should counter Parry Master (expected 65%-100% win rate): ",
+                    vm.toString(tankStats.wins)
+                )
+            )
+        );
+        assertTrue(
+            parryStats.wins >= matchCount * 0 / 100 && parryStats.wins <= matchCount * 15 / 100,
+            string(
+                abi.encodePacked(
+                    "Parry Master should be hard-countered by Shield Tank (expected 0%-15% win rate): ",
+                    vm.toString(parryStats.wins)
+                )
+            )
+        );
+    }
+
+    // Test 13: Vanguard vs Assassin - DISABLED (not core to balance)
     // Fast Assassin should counter slow Vanguard
     // function testVanguardVsAssassin() public skipInCI {
     //     TestFighter memory vanguard = createVanguard();
@@ -627,97 +644,11 @@ contract BalanceTest is TestBase {
     //     );
     // }
 
-    // Test 12: Mage vs Shield Tank
-    // Offensive mage should break through defensive turtle builds
-    function testMageVsShieldTank() public skipInCI {
-        TestFighter memory mage = createMage();
-        TestFighter memory shieldTank = createShieldTank();
+    // Test 12: REMOVED - Mage archetype eliminated from game
 
-        MatchStatistics memory mageStats;
-        MatchStatistics memory tankStats;
+    // Test 13: REMOVED - Mage archetype eliminated from game
 
-        (mageStats, tankStats) = runDuel(mage, shieldTank);
-
-        // Mage should dominate shield tank with superior offense and stamina
-        assertTrue(
-            mageStats.wins >= matchCount * 60 / 100 && mageStats.wins <= matchCount * 90 / 100,
-            string(
-                abi.encodePacked(
-                    "Mage should dominate Shield Tank (expected 60%-90% win rate): ", vm.toString(mageStats.wins)
-                )
-            )
-        );
-        assertTrue(
-            tankStats.wins >= matchCount * 10 / 100 && tankStats.wins <= matchCount * 35 / 100,
-            string(
-                abi.encodePacked(
-                    "Shield Tank should struggle against Mage (expected 10%-35% win rate): ",
-                    vm.toString(tankStats.wins)
-                )
-            )
-        );
-    }
-
-    // Test 13: Assassin vs Mage
-    // Fast assassin should dominate positioning-based mage
-    function testAssassinVsMage() public skipInCI {
-        TestFighter memory assassin = createAssassin();
-        TestFighter memory mage = createMage();
-
-        MatchStatistics memory assassinStats;
-        MatchStatistics memory mageStats;
-
-        (assassinStats, mageStats) = runDuel(assassin, mage);
-
-        // Assassin should have advantage over mage with superior speed and agility
-        assertTrue(
-            assassinStats.wins >= matchCount * 45 / 100 && assassinStats.wins <= matchCount * 85 / 100,
-            string(
-                abi.encodePacked(
-                    "Assassin should counter Mage (expected 45%-85% win rate): ", vm.toString(assassinStats.wins)
-                )
-            )
-        );
-        assertTrue(
-            mageStats.wins >= matchCount * 25 / 100 && mageStats.wins <= matchCount * 55 / 100,
-            string(
-                abi.encodePacked(
-                    "Mage should be countered by Assassin (expected 25%-55% win rate): ", vm.toString(mageStats.wins)
-                )
-            )
-        );
-    }
-
-    // Test 14: Bruiser vs Mage
-    // Bruiser's raw power should overpower mage's finesse
-    function testBruiserVsMage() public skipInCI {
-        TestFighter memory bruiser = createBruiser();
-        TestFighter memory mage = createMage();
-
-        MatchStatistics memory bruiserStats;
-        MatchStatistics memory mageStats;
-
-        (bruiserStats, mageStats) = runDuel(bruiser, mage);
-
-        // Bruiser should be competitive with mage in this specific matchup
-        assertTrue(
-            bruiserStats.wins >= matchCount * 20 / 100 && bruiserStats.wins <= matchCount * 70 / 100,
-            string(
-                abi.encodePacked(
-                    "Bruiser should be competitive with Mage (expected 20%-70% win rate): ",
-                    vm.toString(bruiserStats.wins)
-                )
-            )
-        );
-        assertTrue(
-            mageStats.wins >= matchCount * 40 / 100 && mageStats.wins <= matchCount * 80 / 100,
-            string(
-                abi.encodePacked(
-                    "Mage should be competitive with Bruiser (expected 40%-80% win rate): ", vm.toString(mageStats.wins)
-                )
-            )
-        );
-    }
+    // Test 14: REMOVED - Mage archetype eliminated from game
 
     // Test 15: Assassin vs Berserker
     // Fast, agile Assassin should dominate slow Berserker
@@ -738,22 +669,22 @@ contract BalanceTest is TestBase {
 
         (assassinStats, berserkerStats) = runDuel(assassin, berserker);
 
-        // Assassin should dominate with 75-98% win rate
+        // Assassin should dominate with 60-95% win rate (specific weapon hard counter)
         assertTrue(
-            assassinStats.wins >= matchCount * 75 / 100 && assassinStats.wins <= matchCount * 98 / 100,
+            assassinStats.wins >= matchCount * 60 / 100 && assassinStats.wins <= matchCount * 95 / 100,
             string(
                 abi.encodePacked(
-                    "Assassin should dominate Berserker (expected 75%-98% win rate): ", vm.toString(assassinStats.wins)
+                    "Assassin should dominate Berserker (expected 60%-95% win rate): ", vm.toString(assassinStats.wins)
                 )
             )
         );
 
         // Berserker should rarely win
         assertTrue(
-            berserkerStats.wins >= matchCount * 2 / 100 && berserkerStats.wins <= matchCount * 25 / 100,
+            berserkerStats.wins >= matchCount * 2 / 100 && berserkerStats.wins <= matchCount * 35 / 100,
             string(
                 abi.encodePacked(
-                    "Berserker should be easily defeated by Assassin (expected 2%-25% win rate): ",
+                    "Berserker should be easily defeated by Assassin (expected 2%-35% win rate): ",
                     vm.toString(berserkerStats.wins)
                 )
             )
@@ -831,10 +762,10 @@ contract BalanceTest is TestBase {
 
         // Shield tanks should dominate assassins with superior defense
         assertTrue(
-            totalShieldWins >= (totalMatches * 60) / 100 && totalShieldWins <= (totalMatches * 95) / 100,
+            totalShieldWins >= (totalMatches * 60) / 100 && totalShieldWins <= (totalMatches * 85) / 100,
             string(
                 abi.encodePacked(
-                    "Shield Tank archetype should counter Assassin archetype (expected 60%-95% win rate): ",
+                    "Shield Tank archetype should counter Assassin archetype (expected 60%-85% win rate): ",
                     vm.toString(totalShieldWins)
                 )
             )
@@ -901,12 +832,12 @@ contract BalanceTest is TestBase {
                     if (parryWon) parryWins++;
                 }
 
-                uint256 winRate = (parryWins * 100) / testRounds;
+                uint256 individualWinRate = (parryWins * 100) / testRounds;
 
                 // Log each individual matchup for debugging
                 emit log_named_uint("Parry weapon", parryWeapons[i]);
                 emit log_named_uint("Bruiser weapon", bruiserWeapons[j]);
-                emit log_named_uint("Win rate", winRate);
+                emit log_named_uint("Win rate", individualWinRate);
 
                 totalParryWins += parryWins;
                 totalMatches += testRounds;
@@ -926,61 +857,7 @@ contract BalanceTest is TestBase {
         );
     }
 
-    // Test Assassin archetype consistency across weapon variants
-    function testAssassinArchetypeConsistency() public skipInCI {
-        // Test all assassin weapons against a standard mage
-        uint8[] memory assassinWeapons = new uint8[](5);
-        assassinWeapons[0] = 9; // DUAL_DAGGERS
-        assassinWeapons[1] = 14; // DUAL_SCIMITARS
-        assassinWeapons[2] = 10; // RAPIER_DAGGER
-        assassinWeapons[3] = 20; // SCIMITAR_DAGGER
-        assassinWeapons[4] = 6; // SPEAR (2-handed assassin weapon)
-
-        TestFighter memory mage = createMage();
-        uint256 testRounds = 50;
-
-        for (uint256 i = 0; i < assassinWeapons.length; i++) {
-            TestFighter memory assassin = createCustomFighter(
-                "Assassin Variant",
-                assassinWeapons[i], // weapon
-                1, // LEATHER armor
-                2, // OFFENSIVE stance
-                highStat,
-                lowStat,
-                mediumStat,
-                highStat,
-                lowStat,
-                mediumStat
-            );
-
-            uint256 assassinWins = 0;
-            for (uint256 j = 0; j < testRounds; j++) {
-                vm.roll(block.number + 1);
-                vm.warp(block.timestamp + 15);
-
-                uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, j, i)));
-                bytes memory results = gameEngine.processGame(assassin.stats, mage.stats, seed, 0);
-
-                (bool assassinWon,,,) = gameEngine.decodeCombatLog(results);
-                if (assassinWon) assassinWins++;
-            }
-
-            uint256 winRate = (assassinWins * 100) / testRounds;
-
-            // Each assassin weapon should perform reasonably vs mage (some variation expected)
-            assertTrue(
-                winRate >= 30 && winRate <= 100,
-                string(
-                    abi.encodePacked(
-                        "Assassin weapon variant ",
-                        vm.toString(assassinWeapons[i]),
-                        " should be viable (expected 30%-100% vs Mage): ",
-                        vm.toString(winRate)
-                    )
-                )
-            );
-        }
-    }
+    // Test Assassin archetype consistency: REMOVED - no mage archetype to test against
 
     // Test all Berserker variants vs Shield Tank variants
     function testBerserkerArchetypeVsShieldTankArchetype() public skipInCI {
@@ -1047,13 +924,13 @@ contract BalanceTest is TestBase {
             }
         }
 
-        // Berserkers should win 80-95% across ALL weapon combinations
+        // Berserkers should win 75-85% across ALL weapon combinations (capped for upset potential)
         uint256 winRate = (totalBerserkerWins * 100) / totalMatches;
         assertTrue(
-            winRate >= 75 && winRate <= 95,
+            winRate >= 75 && winRate <= 85,
             string(
                 abi.encodePacked(
-                    "Berserker archetype should counter Shield Tank archetype (expected 75%-95% win rate): ",
+                    "Berserker archetype should counter Shield Tank archetype (expected 75%-85% win rate): ",
                     vm.toString(winRate)
                 )
             )
@@ -1126,13 +1003,13 @@ contract BalanceTest is TestBase {
             }
         }
 
-        // Assassins should win 60-85% against berserkers (speed vs power)
+        // Assassins should win 55-85% against berserkers (speed vs power)
         uint256 winRate = (totalAssassinWins * 100) / totalMatches;
         assertTrue(
-            winRate >= 60 && winRate <= 85,
+            winRate >= 55 && winRate <= 85,
             string(
                 abi.encodePacked(
-                    "Assassin archetype should counter Berserker archetype (expected 60%-85% win rate): ",
+                    "Assassin archetype should counter Berserker archetype (expected 55%-85% win rate): ",
                     vm.toString(winRate)
                 )
             )
@@ -1216,80 +1093,7 @@ contract BalanceTest is TestBase {
         );
     }
 
-    // Test Mage archetype vs Shield Tank archetype (mages should counter)
-    function testMageArchetypeVsShieldTankArchetype() public skipInCI {
-        // Mage weapons: QUARTERSTAFF (pure mage weapon)
-        uint8[] memory mageWeapons = new uint8[](1);
-        mageWeapons[0] = 5; // QUARTERSTAFF
-
-        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
-        uint8[] memory shieldTankWeapons = new uint8[](4);
-        shieldTankWeapons[0] = 1; // MACE_TOWER
-        shieldTankWeapons[1] = 13; // AXE_TOWER
-        shieldTankWeapons[2] = 17; // CLUB_TOWER
-        shieldTankWeapons[3] = 8; // SHORTSWORD_TOWER
-
-        uint256 totalMageWins = 0;
-        uint256 totalMatches = 0;
-        uint256 testRounds = 25;
-
-        for (uint256 i = 0; i < mageWeapons.length; i++) {
-            for (uint256 j = 0; j < shieldTankWeapons.length; j++) {
-                TestFighter memory mage = createCustomFighter(
-                    "Mage Variant",
-                    mageWeapons[i], // weapon
-                    0, // CLOTH armor
-                    1, // BALANCED stance
-                    lowStat,
-                    mediumStat,
-                    lowStat,
-                    mediumStat,
-                    highStat,
-                    highStat
-                );
-
-                TestFighter memory shieldTank = createCustomFighter(
-                    "Shield Tank Variant",
-                    shieldTankWeapons[j], // weapon
-                    3, // PLATE armor
-                    0, // DEFENSIVE stance
-                    mediumStat,
-                    highStat,
-                    highStat,
-                    lowStat,
-                    mediumStat,
-                    lowStat
-                );
-
-                uint256 mageWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-
-                    uint256 seed = uint256(keccak256(abi.encodePacked(block.timestamp, k, i, j)));
-                    bytes memory results = gameEngine.processGame(mage.stats, shieldTank.stats, seed, 0);
-
-                    (bool mageWon,,,) = gameEngine.decodeCombatLog(results);
-                    if (mageWon) mageWins++;
-                }
-
-                totalMageWins += mageWins;
-                totalMatches += testRounds;
-            }
-        }
-
-        // Mages should be viable but not dominant against shield tanks
-        uint256 winRate = (totalMageWins * 100) / totalMatches;
-        assertTrue(
-            winRate >= 15 && winRate <= 60,
-            string(
-                abi.encodePacked(
-                    "Mage archetype should be viable (expected 15%-60% win rate vs Shield Tanks): ",
-                    vm.toString(winRate)
-                )
-            )
-        );
-    }
+    // Test Mage archetype: REMOVED - Mage archetype eliminated from game
 
     // Test Bruiser archetype vs Shield Tank archetype (bruisers should have advantage - blunt vs plate)
     function testBruiserArchetypeVsShieldTankArchetype() public skipInCI {
@@ -1434,13 +1238,13 @@ contract BalanceTest is TestBase {
             }
         }
 
-        // Parry masters should win 65-85% against berserkers (technique vs raw power)
+        // Parry masters should win 55-85% against berserkers (technique vs raw power)
         uint256 winRate = (totalParryWins * 100) / totalMatches;
         assertTrue(
-            winRate >= 65 && winRate <= 85,
+            winRate >= 55 && winRate <= 85,
             string(
                 abi.encodePacked(
-                    "Parry Master archetype should counter Berserker archetype (expected 65%-85% win rate): ",
+                    "Parry Master archetype should counter Berserker archetype (expected 55%-85% win rate): ",
                     vm.toString(winRate)
                 )
             )

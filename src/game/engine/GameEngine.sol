@@ -14,7 +14,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 24;
+    uint16 public constant version = 25;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -598,29 +598,6 @@ contract GameEngine is IGameEngine {
         uint32 withBothBounds = withMin > 95 ? 95 : withMin;
 
         return uint8(withBothBounds);
-    }
-
-    function calculateCriticalDamage(CalculatedCombatStats memory attacker, uint16 baseDamage, uint256 seed)
-        private
-        pure
-        returns (uint16 damage, uint8 result, uint256 nextSeed)
-    {
-        seed = uint256(keccak256(abi.encodePacked(seed)));
-        uint8 critRoll = uint8(seed.uniform(100));
-        bool isCritical = critRoll < attacker.stats.critChance;
-
-        if (isCritical) {
-            // Apply both character and weapon crit multipliers
-            uint32 totalMultiplier =
-                (uint32(attacker.stats.critMultiplier) * uint32(attacker.weapon.critMultiplier)) / 100;
-            uint32 critDamage = (uint32(baseDamage) * totalMultiplier) / 100;
-            damage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
-            result = uint8(CombatResultType.CRIT);
-        } else {
-            damage = baseDamage;
-            result = uint8(CombatResultType.ATTACK);
-        }
-        return (damage, result, seed);
     }
 
     function calculateDamage(CalculatedCombatStats memory attacker, uint256 seed)
@@ -1329,12 +1306,12 @@ contract GameEngine is IGameEngine {
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 56,
-            maxDamage: 76,
+            minDamage: 38,
+            maxDamage: 52,
             attackSpeed: 70,
             parryChance: 140,
             riposteChance: 85,
-            critMultiplier: 160,
+            critMultiplier: 220,
             staminaMultiplier: 105,
             survivalFactor: 130,
             damageType: DamageType.Blunt,
@@ -1345,11 +1322,11 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 48,
-            maxDamage: 68,
+            minDamage: 35,
+            maxDamage: 55,
             attackSpeed: 90,
-            parryChance: 300,
-            riposteChance: 270,
+            parryChance: 280,
+            riposteChance: 250,
             critMultiplier: 190,
             staminaMultiplier: 85,
             survivalFactor: 120,
@@ -1361,12 +1338,12 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 125,
-            maxDamage: 165,
+            minDamage: 130,
+            maxDamage: 175,
             attackSpeed: 60,
             parryChance: 120,
             riposteChance: 70,
-            critMultiplier: 280,
+            critMultiplier: 220,
             staminaMultiplier: 200,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
@@ -1377,8 +1354,8 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 125,
-            maxDamage: 185,
+            minDamage: 130,
+            maxDamage: 195,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
@@ -1393,8 +1370,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 65,
-            maxDamage: 88,
+            minDamage: 55,
+            maxDamage: 77,
             attackSpeed: 80,
             parryChance: 140,
             riposteChance: 120,
@@ -1409,8 +1386,8 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 78,
-            maxDamage: 102,
+            minDamage: 72,
+            maxDamage: 96,
             attackSpeed: 80,
             parryChance: 130,
             riposteChance: 140,
@@ -1425,11 +1402,11 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 39,
-            maxDamage: 52,
+            minDamage: 32,
+            maxDamage: 48,
             attackSpeed: 90,
-            parryChance: 320,
-            riposteChance: 280,
+            parryChance: 300,
+            riposteChance: 260,
             critMultiplier: 160,
             staminaMultiplier: 80,
             survivalFactor: 120,
@@ -1441,12 +1418,12 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 42,
-            maxDamage: 54,
+            minDamage: 34,
+            maxDamage: 46,
             attackSpeed: 85,
             parryChance: 120,
             riposteChance: 80,
-            critMultiplier: 110,
+            critMultiplier: 120,
             staminaMultiplier: 100,
             survivalFactor: 125,
             damageType: DamageType.Slashing,
@@ -1457,11 +1434,11 @@ contract GameEngine is IGameEngine {
 
     function SCIMITAR_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 70,
+            minDamage: 42,
+            maxDamage: 62,
             attackSpeed: 85,
-            parryChance: 280,
-            riposteChance: 260,
+            parryChance: 260,
+            riposteChance: 240,
             critMultiplier: 180,
             staminaMultiplier: 85,
             survivalFactor: 120,
@@ -1489,12 +1466,12 @@ contract GameEngine is IGameEngine {
 
     function AXE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 52,
-            maxDamage: 70,
+            minDamage: 36,
+            maxDamage: 50,
             attackSpeed: 65,
             parryChance: 120,
             riposteChance: 65,
-            critMultiplier: 250,
+            critMultiplier: 270,
             staminaMultiplier: 125,
             survivalFactor: 120,
             damageType: DamageType.Slashing,
@@ -1505,11 +1482,11 @@ contract GameEngine is IGameEngine {
 
     function FLAIL_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 65,
-            maxDamage: 95,
+            minDamage: 45,
+            maxDamage: 65,
             attackSpeed: 70,
-            parryChance: 280,
-            riposteChance: 240,
+            parryChance: 260,
+            riposteChance: 220,
             critMultiplier: 225,
             staminaMultiplier: 95,
             survivalFactor: 120,
@@ -1537,8 +1514,8 @@ contract GameEngine is IGameEngine {
 
     function CLUB_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 62,
-            maxDamage: 82,
+            minDamage: 35,
+            maxDamage: 49,
             attackSpeed: 70,
             parryChance: 75,
             riposteChance: 65,
@@ -1554,56 +1531,56 @@ contract GameEngine is IGameEngine {
     // Dual-wield weapons
     function DUAL_DAGGERS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 47,
-            maxDamage: 66,
-            attackSpeed: 120,
+            minDamage: 40,
+            maxDamage: 60,
+            attackSpeed: 115,
             parryChance: 70,
             riposteChance: 70,
-            critMultiplier: 150,
+            critMultiplier: 130,
             staminaMultiplier: 75,
             survivalFactor: 95,
             damageType: DamageType.Piercing,
-            shieldType: ShieldType.NONE,
-            dodgeBonus: 25
-        });
-    }
-
-    function RAPIER_DAGGER() public pure returns (WeaponStats memory) {
-        return WeaponStats({
-            minDamage: 40,
-            maxDamage: 76,
-            attackSpeed: 110,
-            parryChance: 140,
-            riposteChance: 300,
-            critMultiplier: 145,
-            staminaMultiplier: 100,
-            survivalFactor: 110,
-            damageType: DamageType.Piercing,
-            shieldType: ShieldType.NONE,
-            dodgeBonus: 20
-        });
-    }
-
-    function DUAL_SCIMITARS() public pure returns (WeaponStats memory) {
-        return WeaponStats({
-            minDamage: 68,
-            maxDamage: 92,
-            attackSpeed: 105,
-            parryChance: 80,
-            riposteChance: 80,
-            critMultiplier: 155,
-            staminaMultiplier: 165,
-            survivalFactor: 90,
-            damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
             dodgeBonus: 15
         });
     }
 
+    function RAPIER_DAGGER() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 38,
+            maxDamage: 73,
+            attackSpeed: 100,
+            parryChance: 140,
+            riposteChance: 300,
+            critMultiplier: 120,
+            staminaMultiplier: 100,
+            survivalFactor: 110,
+            damageType: DamageType.Piercing,
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 10
+        });
+    }
+
+    function DUAL_SCIMITARS() public pure returns (WeaponStats memory) {
+        return WeaponStats({
+            minDamage: 52,
+            maxDamage: 76,
+            attackSpeed: 100,
+            parryChance: 80,
+            riposteChance: 80,
+            critMultiplier: 135,
+            staminaMultiplier: 165,
+            survivalFactor: 90,
+            damageType: DamageType.Slashing,
+            shieldType: ShieldType.NONE,
+            dodgeBonus: 10
+        });
+    }
+
     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 58,
-            maxDamage: 82,
+            minDamage: 60,
+            maxDamage: 83,
             attackSpeed: 85,
             parryChance: 50,
             riposteChance: 50,
@@ -1635,8 +1612,8 @@ contract GameEngine is IGameEngine {
 
     function SCIMITAR_DAGGER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 60,
-            maxDamage: 80,
+            minDamage: 54,
+            maxDamage: 74,
             attackSpeed: 105,
             parryChance: 140,
             riposteChance: 300,
@@ -1651,8 +1628,8 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_CLUB() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 64,
-            maxDamage: 84,
+            minDamage: 75,
+            maxDamage: 95,
             attackSpeed: 75,
             parryChance: 90,
             riposteChance: 65,
@@ -1667,8 +1644,8 @@ contract GameEngine is IGameEngine {
 
     function AXE_MACE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 54,
-            maxDamage: 80,
+            minDamage: 67,
+            maxDamage: 93,
             attackSpeed: 65,
             parryChance: 75,
             riposteChance: 70,
@@ -1716,8 +1693,8 @@ contract GameEngine is IGameEngine {
     // Additional two-handed weapons
     function MAUL() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 135,
-            maxDamage: 195,
+            minDamage: 140,
+            maxDamage: 205,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
@@ -1732,8 +1709,8 @@ contract GameEngine is IGameEngine {
 
     function TRIDENT() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 95,
-            maxDamage: 140,
+            minDamage: 100,
+            maxDamage: 150,
             attackSpeed: 55,
             parryChance: 100,
             riposteChance: 100,
@@ -1786,15 +1763,15 @@ contract GameEngine is IGameEngine {
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 4, weight: 15, slashResist: 10, pierceResist: 10, bluntResist: 15});
+        return ArmorStats({defense: 4, weight: 15, slashResist: 8, pierceResist: 8, bluntResist: 12});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 9, weight: 50, slashResist: 30, pierceResist: 15, bluntResist: 30});
+        return ArmorStats({defense: 9, weight: 50, slashResist: 25, pierceResist: 12, bluntResist: 25});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 16, weight: 100, slashResist: 30, pierceResist: 45, bluntResist: 15});
+        return ArmorStats({defense: 17, weight: 100, slashResist: 30, pierceResist: 37, bluntResist: 16});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
@@ -1811,17 +1788,17 @@ contract GameEngine is IGameEngine {
 
     function DEFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
-            damageModifier: 60,
-            hitChance: 70,
-            critChance: 70,
-            critMultiplier: 90,
-            blockChance: 140,
-            parryChance: 140,
-            dodgeChance: 140,
-            counterChance: 120,
-            riposteChance: 120,
-            staminaCostModifier: 85,
-            survivalFactor: 130
+            damageModifier: 80,
+            hitChance: 85,
+            critChance: 85,
+            critMultiplier: 95,
+            blockChance: 125,
+            parryChance: 125,
+            dodgeChance: 125,
+            counterChance: 115,
+            riposteChance: 115,
+            staminaCostModifier: 90,
+            survivalFactor: 115
         });
     }
 
@@ -1843,17 +1820,17 @@ contract GameEngine is IGameEngine {
 
     function OFFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
-            damageModifier: 120,
-            hitChance: 130,
-            critChance: 110,
-            critMultiplier: 130,
-            blockChance: 40,
-            parryChance: 40,
-            dodgeChance: 40,
-            counterChance: 60,
-            riposteChance: 60,
-            staminaCostModifier: 125,
-            survivalFactor: 65
+            damageModifier: 110,
+            hitChance: 115,
+            critChance: 105,
+            critMultiplier: 115,
+            blockChance: 70,
+            parryChance: 70,
+            dodgeChance: 70,
+            counterChance: 80,
+            riposteChance: 80,
+            staminaCostModifier: 115,
+            survivalFactor: 85
         });
     }
 
@@ -1919,7 +1896,7 @@ contract GameEngine is IGameEngine {
         } else if (shieldType == ShieldType.KITE_SHIELD) {
             return (120, 100, 75, 120);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (160, 50, 30, 160);
+            return (165, 55, 25, 160);
         }
         return (0, 0, 100, 100);
     }
