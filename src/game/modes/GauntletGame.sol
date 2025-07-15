@@ -147,8 +147,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice If status is IN_GAUNTLET, maps player ID to the `gauntletId` they are participating in.
     mapping(uint32 => uint256) public playerCurrentGauntlet;
 
-    // --- Fees ---
-
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//

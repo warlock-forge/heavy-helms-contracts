@@ -57,7 +57,7 @@ contract GasAnalysisTest is TestBase {
             game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
 
             // Get VRF data
-            (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+            (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
             bytes memory dataWithRound = _simulateVRFFulfillment(i, roundId); // Use i as different seed
             vm.stopPrank();
 

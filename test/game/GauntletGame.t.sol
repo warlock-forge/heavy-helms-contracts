@@ -124,7 +124,7 @@ contract GauntletGameTest is TestBase {
     //              QUEUE MANAGEMENT FUNCTION TESTS                 //
     //==============================================================//
 
-    function testInitialState() public {
+    function testInitialState() public view {
         assertEq(address(game.gameEngine()), address(gameEngine));
         assertEq(address(game.playerContract()), address(playerContract));
         assertEq(game.nextGauntletId(), 0);
@@ -322,7 +322,7 @@ contract GauntletGameTest is TestBase {
     function testTryStartGauntlet_Success_DefaultSize() public {
         uint8 gauntletSize = game.currentGauntletSize(); // Use current default size
 
-        (uint32[] memory allQueuedIds,) = _queuePlayers(gauntletSize);
+        _queuePlayers(gauntletSize);
         assertEq(game.getQueueSize(), gauntletSize, "Queue should have correct number of players");
 
         // --- Get expected selected IDs (first N) ---
@@ -337,7 +337,7 @@ contract GauntletGameTest is TestBase {
         _warpPastMinInterval();
         // Call tryStartGauntlet - no longer needs prank or parameters
         game.tryStartGauntlet();
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        vm.getRecordedLogs();
 
         assertEq(game.getQueueSize(), 0, "Queue should be empty after start");
         assertEq(game.nextGauntletId(), 1, "Next gauntlet ID should be 1");
@@ -372,9 +372,8 @@ contract GauntletGameTest is TestBase {
 
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 8");
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
 
-        (uint32[] memory allQueuedIds,) = _queuePlayers(gauntletSize);
+        _queuePlayers(gauntletSize);
         assertEq(game.getQueueSize(), gauntletSize, "Queue should have 8 players");
 
         // --- Get expected selected IDs (first N) ---
@@ -411,7 +410,6 @@ contract GauntletGameTest is TestBase {
                 actualVrfRequestId = reqId;
                 foundGauntletStartedEvent = true;
                 assertEq(size, gauntletSize, "Event size mismatch");
-                // assertEq(fee, entryFee, "Event fee mismatch"); // Removed: fee functionality
                 // MODIFY ASSERTION: Check pData.length (RegisteredPlayer[]) instead of pIds.length
                 assertEq(pData.length, gauntletSize, "Event participant count mismatch");
                 // REMOVED: Loop comparing pIds[j] to expectedSelectedIds[j]
@@ -446,9 +444,8 @@ contract GauntletGameTest is TestBase {
 
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 32");
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
 
-        (uint32[] memory allQueuedIds,) = _queuePlayers(gauntletSize);
+        _queuePlayers(gauntletSize);
         assertEq(game.getQueueSize(), gauntletSize, "Queue should have 32 players");
 
         // --- Get expected selected IDs (first N) ---
@@ -485,7 +482,6 @@ contract GauntletGameTest is TestBase {
                 actualVrfRequestId = reqId;
                 foundGauntletStartedEvent = true;
                 assertEq(size, gauntletSize, "Event size mismatch");
-                // assertEq(fee, entryFee, "Event fee mismatch"); // Removed: fee functionality
                 // MODIFY ASSERTION: Check pData.length (RegisteredPlayer[]) instead of pIds.length
                 assertEq(pData.length, gauntletSize, "Event participant count mismatch");
                 // REMOVED: Loop comparing pIds[j] to expectedSelectedIds[j]
@@ -510,11 +506,10 @@ contract GauntletGameTest is TestBase {
 
     function testTryStartGauntlet_Success_MoreThanDefaultSize() public {
         uint8 gauntletSize = game.currentGauntletSize(); // Use current default size (e.g., 4)
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
         uint256 queueStartSize = gauntletSize + 4; // e.g., 8
 
         // Queue 8 players
-        (uint32[] memory allQueuedIds,) = _queuePlayers(queueStartSize);
+        _queuePlayers(queueStartSize);
         assertEq(game.getQueueSize(), queueStartSize, "Queue should have correct initial number of players");
 
         // REMOVED: expectedSelectedIds was based on faulty assumption
@@ -540,7 +535,6 @@ contract GauntletGameTest is TestBase {
                 actualVrfRequestId = reqId;
                 foundGauntletStartedEvent = true;
                 assertEq(size, gauntletSize, "Event size mismatch");
-                // assertEq(fee, entryFee, "Event fee mismatch"); // Removed: fee functionality
                 assertEq(pData.length, gauntletSize, "Event participant count mismatch");
                 actualParticipantsData = pData; // Capture the actual participants from the event
                 break;
@@ -711,8 +705,7 @@ contract GauntletGameTest is TestBase {
     //==============================================================//
 
     // Helper function to setup and start a gauntlet, returning key details
-    // MODIFIED: Added optional value parameter for zero-fee testing
-    function _setupAndStartGauntlet(uint8 gauntletSize, uint256 valueToSend)
+    function _setupAndStartGauntlet(uint8 gauntletSize, uint256 /* valueToSend */ )
         internal
         returns (
             uint256 gauntletId,
@@ -757,7 +750,6 @@ contract GauntletGameTest is TestBase {
         require(foundRequested && foundStarted, "TEST SETUP FAILED: Gauntlet start/request incomplete");
         return (gauntletId, vrfRequestId, vrfRoundId, participantIds, allQueuedAddrs); // Return selected IDs, all addresses
     }
-    // Overload for backwards compatibility / default fee behavior
 
     function _setupAndStartGauntlet(uint8 gauntletSize)
         internal
@@ -775,6 +767,7 @@ contract GauntletGameTest is TestBase {
     // Helper function to verify the GauntletCompleted event
     function _verifyGauntletCompletedEvent(Vm.Log[] memory finalEntries, uint256 gauntletId, uint8 expectedSize)
         internal
+        pure
         returns (uint32 actualChampionId)
     {
         // REMOVED: bytes32 gauntletCompletedSig = keccak256(...);
@@ -788,7 +781,6 @@ contract GauntletGameTest is TestBase {
                 finalEntries[i].topics.length > 2 // Need at least 3 topics (sig, gauntletId, championId)
                     && uint256(finalEntries[i].topics[1]) == gauntletId // MATCH ON GAUNTLET ID (topic 1)
             ) {
-                // Decode the non-indexed data fields (updated signature without fee/prize)
                 (uint8 size, uint32[] memory pIds, uint32[] memory winners) =
                     abi.decode(finalEntries[i].data, (uint8, uint32[], uint32[]));
 
@@ -814,8 +806,8 @@ contract GauntletGameTest is TestBase {
     function _verifyGauntletCompletedEvent_AllDefault(
         Vm.Log[] memory finalEntries,
         uint256 gauntletId,
-        uint256 expectedPrize
-    ) internal returns (uint32 actualChampionId) {
+        uint256 /* expectedPrize */
+    ) internal pure returns (uint32 actualChampionId) {
         // REMOVED: bytes32 gauntletCompletedSig = keccak256(...);
         bool foundCompleted = false;
 
@@ -894,10 +886,6 @@ contract GauntletGameTest is TestBase {
 
     function testFulfillRandomness_CompletesGauntlet_DefaultSize() public {
         uint8 gauntletSize = game.currentGauntletSize(); // Use current default size
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
-        // uint256 totalFeesCollected = entryFee * gauntletSize; // Removed: fee functionality
-        // uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000; // Removed: fee functionality
-        // uint256 expectedPrize = totalFeesCollected - expectedContractFee; // Removed: fee functionality
 
         // --- Start Gauntlet using helper ---
         (
@@ -939,8 +927,6 @@ contract GauntletGameTest is TestBase {
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
 
-        // assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch"); // Removed: fee functionality
-
         // --- CORRECTED WIN RECORD VERIFICATION (using nonDefaultParticipantIds from before) ---
         if (!game.defaultPlayerContract().isValidId(actualChampionId)) {
             Fighter.Record memory recordAfter = playerContract.getPlayer(actualChampionId).record;
@@ -974,11 +960,6 @@ contract GauntletGameTest is TestBase {
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 4");
 
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
-        // uint256 totalFeesCollected = entryFee * gauntletSize; // Removed: fee functionality
-        // uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000; // Removed: fee functionality
-        // uint256 expectedPrize = totalFeesCollected - expectedContractFee; // Removed: fee functionality
-
         // --- Start Gauntlet using helper ---
         (
             uint256 gauntletId,
@@ -1016,8 +997,6 @@ contract GauntletGameTest is TestBase {
         uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
-
-        // assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch"); // Removed: fee functionality
 
         // --- CORRECTED WIN RECORD VERIFICATION ---
         if (!game.defaultPlayerContract().isValidId(actualChampionId)) {
@@ -1050,11 +1029,6 @@ contract GauntletGameTest is TestBase {
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 8");
 
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
-        // uint256 totalFeesCollected = entryFee * gauntletSize; // Removed: fee functionality
-        // uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000; // Removed: fee functionality
-        // uint256 expectedPrize = totalFeesCollected - expectedContractFee; // Removed: fee functionality
-
         // --- Start Gauntlet using helper ---
         (
             uint256 gauntletId,
@@ -1092,8 +1066,6 @@ contract GauntletGameTest is TestBase {
         uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
-
-        // assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch"); // Removed: fee functionality
 
         // --- CORRECTED WIN RECORD VERIFICATION ---
         if (!game.defaultPlayerContract().isValidId(actualChampionId)) {
@@ -1126,11 +1098,6 @@ contract GauntletGameTest is TestBase {
         uint8 gauntletSize = game.currentGauntletSize();
         assertEq(gauntletSize, targetSize, "Failed to set gauntlet size to 32");
 
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
-        // uint256 totalFeesCollected = entryFee * gauntletSize; // Removed: fee functionality
-        // uint256 expectedContractFee = (totalFeesCollected * game.feePercentage()) / 10000; // Removed: fee functionality
-        // uint256 expectedPrize = totalFeesCollected - expectedContractFee; // Removed: fee functionality
-
         // --- Start Gauntlet using helper ---
         (
             uint256 gauntletId,
@@ -1169,8 +1136,6 @@ contract GauntletGameTest is TestBase {
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
 
-        // assertEq(game.contractFeesCollected(), expectedContractFee, "Contract fee balance mismatch"); // Removed: fee functionality
-
         // --- CORRECTED WIN RECORD VERIFICATION ---
         if (!game.defaultPlayerContract().isValidId(actualChampionId)) {
             Fighter.Record memory recordAfter = playerContract.getPlayer(actualChampionId).record;
@@ -1195,7 +1160,6 @@ contract GauntletGameTest is TestBase {
 
     function testRecoverTimedOutVRF_Success() public {
         uint8 gauntletSize = game.currentGauntletSize();
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
 
         // 1. Start the gauntlet using the helper
         (
@@ -1237,10 +1201,8 @@ contract GauntletGameTest is TestBase {
         GauntletGame.Gauntlet memory recoveredGauntlet = game.getGauntletData(gauntletId);
         assertEq(recoveredGauntlet.championId, 0, "Champion ID should be 0 on recovery"); // No champion on recovery
 
-        // Verify player refunds
         for (uint256 i = 0; i < gauntletSize; i++) {
-            address pAddr = selectedParticipantAddrs[i];
-            // assertEq(pAddr.balance, balancesBefore[i] + entryFee, "Player not refunded correctly"); // Removed: fee functionality
+            selectedParticipantAddrs[i];
         }
     }
 
@@ -1302,7 +1264,6 @@ contract GauntletGameTest is TestBase {
     //==============================================================//
 
     function testSetGameEnabled() public {
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         // 1. Disable game
@@ -1404,40 +1365,18 @@ contract GauntletGameTest is TestBase {
 
         uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
 
-        // Wrap setFeePercentage
         vm.prank(game.owner());
         game.setGameEnabled(false);
         vm.prank(game.owner());
-        // game.setFeePercentage(10000); // Set 100% fee // Removed: fee functionality
         vm.prank(game.owner());
         game.setGameEnabled(true);
-        // assertEq(game.feePercentage(), 10000, "Fee percentage not set to 100%"); // Removed: fee functionality
 
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
-        /* // Removed: fee functionality - entire block commented out
-        if (entryFee == 0) {
-            uint256 tempFee = 0.001 ether;
-            // Wrap setEntryFee
-            vm.prank(game.owner());
-            game.setGameEnabled(false);
-            vm.prank(game.owner());
-            // game.setEntryFee(tempFee); // CORRECTED: Call with 1 arg // Removed: fee functionality
-            vm.prank(game.owner());
-            game.setGameEnabled(true);
-            // entryFee = tempFee; // Removed: fee functionality
-            // assertGt(entryFee, 0, "Entry fee setup failed in substitution test"); // Removed: fee functionality
-        }
-        */
-
-        // uint256 totalPrizePool = entryFee * gauntletSize; // Removed: fee functionality
-
-        // 1. Start the gauntlet using the helper (with default entry fee)
         (
             uint256 gauntletId,
             uint256 vrfRequestId,
             uint256 vrfRoundId,
             uint32[] memory participantIds, // Selected participants
-            address[] memory participantAddrs // Addresses of *all* queued players originally
+                // Addresses of *all* queued players originally
         ) = _setupAndStartGauntlet(gauntletSize); // Use default fee helper overload
 
         // 3. Retire ONE participant *after* gauntlet start
@@ -1475,17 +1414,11 @@ contract GauntletGameTest is TestBase {
             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
         bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
 
-        // uint256 feesBefore = game.contractFeesCollected(); // Removed: fee functionality
-
         vm.recordLogs();
         vm.prank(operator);
         game.fulfillRandomness(randomnessFromBlock, dataWithRound);
         vm.stopPrank();
         Vm.Log[] memory finalEntries = vm.getRecordedLogs();
-
-        // 5. Verify results (with 100% fee expectations)
-        uint256 expectedPrizeAwardedForEvent = 0; // Prize is 0 with 100% fee
-        // uint256 expectedFeeCollectedParameter = totalPrizePool; // Fee collected param is the full pool // Removed: fee functionality
 
         // --- Verify Event and State ---
         uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
@@ -1494,9 +1427,6 @@ contract GauntletGameTest is TestBase {
 
         // Verify retired player record unchanged
         _verifyRetiredPlayerState(retiredPlayerId, retiredRecordBefore);
-
-        // Verify contract fees collected increased by the full pool amount (100% FEE)
-        // assertEq(game.contractFeesCollected(), feesBefore + totalPrizePool, "Contract fees incorrect (100% fee)"); // Removed: fee functionality
 
         // Verify active player balances and records (100% FEE)
         for (uint256 i = 0; i < activeCount; i++) {
@@ -1507,7 +1437,6 @@ contract GauntletGameTest is TestBase {
 
             Fighter.Record memory recordAfter = playerContract.getPlayer(pId).record;
 
-            // Check balance didn't change (no payout with 100% fee)
             assertEq(pAddr.balance, balanceBefore, "Player balance changed despite 100% fee (Substitution)");
 
             // Check win/loss records
@@ -1547,15 +1476,12 @@ contract GauntletGameTest is TestBase {
 
         uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
 
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
-        /* // Removed: fee functionality - entire block commented out
+        /* - entire block commented out
         if (entryFee == 0) {
             uint256 tempFee = 0.001 ether;
-            // Wrap setEntryFee
             vm.prank(game.owner());
             game.setGameEnabled(false);
             vm.prank(game.owner());
-            // game.setEntryFee(tempFee); // CORRECTED: Call with 1 arg // Removed: fee functionality
             vm.prank(game.owner());
             game.setGameEnabled(true);
             entryFee = tempFee;
@@ -1579,9 +1505,7 @@ contract GauntletGameTest is TestBase {
         uint256 randomnessFromBlock =
             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
         bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
-        // uint256 feesBefore = game.contractFeesCollected(); // Removed: fee functionality
-        uint256 ownerBalanceBefore = game.owner().balance;
-        // uint256 expectedTotalFeesCollected = entryFee * gauntletSize; // All fees go to contract // Removed: fee functionality
+        game.owner().balance;
         uint256 expectedPrize = 0; // No prize paid out if default wins
 
         vm.recordLogs();
@@ -1593,9 +1517,6 @@ contract GauntletGameTest is TestBase {
         // 4. Verify using dedicated helper
         uint32 actualChampionId = _verifyGauntletCompletedEvent_AllDefault(finalEntries, gauntletId, expectedPrize);
         assertTrue(actualChampionId != 0, "Champion ID should not be 0"); // Basic check from helper
-
-        // 5. Verify Payouts/Fees using dedicated helper
-        // _verifyPayoutAndFees_AllDefault(feesBefore, expectedTotalFeesCollected, ownerBalanceBefore); // Removed: fee functionality
 
         // 6. Verify State Cleanup
         _verifyStateCleanup(participantIds, gauntletId, vrfRequestId); // Use selected IDs
@@ -1624,7 +1545,6 @@ contract GauntletGameTest is TestBase {
         uint256 queueSize = 5;
         uint256 withdrawIndex = 2; // Index to remove (0-based)
         uint256 lastIndex = queueSize - 1;
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
 
         // Queue 5 players
         (uint32[] memory queuedIds, address[] memory queuedAddrs) = _queuePlayers(queueSize);
@@ -1649,9 +1569,6 @@ contract GauntletGameTest is TestBase {
             lastIndex + 1,
             "Initial index mapping incorrect for last player"
         );
-
-        // Record balance before withdraw
-        uint256 balanceBefore = playerToWithdrawAddr.balance;
 
         // Withdraw the middle player
         vm.startPrank(playerToWithdrawAddr);
@@ -1678,19 +1595,12 @@ contract GauntletGameTest is TestBase {
             withdrawIndex + 1,
             "Moved player's index mapping should be updated"
         );
-
-        // Verify refund
-        // assertEq(playerToWithdrawAddr.balance, balanceBefore + entryFee, "Player should be refunded entry fee"); // Removed: fee functionality
-
-        // Verify fee pool updated
-        // assertEq(game.queuedFeesPool(), entryFee * (queueSize - 1), "Fee pool should decrease by one entry fee"); // Removed: fee functionality
     }
 
     function testWithdrawFromQueue_SwapAndPop_Beginning() public {
         uint256 queueSize = 5;
         uint256 withdrawIndex = 0; // Index to remove (0-based)
         uint256 lastIndex = queueSize - 1;
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
 
         // Queue 5 players
         (uint32[] memory queuedIds, address[] memory queuedAddrs) = _queuePlayers(queueSize);
@@ -1716,9 +1626,6 @@ contract GauntletGameTest is TestBase {
             "Initial index mapping incorrect for last player"
         );
 
-        // Record balance before withdraw
-        uint256 balanceBefore = playerToWithdrawAddr.balance;
-
         // Withdraw the first player
         vm.startPrank(playerToWithdrawAddr);
         vm.expectEmit(true, true, false, true);
@@ -1742,12 +1649,6 @@ contract GauntletGameTest is TestBase {
             withdrawIndex + 1,
             "Moved player's index mapping should be updated to 1"
         );
-
-        // Verify refund
-        // assertEq(playerToWithdrawAddr.balance, balanceBefore + entryFee, "Player should be refunded entry fee"); // Removed: fee functionality
-
-        // Verify fee pool updated
-        // assertEq(game.queuedFeesPool(), entryFee * (queueSize - 1), "Fee pool should decrease by one entry fee"); // Removed: fee functionality
     }
 
     // REVERTED this test to its state before the problematic balance/address checks were added
@@ -1763,13 +1664,8 @@ contract GauntletGameTest is TestBase {
 
         uint8 gauntletSize = game.currentGauntletSize(); // Re-read size
 
-        // FIX: Explicitly set a non-zero fee for this test if default is 0
-        // uint256 initialTestFee = 0.0005 ether; // Or any non-zero value // Removed: fee functionality
-        // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality // Read current fee
-
-        /* // Removed: fee functionality - entire block commented out
+        /* - entire block commented out
         if (entryFee == 0) {
-            // --- Wrap setEntryFee Correctly ---
             vm.prank(game.owner());
             game.setGameEnabled(false); // Disable before setting
             vm.prank(game.owner());
@@ -1790,7 +1686,7 @@ contract GauntletGameTest is TestBase {
             uint256 vrfRequestId,
             uint256 vrfRoundId,
             uint32[] memory participantIds, // Selected participants
-            address[] memory participantAddrs // Addresses of *all* queued players originally
+                // Addresses of *all* queued players originally
         ) = _setupAndStartGauntlet(gauntletSize);
 
         // 2. Retire Multiple participants *after* gauntlet start
@@ -1835,8 +1731,6 @@ contract GauntletGameTest is TestBase {
             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, vrfRoundId)));
         bytes memory dataWithRound = _simulateVRFFulfillment(vrfRequestId, vrfRoundId);
 
-        // uint256 feesBefore = game.contractFeesCollected(); // Removed: fee functionality
-
         vm.recordLogs();
         vm.prank(operator);
         game.fulfillRandomness(randomnessFromBlock, dataWithRound);
@@ -1844,15 +1738,11 @@ contract GauntletGameTest is TestBase {
         Vm.Log[] memory finalEntries = vm.getRecordedLogs();
 
         // 4. Verify results
-        // uint256 expectedBaseFee = (entryFee * gauntletSize * game.feePercentage()) / 10000; // Removed: fee functionality
-        // uint256 expectedPrize = (entryFee * gauntletSize) - expectedBaseFee; // Removed: fee functionality
 
         // --- Verify Event and State ---
         uint32 actualChampionId = _extractChampionIdOnly(finalEntries, gauntletId);
         assertTrue(actualChampionId != 0, "Champion ID is zero after fulfillment");
 
-        // Calculate expected prize *emitted* in the event based on winner type
-        // uint256 prizeAwardedForEvent = expectedPrize; // Removed: fee functionality
         uint256 prizeAwardedForEvent = 0; // Always 0 now since fees are removed
         if (game.defaultPlayerContract().isValidId(actualChampionId)) {
             prizeAwardedForEvent = 0;
@@ -1867,9 +1757,7 @@ contract GauntletGameTest is TestBase {
             _verifyRetiredPlayerState(retiredPlayerIds[i], recordsBeforeRetirement[i]);
         }
 
-        // Verify fee collection and final payout logic (checks contract state)
         // REVERTED: Using original helper call, which relies on test capturing balance if needed
-        // _verifyPayoutAndFees(actualChampionId, feesBefore, expectedBaseFee, expectedPrize); // Removed: fee functionality
 
         // --- CORRECTED WIN RECORD VERIFICATION (only for non-retired, non-default winners) ---
         if (!game.defaultPlayerContract().isValidId(actualChampionId)) {
@@ -1912,15 +1800,10 @@ contract GauntletGameTest is TestBase {
 
     /// @notice Tests that disabling the game clears the queue, refunds players (non-zero fee), and emits events.
     function testSetGameEnabled_False_ClearsQueueAndRefunds() public {
-        // 1. Set a non-zero entry fee
-        uint256 entryFee = 0.005 ether;
         // vm.prank(game.owner());
-        // game.setGameEnabled(false); // Disable to set fee // Removed: fee functionality
         // vm.prank(game.owner());
-        // game.setEntryFee(entryFee); // Removed: fee functionality
         // vm.prank(game.owner());
-        // game.setGameEnabled(true); // Re-enable for queuing // Removed: fee functionality
-        // assertEq(game.currentEntryFee(), entryFee, "Setup failed: Fee not set"); // Removed: fee functionality
+        // game.setGameEnabled(true); // Re-enable for queuing
         assertTrue(game.isGameEnabled(), "Setup failed: Game not enabled");
 
         // 2. Queue multiple players
@@ -1940,13 +1823,8 @@ contract GauntletGameTest is TestBase {
         vm.stopPrank();
 
         assertEq(game.getQueueSize(), playerCount, "Setup failed: Players not queued");
-        // assertEq(game.queuedFeesPool(), entryFee * playerCount, "Setup failed: Fee pool incorrect"); // Removed: fee functionality
 
-        // 3. Record balances and state before disabling
-        uint256 balanceOneBefore = PLAYER_ONE.balance;
-        uint256 balanceTwoBefore = PLAYER_TWO.balance;
-        uint256 balanceThreeBefore = PLAYER_THREE.balance;
-        // uint256 expectedTotalRefund = entryFee * playerCount; // Removed: fee functionality
+        // 3. Record state before disabling
 
         // Prepare expected player IDs array (order might vary due to implementation details, get from contract state)
         // Note: The order in the emitted array depends on the backwards iteration and swap-and-pop in setGameEnabled.
@@ -1966,12 +1844,6 @@ contract GauntletGameTest is TestBase {
         // 5. Verify state after disabling
         assertFalse(game.isGameEnabled(), "Game was not disabled");
         assertEq(game.getQueueSize(), 0, "Queue was not cleared");
-        // assertEq(game.queuedFeesPool(), 0, "Fee pool was not zeroed"); // Removed: fee functionality
-
-        // Verify refunds
-        // assertEq(PLAYER_ONE.balance, balanceOneBefore + entryFee, "Player one not refunded"); // Removed: fee functionality
-        // assertEq(PLAYER_TWO.balance, balanceTwoBefore + entryFee, "Player two not refunded"); // Removed: fee functionality
-        // assertEq(PLAYER_THREE.balance, balanceThreeBefore + entryFee, "Player three not refunded"); // Removed: fee functionality
 
         // Verify player state reset
         assertEq(uint8(game.playerStatus(PLAYER_ONE_ID)), uint8(GauntletGame.PlayerStatus.NONE), "P1 status");

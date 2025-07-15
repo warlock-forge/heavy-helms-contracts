@@ -391,10 +391,7 @@ contract BalanceTest is TestBase {
 
         // Run just one fight for detailed analysis
         uint256 singleSeed = _generateTestSeed();
-        bytes memory results = gameEngine.processGame(berserker.stats, shieldTank.stats, singleSeed, 0);
-
-        (bool berserkerWon,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
+        gameEngine.processGame(berserker.stats, shieldTank.stats, singleSeed, 0);
 
         // Now run the full statistical test
         MatchStatistics memory berserkerStats;
@@ -522,10 +519,7 @@ contract BalanceTest is TestBase {
 
         // Run just one fight for detailed analysis
         uint256 singleSeed = _generateTestSeed();
-        bytes memory results = gameEngine.processGame(vanguard.stats, bruiser.stats, singleSeed, 0);
-
-        (bool vanguardWon,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
+        gameEngine.processGame(vanguard.stats, bruiser.stats, singleSeed, 0);
 
         // Now run the full statistical test
         MatchStatistics memory vanguardStats;
@@ -658,10 +652,7 @@ contract BalanceTest is TestBase {
 
         // Run a single duel for detailed analysis first
         uint256 singleSeed = _generateTestSeed();
-        bytes memory results = gameEngine.processGame(assassin.stats, berserker.stats, singleSeed, 0);
-
-        (bool assassinWon,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
+        gameEngine.processGame(assassin.stats, berserker.stats, singleSeed, 0);
 
         // Now run full statistical test
         MatchStatistics memory assassinStats;

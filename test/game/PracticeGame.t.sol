@@ -28,9 +28,9 @@ contract PracticeGameTest is TestBase {
         );
     }
 
-    function testBasicCombat() public {
+    function testBasicCombat() public view {
         // Test basic combat functionality with pseudo-random seed
-        uint256 seed = _generateGameSeed();
+        _generateGameSeed();
 
         Fighter.PlayerLoadout memory player1 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
@@ -38,12 +38,12 @@ contract PracticeGameTest is TestBase {
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1);
 
         bytes memory results = practiceGame.play(player1, player2);
-        (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
     }
 
-    function testCombatMechanics() public {
+    function testCombatMechanics() public view {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
         uint256 seed = _generateGameSeed();
 
@@ -64,12 +64,12 @@ contract PracticeGameTest is TestBase {
             0
         );
 
-        (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
     }
 
-    function testFuzz_Combat(uint256 seed) public {
+    function testFuzz_Combat(uint256 seed) public view {
         // Create loadouts for fuzz testing
         Fighter.PlayerLoadout memory player1 =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
@@ -85,7 +85,7 @@ contract PracticeGameTest is TestBase {
             p1Fighter.convertToFighterStats(player1), p2Fighter.convertToFighterStats(player2), seed, 0
         );
 
-        (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (,, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
         // Verify game invariants hold with any seed
@@ -122,7 +122,7 @@ contract PracticeGameTest is TestBase {
         assertTrue(player2Action, "Player 2 never acted");
     }
 
-    function testSpecificScenarios() public {
+    function testSpecificScenarios() public view {
         bytes memory results;
         bool player1Won;
         uint16 version;
@@ -166,7 +166,7 @@ contract PracticeGameTest is TestBase {
         super._assertValidCombatResult(version, condition, actions);
     }
 
-    function testParryChanceCalculation() public {
+    function testParryChanceCalculation() public view {
         // Create a loadout for a defensive character
         Fighter.PlayerLoadout memory defenderLoadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1);
@@ -183,7 +183,7 @@ contract PracticeGameTest is TestBase {
         assertTrue(calcStats.parryChance <= 100, "Parry chance should be <= 100");
     }
 
-    function testCombatLogStructure() public {
+    function testCombatLogStructure() public view {
         // Test the structure and decoding of combat logs
         Fighter.PlayerLoadout memory p1Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
@@ -191,8 +191,8 @@ contract PracticeGameTest is TestBase {
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
-        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
-        = gameEngine.decodeCombatLog(results);
+        (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
 
         // Verify action structure
@@ -240,7 +240,7 @@ contract PracticeGameTest is TestBase {
         assertTrue(attackActionFound, "No attack actions found in combat log");
     }
 
-    function testStanceInteractions() public {
+    function testStanceInteractions() public view {
         // Test how different stances interact with each other
         Fighter.PlayerLoadout memory p1Loadout =
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
@@ -248,7 +248,7 @@ contract PracticeGameTest is TestBase {
             _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
 
         bytes memory results = practiceGame.play(p1Loadout, p2Loadout);
-        (bool player1Won, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+        (, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
         super._assertValidCombatResult(version, condition, actions);
     }
@@ -325,12 +325,7 @@ contract PracticeGameTest is TestBase {
                 0
             );
 
-            (
-                bool player1Won,
-                uint16 version,
-                IGameEngine.WinCondition condition,
-                IGameEngine.CombatAction[] memory actions
-            ) = gameEngine.decodeCombatLog(results);
+            (bool player1Won,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
             if (player1Won) p1Wins++;
             else p2Wins++; // If player1Won is false, player 2 won

@@ -33,7 +33,7 @@ contract CombatLogHealthTest is TestBase {
         PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
     }
 
-    function test_CombatLogHealthTracking() public {
+    function test_CombatLogHealthTracking() public view {
         // Create loadouts - using a controlled setup with known stats
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID,
@@ -66,8 +66,8 @@ contract CombatLogHealthTest is TestBase {
 
         // Process game and get combat log
         bytes memory results = gameEngine.processGame(p1Stats, p2Stats, _generateGameSeed(), 0);
-        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
-        = gameEngine.decodeCombatLog(results);
+        (bool player1Won,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
 
         // Track health through combat log
         uint16 p1Health = p1CalcStats.maxHealth;
@@ -179,7 +179,7 @@ contract CombatLogHealthTest is TestBase {
         }
     }
 
-    function test_CombatLogArmorReduction() public {
+    function test_CombatLogArmorReduction() public view {
         // Create loadouts with different armor types
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID,
@@ -208,8 +208,7 @@ contract CombatLogHealthTest is TestBase {
 
         // Process game and get combat log
         bytes memory results = gameEngine.processGame(p1Stats, p2Stats, _generateGameSeed(), 0);
-        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
-        = gameEngine.decodeCombatLog(results);
+        (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
         // Get armor stats for verification
         GameEngine.ArmorStats memory p1Armor = gameEngine.getArmorStats(p1Stats.armor);
@@ -219,7 +218,7 @@ contract CombatLogHealthTest is TestBase {
         for (uint256 i = 0; i < actions.length; i++) {
             if (actions[i].p1Damage > 0) {
                 // Get weapon stats to know damage type
-                GameEngine.WeaponStats memory p1Weapon = gameEngine.getWeaponStats(p1Stats.weapon);
+                gameEngine.getWeaponStats(p1Stats.weapon);
 
                 // Log the damage details
                 console2.log("Round", i);
@@ -231,7 +230,7 @@ contract CombatLogHealthTest is TestBase {
 
             if (actions[i].p2Damage > 0) {
                 // Get weapon stats to know damage type
-                GameEngine.WeaponStats memory p2Weapon = gameEngine.getWeaponStats(p2Stats.weapon);
+                gameEngine.getWeaponStats(p2Stats.weapon);
 
                 // Log the damage details
                 console2.log("Round", i);

@@ -1,0 +1,3411 @@
+Warning: This is a nightly build of Foundry. It is recommended to use the latest stable version. To mute this warning set `FOUNDRY_DISABLE_NIGHTLY_WARNING` in your environment. 
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/names/MonsterNameRegistry.sol:13:8
+   |
+13 | import "../../../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
+   |        ------------------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/DefaultPlayerSkinNFT.sol:10:8
+   |
+10 | import "../base/GameOwnedNFT.sol";
+   |        --------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/game/gauntlet/SetGauntletSize.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/names/MonsterNameRegistry.sol:14:8
+   |
+14 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:13:8
+   |
+13 | import "./BaseGame.sol";
+   |        ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:14:8
+   |
+14 | import "solmate/src/utils/ReentrancyGuard.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:15:8
+   |
+15 | import "solmate/src/utils/SafeTransferLib.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:16:8
+   |
+16 | import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+   |        ---------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/DefaultPlayerSkinNFT.sol:15:77
+   |
+15 |     function mintDefaultPlayerSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
+   |                                                                             -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/player/UpdateEquipmentRequirements.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/nft/skins/IPlayerSkinNFT.sol:17:14
+   |
+17 |     function MAX_SUPPLY() external view returns (uint16);
+   |              ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/nft/skins/IPlayerSkinNFT.sol:18:14
+   |
+18 |     function CURRENT_TOKEN_ID() external view returns (uint16);
+   |              ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/MonsterSkinNFT.sol:10:8
+   |
+10 | import "../base/GameOwnedNFT.sol";
+   |        --------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:13:8
+   |
+13 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:14:8
+   |
+14 | import "solmate/src/tokens/ERC20.sol";
+   |        ------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:15:8
+   |
+15 | import "solmate/src/utils/SafeTransferLib.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:16:8
+   |
+16 | import "solmate/src/tokens/ERC721.sol";
+   |        -------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:17:8
+   |
+17 | import "../../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+   |        -----------------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:18:8
+   |
+18 | import "../../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+   |        --------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:19:8
+   |
+19 | import "../../Fighter.sol";
+   |        -------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:20:8
+   |
+20 | import "../../../interfaces/game/engine/IGameEngine.sol";
+   |        -------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:21:8
+   |
+21 | import "../../../interfaces/game/engine/IEquipmentRequirements.sol";
+   |        ------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:17:8
+   |
+17 | import "../../lib/UniformRandomNumber.sol";
+   |        -----------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/player/UpdateCreatePlayerFeeAmount.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/MonsterSkinNFT.sol:15:71
+   |
+15 |     function mintMonsterSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
+   |                                                                       -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:18:8
+   |
+18 | import "../../interfaces/game/engine/IGameEngine.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/nft/skins/IDefaultPlayerSkinNFT.sol:10:8
+   |
+10 | import "./IPlayerSkinNFT.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/mocks/UnlockNFT.sol:10:8
+   |
+10 | import "solmate/src/tokens/ERC721.sol";
+   |        -------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:19:8
+   |
+19 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:76:65
+   |
+76 |     event RequiredNFTUpdated(uint32 indexed registryId, address requiredNFTAddress);
+   |                                                                 ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/nft/skins/IDefaultPlayerSkinNFT.sol:17:23
+   |
+17 |         string memory ipfsCID,
+   |                       -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:321:14
+    |
+321 |     function recoverTimedOutVRF(uint256 challengeId) external nonReentrant {
+    |              ------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/mocks/UnlockNFT.sol:23:14
+   |
+23 |     function tokenURI(uint256) public pure override returns (string memory) {
+   |              --------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:10:8
+   |
+10 | import "solmate/src/tokens/ERC721.sol";
+   |        -------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:11:8
+   |
+11 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:12:8
+   |
+12 | import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+   |        -----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IMonster.sol:13:8
+   |
+13 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IMonster.sol:14:8
+   |
+14 | import "./registries/names/IMonsterNameRegistry.sol";
+   |        ---------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/DuelGame.sol:403:40
+    |
+403 |         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId)));
+    |                                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:27:20
+   |
+27 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:28:20
+   |
+28 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:29:19
+   |
+29 |     uint32 public PLAYER_ONE_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:30:19
+   |
+30 |     uint32 public PLAYER_TWO_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:24:41
+   |
+24 |     mapping(uint256 => string) internal _tokenCIDs;
+   |                                         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/gauntlet/RemovePlayersGauntlet.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:17:8
+   |
+17 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:29:53
+   |
+29 |     event CIDUpdated(uint16 indexed tokenId, string newCID);
+   |                                                     ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IPlayer.sol:13:8
+   |
+13 | import "./registries/names/IPlayerNameRegistry.sol";
+   |        --------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IPlayer.sol:14:8
+   |
+14 | import "./registries/skins/IPlayerSkinRegistry.sol";
+   |        --------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IPlayer.sol:15:8
+   |
+15 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IPlayer.sol:16:8
+   |
+16 | import "../game/engine/IEquipmentRequirements.sol";
+   |        -------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:35:69
+   |
+35 |     function _mintGameSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
+   |                                                                     -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:213:14
+    |
+213 |     function setRequiredNFT(uint32 registryId, address requiredNFTAddress) external onlyOwner {
+    |              --------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/skins/PlayerSkinRegistry.sol:213:56
+    |
+213 |     function setRequiredNFT(uint32 registryId, address requiredNFTAddress) external onlyOwner {
+    |                                                        ------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:55:14
+   |
+55 |     function tokenURI(uint256 id) public view override returns (string memory) {
+   |              --------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:43:20
+   |
+43 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:44:20
+   |
+44 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:45:20
+   |
+45 |     address public PLAYER_THREE;
+   |                    ------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:50:19
+   |
+50 |     uint32 public PLAYER_ONE_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:51:19
+   |
+51 |     uint32 public PLAYER_TWO_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:52:19
+   |
+52 |     uint32 public PLAYER_THREE_ID;
+   |                   ---------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/game/gauntlet/RemovePlayersGauntlet.s.sol:12:9
+   |
+12 | import {Fighter} from "../../../src/fighters/Fighter.sol";
+   |         -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/game/gauntlet/RemovePlayersGauntlet.s.sol:13:9
+   |
+13 | import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
+   |         -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+ --> /home/rory/projects/heavy-helms-contracts/test/examples/VRFMockExample.t.sol:4:8
+  |
+4 | import "../TestBase.sol";
+  |        -----------------
+  |
+  = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:65:14
+   |
+65 |     function MAX_SUPPLY() external view returns (uint16) {
+   |              ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:69:14
+   |
+69 |     function CURRENT_TOKEN_ID() external view returns (uint16) {
+   |              ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:73:14
+   |
+73 |     function setCID(uint256 tokenId, string calldata ipfsCID) external onlyOwner {
+   |              ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:814:14
+    |
+814 |     function _verifyGauntletCompletedEvent_AllDefault(
+    |              ----------------------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IDefaultPlayer.sol:13:8
+   |
+13 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IDefaultPlayer.sol:14:8
+   |
+14 | import "../fighters/IPlayer.sol";
+   |        -------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IDefaultPlayer.sol:15:8
+   |
+15 | import "./registries/names/IPlayerNameRegistry.sol";
+   |        --------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/IDefaultPlayer.sol:16:8
+   |
+16 | import "./registries/skins/IPlayerSkinRegistry.sol";
+   |        --------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/DefaultPlayer.sol:13:8
+   |
+13 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/DefaultPlayer.sol:14:8
+   |
+14 | import "./Fighter.sol";
+   |        ---------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/DefaultPlayer.sol:15:8
+   |
+15 | import "../interfaces/fighters/IPlayer.sol";
+   |        ------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/DefaultPlayer.sol:16:8
+   |
+16 | import "../interfaces/fighters/IDefaultPlayer.sol";
+   |        -------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/DefaultPlayer.sol:17:8
+   |
+17 | import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+   |        -----------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:13:8
+   |
+13 | import "./BaseGame.sol";
+   |        ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:14:8
+   |
+14 | import "solmate/src/utils/ReentrancyGuard.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:15:8
+   |
+15 | import "solmate/src/utils/SafeTransferLib.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:16:8
+   |
+16 | import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+   |        ---------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:17:8
+   |
+17 | import "../../lib/UniformRandomNumber.sol";
+   |        -----------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:18:8
+   |
+18 | import "../../interfaces/game/engine/IGameEngine.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:19:8
+   |
+19 | import "../../interfaces/fighters/IPlayer.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:20:8
+   |
+20 | import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+   |        --------------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:21:8
+   |
+21 | import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+   |        -----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:22:8
+   |
+22 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:23:8
+   |
+23 | import "../../interfaces/fighters/IDefaultPlayer.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol:13:8
+   |
+13 | import "../../../../fighters/Fighter.sol";
+   |        ----------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol:14:8
+   |
+14 | import "../../../game/engine/IEquipmentRequirements.sol";
+   |        -------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:345:21
+    |
+345 |             uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, address(this), currentQueueSize)));
+    |                     ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:349:37
+    |
+349 |             selectionSeed = uint256(keccak256(abi.encodePacked(selectionSeed, i))); // Evolve seed
+    |                                     ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/DefaultPlayer.sol:49:43
+   |
+49 |     IPlayerNameRegistry private immutable _nameRegistry;
+   |                                           -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#screaming-snake-case-immutable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:444:47
+    |
+444 |                 uint256 derivedRand = uint256(keccak256(abi.encodePacked(randomness, i)));
+    |                                               ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:480:35
+    |
+480 |             shuffleRand = uint256(keccak256(abi.encodePacked(shuffleRand, count))); // Evolve seed
+    |                                   ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:14:9
+   |
+14 | import {Player} from "../../src/fighters/Player.sol";
+   |         ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:15:9
+   |
+15 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:16:9
+   |
+16 | import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+   |         -------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:18:9
+   |
+18 | import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+   |         -----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:21:9
+   |
+21 | import {IDefaultPlayer} from "../../src/interfaces/fighters/IDefaultPlayer.sol";
+   |         --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:29:5
+   |
+29 |     QueueNotEmpty,
+   |     -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GauntletGame.t.sol:30:5
+   |
+30 |     GauntletDoesNotExist,
+   |     --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/gauntlet/AddPlayersGauntlet.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:499:41
+    |
+499 |         uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, requestId))); // Base seed for all fights
+    |                                         ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:527:45
+    |
+527 |                 uint256 fightSeed = uint256(keccak256(abi.encodePacked(fightSeedBase, roundIndex, fightIndex)));
+    |                                             ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Fighter.sol:13:8
+   |
+13 | import "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+   |        -----------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/GauntletGame.sol:711:14
+    |
+711 |     function recoverTimedOutVRF(uint256 gauntletId) external nonReentrant {
+    |              ------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:12:9
+   |
+12 | import {Player} from "../../src/fighters/Player.sol";
+   |         ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:14:9
+   |
+14 | import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+   |         -------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:15:9
+   |
+15 | import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+   |         --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:16:9
+   |
+16 | import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:17:9
+   |
+17 | import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
+   |         -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:18:9
+   |
+18 | import {UnlockNFT} from "../mocks/UnlockNFT.sol";
+   |         ---------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/DuelGame.t.sol:20:9
+   |
+20 | import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+   |         -----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/base/GameOwnedNFT.sol:73:54
+   |
+73 |     function setCID(uint256 tokenId, string calldata ipfsCID) external onlyOwner {
+   |                                                      -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/duel/DuelPlayers.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[pascal-case-struct]: structs should use PascalCase
+  --> /home/rory/projects/heavy-helms-contracts/test/mocks/GelatoVRFAutoMock.sol:17:12
+   |
+17 |     struct VRFRequest {
+   |            ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#pascal-case-struct
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Fighter.sol:14:8
+   |
+14 | import "../interfaces/game/engine/IGameEngine.sol";
+   |        -------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Fighter.sol:15:8
+   |
+15 | import "../interfaces/nft/skins/IPlayerSkinNFT.sol";
+   |        --------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/BaseGame.sol:13:8
+   |
+13 | import "../../interfaces/game/engine/IGameEngine.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[screaming-snake-case-const]: constants should use SCREAMING_SNAKE_CASE
+  --> /home/rory/projects/heavy-helms-contracts/test/mocks/GelatoVRFAutoMock.sol:42:25
+   |
+42 |     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+   |                         --
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#screaming-snake-case-const
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol:48:17
+   |
+48 |         address requiredNFTAddress; // For collections requiring NFT ownership
+   |                 ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/mocks/GelatoVRFAutoMock.sol:52:14
+   |
+52 |     function captureVRFRequest(address consumer, uint256 round, bytes calldata data) external {
+   |              -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Fighter.sol:85:43
+   |
+85 |     IPlayerSkinRegistry private immutable _skinRegistry;
+   |                                           -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#screaming-snake-case-immutable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/BaseGame.sol:14:8
+   |
+14 | import "../../interfaces/fighters/IPlayer.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/BaseGame.sol:15:8
+   |
+15 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/BaseGame.sol:16:8
+   |
+16 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/mocks/GelatoVRFAutoMock.sol:75:14
+   |
+75 |     function fulfillVRFRequest(uint256 requestId, uint256 randomness) public {
+   |              -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/player/CreatePlayer.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/utils/RetireOwnPlayer.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:14:8
+   |
+14 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:20:20
+   |
+20 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:21:20
+   |
+21 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/utils/ClearPendingVRF.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:22:19
+   |
+22 |     uint32 public PLAYER_ONE_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:23:19
+   |
+23 |     uint32 public PLAYER_TWO_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/duel/CheckDuelResult.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:10:8
+   |
+10 | import "solmate/src/tokens/ERC721.sol";
+   |        -------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/game/player/CreatePlayer.s.sol:12:9
+   |
+12 | import {IPlayerNameRegistry} from "../../../src/interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+   |         -------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/game/player/CreatePlayer.s.sol:13:9
+   |
+13 | import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
+   |         -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:10:9
+   |
+10 | import {Test, console2} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:12:9
+   |
+12 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/GasAnalysis.t.sol:13:9
+   |
+13 | import {Player} from "../../src/fighters/Player.sol";
+   |         ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/game/duel/CheckDuelResult.s.sol:12:9
+   |
+12 | import {GameEngine} from "../../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/utils/PurchasePlayerSlots.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:11:8
+   |
+11 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/PracticeGame.sol:13:8
+   |
+13 | import "./BaseGame.sol";
+   |        ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/PracticeGame.sol:14:8
+   |
+14 | import "../../interfaces/game/engine/IGameEngine.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/PracticeGame.sol:15:8
+   |
+15 | import "../../interfaces/fighters/IDefaultPlayer.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/modes/PracticeGame.sol:16:8
+   |
+16 | import "../../interfaces/fighters/IMonster.sol";
+   |        ----------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:12:8
+   |
+12 | import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+   |        -----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/GameEngineDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/modes/PracticeGame.sol:191:24
+    |
+191 |         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, player1Id, player2Id)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:13:8
+   |
+13 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:18:20
+   |
+18 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:19:20
+   |
+19 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:20:19
+   |
+20 |     uint32 public PLAYER_ONE_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:21:19
+   |
+21 |     uint32 public PLAYER_TWO_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/duel/CancelDuel.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/BalanceTest.t.sol:11:8
+   |
+11 | import "forge-std/console.sol";
+   |        -----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/BalanceTest.t.sol:12:8
+   |
+12 | import "../../src/game/engine/GameEngine.sol";
+   |        --------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/BalanceTest.t.sol:13:8
+   |
+13 | import "../../src/interfaces/fighters/IPlayer.sol";
+   |        -------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/BalanceTest.t.sol:14:8
+   |
+14 | import "../../src/interfaces/game/engine/IGameEngine.sol";
+   |        --------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/BalanceTest.t.sol:15:8
+   |
+15 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/PracticeGameDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:29:19
+   |
+29 |     string public baseURI;
+   |                   -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/utils/WithdrawPlayerFees.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/game/player/EquipSkin.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:10:9
+   |
+10 | import {Test, console2} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/LethalDamage.t.sol:11:9
+   |
+11 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/game/player/EquipSkin.s.sol:12:9
+   |
+12 | import {PlayerSkinRegistry} from "../../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/skins/MintDefaultSkin.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/PracticeGameDeploy.s.sol:12:9
+   |
+12 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/PracticeGameDeploy.s.sol:13:9
+   |
+13 | import {Player} from "../../src/fighters/Player.sol";
+   |         ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:39:14
+   |
+39 |     function MAX_SUPPLY() external pure override returns (uint16) {
+   |              ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:43:14
+   |
+43 |     function CURRENT_TOKEN_ID() external view override returns (uint16) {
+   |              ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/skins/MintDefaultSkin.s.sol:13:9
+   |
+13 | import {IDefaultPlayer} from "../../../src/interfaces/fighters/IDefaultPlayer.sol";
+   |         --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:79:14
+   |
+79 |     function setBaseURI(string memory _baseURI) external onlyOwner {
+   |              ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:79:39
+   |
+79 |     function setBaseURI(string memory _baseURI) external onlyOwner {
+   |                                       --------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/nft/skins/PlayerSkinNFT.sol:84:14
+   |
+84 |     function tokenURI(uint256 id) public view virtual override returns (string memory) {
+   |              --------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/skins/UpdateNFTCid.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/BalanceTest.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/skins/UpdateSkinAttributes.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:14:8
+   |
+14 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/GauntletGameDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/skins/MintMonsterSkin.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/game/UpdateGameEngine.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:15:8
+   |
+15 | import "solmate/src/utils/SafeTransferLib.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:16:8
+   |
+16 | import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+   |        ---------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:18:8
+   |
+18 | import "../lib/UniformRandomNumber.sol";
+   |        --------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:19:8
+   |
+19 | import "../interfaces/fighters/IPlayer.sol";
+   |        ------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:20:8
+   |
+20 | import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+   |        -----------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:21:8
+   |
+21 | import "../interfaces/game/engine/IEquipmentRequirements.sol";
+   |        ------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:22:8
+   |
+22 | import "./Fighter.sol";
+   |        ---------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:10:8
+   |
+10 | import "../../lib/UniformRandomNumber.sol";
+   |        -----------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:11:8
+   |
+11 | import "../../interfaces/fighters/IPlayer.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:12:8
+   |
+12 | import "../../interfaces/game/engine/IGameEngine.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[screaming-snake-case-const]: constants should use SCREAMING_SNAKE_CASE
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:17:28
+   |
+17 |     uint16 public constant version = 25;
+   |                            -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#screaming-snake-case-const
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/PracticeGame.t.sol:15:8
+   |
+15 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:11:8
+   |
+11 | import "forge-std/console2.sol";
+   |        ------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:14:8
+   |
+14 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/GauntletGameDeploy.s.sol:12:9
+   |
+12 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:19:20
+   |
+19 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:20:20
+   |
+20 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:21:19
+   |
+21 |     uint32 public PLAYER_ONE_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:22:19
+   |
+22 |     uint32 public PLAYER_TWO_ID;
+   |                   -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/game/ActionPoints.t.sol:12:8
+   |
+12 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/PracticeGame.t.sol:10:9
+   |
+10 | import {Test, console2} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/admin/game/WhitelistGame.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/NameRegistryDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/CombatLogHealth.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/UnlockableSkinDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:515:24
+    |
+515 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/PracticeGame.t.sol:12:9
+   |
+12 | import {Player} from "../../src/fighters/Player.sol";
+   |         ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/PracticeGame.t.sol:13:9
+   |
+13 | import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/PracticeGame.t.sol:14:9
+   |
+14 | import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+   |         --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/PracticeGame.t.sol:17:9
+   |
+17 | import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/FighterDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/ActionPoints.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/ActionPoints.t.sol:14:9
+   |
+14 | import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/game/ActionPoints.t.sol:15:9
+   |
+15 | import {Player} from "../../src/fighters/Player.sol";
+   |         ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/FighterDeploy.s.sol:15:9
+   |
+15 | import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+   |         -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/FighterDeploy.s.sol:18:9
+   |
+18 | import {IDefaultPlayer} from "../../src/interfaces/fighters/IDefaultPlayer.sol";
+   |         --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:564:24
+    |
+564 |         seed = uint256(keccak256(abi.encodePacked(newSeed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:128:43
+    |
+128 |     IPlayerNameRegistry private immutable _nameRegistry;
+    |                                           -------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#screaming-snake-case-immutable
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/UnlockableSkinDeploy.s.sol:13:9
+   |
+13 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerPermissions.t.sol:15:8
+   |
+15 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/PlayerSkinRegistryDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/EquipmentRequirementsDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerPermissions.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerPermissions.t.sol:11:31
+   |
+11 | import {Player, NoPermission, InvalidPlayerStats} from "../../src/fighters/Player.sol";
+   |                               ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerPermissions.t.sol:13:9
+   |
+13 | import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerPermissions.t.sol:14:9
+   |
+14 | import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:989:14
+    |
+989 |     function recoverERC20(address token, uint256 amount) external onlyOwner {
+    |              ------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:611:24
+    |
+611 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:617:28
+    |
+617 |         nextSeed = uint256(keccak256(abi.encodePacked(seed)));
+    |                            ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Monster.sol:13:8
+   |
+13 | import "../interfaces/fighters/IMonster.sol";
+   |        -------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Monster.sol:14:8
+   |
+14 | import "../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
+   |        ------------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Monster.sol:15:8
+   |
+15 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Monster.sol:16:8
+   |
+16 | import "./Fighter.sol";
+   |        ---------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/DuelGameDeploy.s.sol:10:8
+   |
+10 | import "forge-std/Script.sol";
+   |        ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:647:24
+    |
+647 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:655:24
+    |
+655 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:666:28
+    |
+666 |             seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                            ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/script/deploy/DuelGameDeploy.s.sol:12:9
+   |
+12 | import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+   |         ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/MonsterLibrary.sol:10:8
+   |
+10 | import "../../fighters/Monster.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/MonsterLibrary.sol:11:8
+   |
+11 | import "../../nft/skins/MonsterSkinNFT.sol";
+   |        ------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:10:8
+   |
+10 | import "../../interfaces/fighters/IPlayer.sol";
+   |        ---------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/Monster.sol:42:44
+   |
+42 |     IMonsterNameRegistry private immutable _nameRegistry;
+   |                                            -------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#screaming-snake-case-immutable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1082:40
+     |
+1082 |         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
+     |                                        ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/MonsterLibrary.sol:12:8
+   |
+12 | import "../../interfaces/fighters/IMonster.sol";
+   |        ----------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/MonsterLibrary.sol:13:8
+   |
+13 | import "../../game/engine/GameEngine.sol";
+   |        ----------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:703:28
+    |
+703 |             seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                            ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/MonsterLibrary.sol:31:87
+   |
+31 |         (uint8 weapon, uint8 armor, IMonster.MonsterStats memory stats, string memory ipfsCID) =
+   |                                                                                       -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:11:8
+   |
+11 | import "../../nft/skins/DefaultPlayerSkinNFT.sol";
+   |        ------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:12:8
+   |
+12 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:13:8
+   |
+13 | import "../../interfaces/fighters/IDefaultPlayer.sol";
+   |        ----------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/names/PlayerNameRegistry.sol:13:8
+   |
+13 | import "solmate/src/auth/Owned.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/registries/names/PlayerNameRegistry.sol:14:8
+   |
+14 | import "../../../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+   |        -----------------------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1177:28
+     |
+1177 |             seed = uint256(keccak256(abi.encodePacked(seed)));
+     |                            ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:25:8
+   |
+25 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:41:93
+   |
+41 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+   |                                                                                             -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:32:20
+   |
+32 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:33:20
+   |
+33 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:58:93
+   |
+58 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+   |                                                                                             -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1186:32
+     |
+1186 |                 seed = uint256(keccak256(abi.encodePacked(seed)));
+     |                                ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:33:8
+   |
+33 | import "../TestBase.sol";
+   |        -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:34:8
+   |
+34 | import "../mocks/UnlockNFT.sol";
+   |        ------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1233:33
+     |
+1233 |         uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
+     |                                 ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1240:33
+     |
+1240 |                 order = uint256(keccak256(abi.encodePacked(order)));
+     |                                 ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:12:5
+   |
+12 |     Player,
+   |     ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:13:5
+   |
+13 |     TooManyPlayers,
+   |     --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:15:5
+   |
+15 |     InvalidPlayerStats,
+   |     ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:16:5
+   |
+16 |     NoPermission,
+   |     ------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:17:5
+   |
+17 |     PlayerDoesNotExist,
+   |     ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:22:5
+   |
+22 |     InsufficientFeeAmount,
+   |     ---------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/PlayerCharges.t.sol:23:5
+   |
+23 |     PendingRequestExists
+   |     --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1249:38
+     |
+1249 |                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, "chance")));
+     |                                      ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:38:20
+   |
+38 |     address public PLAYER_ONE;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:39:20
+   |
+39 |     address public PLAYER_TWO;
+   |                    ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/fighters/Player.sol:1261:38
+     |
+1261 |                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
+     |                                      ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:711:40
+    |
+711 |                         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:75:93
+   |
+75 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+   |                                                                                             -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:285:23
+    |
+285 |         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
+    |                       -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:49:17
+   |
+49 |     bool public useVRFMock = true;
+   |                 ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:315:23
+    |
+315 |         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Test Skin Collection", "TSC", 0.01 ether);
+    |                       -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:726:36
+    |
+726 |                     seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                                    ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:69:14
+   |
+69 |     modifier skipInCI() {
+   |              --------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:734:40
+    |
+734 |                         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:744:24
+    |
+744 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:750:32
+    |
+750 |                 seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                                ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:154:14
+    |
+154 |     function _fulfillVRF(uint256 requestId, uint256, /* randomSeed */ address vrfConsumer) internal {
+    |              -----------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:542:19
+    |
+542 |         UnlockNFT unlockNFT = new UnlockNFT();
+    |                   ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:545:23
+    |
+545 |         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Unlockable Collection", "UC", 0.01 ether);
+    |                       -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:181:14
+    |
+181 |     function _fulfillVRFWithMock(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
+    |              -------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:580:23
+    |
+580 |         PlayerSkinNFT skinNFT = new PlayerSkinNFT("TestSkin", "TEST", 0.01 ether);
+    |                       -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:768:36
+    |
+768 |                     seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                                    ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:777:24
+    |
+777 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:643:23
+    |
+643 |         PlayerSkinNFT unlockNFT = new PlayerSkinNFT("Unlock NFT", "UNLOCK", 0);
+    |                       ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:647:23
+    |
+647 |         PlayerSkinNFT skinNFT = new PlayerSkinNFT("Collection Skins", "CSKIN", 0);
+    |                       -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:895:24
+    |
+895 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:92:93
+   |
+92 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+   |                                                                                             -------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:109:93
+    |
+109 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:194:14
+    |
+194 |     function _createPlayerAndFulfillVRFWithMock(address owner, Player contractInstance, bool useSetB)
+    |              ----------------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:918:28
+    |
+918 |             seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                            ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:986:23
+    |
+986 |         PlayerSkinNFT skinNFT = new PlayerSkinNFT("High Req Skin", "HRS", 0.01 ether);
+    |                       -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:934:24
+    |
+934 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+    |                        ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:126:93
+    |
+126 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:231:14
+    |
+231 |     function _fulfillVRFLegacy(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
+    |              -----------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:143:93
+    |
+143 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1148:25
+     |
+1148 |                 uint256(keccak256(abi.encodePacked(seed))),
+     |                         ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:160:93
+    |
+160 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:10:9
+   |
+10 | import {Test} from "forge-std/Test.sol";
+   |         ----
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:12:5
+   |
+12 |     Player,
+   |     ------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:15:5
+   |
+15 |     InvalidPlayerStats,
+   |     ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:18:5
+   |
+18 |     InsufficientCharges,
+   |     -------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:19:5
+   |
+19 |     InvalidAttributeSwap,
+   |     --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:20:5
+   |
+20 |     InvalidNameIndex,
+   |     ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:21:5
+   |
+21 |     BadZeroAddress,
+   |     --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:23:5
+   |
+23 |     PendingRequestExists,
+   |     --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:24:5
+   |
+24 |     NoPendingRequest
+   |     ----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:30:9
+   |
+30 | import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
+   |         ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/fighters/Player.t.sol:31:9
+   |
+31 | import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
+   |         --------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:177:93
+    |
+177 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:194:93
+    |
+194 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:211:93
+    |
+211 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:228:93
+    |
+228 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:245:93
+    |
+245 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:262:93
+    |
+262 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1291:14
+     |
+1291 |     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
+     |              -----------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1307:14
+     |
+1307 |     function MACE_TOWER() public pure returns (WeaponStats memory) {
+     |              ----------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1323:14
+     |
+1323 |     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
+     |              --------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1339:14
+     |
+1339 |     function GREATSWORD() public pure returns (WeaponStats memory) {
+     |              ----------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1355:14
+     |
+1355 |     function BATTLEAXE() public pure returns (WeaponStats memory) {
+     |              ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1371:14
+     |
+1371 |     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
+     |              ------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1387:14
+     |
+1387 |     function SPEAR() public pure returns (WeaponStats memory) {
+     |              -----
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1403:14
+     |
+1403 |     function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
+     |              ------------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1419:14
+     |
+1419 |     function SHORTSWORD_TOWER() public pure returns (WeaponStats memory) {
+     |              ----------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1435:14
+     |
+1435 |     function SCIMITAR_BUCKLER() public pure returns (WeaponStats memory) {
+     |              ----------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1451:14
+     |
+1451 |     function AXE_KITE() public pure returns (WeaponStats memory) {
+     |              --------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1467:14
+     |
+1467 |     function AXE_TOWER() public pure returns (WeaponStats memory) {
+     |              ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1483:14
+     |
+1483 |     function FLAIL_BUCKLER() public pure returns (WeaponStats memory) {
+     |              -------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1499:14
+     |
+1499 |     function MACE_KITE() public pure returns (WeaponStats memory) {
+     |              ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:279:93
+    |
+279 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:245:14
+    |
+245 |     function _captureVRFRequestsFromLogs() internal {
+    |              ---------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1515:14
+     |
+1515 |     function CLUB_TOWER() public pure returns (WeaponStats memory) {
+     |              ----------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:264:14
+    |
+264 |     function _setVRFMockMode(bool enabled) internal {
+    |              ---------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:271:14
+    |
+271 |     function _getVRFMock() internal view returns (GelatoVRFAutoMock) {
+    |              -----------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:278:14
+    |
+278 |     function _fulfillAllPendingVRFRequests() internal {
+    |              -----------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:296:14
+    |
+296 |     function _getPendingVRFRequestCount(address consumer) internal view returns (uint256) {
+    |              --------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:296:93
+    |
+296 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1532:14
+     |
+1532 |     function DUAL_DAGGERS() public pure returns (WeaponStats memory) {
+     |              ------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:437:14
+    |
+437 |     function _simulateVRFFulfillment(uint256 requestId, uint256 roundId) internal returns (bytes memory) {
+    |              -----------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1548:14
+     |
+1548 |     function RAPIER_DAGGER() public pure returns (WeaponStats memory) {
+     |              -------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1564:14
+     |
+1564 |     function DUAL_SCIMITARS() public pure returns (WeaponStats memory) {
+     |              --------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1580:14
+     |
+1580 |     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
+     |              ----------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:445:14
+    |
+445 |     function _decodeVRFRequestEvent(Vm.Log[] memory entries)
+    |              ----------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:313:93
+    |
+313 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1597:14
+     |
+1597 |     function ARMING_SWORD_SHORTSWORD() public pure returns (WeaponStats memory) {
+     |              -----------------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:330:93
+    |
+330 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:480:14
+    |
+480 |     function _assertVRFRequest(uint256 requestId, uint256 roundId) internal {
+    |              -----------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:352:85
+    |
+352 |         (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID) =
+    |                                                                                     -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:536:14
+    |
+536 |     function _createPlayerAndFulfillVRF(address owner, bool useSetB) internal returns (uint32) {
+    |              --------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:540:14
+    |
+540 |     function _createPlayerAndFulfillVRF(address owner, Player contractInstance, bool useSetB)
+    |              --------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:547:14
+    |
+547 |     function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
+    |              -----------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-variable]: mutable variables should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/fighters/lib/DefaultPlayerLibrary.sol:366:93
+    |
+366 |         returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+    |                                                                                             -------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-variable
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:558:14
+    |
+558 |     function _createPlayerAndExpectVRFFail(
+    |              -----------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1613:14
+     |
+1613 |     function SCIMITAR_DAGGER() public pure returns (WeaponStats memory) {
+     |              ---------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1629:14
+     |
+1629 |     function ARMING_SWORD_CLUB() public pure returns (WeaponStats memory) {
+     |              -----------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1645:14
+     |
+1645 |     function AXE_MACE() public pure returns (WeaponStats memory) {
+     |              --------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1661:14
+     |
+1661 |     function FLAIL_DAGGER() public pure returns (WeaponStats memory) {
+     |              ------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:580:14
+    |
+580 |     function _fulfillVRF(uint256 requestId, uint256 randomSeed) internal {
+    |              -----------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1677:14
+     |
+1677 |     function MACE_SHORTSWORD() public pure returns (WeaponStats memory) {
+     |              ---------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1694:14
+     |
+1694 |     function MAUL() public pure returns (WeaponStats memory) {
+     |              ----
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1710:14
+     |
+1710 |     function TRIDENT() public pure returns (WeaponStats memory) {
+     |              -------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:12:9
+   |
+12 | import {GelatoVRFConsumerBase} from "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+   |         ---------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:17:9
+   |
+17 | import {IDefaultPlayer} from "../src/interfaces/fighters/IDefaultPlayer.sol";
+   |         --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:18:9
+   |
+18 | import {IMonster} from "../src/interfaces/fighters/IMonster.sol";
+   |         --------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[unused-import]: unused imports should be removed
+  --> /home/rory/projects/heavy-helms-contracts/test/TestBase.sol:20:9
+   |
+20 | import {IPlayerSkinNFT} from "../src/interfaces/nft/skins/IPlayerSkinNFT.sol";
+   |         --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unused-import
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1761:14
+     |
+1761 |     function CLOTH() public pure returns (ArmorStats memory) {
+     |              -----
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1765:14
+     |
+1765 |     function LEATHER() public pure returns (ArmorStats memory) {
+     |              -------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1769:14
+     |
+1769 |     function CHAIN() public pure returns (ArmorStats memory) {
+     |              -----
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1773:14
+     |
+1773 |     function PLATE() public pure returns (ArmorStats memory) {
+     |              -----
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1789:14
+     |
+1789 |     function DEFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
+     |              ----------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1805:14
+     |
+1805 |     function BALANCED_STANCE() public pure returns (StanceMultiplier memory) {
+     |              ---------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1821:14
+     |
+1821 |     function OFFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
+     |              ----------------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[asm-keccak256]: hash using inline assembly to save gas
+    --> /home/rory/projects/heavy-helms-contracts/src/game/engine/GameEngine.sol:1885:24
+     |
+1885 |         seed = uint256(keccak256(abi.encodePacked(seed)));
+     |                        ---------
+     |
+     = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:10:8
+   |
+10 | import "../../interfaces/game/engine/IEquipmentRequirements.sol";
+   |        ---------------------------------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:11:8
+   |
+11 | import "../../fighters/Fighter.sol";
+   |        ----------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:52:14
+   |
+52 |     function ARMING_SWORD_KITE_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:56:14
+   |
+56 |     function MACE_TOWER_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ---------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:60:14
+   |
+60 |     function RAPIER_BUCKLER_REQS() public pure returns (Fighter.Attributes memory) {
+   |              -------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:64:14
+   |
+64 |     function GREATSWORD_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ---------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:68:14
+   |
+68 |     function BATTLEAXE_REQS() public pure returns (Fighter.Attributes memory) {
+   |              --------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:72:14
+   |
+72 |     function QUARTERSTAFF_REQS() public pure returns (Fighter.Attributes memory) {
+   |              -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:76:14
+   |
+76 |     function SPEAR_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ----------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:80:14
+   |
+80 |     function SHORTSWORD_BUCKLER_REQS() public pure returns (Fighter.Attributes memory) {
+   |              -----------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:84:14
+   |
+84 |     function SHORTSWORD_TOWER_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ---------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:88:14
+   |
+88 |     function DUAL_DAGGERS_REQS() public pure returns (Fighter.Attributes memory) {
+   |              -----------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:92:14
+   |
+92 |     function RAPIER_DAGGER_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+  --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:96:14
+   |
+96 |     function SCIMITAR_BUCKLER_REQS() public pure returns (Fighter.Attributes memory) {
+   |              ---------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:100:14
+    |
+100 |     function AXE_KITE_REQS() public pure returns (Fighter.Attributes memory) {
+    |              -------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:104:14
+    |
+104 |     function AXE_TOWER_REQS() public pure returns (Fighter.Attributes memory) {
+    |              --------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:108:14
+    |
+108 |     function DUAL_SCIMITARS_REQS() public pure returns (Fighter.Attributes memory) {
+    |              -------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:112:14
+    |
+112 |     function FLAIL_BUCKLER_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:116:14
+    |
+116 |     function MACE_KITE_REQS() public pure returns (Fighter.Attributes memory) {
+    |              --------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:120:14
+    |
+120 |     function CLUB_TOWER_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ---------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:124:14
+    |
+124 |     function DUAL_CLUBS_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ---------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:128:14
+    |
+128 |     function ARMING_SWORD_SHORTSWORD_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ----------------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:132:14
+    |
+132 |     function SCIMITAR_DAGGER_REQS() public pure returns (Fighter.Attributes memory) {
+    |              --------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:136:14
+    |
+136 |     function ARMING_SWORD_CLUB_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ----------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:140:14
+    |
+140 |     function AXE_MACE_REQS() public pure returns (Fighter.Attributes memory) {
+    |              -------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:144:14
+    |
+144 |     function FLAIL_DAGGER_REQS() public pure returns (Fighter.Attributes memory) {
+    |              -----------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:148:14
+    |
+148 |     function MACE_SHORTSWORD_REQS() public pure returns (Fighter.Attributes memory) {
+    |              --------------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:152:14
+    |
+152 |     function MAUL_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ---------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:156:14
+    |
+156 |     function TRIDENT_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:194:14
+    |
+194 |     function CLOTH_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ----------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:198:14
+    |
+198 |     function LEATHER_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ------------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:202:14
+    |
+202 |     function CHAIN_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ----------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[mixed-case-function]: function names should use mixedCase
+   --> /home/rory/projects/heavy-helms-contracts/src/game/engine/EquipmentRequirements.sol:206:14
+    |
+206 |     function PLATE_REQS() public pure returns (Fighter.Attributes memory) {
+    |              ----------
+    |
+    = help: https://book.getfoundry.sh/reference/forge/forge-lint#mixed-case-function
+
+note[asm-keccak256]: hash using inline assembly to save gas
+  --> /home/rory/projects/heavy-helms-contracts/src/lib/UniformRandomNumber.sol:41:30
+   |
+41 |             random = uint256(keccak256(abi.encodePacked(random)));
+   |                              ---------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#asm-keccak256
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/game/engine/IEquipmentRequirements.sol:10:8
+   |
+10 | import "../../../fighters/Fighter.sol";
+   |        -------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+note[unaliased-plain-import]: use named imports '{A, B}' or alias 'import ".." as X'
+  --> /home/rory/projects/heavy-helms-contracts/src/interfaces/game/engine/IGameEngine.sol:10:8
+   |
+10 | import "../../../fighters/Fighter.sol";
+   |        -------------------------------
+   |
+   = help: https://book.getfoundry.sh/reference/forge/forge-lint#unaliased-plain-import
+
+Compiling 106 files with Solc 0.8.28

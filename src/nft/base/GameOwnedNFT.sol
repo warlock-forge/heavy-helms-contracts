@@ -32,18 +32,18 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
         _MAX_SUPPLY = maxSupply;
     }
 
-    function _mintGameSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
+    function _mintGameSkin(uint8 weapon, uint8 armor, string memory ipfsCid, uint16 desiredTokenId)
         internal
         returns (uint16)
     {
         if (desiredTokenId >= _MAX_SUPPLY) revert MaxSupplyReached();
-        if (bytes(ipfsCID).length == 0) revert InvalidCID();
+        if (bytes(ipfsCid).length == 0) revert InvalidCID();
         if (_ownerOf[desiredTokenId] != address(0)) revert TokenIdAlreadyExists(desiredTokenId);
 
         _mint(address(this), desiredTokenId);
 
         _skinAttributes[desiredTokenId] = SkinAttributes({weapon: weapon, armor: armor});
-        _tokenCIDs[desiredTokenId] = ipfsCID;
+        _tokenCIDs[desiredTokenId] = ipfsCid;
 
         if (desiredTokenId >= _currentTokenId) {
             _currentTokenId = desiredTokenId + 1;
@@ -70,11 +70,11 @@ abstract contract GameOwnedNFT is ERC721, Owned, IPlayerSkinNFT {
         return _currentTokenId;
     }
 
-    function setCID(uint256 tokenId, string calldata ipfsCID) external onlyOwner {
-        if (bytes(ipfsCID).length == 0) revert InvalidCID();
+    function setCID(uint256 tokenId, string calldata ipfsCid) external onlyOwner {
+        if (bytes(ipfsCid).length == 0) revert InvalidCID();
         if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
-        _tokenCIDs[tokenId] = ipfsCID;
-        emit CIDUpdated(uint16(tokenId), ipfsCID);
+        _tokenCIDs[tokenId] = ipfsCid;
+        emit CIDUpdated(uint16(tokenId), ipfsCid);
     }
 
     function updateSkinAttributes(uint256 tokenId, uint8 weapon, uint8 armor) external onlyOwner {

@@ -28,19 +28,22 @@ library MonsterLibrary {
         MonsterType monsterType
     ) internal returns (uint32) {
         // Get monster data based on type
-        (uint8 weapon, uint8 armor, IMonster.MonsterStats memory stats, string memory ipfsCID) =
+        (uint8 weapon, uint8 armor, IMonster.MonsterStats memory stats, string memory ipfsCid) =
             _getMonsterData(monsterType, skinIndex, tokenId);
 
         // Create the monster first
         uint32 monsterId = monster.createMonster(stats);
         // Then mint the skin
-        monsterSkin.mintMonsterSkin(weapon, armor, ipfsCID, tokenId);
+        monsterSkin.mintMonsterSkin(weapon, armor, ipfsCid, tokenId);
 
         return monsterId;
     }
 
-    function createAllMonsters(MonsterSkinNFT monsterSkin, Monster monster, uint32 skinIndex) internal {
-        uint16 tokenId = 1;
+    function createAllMonsters(MonsterSkinNFT, /* monsterSkin */ Monster, /* monster */ uint32 /* skinIndex */ )
+        internal
+        pure
+    {
+        // uint16 tokenId = 1;
         // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Goblin);
         // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Orc);
         // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Troll);

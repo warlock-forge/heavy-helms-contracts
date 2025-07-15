@@ -9,15 +9,11 @@ pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {GelatoVRFConsumerBase} from "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import {GelatoVRFAutoMock} from "./mocks/GelatoVRFAutoMock.sol";
 
 // Interfaces
 import {IPlayer} from "../src/interfaces/fighters/IPlayer.sol";
-import {IDefaultPlayer} from "../src/interfaces/fighters/IDefaultPlayer.sol";
-import {IMonster} from "../src/interfaces/fighters/IMonster.sol";
 import {IGameEngine} from "../src/interfaces/game/engine/IGameEngine.sol";
-import {IPlayerSkinNFT} from "../src/interfaces/nft/skins/IPlayerSkinNFT.sol";
 import {IPlayerSkinRegistry} from "../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 
 // Concrete implementations (needed for deployment)
@@ -151,7 +147,7 @@ abstract contract TestBase is Test {
     }
 
     // Helper function for VRF fulfillment with round matching
-    function _fulfillVRF(uint256 requestId, uint256, /* randomSeed */ address vrfConsumer) internal {
+    function _fulfillVRF(uint256 requestId, uint256, /* randomSeed */ address /* vrfConsumer */ ) internal {
         bytes memory extraData = "";
         bytes memory data = abi.encode(requestId, extraData);
         bytes memory dataWithRound = abi.encode(VRF_ROUND, data);
@@ -228,7 +224,7 @@ abstract contract TestBase is Test {
     /**
      * @notice Legacy VRF fulfillment method (kept for compatibility)
      */
-    function _fulfillVRFLegacy(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
+    function _fulfillVRFLegacy(uint256 requestId, uint256 randomSeed, address /* vrfConsumer */ ) internal {
         bytes memory extraData = "";
         bytes memory data = abi.encode(requestId, extraData);
         bytes memory dataWithRound = abi.encode(VRF_ROUND, data);
@@ -434,7 +430,7 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to simulate VRF fulfillment with standard test data
-    function _simulateVRFFulfillment(uint256 requestId, uint256 roundId) internal returns (bytes memory) {
+    function _simulateVRFFulfillment(uint256 requestId, uint256 roundId) internal pure returns (bytes memory) {
         bytes memory extraData = "";
         bytes memory innerData = abi.encode(requestId, extraData);
         bytes memory dataWithRound = abi.encode(roundId, innerData);
@@ -472,12 +468,12 @@ abstract contract TestBase is Test {
     }
 
     // Helper function to assert ETH balances after transactions
-    function _assertBalances(address account, uint256 expectedBalance, string memory message) internal {
+    function _assertBalances(address account, uint256 expectedBalance, string memory message) internal view {
         assertEq(account.balance, expectedBalance, message);
     }
 
     // Helper function to assert VRF request
-    function _assertVRFRequest(uint256 requestId, uint256 roundId) internal {
+    function _assertVRFRequest(uint256, /* requestId */ uint256 roundId) internal {
         // Get recorded logs
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -528,7 +524,7 @@ abstract contract TestBase is Test {
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
     }
 
-    function _mintMonsters() internal {
+    function _mintMonsters() internal view {
         MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
     }
 

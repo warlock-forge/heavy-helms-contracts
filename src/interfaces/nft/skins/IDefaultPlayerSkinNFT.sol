@@ -14,7 +14,7 @@ interface IDefaultPlayerSkinNFT is IPlayerSkinNFT {
         uint8 weapon,
         uint8 armor,
         uint8 stance,
-        string memory ipfsCID,
+        string memory ipfsCid,
         uint16 desiredTokenId
     ) external returns (uint16);
 }

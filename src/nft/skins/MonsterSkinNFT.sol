@@ -12,12 +12,12 @@ import "../base/GameOwnedNFT.sol";
 contract MonsterSkinNFT is GameOwnedNFT {
     constructor() GameOwnedNFT("Heavy Helms Monster Skins", "HHMON", 8000) {}
 
-    function mintMonsterSkin(uint8 weapon, uint8 armor, string memory ipfsCID, uint16 desiredTokenId)
+    function mintMonsterSkin(uint8 weapon, uint8 armor, string memory ipfsCid, uint16 desiredTokenId)
         external
         onlyOwner
         returns (uint16)
     {
-        uint16 tokenId = _mintGameSkin(weapon, armor, ipfsCID, desiredTokenId);
+        uint16 tokenId = _mintGameSkin(weapon, armor, ipfsCid, desiredTokenId);
         emit SkinMinted(tokenId, weapon, armor);
         return tokenId;
     }

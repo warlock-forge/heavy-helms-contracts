@@ -449,8 +449,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed, 0);
 
         // Use GameEngine's decode method instead of manual unpacking
-        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
-        = gameEngine.decodeCombatLog(results);
+        (bool player1Won,,,) = gameEngine.decodeCombatLog(results);
 
         // Determine winner and loser IDs based on player1Won
         uint32 winnerId = player1Won ? challenge.challengerId : challenge.defenderId;

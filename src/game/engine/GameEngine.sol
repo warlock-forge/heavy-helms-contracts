@@ -818,11 +818,10 @@ contract GameEngine is IGameEngine {
         return adjustedBlockChance;
     }
 
-    function calculateFinalParryChance(CalculatedCombatStats memory defender, CalculatedCombatStats memory attacker)
-        internal
-        pure
-        returns (uint16)
-    {
+    function calculateFinalParryChance(
+        CalculatedCombatStats memory defender,
+        CalculatedCombatStats memory /* attacker */
+    ) internal pure returns (uint16) {
         // Calculate base parry chance
         uint32 baseParryChance = (uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100;
 
@@ -1846,7 +1845,7 @@ contract GameEngine is IGameEngine {
         uint16 defenderMaxHealth,
         CalculatedStats memory defenderStats,
         WeaponStats memory weapon,
-        StanceMultiplier memory defenderStance,
+        StanceMultiplier memory, /* defenderStance */
         uint256 seed,
         uint16 lethalityFactor
     ) private pure returns (bool died) {

@@ -45,7 +45,7 @@ contract VRFMockExample is TestBase {
         vm.recordLogs();
 
         // Step 2: Create a player request (without auto-fulfillment)
-        uint256 requestId = _createPlayerRequest(testPlayer, playerContract, false);
+        _createPlayerRequest(testPlayer, playerContract, false);
 
         // Step 3: Capture VRF requests from the logs
         _captureVRFRequestsFromLogs();

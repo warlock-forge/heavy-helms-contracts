@@ -61,8 +61,8 @@ contract LethalDamageTest is TestBase {
             0 // lethalityFactor = 0
         );
 
-        (bool player1Won, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions)
-        = gameEngine.decodeCombatLog(results);
+        (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
         _assertValidCombatResult(version, condition, actions);
         assertTrue(condition != IGameEngine.WinCondition.DEATH, "Death should not occur in non-lethal mode");
     }
@@ -104,12 +104,8 @@ contract LethalDamageTest is TestBase {
                 50 // Base lethality (0.5x)
             );
 
-            (
-                bool player1Won,
-                uint16 version,
-                IGameEngine.WinCondition condition,
-                IGameEngine.CombatAction[] memory actions
-            ) = gameEngine.decodeCombatLog(results);
+            (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+                gameEngine.decodeCombatLog(results);
             _assertValidCombatResult(version, condition, actions);
 
             if (condition == IGameEngine.WinCondition.DEATH) {
@@ -159,12 +155,8 @@ contract LethalDamageTest is TestBase {
                 100 // Base lethality (1x)
             );
 
-            (
-                bool player1Won,
-                uint16 version,
-                IGameEngine.WinCondition condition,
-                IGameEngine.CombatAction[] memory actions
-            ) = gameEngine.decodeCombatLog(results);
+            (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+                gameEngine.decodeCombatLog(results);
             _assertValidCombatResult(version, condition, actions);
 
             if (condition == IGameEngine.WinCondition.DEATH) {
@@ -214,12 +206,8 @@ contract LethalDamageTest is TestBase {
                 100 // Base lethality (1x)
             );
 
-            (
-                bool player1Won,
-                uint16 version,
-                IGameEngine.WinCondition condition,
-                IGameEngine.CombatAction[] memory actions
-            ) = gameEngine.decodeCombatLog(results);
+            (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+                gameEngine.decodeCombatLog(results);
             _assertValidCombatResult(version, condition, actions);
 
             if (condition == IGameEngine.WinCondition.DEATH) {
@@ -270,12 +258,8 @@ contract LethalDamageTest is TestBase {
                 200 // Extra brutal lethality (2x brutal)
             );
 
-            (
-                bool player1Won,
-                uint16 version,
-                IGameEngine.WinCondition condition,
-                IGameEngine.CombatAction[] memory actions
-            ) = gameEngine.decodeCombatLog(results);
+            (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
+                gameEngine.decodeCombatLog(results);
             _assertValidCombatResult(version, condition, actions);
 
             if (condition == IGameEngine.WinCondition.DEATH) {

@@ -49,12 +49,7 @@ contract ActionPointsTest is TestBase {
 
         bytes memory results = gameEngine.processGame(fastStats, slowStats, fixedSeed, 0);
 
-        (
-            bool player1Won,
-            uint16 gameEngineVersion,
-            IGameEngine.WinCondition condition,
-            IGameEngine.CombatAction[] memory actions
-        ) = gameEngine.decodeCombatLog(results);
+        (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
         uint256 fastAttacks = 0;
         uint256 slowAttacks = 0;

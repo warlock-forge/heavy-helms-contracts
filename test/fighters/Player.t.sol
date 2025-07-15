@@ -428,7 +428,7 @@ contract PlayerTest is TestBase {
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
         vm.stopPrank();
 
-        bytes32 requestHash = playerContract.requestedHash(requestId);
+        playerContract.requestedHash(requestId);
 
         // Record logs before fulfilling VRF
         vm.recordLogs();
@@ -860,7 +860,7 @@ contract PlayerTest is TestBase {
 
                 // Decode the non-indexed parameters
                 (
-                    uint256 randomness,
+                    ,
                     uint16 firstNameIndex,
                     uint16 surnameIndex,
                     uint8 strength,

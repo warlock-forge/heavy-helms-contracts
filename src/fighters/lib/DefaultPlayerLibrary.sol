@@ -38,7 +38,7 @@ library DefaultPlayerLibrary {
     function getDefaultWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 5; // WEAPON_QUARTERSTAFF
         armor = 0; // ARMOR_CLOTH
@@ -49,13 +49,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 0, surnameIndex: 155}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreifbjayatwb3chcfacso3cligrob3l3ykliyqev4j4cmzgpls2saeq";
+        ipfsCid = "bafkreifbjayatwb3chcfacso3cligrob3l3ykliyqev4j4cmzgpls2saeq";
     }
 
     function getBalancedWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 0; // WEAPON_SWORD_AND_SHIELD
         armor = 2; // ARMOR_CHAIN
@@ -66,13 +66,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1015, surnameIndex: 97}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreiekllubajc7auisldffitig2j4afrc4hbedyjtqtdv7vbhgcqcmy4";
+        ipfsCid = "bafkreiekllubajc7auisldffitig2j4afrc4hbedyjtqtdv7vbhgcqcmy4";
     }
 
     function getGreatswordUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 3; // WEAPON_GREATSWORD
         armor = 1; // ARMOR_LEATHER
@@ -83,13 +83,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1062, surnameIndex: 131}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreid5npakg2yxd3542voibvlwtikgg4ai3eecu2jl4qdwmidsvpzsnu";
+        ipfsCid = "bafkreid5npakg2yxd3542voibvlwtikgg4ai3eecu2jl4qdwmidsvpzsnu";
     }
 
     function getBattleaxeUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 4; // WEAPON_BATTLEAXE
         armor = 1; // ARMOR_LEATHER
@@ -100,13 +100,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1102, surnameIndex: 241}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreifoy2xwhckb53zawn7hzvxprcchw7m3iu66mwldxo3gi2ttryjfma";
+        ipfsCid = "bafkreifoy2xwhckb53zawn7hzvxprcchw7m3iu66mwldxo3gi2ttryjfma";
     }
 
     function getSpearUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 6; // WEAPON_SPEAR
         armor = 1; // ARMOR_LEATHER
@@ -117,13 +117,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1146, surnameIndex: 25}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreidcehmxbkeoym6dz6zwtw35nf5uswoonycqtdn57vha35qkuengfe";
+        ipfsCid = "bafkreidcehmxbkeoym6dz6zwtw35nf5uswoonycqtdn57vha35qkuengfe";
     }
 
     function getRapierAndShieldUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 2; // WEAPON_RAPIER_AND_SHIELD
         armor = 1; // ARMOR_LEATHER
@@ -134,13 +134,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 38, surnameIndex: 15}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreiajp62udpay6ffa6q5s3hxthkiherqrl6alx4jpoeviqhenkmtbfa";
+        ipfsCid = "bafkreiajp62udpay6ffa6q5s3hxthkiherqrl6alx4jpoeviqhenkmtbfa";
     }
 
     function getMaceAndShieldUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 1; // WEAPON_MACE_AND_SHIELD
         armor = 3; // ARMOR_PLATE
@@ -151,13 +151,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1079, surnameIndex: 165}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreib5umhjzlug3a4mxabqbsdgo4q5xwpubixjyhvcv36gjhty5sadwu";
+        ipfsCid = "bafkreib5umhjzlug3a4mxabqbsdgo4q5xwpubixjyhvcv36gjhty5sadwu";
     }
 
     function getDaggersUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 9; // WEAPON_DUAL_DAGGERS
         armor = 1; // ARMOR_LEATHER
@@ -168,13 +168,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1043, surnameIndex: 158}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreichxvcymgfql6t2qrbiyjlerxcrei7kriqv4abc7d2f5xjbi54zpy";
+        ipfsCid = "bafkreichxvcymgfql6t2qrbiyjlerxcrei7kriqv4abc7d2f5xjbi54zpy";
     }
 
     function getScimitarAndBucklerUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 11; // WEAPON_SCIMITAR_BUCKLER
         armor = 0; // ARMOR_CLOTH
@@ -185,13 +185,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1139, surnameIndex: 216}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreihmbsfcov2jy7vlebsh5jg7i7k7pnzgcdthnd55drts7ode2wjm3y";
+        ipfsCid = "bafkreihmbsfcov2jy7vlebsh5jg7i7k7pnzgcdthnd55drts7ode2wjm3y";
     }
 
     function getDualClubsWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 18; // WEAPON_DUAL_CLUBS
         armor = 1; // ARMOR_LEATHER
@@ -202,13 +202,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1071, surnameIndex: 37}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreid5ufeacbogoagtcfba2367nmnpjyxa5czu36btghg7d3af34vtnu";
+        ipfsCid = "bafkreid5ufeacbogoagtcfba2367nmnpjyxa5czu36btghg7d3af34vtnu";
     }
 
     function getAxeKitePlateBalancedWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 12; // WEAPON_AXE_KITE
         armor = 3; // ARMOR_PLATE
@@ -219,13 +219,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1145, surnameIndex: 4}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreicyyzq5tv4akfqblvixftzct5mifs4ymg7l56koy52zomnhxkosky";
+        ipfsCid = "bafkreicyyzq5tv4akfqblvixftzct5mifs4ymg7l56koy52zomnhxkosky";
     }
 
     function getDualScimitarsWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 14; // WEAPON_DUAL_SCIMITARS
         armor = 0; // ARMOR_CLOTH
@@ -236,13 +236,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1084, surnameIndex: 242}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreif2wab4gyi45koar4mzitvryg3npik4s4dxwka73zvyfrqpp3g5iu";
+        ipfsCid = "bafkreif2wab4gyi45koar4mzitvryg3npik4s4dxwka73zvyfrqpp3g5iu";
     }
 
     function getShortswordTowerdWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 8; // WEAPON_SHORTSWORD_TOWER
         armor = 3; // ARMOR_PLATE
@@ -253,13 +253,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1031, surnameIndex: 104}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreibrfl56qwfyrfuaxto7jgnhe73b4qxcsenjkt27zs3fdjo7yrmf3m";
+        ipfsCid = "bafkreibrfl56qwfyrfuaxto7jgnhe73b4qxcsenjkt27zs3fdjo7yrmf3m";
     }
 
     function getVanguardWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 3; // WEAPON_GREATSWORD
         armor = 2; // ARMOR_CHAIN
@@ -270,13 +270,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1078, surnameIndex: 139}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreihm7xfvb35obizx5bypcpsom3pnqg4jakgnootb7c4r4bkafi4u4a";
+        ipfsCid = "bafkreihm7xfvb35obizx5bypcpsom3pnqg4jakgnootb7c4r4bkafi4u4a";
     }
 
     function getMageWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 5; // WEAPON_QUARTERSTAFF
         armor = 1; // ARMOR_LEATHER
@@ -287,13 +287,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 1135, surnameIndex: 198}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreihndxzbu7vyxb4jnzrdlyhvmjzxivvbtnkbaq7fn6ejfuvmjwenxa";
+        ipfsCid = "bafkreihndxzbu7vyxb4jnzrdlyhvmjzxivvbtnkbaq7fn6ejfuvmjwenxa";
     }
 
     function getValkyrieWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 0; // WEAPON_ARMING_SWORD_KITE
         armor = 3; // ARMOR_PLATE
@@ -304,13 +304,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 10, surnameIndex: 188}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreibzvmc7skc5v7lsghi6ug5vehttoxcqpsi7nraewkr6z72pcjhfwy";
+        ipfsCid = "bafkreibzvmc7skc5v7lsghi6ug5vehttoxcqpsi7nraewkr6z72pcjhfwy";
     }
 
     function getLowStaminaClubsWarrior(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 18; // WEAPON_DUAL_CLUBS
         armor = 0; // ARMOR_CLOTH
@@ -321,13 +321,13 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 83, surnameIndex: 232}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreiaio3mlfiqnoshu35qgpnmid2c24wwmivi2h3tbb67yvguo66btky";
+        ipfsCid = "bafkreiaio3mlfiqnoshu35qgpnmid2c24wwmivi2h3tbb67yvguo66btky";
     }
 
     function getAltDaggersUser(uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         weapon = 9; // WEAPON_DUAL_DAGGERS
         armor = 1; // ARMOR_LEATHER
@@ -338,7 +338,7 @@ library DefaultPlayerLibrary {
             name: IPlayer.PlayerName({firstNameIndex: 95, surnameIndex: 5}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0})
         });
-        ipfsCID = "bafkreieh2vw6eobqqawgujacaq7z6oc5gzqptczxa3ko42rlewahtyoxpe";
+        ipfsCid = "bafkreieh2vw6eobqqawgujacaq7z6oc5gzqptczxa3ko42rlewahtyoxpe";
     }
 
     function createDefaultCharacter(
@@ -349,13 +349,13 @@ library DefaultPlayerLibrary {
         CharacterType characterType
     ) internal returns (uint16) {
         // Get character data based on type
-        (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID) =
+        (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid) =
             _getCharacterData(characterType, skinIndex, tokenId);
 
         // Create the default player first
         defaultPlayer.createDefaultPlayer(tokenId, stats);
         // Then mint the skin
-        defaultSkin.mintDefaultPlayerSkin(weapon, armor, ipfsCID, tokenId);
+        defaultSkin.mintDefaultPlayerSkin(weapon, armor, ipfsCid, tokenId);
 
         return tokenId;
     }
@@ -363,7 +363,7 @@ library DefaultPlayerLibrary {
     function _getCharacterData(CharacterType charType, uint32 skinIndex, uint16 tokenId)
         internal
         pure
-        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCID)
+        returns (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid)
     {
         if (charType == CharacterType.DefaultWarrior) {
             return getDefaultWarrior(skinIndex, tokenId);

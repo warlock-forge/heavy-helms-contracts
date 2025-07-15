@@ -40,8 +40,8 @@ contract CheckDuelResultScript is Script {
             uint256 createdBlock,
             uint256 createdTimestamp,
             uint256 vrfRequestTimestamp,
-            Fighter.PlayerLoadout memory challengerLoadout,
-            Fighter.PlayerLoadout memory defenderLoadout,
+            ,
+            ,
             DuelGame.ChallengeState state
         ) = duelGame.challenges(challengeId);
 
