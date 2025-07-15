@@ -148,3 +148,10 @@ All tests inherit from `TestBase.sol` which provides:
 - **Testing**: Extensive test coverage expected, use `-vv` for debugging
 - **Gas Optimization**: Critical due to on-chain game nature
 - **Cursor Rules**: Follow established patterns in `.cursor/rules/` for consistency
+
+## Git Commit Rules
+
+- **NEVER add advertising or self-promotion to commit messages**
+- Keep commit messages clean and professional
+- Focus on what changed, not who made the changes
+- No "Generated with" or "Co-Authored-By" additions
