@@ -47,10 +47,7 @@ contract DuelGameTest is TestBase {
     );
     event ChallengeCancelled(uint256 indexed challengeId);
     event DuelComplete( // This is the key addition
-        uint256 indexed challengeId,
-        uint32 indexed winnerId,
-        uint256 randomness
-    );
+    uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomness);
     event ChallengeRecovered(uint256 indexed challengeId);
 
     function setUp() public override {
@@ -89,12 +86,7 @@ contract DuelGameTest is TestBase {
 
         vm.expectEmit(true, true, true, true);
         emit ChallengeCreated(
-            0,
-            PLAYER_ONE_ID,
-            PLAYER_TWO_ID,
-            loadout.skin.skinIndex,
-            loadout.skin.skinTokenId,
-            loadout.stance
+            0, PLAYER_ONE_ID, PLAYER_TWO_ID, loadout.skin.skinIndex, loadout.skin.skinTokenId, loadout.stance
         );
 
         uint256 challengeId = game.initiateChallenge(loadout, PLAYER_TWO_ID);
@@ -150,7 +142,6 @@ contract DuelGameTest is TestBase {
             uint256 vrfRequestTime,
             Fighter.PlayerLoadout memory challengerLoadout,
             Fighter.PlayerLoadout memory defenderLoadout,
-            
         ) = game.challenges(challengeId);
 
         // Get the appropriate Fighter contracts
@@ -229,7 +220,6 @@ contract DuelGameTest is TestBase {
             uint256 vrfRequestTime,
             Fighter.PlayerLoadout memory challengerLoadout,
             Fighter.PlayerLoadout memory defenderLoadout,
-            
         ) = game.challenges(challengeId);
 
         // Get the appropriate Fighter contracts
@@ -252,8 +242,6 @@ contract DuelGameTest is TestBase {
         (,,,,,,, DuelGame.ChallengeState finalState) = game.challenges(challengeId);
         assertTrue(finalState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed");
     }
-
-
 
     function test_RevertWhen_UsingDefaultCharacter() public {
         vm.startPrank(PLAYER_ONE);
@@ -290,7 +278,6 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
     }
 
-
     function testGameToggle() public {
         // Verify game starts enabled
         assertTrue(game.isGameEnabled(), "Game should start enabled");
@@ -317,9 +304,6 @@ contract DuelGameTest is TestBase {
         assertTrue(game.isGameEnabled(), "Game should be re-enabled");
         vm.stopPrank();
     }
-
-
-
 
     function testHelperFunctions() public {
         // Create a challenge
@@ -367,7 +351,6 @@ contract DuelGameTest is TestBase {
         assertFalse(game.isChallengePending(challengeId2), "Challenge should not be pending after completion");
         assertTrue(game.isChallengeCompleted(challengeId2), "Challenge should be completed after fulfillment");
     }
-
 
     function test_RevertWhen_AcceptingExpiredChallenge() public {
         // Create a challenge

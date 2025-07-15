@@ -243,7 +243,6 @@ contract GauntletGameTest is TestBase {
         vm.stopPrank();
     }
 
-
     function testRevertWhen_NotPlayerOwner() public {
         // Try to queue a player you don't own
         vm.startPrank(PLAYER_TWO);
@@ -295,10 +294,7 @@ contract GauntletGameTest is TestBase {
     //==============================================================//
 
     /// @notice Helper to queue multiple players for testing startGauntlet
-    function _queuePlayers(uint256 count)
-        internal
-        returns (uint32[] memory queuedIds, address[] memory queuedAddrs)
-    {
+    function _queuePlayers(uint256 count) internal returns (uint32[] memory queuedIds, address[] memory queuedAddrs) {
         if (count == 0) return (new uint32[](0), new address[](0));
 
         queuedIds = new uint32[](count);
@@ -349,7 +345,7 @@ contract GauntletGameTest is TestBase {
 
         // Skip complex event parsing for now - basic functionality verification
         // The gauntlet started successfully as evidenced by the state changes above
-        
+
         uint256 gauntletId = 0; // Expecting first gauntlet
         // --- Check status for the players who *were* selected ---
         for (uint8 i = 0; i < gauntletSize; i++) {
@@ -631,7 +627,6 @@ contract GauntletGameTest is TestBase {
         assertEq(game.minTimeBetweenGauntlets(), initialTime, "Min time changed by non-owner");
     }
 
-
     function testSetGauntletSize_Success() public {
         uint8 initialSize = game.currentGauntletSize();
         uint8 newSize8 = 8;
@@ -746,8 +741,7 @@ contract GauntletGameTest is TestBase {
         for (uint256 i = 0; i < entries.length; i++) {
             // Find GauntletStarted by checking topics[1] for gauntletId
             if (!foundStarted && entries[i].topics.length > 1 && uint256(entries[i].topics[1]) == gauntletId) {
-                (,, uint256 reqId) =
-                    abi.decode(entries[i].data, (uint8, GauntletGame.RegisteredPlayer[], uint256));
+                (,, uint256 reqId) = abi.decode(entries[i].data, (uint8, GauntletGame.RegisteredPlayer[], uint256));
                 vrfRequestId = reqId;
                 foundStarted = true;
             }
@@ -779,11 +773,10 @@ contract GauntletGameTest is TestBase {
     }
 
     // Helper function to verify the GauntletCompleted event
-    function _verifyGauntletCompletedEvent(
-        Vm.Log[] memory finalEntries,
-        uint256 gauntletId,
-        uint8 expectedSize
-    ) internal returns (uint32 actualChampionId) {
+    function _verifyGauntletCompletedEvent(Vm.Log[] memory finalEntries, uint256 gauntletId, uint8 expectedSize)
+        internal
+        returns (uint32 actualChampionId)
+    {
         // REMOVED: bytes32 gauntletCompletedSig = keccak256(...);
         bool foundCompleted = false;
 
@@ -796,11 +789,8 @@ contract GauntletGameTest is TestBase {
                     && uint256(finalEntries[i].topics[1]) == gauntletId // MATCH ON GAUNTLET ID (topic 1)
             ) {
                 // Decode the non-indexed data fields (updated signature without fee/prize)
-                (
-                    uint8 size,
-                    uint32[] memory pIds,
-                    uint32[] memory winners
-                ) = abi.decode(finalEntries[i].data, (uint8, uint32[], uint32[]));
+                (uint8 size, uint32[] memory pIds, uint32[] memory winners) =
+                    abi.decode(finalEntries[i].data, (uint8, uint32[], uint32[]));
 
                 // Decode the indexed championId from topic 2
                 actualChampionId = uint32(uint256(finalEntries[i].topics[2])); // EXTRACT FROM TOPIC 2
@@ -858,8 +848,6 @@ contract GauntletGameTest is TestBase {
         assertEq(recordAfter.wins, recordBefore.wins, "Retired player wins changed");
         assertEq(recordAfter.losses, recordBefore.losses, "Retired player losses changed");
     }
-
-
 
     // Helper function to verify state cleanup after gauntlet completion/recovery
     function _verifyStateCleanup(uint32[] memory participantIds, uint256 gauntletId, uint256 vrfRequestId)
@@ -947,9 +935,7 @@ contract GauntletGameTest is TestBase {
         Vm.Log[] memory finalEntries = vm.getRecordedLogs();
 
         // --- Verify Event and State (using _verify functions) ---
-        uint32 actualChampionId = _verifyGauntletCompletedEvent(
-            finalEntries, gauntletId, gauntletSize
-        );
+        uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
 
@@ -1027,9 +1013,7 @@ contract GauntletGameTest is TestBase {
         Vm.Log[] memory finalEntries = vm.getRecordedLogs();
 
         // --- Verify Event and State (using _verify functions) ---
-        uint32 actualChampionId = _verifyGauntletCompletedEvent(
-            finalEntries, gauntletId, gauntletSize
-        );
+        uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
 
@@ -1105,9 +1089,7 @@ contract GauntletGameTest is TestBase {
         Vm.Log[] memory finalEntries = vm.getRecordedLogs();
 
         // --- Verify Event and State (using _verify functions) ---
-        uint32 actualChampionId = _verifyGauntletCompletedEvent(
-            finalEntries, gauntletId, gauntletSize
-        );
+        uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
 
@@ -1183,9 +1165,7 @@ contract GauntletGameTest is TestBase {
         Vm.Log[] memory finalEntries = vm.getRecordedLogs();
 
         // --- Verify Event and State (using _verify functions) ---
-        uint32 actualChampionId = _verifyGauntletCompletedEvent(
-            finalEntries, gauntletId, gauntletSize
-        );
+        uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(actualParticipantIds, gauntletId, vrfRequestId);
         // --- End Verify ---
 
@@ -1320,10 +1300,6 @@ contract GauntletGameTest is TestBase {
     //==============================================================//
     //                 ADMIN FUNCTION TESTS                       //
     //==============================================================//
-
-
-
-
 
     function testSetGameEnabled() public {
         // uint256 entryFee = game.currentEntryFee(); // Removed: fee functionality
@@ -1512,11 +1488,7 @@ contract GauntletGameTest is TestBase {
         // uint256 expectedFeeCollectedParameter = totalPrizePool; // Fee collected param is the full pool // Removed: fee functionality
 
         // --- Verify Event and State ---
-        uint32 actualChampionId = _verifyGauntletCompletedEvent(
-            finalEntries,
-            gauntletId,
-            gauntletSize
-        );
+        uint32 actualChampionId = _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(participantIds, gauntletId, vrfRequestId);
         // --- End Verify Event and State ---
 
@@ -1886,9 +1858,7 @@ contract GauntletGameTest is TestBase {
             prizeAwardedForEvent = 0;
         }
 
-        _verifyGauntletCompletedEvent(
-            finalEntries, gauntletId, gauntletSize
-        );
+        _verifyGauntletCompletedEvent(finalEntries, gauntletId, gauntletSize);
         _verifyStateCleanup(participantIds, gauntletId, vrfRequestId);
         // --- End Verify Event and State ---
 
@@ -1939,7 +1909,6 @@ contract GauntletGameTest is TestBase {
     }
 
     // --- NEW/MODIFIED Tests for Gaps ---
-
 
     /// @notice Tests that disabling the game clears the queue, refunds players (non-zero fee), and emits events.
     function testSetGameEnabled_False_ClearsQueueAndRefunds() public {
@@ -2012,5 +1981,4 @@ contract GauntletGameTest is TestBase {
         assertEq(game.playerIndexInQueue(PLAYER_TWO_ID), 0, "P2 index");
         assertEq(game.playerIndexInQueue(PLAYER_THREE_ID), 0, "P3 index");
     }
-
 }

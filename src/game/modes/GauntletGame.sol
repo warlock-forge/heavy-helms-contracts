@@ -570,7 +570,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         gauntlet.completionTimestamp = block.timestamp;
         gauntlet.state = GauntletState.COMPLETED; // Mark as completed *after* simulation
 
-
         // Clean up player statuses
         for (uint256 i = 0; i < size; i++) {
             uint32 pId = initialParticipants[i].playerId;
@@ -581,15 +580,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             }
         }
 
-
         // Interaction: Emit final completion event with additional data
-        emit GauntletCompleted(
-            gauntletId,
-            size,
-            finalWinnerId,
-            shuffledParticipantIds,
-            gauntlet.winners
-        );
+        emit GauntletCompleted(gauntletId, size, finalWinnerId, shuffledParticipantIds, gauntlet.winners);
     }
 
     //==============================================================//
@@ -713,7 +705,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit OperatorSet(newOperator);
     }
 
-
     /// @notice Allows anyone to trigger recovery for a timed-out Gauntlet.
     /// @dev Marks the Gauntlet as COMPLETED and cleans up participant state. Intentionally public access after timeout.
     /// @param gauntletId The ID of the Gauntlet to recover.
@@ -756,7 +747,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         defaultPlayerContract = IDefaultPlayer(newAddress);
         emit DefaultPlayerContractSet(newAddress);
     }
-
 
     /// @notice Sets the number of participants required to start a gauntlet (4, 8, 16, or 32).
     /// @dev The game must be disabled via `setGameEnabled(false)` before calling this function.

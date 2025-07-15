@@ -104,11 +104,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Emitted when a challenge is cancelled
     event ChallengeCancelled(uint256 indexed challengeId);
     /// @notice Emitted when a duel is completed
-    event DuelComplete(
-        uint256 indexed challengeId,
-        uint32 indexed winnerId,
-        uint256 randomness
-    );
+    event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomness);
     /// @notice Emitted when game enabled state is updated
     event GameEnabledUpdated(bool enabled);
     /// @notice Emitted when time until expire is updated
@@ -185,7 +181,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             && block.timestamp > challenge.createdTimestamp + timeUntilExpire;
     }
 
-
     /// @notice Creates a new duel challenge
     /// @param challengerLoadout Loadout for the challenger
     /// @param defenderId ID of the defender
@@ -210,7 +205,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Check player existence by calling getPlayer (will revert if player doesn't exist)
         IPlayer(playerContract).getPlayer(challengerLoadout.playerId);
         IPlayer(playerContract).getPlayer(defenderId);
-
 
         // Verify players are not retired
         require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
@@ -319,7 +313,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Mark as completed
         challenge.state = ChallengeState.COMPLETED;
 
-
         emit ChallengeCancelled(challengeId);
     }
 
@@ -361,18 +354,12 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         _operatorAddress = newOperator;
     }
 
-
-
-
     /// @notice Sets whether the game is enabled
     /// @param enabled The new enabled state
     function setGameEnabled(bool enabled) external onlyOwner {
         emit GameEnabledUpdated(enabled);
         isGameEnabled = enabled;
     }
-
-
-
 
     /// @notice Updates the time until a challenge expires
     /// @param newValue The new time until expire
@@ -381,7 +368,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit TimeUntilExpireUpdated(timeUntilExpire, newValue);
         timeUntilExpire = newValue;
     }
-
 
     /// @notice Updates the timeout period for VRF requests
     /// @param newValue The new timeout period in seconds
@@ -477,7 +463,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             winnerId,
             results
         );
-
 
         // Update player stats
         IPlayer(playerContract).incrementWins(winnerId);
