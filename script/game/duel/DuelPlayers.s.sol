@@ -40,10 +40,7 @@ contract DuelPlayersScript is Script {
         Fighter.PlayerLoadout memory defenderLoadout =
             Fighter.PlayerLoadout({playerId: defenderId, skin: defenderStats.skin, stance: defenderStats.stance});
 
-        // Get minimum duel fee
-        uint256 minDuelFee = duelGame.minDuelFee();
-
-        uint256 challengeId = duelGame.initiateChallenge{value: minDuelFee}(challengerLoadout, defenderId, 0);
+        uint256 challengeId = duelGame.initiateChallenge(challengerLoadout, defenderId);
 
         console2.log("\n=== Challenge Initiated ===");
         console2.log("Challenge ID:", challengeId);

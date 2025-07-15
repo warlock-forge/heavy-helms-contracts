@@ -37,7 +37,6 @@ contract CheckDuelResultScript is Script {
         (
             uint32 challengerId,
             uint32 defenderId,
-            uint256 wagerAmount,
             uint256 createdBlock,
             uint256 createdTimestamp,
             uint256 vrfRequestTimestamp,
@@ -49,7 +48,6 @@ contract CheckDuelResultScript is Script {
         console.log("Challenge ID:", challengeId);
         console.log("Challenger ID:", challengerId);
         console.log("Defender ID:", defenderId);
-        console.log("Wager Amount:", wagerAmount);
         console.log("Created Block:", createdBlock);
         console.log("Created Timestamp:", createdTimestamp);
         console.log("VRF Request Timestamp:", vrfRequestTimestamp);

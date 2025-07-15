@@ -78,7 +78,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Structure storing data for a specific Gauntlet run instance.
     /// @param id Unique identifier for the Gauntlet.
     /// @param size Number of participants (4, 8, 16, or 32).
-    /// @param entryFee The entry fee required for this Gauntlet.
     /// @param state Current state of the Gauntlet (PENDING or COMPLETED).
     /// @param vrfRequestId The ID of the VRF request associated with this Gauntlet.
     /// @param vrfRequestTimestamp Timestamp when the VRF request was initiated.
@@ -89,7 +88,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     struct Gauntlet {
         uint256 id;
         uint8 size;
-        uint256 entryFee;
         GauntletState state;
         uint256 vrfRequestId;
         uint256 vrfRequestTimestamp;
@@ -121,15 +119,11 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint256 public lastGauntletStartTime;
 
     // --- Dynamic Settings ---
-    /// @notice Current entry fee in wei required to join the queue.
-    uint256 public currentEntryFee = 0 ether;
     /// @notice Current number of participants required to start a Gauntlet (4, 8, 16, or 32).
     uint8 public currentGauntletSize = 4;
     /// @notice The maximum ID used when randomly substituting retired players with defaults.
     /// @dev Must be kept in sync with the highest valid ID in the `DefaultPlayer` contract.
     uint32 public maxDefaultPlayerSubstituteId = 18;
-    /// @notice Percentage fee (basis points) taken from the total prize pool of each completed gauntlet.
-    uint256 public feePercentage = 10000; // 100.00%
 
     // --- Gauntlet State ---
     /// @notice Counter for assigning unique Gauntlet IDs.
@@ -154,42 +148,30 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     mapping(uint32 => uint256) public playerCurrentGauntlet;
 
     // --- Fees ---
-    /// @notice Holds entry fees paid by players currently waiting in the queue.
-    uint256 public queuedFeesPool;
-    /// @notice Fees collected by the contract owner from completed/recovered gauntlets and default player wins.
-    uint256 public contractFeesCollected;
 
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
     /// @notice Emitted when a player successfully joins the queue.
-    event PlayerQueued(uint32 indexed playerId, uint256 queueSize, uint256 entryFee);
+    event PlayerQueued(uint32 indexed playerId, uint256 queueSize);
     /// @notice Emitted when a player successfully withdraws from the queue.
     event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
     /// @notice Emitted when a new Gauntlet run is started by the off-chain runner.
     event GauntletStarted(
-        uint256 indexed gauntletId, uint8 size, uint256 entryFee, RegisteredPlayer[] participants, uint256 vrfRequestId
+        uint256 indexed gauntletId, uint8 size, RegisteredPlayer[] participants, uint256 vrfRequestId
     );
     /// @notice Emitted when a Gauntlet is successfully completed via VRF fulfillment.
-    // Amount added to contractFeesCollected for this gauntlet
     event GauntletCompleted(
         uint256 indexed gauntletId,
         uint8 size,
-        uint256 entryFee,
         uint32 indexed championId,
-        uint256 prizeAwarded,
-        uint256 feeCollected,
         uint32[] participantIds,
         uint32[] roundWinners
     );
     /// @notice Emitted when a pending Gauntlet is recovered after VRF timeout.
     event GauntletRecovered(uint256 indexed gauntletId);
-    /// @notice Emitted when the contract owner withdraws accumulated fees.
-    event FeesWithdrawn(uint256 amount);
     /// @notice Emitted when the default player contract address is updated.
     event DefaultPlayerContractSet(address indexed newContract);
-    /// @notice Emitted when the Gauntlet entry fee is changed.
-    event EntryFeeSet(uint256 oldFee, uint256 newFee);
     /// @notice Emitted when the Gauntlet size (participant count) is changed.
     event GauntletSizeSet(uint8 oldSize, uint8 newSize);
     /// @notice Emitted when the queue is cleared due to `setEntryFee` being called with `refundPlayers=true`.
@@ -200,8 +182,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event MinTimeBetweenGauntletsSet(uint256 newMinTime);
     /// @notice Emitted when the Gelato VRF operator address is updated.
     event OperatorSet(address indexed newOperator);
-    /// @notice Emitted when the gauntlet fee percentage is updated.
-    event FeePercentageSet(uint256 oldPercentage, uint256 newPercentage);
     /// @notice Emitted when the game enabled state is updated.
     event GameEnabledUpdated(bool enabled);
     /// @notice Emitted when the queue is cleared due to the game being disabled.
@@ -243,12 +223,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Emit initial settings (optional, but good practice)
         emit DefaultPlayerContractSet(_defaultPlayerAddress);
-        emit EntryFeeSet(0, currentEntryFee);
         emit GauntletSizeSet(0, currentGauntletSize);
         emit MaxDefaultPlayerSubstituteIdSet(maxDefaultPlayerSubstituteId);
         emit MinTimeBetweenGauntletsSet(minTimeBetweenGauntlets);
         emit OperatorSet(_operatorAddr); // Emit initial operator address
-        emit FeePercentageSet(0, feePercentage); // Emit initial fee percentage
     }
 
     //==============================================================//
@@ -266,14 +244,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
     /// @notice Allows a player owner to join the Gauntlet queue with a specific loadout.
     /// @param loadout The player's chosen skin and stance for the potential Gauntlet.
-    /// @dev Requires payment equal to `currentEntryFee`. Validates player status, ownership, retirement status, and skin requirements.
-    function queueForGauntlet(Fighter.PlayerLoadout calldata loadout) external payable whenGameEnabled nonReentrant {
+    /// @dev Validates player status, ownership, retirement status, and skin requirements.
+    function queueForGauntlet(Fighter.PlayerLoadout calldata loadout) external whenGameEnabled nonReentrant {
         // Checks
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
         address owner = playerContract.getPlayerOwner(loadout.playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
-        if (msg.value != currentEntryFee) revert IncorrectEntryFee(currentEntryFee, msg.value);
 
         // Validate skin and equipment requirements via Player contract registries
         try playerContract.skinRegistry().validateSkinOwnership(loadout.skin, owner) {}
@@ -287,7 +264,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         }
 
         // Effects
-        queuedFeesPool += msg.value;
         uint32 playerId = loadout.playerId;
         registrationQueue[playerId] = loadout;
         queueIndex.push(playerId);
@@ -295,27 +271,24 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         playerStatus[playerId] = PlayerStatus.QUEUED;
 
         // Interactions (Event Emission)
-        emit PlayerQueued(playerId, queueIndex.length, currentEntryFee);
+        emit PlayerQueued(playerId, queueIndex.length);
     }
 
     /// @notice Allows a player owner to withdraw their player from the queue before a Gauntlet starts.
     /// @param playerId The ID of the player to withdraw.
-    /// @dev Refunds the `currentEntryFee` paid upon queuing. Uses swap-and-pop to maintain queue integrity.
+    /// @dev Uses swap-and-pop to maintain queue integrity.
     function withdrawFromQueue(uint32 playerId) external nonReentrant {
         // Checks
         address owner = playerContract.getPlayerOwner(playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerStatus[playerId] != PlayerStatus.QUEUED) revert PlayerNotInQueue();
 
-        // Effects - update fee pool and player state *before* transfer
-        uint256 refundAmount = currentEntryFee;
-        queuedFeesPool -= refundAmount;
+        // Effects - update player state
         _removePlayerFromQueueArrayIndex(playerId); // Handles swap-and-pop and mapping updates
         delete registrationQueue[playerId];
         playerStatus[playerId] = PlayerStatus.NONE;
 
-        // Interactions - transfer ETH and emit event
-        SafeTransferLib.safeTransferETH(payable(msg.sender), refundAmount); // Send refund to owner (msg.sender)
+        // Interactions - emit event
         emit PlayerWithdrew(playerId, queueIndex.length);
     }
 
@@ -391,12 +364,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // --- Prepare Gauntlet Struct ---
         uint256 gauntletId = nextGauntletId++;
-        uint256 fee = currentEntryFee; // Load into memory
 
         Gauntlet storage newGauntlet = gauntlets[gauntletId];
         newGauntlet.id = gauntletId;
         newGauntlet.size = size;
-        newGauntlet.entryFee = fee;
         newGauntlet.state = GauntletState.PENDING;
         // Participants assigned *after* removal from main queue
 
@@ -425,7 +396,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         newGauntlet.vrfRequestId = requestId;
 
         // Interactions (Event Emission)
-        emit GauntletStarted(gauntletId, size, fee, participantsData, requestId);
+        emit GauntletStarted(gauntletId, size, participantsData, requestId);
     }
 
     //==============================================================//
@@ -455,7 +426,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Load gauntlet parameters into memory for efficiency
         uint8 size = gauntlet.size;
-        uint256 entryFee = gauntlet.entryFee;
         RegisteredPlayer[] storage initialParticipants = gauntlet.participants;
 
         // Prepare arrays for active participants (handling retired player substitution)
@@ -600,11 +570,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         gauntlet.completionTimestamp = block.timestamp;
         gauntlet.state = GauntletState.COMPLETED; // Mark as completed *after* simulation
 
-        uint256 prizePool = entryFee * size;
-        uint256 feeAmount = (prizePool * feePercentage) / 10000;
-        uint256 winnerPayout = prizePool - feeAmount;
-
-        contractFeesCollected += feeAmount;
 
         // Clean up player statuses
         for (uint256 i = 0; i < size; i++) {
@@ -616,31 +581,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             }
         }
 
-        // Interactions: Distribute prize money & Prepare event data
-        uint256 prizeAwardedForEvent = 0; // Default to 0 for event
-        if (winnerPayout > 0) {
-            Fighter.FighterType winnerType = _getFighterType(finalWinnerId);
-            if (winnerType == Fighter.FighterType.DEFAULT_PLAYER) {
-                // If default player wins, add payout to contract fees
-                contractFeesCollected += winnerPayout;
-                // prizeAwardedForEvent remains 0
-            } else if (winnerType == Fighter.FighterType.PLAYER) {
-                // If regular player wins, pay out to their owner
-                address payable winnerOwner = payable(playerContract.getPlayerOwner(finalWinnerId));
-                SafeTransferLib.safeTransferETH(winnerOwner, winnerPayout);
-                prizeAwardedForEvent = winnerPayout; // Set actual prize for event
-            }
-            // Else (e.g., MONSTER type if supported) - no payout, prizeAwardedForEvent remains 0
-        }
 
         // Interaction: Emit final completion event with additional data
         emit GauntletCompleted(
             gauntletId,
             size,
-            entryFee,
             finalWinnerId,
-            prizeAwardedForEvent,
-            feeAmount,
             shuffledParticipantIds,
             gauntlet.winners
         );
@@ -725,87 +671,32 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
     //==============================================================//
-    /// @notice Allows the owner to withdraw accumulated contract fees.
-    function withdrawFees() external onlyOwner nonReentrant {
-        uint256 amount = contractFeesCollected;
-        if (amount == 0) revert NoFeesToWithdraw(); // Use custom error
-
-        // Effects first
-        contractFeesCollected = 0;
-
-        // Interactions last
-        SafeTransferLib.safeTransferETH(payable(owner), amount);
-        emit FeesWithdrawn(amount);
-    }
 
     /// @notice Toggles the ability for players to queue for Gauntlets.
-    /// @dev If set to `false`, clears the current queue and refunds all players the `currentEntryFee`.
+    /// @dev If set to `false`, clears the current queue.
     /// @param enabled The desired state (true = enabled, false = disabled).
     function setGameEnabled(bool enabled) external onlyOwner nonReentrant {
         if (isGameEnabled == enabled) return; // No change needed
 
         isGameEnabled = enabled;
 
-        // If disabling the game, clear the queue and refund players
+        // If disabling the game, clear the queue
         if (!enabled) {
-            uint256 playersRefundedCount = 0; // Keep track of how many were actually refunded
-            uint256 totalRefunded = 0;
             uint256 queueLength = queueIndex.length; // Cache initial length
-            uint256 feeToRefund = currentEntryFee; // Cache the fee players paid
-
-            // Prepare array to store removed player IDs
-            uint32[] memory removedPlayerIds = new uint32[](queueLength); // Max possible size
 
             // Iterate backwards for safe swap-and-pop during iteration
             for (uint256 i = queueLength; i > 0; i--) {
                 uint256 indexToRemove = i - 1; // Current 0-based index
                 uint32 playerId = queueIndex[indexToRemove];
 
-                // Store the ID being removed *before* state check, as it's removed regardless
-                removedPlayerIds[playersRefundedCount] = playerId; // Use count as index
-
-                // Check if player needs refund and state reset (should always be QUEUED if in queueIndex)
+                // Clear player state if they were QUEUED
                 if (playerStatus[playerId] == PlayerStatus.QUEUED) {
-                    address playerOwner = playerContract.getPlayerOwner(playerId);
-                    uint256 refundAmount = feeToRefund; // Refund the fee they originally paid
-
-                    // Interaction: Refund (Use SafeTransferLib)
-                    // Ensure owner address is valid before attempting transfer
-                    if (playerOwner != address(0)) {
-                        SafeTransferLib.safeTransferETH(playerOwner, refundAmount);
-                        totalRefunded += refundAmount;
-                    }
-                    // Note: If owner somehow became address(0), refund is skipped, but state is still cleared.
-
-                    // Effects: Clear player state *only* if they were QUEUED and processed
                     delete registrationQueue[playerId];
                     playerStatus[playerId] = PlayerStatus.NONE;
-                    // Note: playerIndexInQueue[playerId] deletion handled by _removePlayer... below
                 }
-                // Increment count *after* storing ID, regardless of refund status
-                playersRefundedCount++;
 
-                // Effect: Always remove from queue array via swap-and-pop
-                // Use the helper that takes the index directly
+                // Always remove from queue array via swap-and-pop
                 _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
-            }
-
-            // Effect: Adjust fee pool after processing all players
-            // It's safer to recalculate based on the total refunded amount rather than assuming subtraction is safe
-            if (queuedFeesPool < totalRefunded) {
-                queuedFeesPool = 0; // Avoid underflow (should not happen with correct logic)
-            } else {
-                queuedFeesPool -= totalRefunded;
-            }
-
-            // Interaction: Emit event if players were removed
-            // Note: playersRefundedCount might be different from removedPlayerIds.length if array wasn't resized
-            if (playersRefundedCount > 0) {
-                // Resize the array to the actual number of removed players if necessary
-                // (Assembly needed for efficient resizing, or accept slightly higher gas for event emission)
-                // For simplicity here, we emit the potentially oversized array.
-                // Subgraph can handle filtering zero IDs if they occur (though they shouldn't with current logic).
-                emit QueueClearedDueToGameDisabled(removedPlayerIds, totalRefunded);
             }
         }
 
@@ -822,20 +713,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit OperatorSet(newOperator);
     }
 
-    /// @notice Sets the percentage fee taken from the prize pool.
-    /// @param _newFeePercentage The new fee percentage in basis points (e.g., 1000 = 10%). Max 10000 (100%).
-    function setFeePercentage(uint256 _newFeePercentage) external onlyOwner {
-        // Require fee to be between 0% and 100% inclusive
-        require(_newFeePercentage <= 10000, "Fee cannot exceed 100%");
-        uint256 oldPercentage = feePercentage;
-        if (oldPercentage == _newFeePercentage) return; // No change needed
-
-        feePercentage = _newFeePercentage;
-        emit FeePercentageSet(oldPercentage, _newFeePercentage);
-    }
 
     /// @notice Allows anyone to trigger recovery for a timed-out Gauntlet.
-    /// @dev Marks the Gauntlet as COMPLETED and refunds participants. Intentionally public access after timeout.
+    /// @dev Marks the Gauntlet as COMPLETED and cleans up participant state. Intentionally public access after timeout.
     /// @param gauntletId The ID of the Gauntlet to recover.
     function recoverTimedOutVRF(uint256 gauntletId) external nonReentrant {
         // Checks
@@ -846,27 +726,20 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Effects - Mark gauntlet completed first
         gauntlet.state = GauntletState.COMPLETED;
         gauntlet.completionTimestamp = block.timestamp;
-        uint256 entryFee = gauntlet.entryFee; // Load fee into memory
 
         // Clean up VRF request ID mapping if it exists
         if (gauntlet.vrfRequestId != 0 && requestToGauntletId[gauntlet.vrfRequestId] == gauntletId) {
             delete requestToGauntletId[gauntlet.vrfRequestId];
         }
 
-        // Process refunds and state cleanup for participants
+        // Process state cleanup for participants
         RegisteredPlayer[] storage participants = gauntlet.participants;
         uint8 size = gauntlet.size;
         for (uint256 i = 0; i < size; i++) {
             uint32 pId = participants[i].playerId;
             // Check if the player was actually marked as IN_GAUNTLET for this specific run
             if (playerStatus[pId] == PlayerStatus.IN_GAUNTLET && playerCurrentGauntlet[pId] == gauntletId) {
-                // Refund actual players (not default placeholders)
-                if (_getFighterType(pId) == Fighter.FighterType.PLAYER) {
-                    address playerOwner = playerContract.getPlayerOwner(pId);
-                    // Interaction: Refund (Use SafeTransferLib)
-                    SafeTransferLib.safeTransferETH(playerOwner, entryFee);
-                }
-                // Effects: Clean up player state regardless of refund success
+                // Clean up player state
                 playerStatus[pId] = PlayerStatus.NONE;
                 delete playerCurrentGauntlet[pId];
             }
@@ -884,23 +757,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit DefaultPlayerContractSet(newAddress);
     }
 
-    /// @notice Sets the entry fee required to join the queue.
-    /// @dev The game must be disabled via `setGameEnabled(false)` before calling this function.
-    ///      Disabling the game automatically clears the queue and refunds players.
-    /// @param newFee The new entry fee in wei.
-    function setEntryFee(uint256 newFee) external onlyOwner {
-        // Require game to be disabled. Disabling clears the queue.
-        require(!isGameEnabled, "Game must be disabled to change entry fee");
-
-        uint256 oldFee = currentEntryFee;
-        if (oldFee == newFee) return; // No change needed
-
-        // Effect: Set the new fee
-        currentEntryFee = newFee;
-
-        // Interaction: Emit event
-        emit EntryFeeSet(oldFee, newFee);
-    }
 
     /// @notice Sets the number of participants required to start a gauntlet (4, 8, 16, or 32).
     /// @dev The game must be disabled via `setGameEnabled(false)` before calling this function.
