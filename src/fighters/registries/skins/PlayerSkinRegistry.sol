@@ -58,8 +58,6 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     SkinCollectionInfo[] public skins;
     /// @notice Fee required to register a new skin collection
     uint256 public registrationFee = 0.005 ether;
-    /// @notice Next available registry ID for skin collections
-    uint32 public nextSkinRegistryId;
 
     //==============================================================//
     //                          EVENTS                              //
@@ -105,7 +103,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
                 requiredNFTAddress: address(0)
             })
         );
-        uint32 registryId = nextSkinRegistryId++;
+        uint32 registryId = uint32(skins.length - 1);
 
         emit SkinRegistered(registryId, contractAddress);
         return registryId;
@@ -115,7 +113,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     /// @param index Registry ID to query
     /// @return SkinCollectionInfo struct containing collection details
     function getSkin(uint32 index) external view returns (SkinCollectionInfo memory) {
-        if (index >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        if (index >= skins.length) revert SkinRegistryDoesNotExist();
         return skins[index];
     }
 
@@ -202,7 +200,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     /// @param registryId Registry ID to update
     /// @param isVerified New verification status
     function setSkinVerification(uint32 registryId, bool isVerified) external onlyOwner {
-        if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        if (registryId >= skins.length) revert SkinRegistryDoesNotExist();
         skins[registryId].isVerified = isVerified;
         emit SkinVerificationUpdated(registryId, isVerified);
     }
@@ -211,7 +209,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     /// @param registryId Registry ID to update
     /// @param requiredNFTAddress Address of required NFT (can be zero to remove requirement)
     function setRequiredNFT(uint32 registryId, address requiredNFTAddress) external onlyOwner {
-        if (registryId >= nextSkinRegistryId) revert SkinRegistryDoesNotExist();
+        if (registryId >= skins.length) revert SkinRegistryDoesNotExist();
 
         // No zero address check here as it's valid to set to zero to remove requirement
         skins[registryId].requiredNFTAddress = requiredNFTAddress;
