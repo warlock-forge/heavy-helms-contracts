@@ -82,7 +82,6 @@ forge snapshot    # Create gas snapshots for tests
 4. **State Management**:
    - Players have registration states for different game modes
    - Games track pending VRF requests
-   - Fee collection and prize distribution
 
 ## Testing Patterns
 
@@ -155,3 +154,110 @@ All tests inherit from `TestBase.sol` which provides:
 - Keep commit messages clean and professional
 - Focus on what changed, not who made the changes
 - No "Generated with" or "Co-Authored-By" additions
+
+## Bug Fixes & Security Considerations
+
+### Gauntlet Queue Selection Exploit
+
+**Issue Identified**: In GauntletGame.sol, when the queue has more players than the gauntlet size, attackers can time their call to `tryStartGauntlet()` to manipulate player selection. Since the pseudo-randomness uses predictable block variables (`block.timestamp`, `block.prevrandao`), sophisticated users can calculate whether they'll be selected and only trigger the gauntlet when the randomness favors them.
+
+**Current Vulnerable Code**:
+```solidity
+// GauntletGame.sol:340-341
+uint256 selectionSeed = uint256(keccak256(abi.encodePacked(
+    block.timestamp, block.prevrandao, address(this), currentQueueSize
+)));
+```
+
+**Exploit Scenario**: 
+- 30 players in queue, gauntlet size 8
+- Attacker calculates: "If I call tryStartGauntlet() now, will I be selected?"
+- If yes → trigger gauntlet
+- If no → wait for next block and recalculate
+
+**Proposed Solution: Future Blockhash Selection**
+
+Use a two-phase commit-reveal approach where selection randomness comes from a future block that can't be predicted:
+
+```solidity
+struct PendingGauntlet {
+    uint256 selectionBlock;
+    uint32[] queueSnapshot;
+    uint256 timestamp;
+    bool exists;
+}
+
+PendingGauntlet public pendingGauntlet;
+
+function tryStartGauntlet() external whenGameEnabled nonReentrant {
+    // PHASE 1: Execute any pending selection that's ready
+    if (pendingGauntlet.exists && block.number >= pendingGauntlet.selectionBlock) {
+        uint256 selectionSeed = uint256(blockhash(pendingGauntlet.selectionBlock));
+        _executeGauntletSelection(selectionSeed, pendingGauntlet.queueSnapshot);
+        delete pendingGauntlet;
+    }
+    
+    // PHASE 2: Commit new gauntlet if conditions met  
+    if (!pendingGauntlet.exists && _canStartNewGauntlet()) {
+        pendingGauntlet = PendingGauntlet({
+            selectionBlock: block.number + 1, // Next block
+            queueSnapshot: queueIndex, // Copy current queue
+            timestamp: block.timestamp,
+            exists: true
+        });
+    }
+}
+```
+
+**Benefits**:
+- Eliminates selection timing exploit (can't predict future blockhash)
+- Keeps runner simple (single function call)
+- Self-healing (each call processes pending + creates new)
+- Minimal delay (1 block = ~2 seconds on Base)
+
+**Timeline with 30 players, size 8**:
+- Minute 0: Commit gauntlet for next block selection
+- Minute 1: Execute selection (8 players), start gauntlet, 22 remain in queue
+- Minutes 2-5: Wait for 5-minute cooldown
+- Minute 6: Commit next gauntlet
+- Minute 7: Execute next selection (8 players), 14 remain
+- Pattern repeats every 6 minutes
+
+### Revolutionary Insight: Replace VRF with Future Blockhash for Gauntlets
+
+**Game-Changing Realization**: If future blockhash is secure enough for queue selection (which determines matchups and has huge impact on winning), why not use it for combat randomness too?
+
+**Current**: VRF for both selection and combat → expensive, complex, slower
+**Proposed**: Future blockhash for both → cheap, simple, faster
+
+**Potential Benefits**:
+- Eliminate VRF costs for gauntlets (could save 50%+ on gas)
+- No VRF delays - gauntlet completes in same transaction
+- Simpler state management - no pending VRF requests
+- Same security model throughout
+- Fixes timing issues with gauntlet execution
+
+**Implementation Concept**:
+```solidity
+function tryStartGauntlet() external {
+    if (pendingGauntlet.exists && block.number >= pendingGauntlet.selectionBlock) {
+        uint256 seed = uint256(blockhash(pendingGauntlet.selectionBlock));
+        
+        // Use SAME seed for both:
+        uint32[] memory selected = _selectPlayers(seed);
+        _runGauntletWithBlockhashRandomness(selected, seed);
+        
+        // Gauntlet completes immediately - no VRF waiting!
+        delete pendingGauntlet;
+    }
+    // ... commit logic
+}
+```
+
+**Considerations for Analysis**:
+- Security implications of blockhash vs VRF for combat
+- Impact on game fairness and player trust
+- Keep VRF for duels and player creation?
+- Potential gas savings and UX improvements
+
+**Status**: Requires deep analysis before implementation due to significant architectural implications.
