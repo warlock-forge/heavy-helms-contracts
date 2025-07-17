@@ -30,7 +30,7 @@ contract GasAnalysisTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(game), perms);
 
         // Setup test addresses and players

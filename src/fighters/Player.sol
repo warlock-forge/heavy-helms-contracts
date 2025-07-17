@@ -104,6 +104,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     uint32 private constant USER_PLAYER_END = type(uint32).max;
     /// @notice Timeout period in seconds after which a player creation request can be recovered
     uint256 public vrfRequestTimeout = 4 hours;
+    /// @notice Base experience points for first level up
+    uint16 private constant BASE_XP = 100;
 
     // Configuration
     /// @notice Fee amount in ETH required to create a new player
@@ -140,6 +142,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     mapping(address => uint256) private _nameChangeCharges;
     /// @notice Maps address to the number of attribute swap charges available
     mapping(address => uint256) private _attributeSwapCharges;
+    /// @notice Maps address to the number of attribute point charges available (from leveling up)
+    mapping(address => uint256) private _attributePointCharges;
 
     // VRF Request tracking
     /// @notice Address of the Gelato VRF operator
@@ -213,7 +217,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Emitted when the contract's paused state changes
     /// @param isPaused The new paused state
     event PausedStateChanged(bool isPaused);
-
 
     /// @notice Emitted when the slot batch cost is updated
     /// @param oldCost The previous cost
@@ -296,6 +299,23 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param stance The new stance value
     event StanceUpdated(uint32 indexed playerId, uint8 stance);
 
+    /// @notice Emitted when a player gains experience
+    /// @param playerId The ID of the player
+    /// @param xpGained Amount of experience gained
+    /// @param newXP New total experience
+    event ExperienceGained(uint32 indexed playerId, uint16 xpGained, uint16 newXP);
+
+    /// @notice Emitted when a player levels up
+    /// @param playerId The ID of the player
+    /// @param newLevel The new level achieved
+    /// @param attributePointsAwarded Number of attribute points awarded
+    event PlayerLevelUp(uint32 indexed playerId, uint8 newLevel, uint8 attributePointsAwarded);
+
+    /// @notice Emitted when an attribute point charge is awarded
+    /// @param to Address receiving the charge
+    /// @param totalCharges Total number of attribute point charges available
+    event AttributePointAwarded(address indexed to, uint256 totalCharges);
+
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
@@ -312,7 +332,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
                     ? perms.name
                     : permission == IPlayer.GamePermission.ATTRIBUTES
                         ? perms.attributes
-                        : permission == IPlayer.GamePermission.IMMORTAL ? perms.immortal : false;
+                        : permission == IPlayer.GamePermission.IMMORTAL
+                            ? perms.immortal
+                            : permission == IPlayer.GamePermission.EXPERIENCE ? perms.experience : false;
         if (!hasAccess) revert NoPermission();
         _;
     }
@@ -409,7 +431,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         packed[25] = bytes1(uint8(stats.record.kills >> 8));
         packed[26] = bytes1(uint8(stats.record.kills));
 
-        // Last 5 bytes are padded with zeros by default
+        // Pack progression data (5 bytes)
+        packed[27] = bytes1(stats.level);
+        packed[28] = bytes1(uint8(stats.currentXP >> 8));
+        packed[29] = bytes1(uint8(stats.currentXP));
+        packed[30] = bytes1(stats.weaponSpecialization);
+        packed[31] = bytes1(stats.armorSpecialization);
 
         return bytes32(packed);
     }
@@ -453,6 +480,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         stats.record.wins = uint16(uint8(packed[21])) << 8 | uint16(uint8(packed[22]));
         stats.record.losses = uint16(uint8(packed[23])) << 8 | uint16(uint8(packed[24]));
         stats.record.kills = uint16(uint8(packed[25])) << 8 | uint16(uint8(packed[26]));
+
+        // Decode progression data
+        stats.level = uint8(packed[27]);
+        stats.currentXP = uint16(uint8(packed[28])) << 8 | uint16(uint8(packed[29]));
+        stats.weaponSpecialization = uint8(packed[30]);
+        stats.armorSpecialization = uint8(packed[31]);
 
         // Construct skin and set stance
         stats.skin = SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId});
@@ -519,6 +552,29 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @return Number of attribute swap charges available
     function attributeSwapCharges(address owner) external view returns (uint256) {
         return _attributeSwapCharges[owner];
+    }
+
+    /// @notice Gets the number of attribute point charges available for an address
+    /// @param owner The address to check
+    /// @return Number of attribute point charges available
+    function attributePointCharges(address owner) external view returns (uint256) {
+        return _attributePointCharges[owner];
+    }
+
+    /// @notice Calculates XP required for a specific level
+    /// @param level The level to calculate XP requirement for (1-9, since level 10 is max)
+    /// @return XP required to reach that level from previous level
+    function getXPRequiredForLevel(uint8 level) public pure returns (uint16) {
+        if (level == 1) return 0; // Already at level 1
+        if (level > 10) return 0; // Invalid level
+
+        // Moderate exponential: BASE_XP * (1.5^(level-2))
+        // Level 2: 100, Level 3: 150, Level 4: 225, etc.
+        uint256 multiplier = 100; // Start at 100 (1.0x)
+        for (uint8 i = 2; i < level; i++) {
+            multiplier = (multiplier * 150) / 100; // Multiply by 1.5
+        }
+        return uint16((uint256(BASE_XP) * multiplier) / 100);
     }
 
     /// @notice Gets the status of a VRF request
@@ -800,6 +856,43 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         );
     }
 
+    /// @notice Uses an attribute point charge to increase a player's attribute by 1
+    /// @param playerId The ID of the player to update
+    /// @param attribute The attribute to increase
+    /// @dev Uses attribute point charges earned from leveling up
+    function useAttributePoint(uint32 playerId, Attribute attribute) external playerExists(playerId) {
+        if (_attributePointCharges[msg.sender] == 0) revert InsufficientCharges();
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+
+        PlayerStats storage player = _players[playerId];
+        uint8 currentValue = _getAttributeValue(player, attribute);
+
+        if (currentValue >= MAX_STAT) {
+            revert InvalidAttributeSwap(); // Reuse this error for simplicity
+        }
+
+        _attributePointCharges[msg.sender]--;
+        _setAttributeValue(player, attribute, currentValue + 1);
+
+        emit PlayerAttributesSwapped(playerId, attribute, attribute, currentValue, currentValue + 1);
+    }
+
+    /// @notice Sets weapon specialization for a player
+    /// @param playerId The ID of the player
+    /// @param weaponType The weapon type to specialize in (255 = none)
+    function setWeaponSpecialization(uint32 playerId, uint8 weaponType) external playerExists(playerId) {
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+        _players[playerId].weaponSpecialization = weaponType;
+    }
+
+    /// @notice Sets armor specialization for a player
+    /// @param playerId The ID of the player
+    /// @param armorType The armor type to specialize in (255 = none)
+    function setArmorSpecialization(uint32 playerId, uint8 armorType) external playerExists(playerId) {
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+        _players[playerId].armorSpecialization = armorType;
+    }
+
     /// @notice Retires a player owned by the caller
     /// @param playerId The ID of the player to retire
     /// @dev Retired players cannot be used in games but can still be viewed
@@ -911,6 +1004,49 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (to == address(0)) revert BadZeroAddress();
         _attributeSwapCharges[to]++;
         emit AttributeSwapAwarded(to, _attributeSwapCharges[to]);
+    }
+
+    /// @notice Awards experience points to a player and handles level ups
+    /// @param playerId The ID of the player to award experience to
+    /// @param xpAmount The amount of experience to award
+    /// @dev Requires EXPERIENCE permission. Automatically handles level ups and attribute point awards
+    function awardExperience(uint32 playerId, uint16 xpAmount)
+        external
+        hasPermission(IPlayer.GamePermission.EXPERIENCE)
+        playerExists(playerId)
+    {
+        PlayerStats storage player = _players[playerId];
+        address owner = _playerOwners[playerId];
+
+        // Add experience
+        player.currentXP += xpAmount;
+        emit ExperienceGained(playerId, xpAmount, player.currentXP);
+
+        // Check for level ups (max level 10)
+        while (player.level < 10) {
+            uint16 xpRequired = getXPRequiredForLevel(player.level + 1);
+            if (player.currentXP < xpRequired) break;
+
+            // Level up!
+            player.currentXP -= xpRequired;
+            player.level++;
+
+            // Award attribute points (1 per level up)
+            uint8 attributePointsAwarded = 1;
+            _attributePointCharges[owner] += attributePointsAwarded;
+
+            emit PlayerLevelUp(playerId, player.level, attributePointsAwarded);
+            emit AttributePointAwarded(owner, _attributePointCharges[owner]);
+        }
+    }
+
+    /// @notice Awards an attribute point charge to an address
+    /// @param to Address to receive the charge
+    /// @dev Requires ATTRIBUTES permission
+    function awardAttributePoint(address to) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) {
+        if (to == address(0)) revert BadZeroAddress();
+        _attributePointCharges[to]++;
+        emit AttributePointAwarded(to, _attributePointCharges[to]);
     }
 
     /// @notice Allows a user to recover ETH from a timed-out player creation request
@@ -1178,7 +1314,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: PlayerName({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
             record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills}),
-            stance: 1 // Initialize to BALANCED stance
+            stance: 1, // Initialize to BALANCED stance
+            level: player.level, // Preserve level
+            currentXP: player.currentXP, // Preserve XP
+            weaponSpecialization: player.weaponSpecialization, // Preserve specialization
+            armorSpecialization: player.armorSpecialization // Preserve specialization
         });
     }
 
@@ -1271,7 +1411,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: PlayerName({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            stance: 1 // Initialize to BALANCED stance
+            stance: 1, // Initialize to BALANCED stance
+            level: 1, // Start at level 1
+            currentXP: 0, // Start with 0 XP
+            weaponSpecialization: 255, // No specialization
+            armorSpecialization: 255 // No specialization
         });
 
         // Validate and fix if necessary

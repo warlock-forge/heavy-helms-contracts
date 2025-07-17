@@ -47,7 +47,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 0, surnameIndex: 155}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreifbjayatwb3chcfacso3cligrob3l3ykliyqev4j4cmzgpls2saeq";
     }
@@ -64,7 +68,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 1015, surnameIndex: 97}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreiekllubajc7auisldffitig2j4afrc4hbedyjtqtdv7vbhgcqcmy4";
     }
@@ -81,7 +89,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IPlayer.PlayerName({firstNameIndex: 1062, surnameIndex: 131}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreid5npakg2yxd3542voibvlwtikgg4ai3eecu2jl4qdwmidsvpzsnu";
     }
@@ -98,7 +110,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IPlayer.PlayerName({firstNameIndex: 1102, surnameIndex: 241}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreifoy2xwhckb53zawn7hzvxprcchw7m3iu66mwldxo3gi2ttryjfma";
     }
@@ -115,7 +131,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 1146, surnameIndex: 25}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreidcehmxbkeoym6dz6zwtw35nf5uswoonycqtdn57vha35qkuengfe";
     }
@@ -132,7 +152,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 38, surnameIndex: 15}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreiajp62udpay6ffa6q5s3hxthkiherqrl6alx4jpoeviqhenkmtbfa";
     }
@@ -149,7 +173,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 0,
             name: IPlayer.PlayerName({firstNameIndex: 1079, surnameIndex: 165}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreib5umhjzlug3a4mxabqbsdgo4q5xwpubixjyhvcv36gjhty5sadwu";
     }
@@ -166,7 +194,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IPlayer.PlayerName({firstNameIndex: 1043, surnameIndex: 158}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreichxvcymgfql6t2qrbiyjlerxcrei7kriqv4abc7d2f5xjbi54zpy";
     }
@@ -183,7 +215,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 0,
             name: IPlayer.PlayerName({firstNameIndex: 1139, surnameIndex: 216}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreihmbsfcov2jy7vlebsh5jg7i7k7pnzgcdthnd55drts7ode2wjm3y";
     }
@@ -200,7 +236,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IPlayer.PlayerName({firstNameIndex: 1071, surnameIndex: 37}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreid5ufeacbogoagtcfba2367nmnpjyxa5czu36btghg7d3af34vtnu";
     }
@@ -217,7 +257,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 1145, surnameIndex: 4}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreicyyzq5tv4akfqblvixftzct5mifs4ymg7l56koy52zomnhxkosky";
     }
@@ -234,7 +278,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IPlayer.PlayerName({firstNameIndex: 1084, surnameIndex: 242}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreif2wab4gyi45koar4mzitvryg3npik4s4dxwka73zvyfrqpp3g5iu";
     }
@@ -251,7 +299,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 0,
             name: IPlayer.PlayerName({firstNameIndex: 1031, surnameIndex: 104}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreibrfl56qwfyrfuaxto7jgnhe73b4qxcsenjkt27zs3fdjo7yrmf3m";
     }
@@ -268,7 +320,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 0,
             name: IPlayer.PlayerName({firstNameIndex: 1078, surnameIndex: 139}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreihm7xfvb35obizx5bypcpsom3pnqg4jakgnootb7c4r4bkafi4u4a";
     }
@@ -285,7 +341,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 0,
             name: IPlayer.PlayerName({firstNameIndex: 1135, surnameIndex: 198}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreihndxzbu7vyxb4jnzrdlyhvmjzxivvbtnkbaq7fn6ejfuvmjwenxa";
     }
@@ -302,7 +362,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 10, surnameIndex: 188}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreibzvmc7skc5v7lsghi6ug5vehttoxcqpsi7nraewkr6z72pcjhfwy";
     }
@@ -319,7 +383,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IPlayer.PlayerName({firstNameIndex: 83, surnameIndex: 232}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreiaio3mlfiqnoshu35qgpnmid2c24wwmivi2h3tbb67yvguo66btky";
     }
@@ -336,7 +404,11 @@ library DefaultPlayerLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IPlayer.PlayerName({firstNameIndex: 95, surnameIndex: 5}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0})
+            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
+            level: 1,
+            currentXP: 0,
+            weaponSpecialization: 255,
+            armorSpecialization: 255
         });
         ipfsCid = "bafkreieh2vw6eobqqawgujacaq7z6oc5gzqptczxa3ko42rlewahtyoxpe";
     }

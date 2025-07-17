@@ -51,7 +51,7 @@ contract PlayerPermissionsTest is TestBase {
     function test_RecordPermission() public {
         // Grant only RECORD permission
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
@@ -71,7 +71,7 @@ contract PlayerPermissionsTest is TestBase {
     function test_AttributePermission() public {
         // Grant only ATTRIBUTES permission
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
@@ -94,7 +94,7 @@ contract PlayerPermissionsTest is TestBase {
     function test_NamePermission() public {
         // Grant only NAME permission
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
@@ -117,7 +117,7 @@ contract PlayerPermissionsTest is TestBase {
     function test_RetirePermission() public {
         // Grant only RETIRE permission
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: false, retire: true, name: false, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: true, name: false, attributes: false, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);

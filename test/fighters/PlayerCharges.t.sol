@@ -44,7 +44,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant name permission to test contract
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Award charge and verify event
@@ -83,7 +83,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant permission and award charge to PLAYER_TWO
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
         playerContract.awardNameChange(PLAYER_TWO);
 
@@ -99,7 +99,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant attribute permission to test contract
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Award charge and verify event
@@ -136,7 +136,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant both permissions
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Award multiple charges
@@ -170,7 +170,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant permission and award charge
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
         playerContract.awardAttributeSwap(PLAYER_ONE);
 
@@ -184,7 +184,7 @@ contract PlayerChargesTest is TestBase {
     function testChargesNotTransferable() public {
         // Award charges to PLAYER_ONE
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         playerContract.awardNameChange(PLAYER_ONE);
@@ -209,7 +209,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant attribute permission to test contract
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: false, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
@@ -289,7 +289,7 @@ contract PlayerChargesTest is TestBase {
 
         // Grant name permission and award charge
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
         playerContract.awardNameChange(PLAYER_ONE);
 
@@ -319,7 +319,7 @@ contract PlayerChargesTest is TestBase {
     function testCannotAwardChargesToZeroAddress() public {
         // Grant both permissions
         IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: true, immortal: false});
+            IPlayer.GamePermissions({record: false, retire: false, name: true, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Try to award name change to zero address

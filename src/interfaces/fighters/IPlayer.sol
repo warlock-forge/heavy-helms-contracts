@@ -31,12 +31,20 @@ interface IPlayer {
     /// @param skin SkinInfo for player -> (skinIndex, skinTokenId)
     /// @param name PlayerName for player -> (firstNameIndex, surnameIndex)
     /// @param record Record for player -> (wins, losses, kills)
+    /// @param level Player level (1-10)
+    /// @param currentXP Experience points toward next level
+    /// @param weaponSpecialization Weapon type specialization (255 = none)
+    /// @param armorSpecialization Armor type specialization (255 = none)
     struct PlayerStats {
         Fighter.Attributes attributes;
         PlayerName name;
         Fighter.SkinInfo skin;
         uint8 stance;
         Fighter.Record record;
+        uint8 level;
+        uint16 currentXP;
+        uint8 weaponSpecialization;
+        uint8 armorSpecialization;
     }
 
     struct PlayerName {
@@ -49,12 +57,15 @@ interface IPlayer {
     /// @param retire Can modify player retirement status
     /// @param name Can modify player names
     /// @param attributes Can modify player attributes
+    /// @param immortal Can modify player immortality status
+    /// @param experience Can award experience points
     struct GamePermissions {
         bool record;
         bool retire;
         bool name;
         bool attributes;
         bool immortal;
+        bool experience;
     }
 
     //==============================================================//
@@ -66,7 +77,8 @@ interface IPlayer {
         RETIRE,
         NAME,
         ATTRIBUTES,
-        IMMORTAL
+        IMMORTAL,
+        EXPERIENCE
     }
 
     /// @notice Represents the different attributes that can be modified on a player
@@ -260,6 +272,16 @@ interface IPlayer {
     /// @return Number of attribute swap charges available
     function attributeSwapCharges(address owner) external view returns (uint256);
 
+    /// @notice Gets the number of attribute point charges available for an address
+    /// @param owner The address to check
+    /// @return Number of attribute point charges available
+    function attributePointCharges(address owner) external view returns (uint256);
+
+    /// @notice Calculates XP required for a specific level
+    /// @param level The level to calculate XP requirement for
+    /// @return XP required to reach that level from previous level
+    function getXPRequiredForLevel(uint8 level) external pure returns (uint16);
+
     /// @notice Purchase additional player slots
     /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
     /// @return Number of slots purchased
@@ -269,4 +291,28 @@ interface IPlayer {
     /// @param playerId The ID of the player to update
     /// @param isImmortal The new immortality status
     function setPlayerImmortal(uint32 playerId, bool isImmortal) external;
+
+    /// @notice Awards experience points to a player and handles level ups
+    /// @param playerId The ID of the player to award experience to
+    /// @param xpAmount The amount of experience to award
+    function awardExperience(uint32 playerId, uint16 xpAmount) external;
+
+    /// @notice Awards an attribute point charge to an address
+    /// @param to Address to receive the charge
+    function awardAttributePoint(address to) external;
+
+    /// @notice Uses an attribute point charge to increase a player's attribute by 1
+    /// @param playerId The ID of the player to update
+    /// @param attribute The attribute to increase
+    function useAttributePoint(uint32 playerId, Attribute attribute) external;
+
+    /// @notice Sets weapon specialization for a player
+    /// @param playerId The ID of the player
+    /// @param weaponType The weapon type to specialize in (255 = none)
+    function setWeaponSpecialization(uint32 playerId, uint8 weaponType) external;
+
+    /// @notice Sets armor specialization for a player
+    /// @param playerId The ID of the player
+    /// @param armorType The armor type to specialize in (255 = none)
+    function setArmorSpecialization(uint32 playerId, uint8 armorType) external;
 }
