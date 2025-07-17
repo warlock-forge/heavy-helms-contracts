@@ -109,6 +109,116 @@ All tests inherit from `TestBase.sol` which provides:
 - Player state transitions
 - Combat mechanics edge cases
 
+## Advanced Architectural Patterns
+
+### VRF Request Lifecycle
+The system uses a consistent VRF pattern across all contracts:
+
+1. **Request Phase**: `_requestRandomness("")` returns a `requestId`
+2. **Mapping Storage**: Store game state mapped to `requestId`
+3. **Timeout Protection**: Users can recover funds after `vrfRequestTimeout`
+4. **Fulfillment**: `_fulfillRandomness()` processes the result and cleans up state
+5. **State Cleanup**: Always delete mappings to prevent stale data
+
+**Key Pattern**:
+```solidity
+// Request
+uint256 requestId = _requestRandomness("");
+requestToGameData[requestId] = gameData;
+
+// Fulfillment
+delete requestToGameData[requestId];
+// Process game logic...
+```
+
+### State Management Architecture
+
+**Player States**: Players have complex state across multiple dimensions:
+- **Ownership**: Who owns the player
+- **Activity**: Active vs retired
+- **Game Registration**: Registered for specific game modes
+- **Queue Status**: In gauntlet queue, in active game, etc.
+
+**Game State Machines**:
+- **Duels**: PENDING → CREATED → PENDING (after acceptance) → COMPLETED/EXPIRED
+- **Gauntlets**: Players in QUEUE → IN_GAUNTLET → back to NONE
+- **VRF Requests**: PENDING → FULFILLED or TIMED_OUT
+
+### Permission System Architecture
+
+The Player contract uses a sophisticated permission system where game contracts must be explicitly granted permissions:
+
+```solidity
+enum GamePermission { RECORD, RETIRE, NAME, ATTRIBUTES, IMMORTAL }
+
+mapping(address => GamePermissions) private _gameContractPermissions;
+```
+
+**Permissions Required**:
+- `RECORD`: For updating win/loss/kill counts
+- `RETIRE`: For retiring players
+- `NAME`: For awarding name change charges
+- `ATTRIBUTES`: For awarding attribute swap charges  
+- `IMMORTAL`: For setting immortality status
+
+### Contract Interaction Patterns
+
+**Core Flow**: User → Game Mode → Player Contract → Game Engine
+1. **Game Modes** handle user interactions and game logic
+2. **Player Contract** manages player state and permissions
+3. **Game Engine** processes pure combat calculations
+4. **Registry Contracts** validate skins and names
+
+**Skin System Flow**:
+1. Register skin collection in `PlayerSkinRegistry`
+2. Mint NFTs in the skin collection contract
+3. Players equip skins via `Player.equipSkin()`
+4. Validation occurs in registry during equipment
+
+### Gas Optimization Patterns
+
+**Via IR Compilation**: Required for complex contracts to avoid stack-too-deep errors
+- Enables aggressive optimization
+- Necessary for large contracts like Player.sol
+- Compilation takes 2-3 minutes
+
+**Storage Patterns**:
+- Struct packing for related data
+- `uint32` for player IDs (saves gas vs `uint256`)
+- Minimal storage reads in loops
+- Strategic use of memory vs storage
+
+### Testing VRF-Dependent Functionality
+
+**VRF Mock System**: Use `GelatoVRFAutoMock` for deterministic testing
+```solidity
+// In tests:
+vrfMock.startRecordingLogs();
+// ... trigger VRF request
+uint256 requestId = vrfMock.fulfillLatestRequest(randomness);
+```
+
+**Testing Patterns**:
+- Always test both successful VRF fulfillment AND timeout recovery
+- Test with different randomness values for reproducible results
+- Use `expectEmit` for event testing with VRF
+
+### Common Development Pitfalls to Avoid
+
+1. **VRF State Management**: Always clean up request mappings in fulfillment
+2. **Player Ownership**: Validate player ownership before operations
+3. **Game Permissions**: Ensure game contracts have required permissions
+4. **Skin Validation**: Equipment must be validated through registry
+5. **State Transitions**: Check current state before transitions
+6. **Array Operations**: Use swap-and-pop for gas-efficient removal
+
+### Contract Upgrade Strategy
+
+**Immutable Contracts**: Deployed contracts cannot be upgraded
+- All fixes must be deployed as new versions
+- State migration requires careful planning
+- Registry patterns allow pointing to new implementations
+
 ## Development Workflow
 
 1. **Environment Setup**:
@@ -261,3 +371,55 @@ function tryStartGauntlet() external {
 - Potential gas savings and UX improvements
 
 **Status**: Requires deep analysis before implementation due to significant architectural implications.
+
+## Architecture Decisions That Are NOT Bugs
+
+### Important for AI Auditors to Understand
+
+**1. GameOwnedNFT Mints to Contract Address**
+```solidity
+_mint(address(this), desiredTokenId);
+```
+- **NOT A BUG**: These are GAME-OWNED NFTs (the name is a hint!)
+- **Purpose**: Default skins and monster skins are owned by the game, not players
+- **Design**: Players reference these skins, they don't own transferable NFTs
+
+**2. Solidity 0.8+ Overflow Protection**
+- **NOT A BUG**: Integer overflow/underflow automatically reverts
+- **NOT A BUG**: Downcasting that could overflow will revert, not silently corrupt
+- **Example**: `uint16(largeNumber)` will revert if `largeNumber > type(uint16).max`
+
+**3. VRF Fulfillment is Single-Threaded**
+- **NOT A BUG**: `nextPlayerId++` in VRF fulfillment cannot race
+- **Design**: Each VRF callback is atomic, Gelato ensures single execution
+- **NOT A BUG**: Request IDs from Gelato are sequential and that's fine
+
+**4. Transaction Atomicity**
+- **NOT A BUG**: All operations in a single transaction succeed or fail together
+- **Example**: Skin validation after VRF request is fine - if validation fails, entire TX reverts
+- **NOT A BUG**: No "race conditions" within a single transaction
+
+**5. Owner-Only Functions Don't Need Reentrancy Guards**
+- **NOT A BUG**: Owner cannot "attack themselves" with reentrancy
+- **Design**: `onlyOwner` + `transfer()` is sufficient for admin withdrawals
+- **Note**: Using `SafeTransferLib` is still better practice but not critical
+
+**6. Mathematical Guarantees in _fixStats**
+```solidity
+while (total != 72) { // Will always converge
+    // 6 stats, each 3-21, need total 72
+    // Min: 18, Max: 126, Target: 72
+}
+```
+- **NOT A BUG**: Algorithm mathematically guarantees convergence
+- **Proof**: Can always increment if < 72, decrement if > 72
+
+**7. Standard Patterns That Are Correct**
+- **NOT A BUG**: Swap-and-pop array removal in GauntletGame
+- **NOT A BUG**: Using `block.timestamp` for timeout checks (15-second manipulation window acceptable)
+- **NOT A BUG**: Checks-Effects-Interactions pattern properly followed
+
+**8. Design Decisions**
+- **BY DESIGN**: PlayerSkinNFT allows public minting when enabled (with payment)
+- **BY DESIGN**: Queue selection uses pseudo-randomness (documented exploit in progress)
+- **BY DESIGN**: Practice mode uses predictable randomness (no stakes)
