@@ -26,8 +26,6 @@ import "./Fighter.sol";
 /// @notice Thrown when a player ID doesn't exist
 
 error PlayerDoesNotExist(uint32 playerId);
-/// @notice Thrown when caller doesn't own the NFT skin they're trying to equip
-error NotSkinOwner();
 /// @notice Thrown when caller doesn't own the player they're trying to modify
 error NotPlayerOwner();
 /// @notice Thrown when attempting to modify a retired player
@@ -44,26 +42,18 @@ error InvalidRequestID();
 error RequestAlreadyFulfilled();
 /// @notice Thrown when insufficient ETH is sent for player creation
 error InsufficientFeeAmount();
-/// @notice Thrown when attempting to set invalid player statistics
-error InvalidPlayerStats();
 /// @notice Thrown when caller doesn't have required permission
 error NoPermission();
 /// @notice Thrown when attempting to set zero address for critical contract references
 error BadZeroAddress();
-/// @notice Thrown when attempting to use an invalid token ID for a skin
-error InvalidTokenId(uint16 tokenId);
 /// @notice Thrown when insufficient charges are available
 error InsufficientCharges();
 /// @notice Thrown when attempting to swap invalid attributes
 error InvalidAttributeSwap();
 /// @notice Thrown when attempting to use an invalid name index
 error InvalidNameIndex();
-/// @notice Thrown when user doesn't own required NFT
-error RequiredNFTNotOwned(address nftAddress);
 /// @notice Thrown when attempting to use an invalid player ID range
 error InvalidPlayerRange();
-/// @notice Thrown when attempting to use an invalid skin type
-error InvalidSkinType();
 /// @notice Thrown when no pending request exists
 error NoPendingRequest();
 
@@ -224,23 +214,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param isPaused The new paused state
     event PausedStateChanged(bool isPaused);
 
-    /// @notice Emitted when a player's attributes are updated
-    /// @param playerId The ID of the player
-    /// @param strength New strength value
-    /// @param constitution New constitution value
-    /// @param size New size value
-    /// @param agility New agility value
-    /// @param stamina New stamina value
-    /// @param luck New luck value
-    event PlayerAttributesUpdated(
-        uint32 indexed playerId,
-        uint8 strength,
-        uint8 constitution,
-        uint8 size,
-        uint8 agility,
-        uint8 stamina,
-        uint8 luck
-    );
 
     /// @notice Emitted when the slot batch cost is updated
     /// @param oldCost The previous cost
@@ -1041,8 +1014,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @dev Used to update equipment requirements logic if needed
     function setEquipmentRequirements(address newAddress) external onlyOwner {
         if (newAddress == address(0)) revert BadZeroAddress();
+        address oldAddress = address(_equipmentRequirements);
         _equipmentRequirements = IEquipmentRequirements(newAddress);
-        emit EquipmentRequirementsUpdated(address(_equipmentRequirements), newAddress);
+        emit EquipmentRequirementsUpdated(oldAddress, newAddress);
     }
 
     /// @notice Updates the timeout period for VRF requests

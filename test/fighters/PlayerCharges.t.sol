@@ -12,7 +12,6 @@ import {
     Player,
     TooManyPlayers,
     NotPlayerOwner,
-    InvalidPlayerStats,
     NoPermission,
     PlayerDoesNotExist,
     InsufficientCharges,
