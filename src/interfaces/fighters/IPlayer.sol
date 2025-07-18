@@ -231,7 +231,6 @@ interface IPlayer {
     /// @param retired The new retirement status
     function setPlayerRetired(uint32 playerId, bool retired) external;
 
-
     /// @notice Awards an attribute swap charge to an address
     /// @param to Address to receive the charge
     function awardAttributeSwap(address to) external;
@@ -247,7 +246,6 @@ interface IPlayer {
     /// @param increaseAttribute The attribute to increase
     function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute) external;
 
-
     /// @notice Gets the number of attribute swap tickets available for an address
     /// @param owner The address to check
     /// @return Number of attribute swap tickets available
@@ -262,7 +260,6 @@ interface IPlayer {
     /// @param playerId The ID of the player to update
     /// @param attribute The attribute to increase
     function useAttributePoint(uint32 playerId, Attribute attribute) external;
-
 
     /// @notice Calculates XP required for a specific level
     /// @param level The level to calculate XP requirement for
@@ -289,8 +286,6 @@ interface IPlayer {
     /// @param playerId The ID of the player to award experience to
     /// @param xpAmount The amount of experience to award
     function awardExperience(uint32 playerId, uint16 xpAmount) external;
-
-
 
     /// @notice Sets weapon specialization for a player
     /// @param playerId The ID of the player

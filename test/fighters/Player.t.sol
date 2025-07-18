@@ -698,8 +698,13 @@ contract PlayerTest is TestBase {
         assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
 
         // Grant RETIRE permission to game contract
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: true, attributes: false, immortal: false, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: false,
+            retire: true,
+            attributes: false,
+            immortal: false,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Test game contract retirement
@@ -719,8 +724,13 @@ contract PlayerTest is TestBase {
         assertFalse(playerContract.isPlayerImmortal(playerId));
 
         // Grant immortal permission to test contract
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, attributes: false, immortal: true, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: false,
+            retire: false,
+            attributes: false,
+            immortal: true,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Set player as immortal
@@ -743,8 +753,13 @@ contract PlayerTest is TestBase {
 
     function testCannotSetImmortalForNonexistentPlayer() public {
         // Grant immortal permission to test contract
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, attributes: false, immortal: true, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: false,
+            retire: false,
+            attributes: false,
+            immortal: true,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Try to set immortal for non-existent player
@@ -758,8 +773,13 @@ contract PlayerTest is TestBase {
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant immortal permission
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, attributes: false, immortal: true, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: false,
+            retire: false,
+            attributes: false,
+            immortal: true,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Expect event when setting to true
@@ -779,8 +799,13 @@ contract PlayerTest is TestBase {
         uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Grant immortal permission
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, attributes: false, immortal: true, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: false,
+            retire: false,
+            attributes: false,
+            immortal: true,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Set only player 1 as immortal
@@ -796,8 +821,13 @@ contract PlayerTest is TestBase {
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant immortal permission
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: false, retire: false, attributes: false, immortal: true, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: false,
+            retire: false,
+            attributes: false,
+            immortal: true,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Set player as immortal
@@ -911,8 +941,13 @@ contract PlayerTest is TestBase {
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant RECORD permission to test contract
-        IPlayer.GamePermissions memory permissions =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: false});
+        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
+            record: true,
+            retire: false,
+            attributes: false,
+            immortal: false,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(this), permissions);
 
         // Test win event

@@ -50,7 +50,15 @@ contract FighterDeployScript is Script {
 
         // 3. Deploy Player contract with Gelato VRF operator and equipment requirements
         // Note: This will need to be updated to include playerTicketsAddr once PlayerTickets is deployed
-        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, equipmentRequirementsAddr, operator, address(0), address(playerCreation), address(playerDataCodec));
+        Player playerContract = new Player(
+            skinRegistryAddr,
+            nameRegistryAddr,
+            equipmentRequirementsAddr,
+            operator,
+            address(0),
+            address(playerCreation),
+            address(playerDataCodec)
+        );
 
         // 4. Deploy DefaultPlayer and Monster contracts
         DefaultPlayer defaultPlayerContract = new DefaultPlayer(skinRegistryAddr, nameRegistryAddr);

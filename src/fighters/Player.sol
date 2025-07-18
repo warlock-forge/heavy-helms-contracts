@@ -341,7 +341,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param attribute The attribute that was increased
     /// @param newValue The new attribute value
     /// @param remainingPoints Remaining attribute points for this player
-    event PlayerAttributePointUsed(uint32 indexed playerId, Attribute attribute, uint8 newValue, uint256 remainingPoints);
+    event PlayerAttributePointUsed(
+        uint32 indexed playerId, Attribute attribute, uint8 newValue, uint256 remainingPoints
+    );
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -463,7 +465,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return _immortalPlayers[playerId];
     }
 
-
     /// @notice Gets the number of attribute swap charges available for an address
     /// @param owner The address to check
     /// @return Number of attribute swap charges available
@@ -477,7 +478,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     function attributePoints(uint32 playerId) external view returns (uint256) {
         return _attributePoints[playerId];
     }
-
 
     /// @notice Calculates XP required for a specific level
     /// @param level The level to calculate XP requirement for (1-9, since level 10 is max)
@@ -729,7 +729,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @return Number of slots purchased
     function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8) {
         if (ticketCount == 0) revert ValueMustBePositive();
-        
+
         // Calculate current total slots
         uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
         uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
@@ -763,7 +763,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     {
         // Get name data from the NFT
         (uint16 firstNameIndex, uint16 surnameIndex) = _playerTickets.getNameChangeData(nameChangeTokenId);
-        
+
         // Validate name indices
         if (!nameRegistry().isValidFirstNameIndex(firstNameIndex) || surnameIndex >= nameRegistry().getSurnamesLength())
         {
@@ -848,7 +848,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit PlayerAttributePointUsed(playerId, attribute, currentValue + 1, _attributePoints[playerId]);
     }
 
-
     /// @notice Sets weapon specialization for a player by burning a specialization ticket
     /// @param playerId The ID of the player
     /// @param weaponType The weapon type to specialize in (255 = none)
@@ -859,9 +858,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     {
         // Burn a weapon specialization ticket
         _playerTickets.burnFrom(msg.sender, _playerTickets.WEAPON_SPECIALIZATION_TICKET(), 1);
-        
+
         _players[playerId].weaponSpecialization = weaponType;
-        
+
         emit PlayerWeaponSpecializationChanged(playerId, weaponType);
     }
 
@@ -875,9 +874,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     {
         // Burn an armor specialization ticket
         _playerTickets.burnFrom(msg.sender, _playerTickets.ARMOR_SPECIALIZATION_TICKET(), 1);
-        
+
         _players[playerId].armorSpecialization = armorType;
-        
+
         emit PlayerArmorSpecializationChanged(playerId, armorType);
     }
 
@@ -976,7 +975,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
     }
 
-
     /// @notice Awards an attribute swap charge to an address
     /// @param to Address to receive the charge
     /// @dev Requires ATTRIBUTES permission
@@ -1014,13 +1012,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             // Award attribute points to this player
             uint8 attributePointsAwarded = 1;
             _attributePoints[playerId] += attributePointsAwarded;
-            
+
             emit PlayerLevelUp(playerId, player.level, attributePointsAwarded);
             emit AttributePointAwarded(owner, _attributePoints[playerId]);
         }
     }
-
-
 
     /// @notice Allows a user to recover ETH from a timed-out player creation request
     /// @dev Checks if the request has exceeded the timeout period before allowing recovery

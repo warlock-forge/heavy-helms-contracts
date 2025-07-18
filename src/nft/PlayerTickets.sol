@@ -46,7 +46,7 @@ contract PlayerTickets is ERC1155, Owned {
         uint16 surnameIndex;
     }
 
-    /// @notice Permissions for game contracts to mint different ticket types  
+    /// @notice Permissions for game contracts to mint different ticket types
     struct GamePermissions {
         bool playerCreation;
         bool playerSlots;
@@ -83,12 +83,7 @@ contract PlayerTickets is ERC1155, Owned {
     event GameContractPermissionsUpdated(address indexed gameContract, GamePermissions permissions);
 
     /// @notice Emitted when a name change NFT is minted
-    event NameChangeNFTMinted(
-        uint256 indexed tokenId,
-        address indexed to,
-        uint16 firstNameIndex,
-        uint16 surnameIndex
-    );
+    event NameChangeNFTMinted(uint256 indexed tokenId, address indexed to, uint16 firstNameIndex, uint16 surnameIndex);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -99,7 +94,7 @@ contract PlayerTickets is ERC1155, Owned {
         if (msg.sender != owner) {
             GamePermissions memory permissions = _gameContractPermissions[msg.sender];
             bool hasRequiredPermission;
-            
+
             if (permission == TicketPermission.PLAYER_CREATION) {
                 hasRequiredPermission = permissions.playerCreation;
             } else if (permission == TicketPermission.PLAYER_SLOTS) {
@@ -111,7 +106,7 @@ contract PlayerTickets is ERC1155, Owned {
             } else if (permission == TicketPermission.ARMOR_SPECIALIZATION) {
                 hasRequiredPermission = permissions.armorSpecialization;
             }
-            
+
             if (!hasRequiredPermission) revert NotAuthorizedToMint();
         }
         _;
@@ -139,8 +134,8 @@ contract PlayerTickets is ERC1155, Owned {
     /// @param to Address to mint tickets to
     /// @param ticketType The type of ticket to mint
     /// @param amount Number of tickets to mint
-    function mintFungibleTicket(address to, uint256 ticketType, uint256 amount) 
-        external 
+    function mintFungibleTicket(address to, uint256 ticketType, uint256 amount)
+        external
         hasPermission(_getRequiredPermission(ticketType))
     {
         _mint(to, ticketType, amount, "");
@@ -151,22 +146,19 @@ contract PlayerTickets is ERC1155, Owned {
     /// @param firstNameIndex Index of the first name in the name registry
     /// @param surnameIndex Index of the surname in the name registry
     /// @return tokenId The ID of the newly minted NFT
-    function mintNameChangeNFT(
-        address to,
-        uint16 firstNameIndex,
-        uint16 surnameIndex
-    ) external hasPermission(TicketPermission.NAME_CHANGES) returns (uint256 tokenId) {
+    function mintNameChangeNFT(address to, uint16 firstNameIndex, uint16 surnameIndex)
+        external
+        hasPermission(TicketPermission.NAME_CHANGES)
+        returns (uint256 tokenId)
+    {
         tokenId = nextNameChangeTokenId++;
-        
+
         // Store the name data
-        nameChangeData[tokenId] = NameData({
-            firstNameIndex: firstNameIndex,
-            surnameIndex: surnameIndex
-        });
-        
+        nameChangeData[tokenId] = NameData({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex});
+
         // Mint with supply of 1
         _mint(to, tokenId, 1, "");
-        
+
         emit NameChangeNFTMinted(tokenId, to, firstNameIndex, surnameIndex);
     }
 

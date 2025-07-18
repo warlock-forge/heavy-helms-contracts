@@ -113,9 +113,16 @@ abstract contract TestBase is Test {
         PlayerTickets playerTickets = new PlayerTickets();
         PlayerCreation playerCreation = new PlayerCreation(nameRegistry);
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
-        playerContract =
-            new Player(address(skinRegistry), address(nameRegistry), address(equipmentRequirements), operator, address(playerTickets), address(playerCreation), address(playerDataCodec));
-        
+        playerContract = new Player(
+            address(skinRegistry),
+            address(nameRegistry),
+            address(equipmentRequirements),
+            operator,
+            address(playerTickets),
+            address(playerCreation),
+            address(playerDataCodec)
+        );
+
         // Set playerContract permissions for tickets
         PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
             playerCreation: true,

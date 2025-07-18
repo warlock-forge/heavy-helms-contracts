@@ -32,10 +32,10 @@ contract PlayerSpecializationTest is TestBase {
         // Change weapon specialization
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
-        
+
         vm.expectEmit(true, false, false, true);
         emit PlayerWeaponSpecializationChanged(playerId, 5); // Some weapon type
-        
+
         playerContract.setWeaponSpecialization(playerId, 5);
         vm.stopPrank();
 
@@ -58,10 +58,10 @@ contract PlayerSpecializationTest is TestBase {
         // Change armor specialization
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
-        
+
         vm.expectEmit(true, false, false, true);
         emit PlayerArmorSpecializationChanged(playerId, 3); // Some armor type
-        
+
         playerContract.setArmorSpecialization(playerId, 3);
         vm.stopPrank();
 
@@ -75,26 +75,26 @@ contract PlayerSpecializationTest is TestBase {
 
     function testCannotChangeSpecializationWithoutTicket() public {
         PlayerTickets tickets = playerContract.playerTickets();
-        
+
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
-        
+
         // Should revert when no ticket available (ERC1155 burns will underflow)
         vm.expectRevert(stdError.arithmeticError);
         playerContract.setWeaponSpecialization(playerId, 5);
-        
+
         vm.expectRevert(stdError.arithmeticError);
         playerContract.setArmorSpecialization(playerId, 3);
-        
+
         vm.stopPrank();
     }
 
     function testCannotChangeSpecializationForNonOwnedPlayer() public {
         address PLAYER_TWO = address(0x2222);
         uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
-        
+
         PlayerTickets tickets = playerContract.playerTickets();
-        
+
         // Mint tickets to PLAYER_ONE
         tickets.mintFungibleTicket(PLAYER_ONE, tickets.WEAPON_SPECIALIZATION_TICKET(), 1);
         tickets.mintFungibleTicket(PLAYER_ONE, tickets.ARMOR_SPECIALIZATION_TICKET(), 1);
@@ -102,13 +102,13 @@ contract PlayerSpecializationTest is TestBase {
         // Try to change PLAYER_TWO's specialization using PLAYER_ONE's tickets
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
-        
+
         vm.expectRevert(NotPlayerOwner.selector);
         playerContract.setWeaponSpecialization(playerId2, 5);
-        
+
         vm.expectRevert(NotPlayerOwner.selector);
         playerContract.setArmorSpecialization(playerId2, 3);
-        
+
         vm.stopPrank();
     }
 }

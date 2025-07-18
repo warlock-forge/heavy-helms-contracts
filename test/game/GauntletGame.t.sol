@@ -94,8 +94,13 @@ contract GauntletGameTest is TestBase {
         defaultPlayerContract.transferOwnership(address(game));
 
         // Set permissions for game contract
-        IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: false});
+        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
+            record: true,
+            retire: false,
+            attributes: false,
+            immortal: false,
+            experience: false
+        });
         playerContract.setGameContractPermission(address(game), perms);
 
         // Setup test addresses
