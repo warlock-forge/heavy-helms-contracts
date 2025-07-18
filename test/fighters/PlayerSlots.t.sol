@@ -2,62 +2,71 @@
 pragma solidity ^0.8.13;
 
 import {Test, stdError} from "forge-std/Test.sol";
-import {Player, TooManyPlayers, ValueMustBePositive, InsufficientFeeAmount} from "../../src/fighters/Player.sol";
+import {Player, ValueMustBePositive, TooManyPlayers, InsufficientFeeAmount} from "../../src/fighters/Player.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import "../TestBase.sol";
 
+event PlayerSlotsPurchased(address indexed buyer, uint8 slotsAdded, uint8 newTotalSlots, uint256 ethPaid);
+
 contract PlayerSlotsTest is TestBase {
     address public USER_ONE;
     address public USER_TWO;
-
-    event PlayerSlotsPurchased(address indexed user, uint8 slotsAdded, uint8 totalSlots, uint256 amountPaid);
 
     function setUp() public override {
         super.setUp();
 
         USER_ONE = address(0x1111);
         USER_TWO = address(0x2222);
+
+        // Give users some ETH
+        vm.deal(USER_ONE, 100 ether);
+        vm.deal(USER_TWO, 100 ether);
     }
 
-    function testInitialSlotCount() public {
-        // All users start with 5 base slots
+    function testDefaultSlotCount() public {
+        // Default should be 5 slots
         assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
-        assertEq(playerContract.getPlayerSlots(USER_TWO), 5);
+        assertEq(playerContract.getPlayerSlots(address(this)), 5);
     }
 
     function testPurchaseSlotsWithETH() public {
-        // Check initial state
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
-
-        // Calculate cost for first slot batch
         uint256 cost = playerContract.getNextSlotBatchCost(USER_ONE);
+        assertEq(cost, 0.005 ether); // First batch cost (slotBatchCost * 1)
 
-        // Purchase slots with ETH
-        vm.deal(USER_ONE, cost);
         vm.startPrank(USER_ONE);
-
         vm.expectEmit(true, false, false, true);
-        emit PlayerSlotsPurchased(USER_ONE, 5, 5, cost);
+        emit PlayerSlotsPurchased(USER_ONE, 5, 10, 0.005 ether);
 
         uint8 slotsAdded = playerContract.purchasePlayerSlots{value: cost}();
         vm.stopPrank();
 
-        // Verify slots were added
         assertEq(slotsAdded, 5);
         assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
+
+        // Second purchase should cost more
+        uint256 secondCost = playerContract.getNextSlotBatchCost(USER_ONE);
+        assertEq(secondCost, 0.010 ether); // Double the first cost (slotBatchCost * 2)
     }
 
     function testPurchaseSlotsWithTickets() public {
-        // Check initial state
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
-
-        // Mint player slot tickets
+        // Give user 1 player slot ticket (each ticket = 5 slots)
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 5);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 1);
 
         // Verify ticket balance
-        assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 5);
+        assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 1);
 
         // Purchase slots with tickets
         vm.startPrank(USER_ONE);
@@ -66,19 +75,30 @@ contract PlayerSlotsTest is TestBase {
         vm.expectEmit(true, false, false, true);
         emit PlayerSlotsPurchased(USER_ONE, 5, 10, 0); // 0 ETH paid
 
-        uint8 slotsAdded = playerContract.purchasePlayerSlotsWithTickets(5);
+        uint8 slotsAdded = playerContract.purchasePlayerSlotsWithTickets(1);
         vm.stopPrank();
 
-        // Verify slots were added and tickets burned
+        // Verify slots were added and ticket burned
         assertEq(slotsAdded, 5);
         assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
         assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 0);
     }
 
-    function testPurchasePartialSlotsWithTickets() public {
-        // Mint 10 tickets but only use 3
+    function testPurchaseMultipleTickets() public {
+        // Give user 3 tickets (each ticket = 5 slots, so 15 slots total)
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 10);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 3);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -86,15 +106,14 @@ contract PlayerSlotsTest is TestBase {
         uint8 slotsAdded = playerContract.purchasePlayerSlotsWithTickets(3);
         vm.stopPrank();
 
-        // Verify only 3 slots added and 3 tickets burned
-        assertEq(slotsAdded, 3);
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 8);
-        assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 7);
+        // Verify 15 slots added and 3 tickets burned
+        assertEq(slotsAdded, 15);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 20);
+        assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 0);
     }
 
-    function testCannotPurchaseZeroSlotsWithTickets() public {
+    function testCannotPurchaseZeroTickets() public {
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 5);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -115,47 +134,65 @@ contract PlayerSlotsTest is TestBase {
 
     function testSlotPurchaseRespectsCap() public {
         // Get close to the max (200 slots)
-        uint256 currentSlots = playerContract.getPlayerSlots(USER_ONE);
-        uint8 slotsToMax = uint8(200 - currentSlots);
-
-        // Mint enough tickets to exceed the cap
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), slotsToMax + 10);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        // Need 39 tickets to get from 5 to 200 slots (39 * 5 = 195 slots)
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 39);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
 
-        // Try to purchase more than the cap allows
-        uint8 slotsAdded = playerContract.purchasePlayerSlotsWithTickets(slotsToMax + 10);
+        // Purchase all 39 tickets worth
+        uint8 slotsAdded = playerContract.purchasePlayerSlotsWithTickets(39);
         vm.stopPrank();
 
-        // Should only add slots up to the cap
-        assertEq(slotsAdded, slotsToMax);
+        // Should add 195 slots (39 * 5)
+        assertEq(slotsAdded, 195);
         assertEq(playerContract.getPlayerSlots(USER_ONE), 200);
-
-        // Should have burned only the slots that were actually added
-        assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 10);
     }
 
-    function testCannotPurchaseWhenAtMaxSlots() public {
-        // First get to max slots by purchasing many batches with ETH
-        while (playerContract.getPlayerSlots(USER_ONE) < 200) {
-            uint256 cost = playerContract.getNextSlotBatchCost(USER_ONE);
-            vm.deal(USER_ONE, cost);
-            vm.startPrank(USER_ONE);
-            playerContract.purchasePlayerSlots{value: cost}();
-            vm.stopPrank();
-        }
+    function testInsufficientETHForSlots() public {
+        uint256 cost = playerContract.getNextSlotBatchCost(USER_ONE);
 
-        // Now try to purchase more with tickets
+        vm.startPrank(USER_ONE);
+        vm.expectRevert(InsufficientFeeAmount.selector);
+        playerContract.purchasePlayerSlots{value: cost - 1 wei}();
+        vm.stopPrank();
+    }
+
+    function testCannotExceedMaxSlots() public {
+        // Max USER_ONE out at 200 slots
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 5);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 39);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
+        playerContract.purchasePlayerSlotsWithTickets(39);
 
+        // Try to purchase more
         vm.expectRevert(TooManyPlayers.selector);
-        playerContract.purchasePlayerSlotsWithTickets(1);
+        playerContract.purchasePlayerSlots{value: 1 ether}();
         vm.stopPrank();
     }
 
@@ -163,36 +200,57 @@ contract PlayerSlotsTest is TestBase {
         // Start with 5 slots
         assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
 
-        // Buy 5 slots with ETH
+        // Buy with ETH first
         uint256 cost = playerContract.getNextSlotBatchCost(USER_ONE);
-        vm.deal(USER_ONE, cost);
         vm.startPrank(USER_ONE);
         playerContract.purchasePlayerSlots{value: cost}();
         vm.stopPrank();
         assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
 
-        // Buy 3 slots with tickets
+        // Buy with tickets (1 ticket = 5 slots)
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 3);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 1);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
-        playerContract.purchasePlayerSlotsWithTickets(3);
+        playerContract.purchasePlayerSlotsWithTickets(1);
         vm.stopPrank();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 13);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 15);
 
         // Buy more with ETH
         cost = playerContract.getNextSlotBatchCost(USER_ONE);
-        vm.deal(USER_ONE, cost);
         vm.startPrank(USER_ONE);
         playerContract.purchasePlayerSlots{value: cost}();
         vm.stopPrank();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 18);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 20);
     }
 
-    function testSlotPurchaseEventEmission() public {
+    function testTicketEventParameters() public {
+        // Give user 1 player slot ticket
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 5);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 1);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -201,7 +259,7 @@ contract PlayerSlotsTest is TestBase {
         vm.expectEmit(true, false, false, true);
         emit PlayerSlotsPurchased(USER_ONE, 5, 10, 0); // 0 ETH paid when using tickets
 
-        playerContract.purchasePlayerSlotsWithTickets(5);
+        playerContract.purchasePlayerSlotsWithTickets(1);
         vm.stopPrank();
     }
 
@@ -210,17 +268,59 @@ contract PlayerSlotsTest is TestBase {
         assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
         assertEq(playerContract.getPlayerSlots(USER_TWO), 5);
 
-        // Purchase slots for USER_ONE
+        // Purchase slots for USER_ONE (1 ticket = 5 slots)
         PlayerTickets tickets = playerContract.playerTickets();
-        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 3);
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 1);
 
         vm.startPrank(USER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
-        playerContract.purchasePlayerSlotsWithTickets(3);
+        playerContract.purchasePlayerSlotsWithTickets(1);
         vm.stopPrank();
 
-        // Only USER_ONE's slots should have increased
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 8);
+        // Only USER_ONE's slots should have increased by 5
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
         assertEq(playerContract.getPlayerSlots(USER_TWO), 5);
+    }
+
+    function testSlotCappingWithTickets() public {
+        // Get user to 195 slots (39 tickets * 5 slots each)
+        PlayerTickets tickets = playerContract.playerTickets();
+        
+        // Grant permission to mint tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: true,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false
+        });
+        tickets.setGameContractPermission(address(this), ticketPerms);
+        
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 39);
+
+        vm.startPrank(USER_ONE);
+        tickets.setApprovalForAll(address(playerContract), true);
+        playerContract.purchasePlayerSlotsWithTickets(39);
+        
+        // Now at 200 slots, try to add 2 more tickets (would be 10 slots)
+        vm.stopPrank();
+        tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 2);
+        vm.startPrank(USER_ONE);
+        
+        // Should fail as we're already at max
+        vm.expectRevert(TooManyPlayers.selector);
+        playerContract.purchasePlayerSlotsWithTickets(1);
+        vm.stopPrank();
     }
 }

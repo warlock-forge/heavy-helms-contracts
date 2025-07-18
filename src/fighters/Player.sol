@@ -13,6 +13,7 @@ pragma solidity ^0.8.13;
 // External imports
 import "solmate/src/auth/Owned.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
+import "solmate/src/utils/ReentrancyGuard.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
 import "../interfaces/fighters/IPlayer.sol";
@@ -70,7 +71,7 @@ error NoPendingRequest();
 /// @title Player Contract for Heavy Helms
 /// @notice Manages player creation, attributes, skins, and persistent player data
 /// @dev Integrates with VRF for random stat generation and interfaces with skin/name registries
-contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
+contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGuard {
     //==============================================================//
     //                     TYPE DECLARATIONS                        //
     //==============================================================//
@@ -622,7 +623,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Requires ETH payment of createPlayerFeeAmount. Reverts if caller has pending requests or is over max players
-    function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
+    function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused nonReentrant returns (uint256 requestId) {
         if (_addressActivePlayerCount[msg.sender] >= getPlayerSlots(msg.sender)) revert TooManyPlayers();
         if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
         if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
@@ -697,60 +698,25 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Purchase additional player slots
     /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
     /// @return Number of slots purchased
-    function purchasePlayerSlots() external payable returns (uint8) {
-        // Calculate current total slots
-        uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
-        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
-
-        // Ensure we don't exceed maximum
-        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
-
+    function purchasePlayerSlots() external payable nonReentrant returns (uint8) {
         // Calculate cost based on current extra slots
-        // Cost increases by slotBatchCost for each batch already purchased
         uint256 requiredPayment = getNextSlotBatchCost(msg.sender);
         if (msg.value < requiredPayment) revert InsufficientFeeAmount();
 
-        // Calculate new slots to add (cap at MAX_TOTAL_SLOTS)
-        uint8 slotsToAdd = 5;
-        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
-            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
-        }
-
-        _extraPlayerSlots[msg.sender] += slotsToAdd;
-
-        emit PlayerSlotsPurchased(msg.sender, slotsToAdd, currentTotalSlots, msg.value);
-
-        return slotsToAdd;
+        return _addPlayerSlots(msg.sender, 5, msg.value);
     }
 
     /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
-    /// @dev Each purchase adds 5 slots, requires burning player slot tickets
-    /// @param ticketCount Number of tickets to burn (each ticket = 1 slot)
+    /// @dev Each ticket gives 5 slots
+    /// @param ticketCount Number of tickets to burn (each ticket = 5 slots)
     /// @return Number of slots purchased
-    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8) {
+    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external nonReentrant returns (uint8) {
         if (ticketCount == 0) revert ValueMustBePositive();
 
-        // Calculate current total slots
-        uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
-        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
+        // Burn the tickets first (will revert if insufficient balance)
+        _playerTickets.burnFrom(msg.sender, _playerTickets.PLAYER_SLOT_TICKET(), ticketCount);
 
-        // Ensure we don't exceed maximum
-        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
-
-        // Calculate slots to add (cap at MAX_TOTAL_SLOTS)
-        uint8 slotsToAdd = ticketCount;
-        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
-            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
-        }
-
-        // Burn the required tickets
-        _playerTickets.burnFrom(msg.sender, _playerTickets.PLAYER_SLOT_TICKET(), slotsToAdd);
-
-        _extraPlayerSlots[msg.sender] += slotsToAdd;
-
-        emit PlayerSlotsPurchased(msg.sender, slotsToAdd, currentTotalSlots + slotsToAdd, 0);
-
-        return slotsToAdd;
+        return _addPlayerSlots(msg.sender, ticketCount * 5, 0);
     }
 
     /// @notice Changes a player's name by burning a name change NFT
@@ -1207,6 +1173,33 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (_userPendingRequest[user] == requestId) {
             delete _userPendingRequest[user];
         }
+    }
+
+    /// @notice Internal function to add player slots with shared logic
+    /// @param user The address receiving the slots
+    /// @param slotsToAdd Number of slots to add
+    /// @param paymentAmount ETH payment amount (0 for ticket purchases)
+    /// @return Number of slots actually added
+    function _addPlayerSlots(address user, uint8 slotsToAdd, uint256 paymentAmount) internal returns (uint8) {
+        // Calculate current total slots
+        uint8 currentExtraSlots = _extraPlayerSlots[user];
+        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
+
+        // Ensure we don't exceed maximum
+        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
+
+        // Cap slots to add at MAX_TOTAL_SLOTS
+        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
+            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
+        }
+
+        // Update state
+        _extraPlayerSlots[user] += slotsToAdd;
+
+        // Emit event
+        emit PlayerSlotsPurchased(user, slotsToAdd, currentTotalSlots + slotsToAdd, paymentAmount);
+
+        return slotsToAdd;
     }
 
     /// @notice Gets the current value of a specified attribute
