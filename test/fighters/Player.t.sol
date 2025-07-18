@@ -117,7 +117,7 @@ contract PlayerTest is TestBase {
             // Use actual constant value
             // Purchase one additional slot batch (5 slots)
             vm.startPrank(PLAYER_ONE);
-            uint256 batchCost = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+            uint256 batchCost = playerContract.slotBatchCost();
             vm.deal(PLAYER_ONE, batchCost);
             playerContract.purchasePlayerSlots{value: batchCost}();
             vm.stopPrank();
@@ -158,7 +158,7 @@ contract PlayerTest is TestBase {
         while (playerContract.getPlayerSlots(PLAYER_ONE) < 200) {
             // Purchase slots
             vm.startPrank(PLAYER_ONE);
-            uint256 batchCostTmp = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+            uint256 batchCostTmp = playerContract.slotBatchCost();
             vm.deal(PLAYER_ONE, batchCostTmp);
             playerContract.purchasePlayerSlots{value: batchCostTmp}();
             vm.stopPrank();
@@ -172,7 +172,7 @@ contract PlayerTest is TestBase {
 
         // Try to purchase more slots at max - should revert
         vm.startPrank(PLAYER_ONE);
-        uint256 batchCost = playerContract.getNextSlotBatchCost(PLAYER_ONE);
+        uint256 batchCost = playerContract.slotBatchCost();
         vm.deal(PLAYER_ONE, batchCost);
         vm.expectRevert(TooManyPlayers.selector);
         playerContract.purchasePlayerSlots{value: batchCost}();

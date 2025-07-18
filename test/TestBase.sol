@@ -529,9 +529,9 @@ abstract contract TestBase is Test {
         uint256 batchesNeeded = (slotsNeeded + 4) / 5; // Round up division
 
         // Purchase required batches
+        uint256 batchCost = contractInstance.slotBatchCost();
         for (uint256 i = 0; i < batchesNeeded; i++) {
             vm.startPrank(owner);
-            uint256 batchCost = contractInstance.getNextSlotBatchCost(owner);
             vm.deal(owner, batchCost);
             contractInstance.purchasePlayerSlots{value: batchCost}();
             vm.stopPrank();

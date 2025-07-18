@@ -65,11 +65,16 @@ forge snapshot    # Create gas snapshots for tests
 - **Use**: Decrements mapping counter when used
 
 ### Current Implementation Status
-- ✅ Type 1 (ETH or Ticket): Player slots work correctly with both options
+- ✅ Type 1 (ETH or Ticket): Player slots work correctly with both options (1 ticket = 5 slots = fixed ETH cost)
 - ❌ Type 1 Missing: Player creation still ETH-only, needs ticket option
 - ✅ Type 2 (Fungible Ticket): Weapon/armor specialization work correctly
 - ✅ Type 3 (Non-Fungible): Name changes work correctly
 - ✅ Type 4 (Account Charges): Attribute swaps work correctly
+
+### Key Implementation Details
+- **Slot Cost**: Fixed cost system - `slotBatchCost` constant, no scaling
+- **Reentrancy**: No guards needed - no actual reentrancy risks identified
+- **DRY Principle**: Shared `_addPlayerSlots` internal function for both ETH and ticket purchases
 
 ## Architecture Overview
 

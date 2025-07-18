@@ -120,6 +120,10 @@ interface IPlayer {
     /// @return The fee amount in wei
     function createPlayerFeeAmount() external view returns (uint256);
 
+    /// @notice Gets the current cost for purchasing a slot batch
+    /// @return The cost in wei for 5 slots
+    function slotBatchCost() external view returns (uint256);
+
     /// @notice Gets pending VRF request ID for a user
     /// @param user The address to check
     /// @return requestId The pending request ID (0 if none)
@@ -146,11 +150,6 @@ interface IPlayer {
     /// @param owner The address to check slots for
     /// @return The number of player slots the address has
     function getPlayerSlots(address owner) external view returns (uint256);
-
-    /// @notice Calculate the cost for the next slot batch purchase for an address
-    /// @param user The address to calculate the cost for
-    /// @return Cost in ETH for the next slot batch purchase
-    function getNextSlotBatchCost(address user) external view returns (uint256);
 
     /// @notice Gets the number of active players for an address
     /// @param owner The address to check
@@ -201,6 +200,11 @@ interface IPlayer {
     /// @param useNameSetB If true, uses name set B for generation
     /// @return requestId The VRF request ID
     function requestCreatePlayer(bool useNameSetB) external payable returns (uint256 requestId);
+
+    /// @notice Requests creation of a new player using CREATE_PLAYER_TICKET
+    /// @param useNameSetB If true, uses name set B for generation
+    /// @return requestId The VRF request ID
+    function requestCreatePlayerWithTicket(bool useNameSetB) external returns (uint256 requestId);
 
     /// @notice Equips a skin to a player
     /// @param playerId The ID of the player

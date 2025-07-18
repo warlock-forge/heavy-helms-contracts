@@ -13,7 +13,6 @@ pragma solidity ^0.8.13;
 // External imports
 import "solmate/src/auth/Owned.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
-import "solmate/src/utils/ReentrancyGuard.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
 import "../interfaces/fighters/IPlayer.sol";
@@ -71,7 +70,7 @@ error NoPendingRequest();
 /// @title Player Contract for Heavy Helms
 /// @notice Manages player creation, attributes, skins, and persistent player data
 /// @dev Integrates with VRF for random stat generation and interfaces with skin/name registries
-contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGuard {
+contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     //==============================================================//
     //                     TYPE DECLARATIONS                        //
     //==============================================================//
@@ -117,7 +116,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGua
     // Configuration
     /// @notice Fee amount in ETH required to create a new player
     uint256 public createPlayerFeeAmount = 0.001 ether;
-    /// @notice Cost in ETH for each additional slot batch (5 slots), increases linearly with purchases
+    /// @notice Cost in ETH for each additional slot batch (5 slots) - fixed cost
     uint256 public slotBatchCost = 0.005 ether;
     /// @notice Whether the contract is paused (prevents new player creation)
     bool public isPaused;
@@ -523,15 +522,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGua
         return BASE_PLAYER_SLOTS + _extraPlayerSlots[owner];
     }
 
-    /// @notice Calculate the cost for the next slot batch purchase for an address
-    /// @param user The address to calculate the cost for
-    /// @return Cost in ETH for the next slot batch purchase
-    function getNextSlotBatchCost(address user) public view returns (uint256) {
-        uint8 currentExtraSlots = _extraPlayerSlots[user];
-        uint256 batchesPurchased = currentExtraSlots / 5;
-        return slotBatchCost * (batchesPurchased + 1);
-    }
-
     /// @notice Gets the skin registry contract reference
     /// @return The PlayerSkinRegistry contract instance
     function skinRegistry() public view virtual override(Fighter, IPlayer) returns (IPlayerSkinRegistry) {
@@ -623,22 +613,19 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGua
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Requires ETH payment of createPlayerFeeAmount. Reverts if caller has pending requests or is over max players
-    function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused nonReentrant returns (uint256 requestId) {
-        if (_addressActivePlayerCount[msg.sender] >= getPlayerSlots(msg.sender)) revert TooManyPlayers();
-        if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
+    function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
         if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
+        return _requestCreatePlayerInternal(useNameSetB);
+    }
 
-        // Effects - Get requestId first since it's deterministic and can't fail
-        requestId = _requestRandomness("");
-        _pendingPlayers[requestId] = PendingPlayer({
-            owner: msg.sender,
-            useNameSetB: useNameSetB,
-            fulfilled: false,
-            timestamp: uint64(block.timestamp)
-        });
-        _userPendingRequest[msg.sender] = requestId;
-
-        emit PlayerCreationRequested(requestId, msg.sender);
+    /// @notice Requests creation of a new player using CREATE_PLAYER_TICKET
+    /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
+    /// @return requestId The VRF request ID for tracking the creation
+    /// @dev Requires burning 1 CREATE_PLAYER_TICKET token. Reverts if caller has pending requests or is over max players
+    function requestCreatePlayerWithTicket(bool useNameSetB) external whenNotPaused returns (uint256 requestId) {
+        // Burn the ticket first (will revert if insufficient balance)
+        _playerTickets.burnFrom(msg.sender, _playerTickets.CREATE_PLAYER_TICKET(), 1);
+        return _requestCreatePlayerInternal(useNameSetB);
     }
 
     /// @notice Equips a skin and sets stance for a player
@@ -696,12 +683,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGua
     }
 
     /// @notice Purchase additional player slots
-    /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
+    /// @dev Each purchase adds 5 slots for a fixed cost
     /// @return Number of slots purchased
-    function purchasePlayerSlots() external payable nonReentrant returns (uint8) {
-        // Calculate cost based on current extra slots
-        uint256 requiredPayment = getNextSlotBatchCost(msg.sender);
-        if (msg.value < requiredPayment) revert InsufficientFeeAmount();
+    function purchasePlayerSlots() external payable returns (uint8) {
+        if (msg.value < slotBatchCost) revert InsufficientFeeAmount();
 
         return _addPlayerSlots(msg.sender, 5, msg.value);
     }
@@ -710,7 +695,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGua
     /// @dev Each ticket gives 5 slots
     /// @param ticketCount Number of tickets to burn (each ticket = 5 slots)
     /// @return Number of slots purchased
-    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external nonReentrant returns (uint8) {
+    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8) {
         if (ticketCount == 0) revert ValueMustBePositive();
 
         // Burn the tickets first (will revert if insufficient balance)
@@ -1165,6 +1150,27 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter, ReentrancyGua
     // Pure helpers
 
     // State-modifying helpers
+
+    /// @notice Internal function to handle common player creation logic
+    /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
+    /// @return requestId The VRF request ID for tracking the creation
+    /// @dev Shared logic for both ETH and ticket-based player creation
+    function _requestCreatePlayerInternal(bool useNameSetB) private returns (uint256 requestId) {
+        if (_addressActivePlayerCount[msg.sender] >= getPlayerSlots(msg.sender)) revert TooManyPlayers();
+        if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
+
+        // Effects - Get requestId first since it's deterministic and can't fail
+        requestId = _requestRandomness("");
+        _pendingPlayers[requestId] = PendingPlayer({
+            owner: msg.sender,
+            useNameSetB: useNameSetB,
+            fulfilled: false,
+            timestamp: uint64(block.timestamp)
+        });
+        _userPendingRequest[msg.sender] = requestId;
+
+        emit PlayerCreationRequested(requestId, msg.sender);
+    }
 
     /// @notice Removes a request ID from a user's pending requests
     /// @param user The address whose request is being removed
