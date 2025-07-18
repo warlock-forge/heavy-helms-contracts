@@ -12,8 +12,8 @@ contract PlayerDataCodec is IPlayerDataCodec {
     /// @notice Packs player data into a compact bytes32 format for efficient storage/transmission
     /// @param playerId The ID of the player to encode
     /// @param stats The player's stats and attributes to encode
-    /// @return bytes32 Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][stance(1)][names(4)][records(6)]
-    /// @dev Byte layout: [0-3:playerId][4-9:stats][10-13:skinIndex][14-15:tokenId][16:stance][17-26:other data]
+    /// @return bytes32 Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][stance(1)][names(4)][records(6)][progression(5)]
+    /// @dev Byte layout: [0-3:playerId][4-9:stats][10-13:skinIndex][14-15:tokenId][16:stance][17-20:names][21-26:records][27-31:progression]
     function encodePlayerData(uint32 playerId, IPlayer.PlayerStats memory stats) external pure returns (bytes32) {
         bytes memory packed = new bytes(32);
 
@@ -58,7 +58,12 @@ contract PlayerDataCodec is IPlayerDataCodec {
         packed[25] = bytes1(uint8(stats.record.kills >> 8));
         packed[26] = bytes1(uint8(stats.record.kills));
 
-        // Last 5 bytes are padded with zeros by default
+        // Pack progression data (5 bytes: level, currentXP, weapon spec, armor spec)
+        packed[27] = bytes1(stats.level);
+        packed[28] = bytes1(uint8(stats.currentXP >> 8));
+        packed[29] = bytes1(uint8(stats.currentXP));
+        packed[30] = bytes1(stats.weaponSpecialization);
+        packed[31] = bytes1(stats.armorSpecialization);
 
         return bytes32(packed);
     }
@@ -102,6 +107,12 @@ contract PlayerDataCodec is IPlayerDataCodec {
         stats.record.wins = uint16(uint8(packed[21])) << 8 | uint16(uint8(packed[22]));
         stats.record.losses = uint16(uint8(packed[23])) << 8 | uint16(uint8(packed[24]));
         stats.record.kills = uint16(uint8(packed[25])) << 8 | uint16(uint8(packed[26]));
+
+        // Decode progression data
+        stats.level = uint8(packed[27]);
+        stats.currentXP = uint16(uint8(packed[28])) << 8 | uint16(uint8(packed[29]));
+        stats.weaponSpecialization = uint8(packed[30]);
+        stats.armorSpecialization = uint8(packed[31]);
 
         // Construct skin and set stance
         stats.skin = Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId});

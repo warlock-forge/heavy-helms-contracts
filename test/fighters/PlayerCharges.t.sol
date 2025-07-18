@@ -11,11 +11,12 @@ import {
     BadZeroAddress
 } from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import "../TestBase.sol";
 
 event AttributeSwapAwarded(address indexed to, uint256 totalCharges);
 
-contract PlayerChargesTest is TestBase {
+contract PlayerAttributeSwapsTest is TestBase {
     address public PLAYER_ONE;
     address public PLAYER_TWO;
 
@@ -45,6 +46,9 @@ contract PlayerChargesTest is TestBase {
         emit AttributeSwapAwarded(PLAYER_ONE, 1);
         playerContract.awardAttributeSwap(PLAYER_ONE);
 
+        // Verify PLAYER_ONE has the charge
+        assertEq(playerContract.attributeSwapTickets(PLAYER_ONE), 1, "Should have 1 attribute swap charge");
+
         // Store initial stats and find valid attributes to swap
         IPlayer.PlayerStats memory initialStats = playerContract.getPlayer(playerId);
 
@@ -56,7 +60,7 @@ contract PlayerChargesTest is TestBase {
 
         require(decreaseVal > 3 && increaseVal < 21, "Could not find valid stats to swap");
 
-        // Perform swap
+        // Perform swap (this should use the charge)
         vm.startPrank(PLAYER_ONE);
         playerContract.swapAttributes(playerId, decreaseAttr, increaseAttr);
         vm.stopPrank();
@@ -65,11 +69,15 @@ contract PlayerChargesTest is TestBase {
         IPlayer.PlayerStats memory newStats = playerContract.getPlayer(playerId);
         assertEq(newStats.attributes.strength, decreaseVal - 1, "Strength should decrease by 1");
         assertEq(newStats.attributes.agility, increaseVal + 1, "Agility should increase by 1");
+
+        // Verify charge was used
+        assertEq(playerContract.attributeSwapTickets(PLAYER_ONE), 0, "Charge should be used");
     }
 
     function testCannotSwapWithoutCharge() public {
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
+        // Try to swap without having any charges
         vm.startPrank(PLAYER_ONE);
         vm.expectRevert(InsufficientCharges.selector);
         playerContract.swapAttributes(playerId, IPlayer.Attribute.STRENGTH, IPlayer.Attribute.AGILITY);
@@ -90,6 +98,7 @@ contract PlayerChargesTest is TestBase {
         playerContract.setGameContractPermission(address(this), permissions);
         playerContract.awardAttributeSwap(PLAYER_TWO);
 
+        // PLAYER_TWO has charge but doesn't own the player
         vm.startPrank(PLAYER_TWO);
         vm.expectRevert(NotPlayerOwner.selector);
         playerContract.swapAttributes(playerId, IPlayer.Attribute.STRENGTH, IPlayer.Attribute.AGILITY);
@@ -154,8 +163,8 @@ contract PlayerChargesTest is TestBase {
         // Get initial stats to find valid attributes to swap
         IPlayer.PlayerStats memory initialStats = playerContract.getPlayer(playerId);
         require(
-            initialStats.attributes.strength > 3 && initialStats.attributes.agility < 21,
-            "Could not find valid stats to swap"
+            initialStats.attributes.strength > 4 && initialStats.attributes.agility < 20,
+            "Could not find valid stats to swap twice"
         );
 
         // Use first charge
@@ -170,5 +179,8 @@ contract PlayerChargesTest is TestBase {
         IPlayer.PlayerStats memory newStats = playerContract.getPlayer(playerId);
         assertEq(newStats.attributes.strength, initialStats.attributes.strength - 2, "Strength should decrease by 2");
         assertEq(newStats.attributes.agility, initialStats.attributes.agility + 2, "Agility should increase by 2");
+
+        // Verify all charges were used
+        assertEq(playerContract.attributeSwapTickets(PLAYER_ONE), 0, "All charges should be used");
     }
 }
