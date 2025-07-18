@@ -457,8 +457,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Emit combat results with packed player data
         emit CombatResult(
-            IPlayer(playerContract).encodePlayerData(challenge.challengerId, challengerStats),
-            IPlayer(playerContract).encodePlayerData(challenge.defenderId, defenderStats),
+            IPlayer(playerContract).codec().encodePlayerData(challenge.challengerId, challengerStats),
+            IPlayer(playerContract).codec().encodePlayerData(challenge.defenderId, defenderStats),
             winnerId,
             results
         );

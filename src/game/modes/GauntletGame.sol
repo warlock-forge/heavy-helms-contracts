@@ -17,6 +17,7 @@ import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
 import "../../interfaces/fighters/IPlayer.sol";
+import "../../interfaces/fighters/IPlayerDataCodec.sol";
 import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 import "../../fighters/Fighter.sol";
@@ -641,8 +642,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             stance: pStats.stance,
             attributes: pStats.attributes
         });
-        // Encode player data using the Player contract's helper
-        encodedData = playerContract.encodePlayerData(playerId, pStats);
+        // Encode player data using the codec
+        encodedData = playerContract.codec().encodePlayerData(playerId, pStats);
     }
 
     /// @notice Returns the full data structure for a specific Gauntlet run.

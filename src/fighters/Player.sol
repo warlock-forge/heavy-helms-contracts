@@ -15,11 +15,13 @@ import "solmate/src/auth/Owned.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
 import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 // Internal imports
-import "../lib/UniformRandomNumber.sol";
 import "../interfaces/fighters/IPlayer.sol";
 import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import "../interfaces/game/engine/IEquipmentRequirements.sol";
+import "../nft/PlayerTickets.sol";
 import "./Fighter.sol";
+import "../interfaces/fighters/IPlayerCreation.sol";
+import "../interfaces/fighters/IPlayerDataCodec.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
@@ -28,6 +30,10 @@ import "./Fighter.sol";
 error PlayerDoesNotExist(uint32 playerId);
 /// @notice Thrown when caller doesn't own the player they're trying to modify
 error NotPlayerOwner();
+/// @notice Thrown when VRF request timeout hasn't been reached yet
+error VrfRequestNotTimedOut();
+/// @notice Thrown when a value must be positive but zero was provided
+error ValueMustBePositive();
 /// @notice Thrown when attempting to modify a retired player
 error PlayerIsRetired(uint32 playerId);
 /// @notice Thrown when contract is in paused state
@@ -65,8 +71,6 @@ error NoPendingRequest();
 /// @notice Manages player creation, attributes, skins, and persistent player data
 /// @dev Integrates with VRF for random stat generation and interfaces with skin/name registries
 contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
-    using UniformRandomNumber for uint256;
-
     //==============================================================//
     //                     TYPE DECLARATIONS                        //
     //==============================================================//
@@ -90,8 +94,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     // Constants
     /// @notice Minimum value for any player stat
     uint8 private constant MIN_STAT = 3;
-    /// @notice Maximum value for any player stat
+    /// @notice Maximum value for any player stat from initial creation or swaps
     uint8 private constant MAX_STAT = 21;
+    /// @notice Maximum value for any player stat with leveling attribute points
+    uint8 private constant MAX_LEVELING_STAT = 25;
     /// @notice Total points available for player stats (sum of all stats must equal this)
     uint16 private constant TOTAL_STATS = 72;
     /// @notice Base number of player slots per address
@@ -120,6 +126,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     IPlayerNameRegistry private immutable _nameRegistry;
     /// @notice Interface for equipment requirements validation
     IEquipmentRequirements private _equipmentRequirements;
+    /// @notice PlayerTickets contract for burnable NFT tickets
+    PlayerTickets private immutable _playerTickets;
+    /// @notice PlayerCreation contract for generating player stats and names
+    IPlayerCreation private immutable _playerCreation;
+    /// @notice PlayerDataCodec contract for encoding/decoding player data
+    IPlayerDataCodec private immutable _playerDataCodec;
 
     // Player state tracking
     /// @notice Starting ID for user-created players (1-2000 reserved for default characters)
@@ -138,12 +150,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
     /// @notice Maps address to their number of purchased extra player slots
     mapping(address => uint8) private _extraPlayerSlots;
-    /// @notice Maps address to the number of name change charges available
-    mapping(address => uint256) private _nameChangeCharges;
-    /// @notice Maps address to the number of attribute swap charges available
+    /// @notice Maps address to their attribute swap charges
     mapping(address => uint256) private _attributeSwapCharges;
-    /// @notice Maps address to the number of attribute point charges available (from leveling up)
-    mapping(address => uint256) private _attributePointCharges;
+    /// @notice Maps player ID to their available attribute points from leveling
+    mapping(uint32 => uint256) private _attributePoints;
 
     // VRF Request tracking
     /// @notice Address of the Gelato VRF operator
@@ -311,10 +321,27 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param attributePointsAwarded Number of attribute points awarded
     event PlayerLevelUp(uint32 indexed playerId, uint8 newLevel, uint8 attributePointsAwarded);
 
+    /// @notice Emitted when a player's weapon specialization changes
+    /// @param playerId The ID of the player
+    /// @param weaponType The new weapon specialization (255 = none)
+    event PlayerWeaponSpecializationChanged(uint32 indexed playerId, uint8 weaponType);
+
+    /// @notice Emitted when a player's armor specialization changes
+    /// @param playerId The ID of the player
+    /// @param armorType The new armor specialization (255 = none)
+    event PlayerArmorSpecializationChanged(uint32 indexed playerId, uint8 armorType);
+
     /// @notice Emitted when an attribute point charge is awarded
     /// @param to Address receiving the charge
     /// @param totalCharges Total number of attribute point charges available
     event AttributePointAwarded(address indexed to, uint256 totalCharges);
+
+    /// @notice Emitted when a player uses an attribute point from leveling
+    /// @param playerId The ID of the player
+    /// @param attribute The attribute that was increased
+    /// @param newValue The new attribute value
+    /// @param remainingPoints Remaining attribute points for this player
+    event PlayerAttributePointUsed(uint32 indexed playerId, Attribute attribute, uint8 newValue, uint256 remainingPoints);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -324,18 +351,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @dev Reverts with NoPermission if the caller lacks the required permission
     modifier hasPermission(IPlayer.GamePermission permission) {
         IPlayer.GamePermissions storage perms = _gameContractPermissions[msg.sender];
-        bool hasAccess = permission == IPlayer.GamePermission.RECORD
-            ? perms.record
-            : permission == IPlayer.GamePermission.RETIRE
-                ? perms.retire
-                : permission == IPlayer.GamePermission.NAME
-                    ? perms.name
-                    : permission == IPlayer.GamePermission.ATTRIBUTES
-                        ? perms.attributes
-                        : permission == IPlayer.GamePermission.IMMORTAL
-                            ? perms.immortal
-                            : permission == IPlayer.GamePermission.EXPERIENCE ? perms.experience : false;
-        if (!hasAccess) revert NoPermission();
+        if (permission == IPlayer.GamePermission.RECORD && !perms.record) revert NoPermission();
+        if (permission == IPlayer.GamePermission.RETIRE && !perms.retire) revert NoPermission();
+        if (permission == IPlayer.GamePermission.ATTRIBUTES && !perms.attributes) revert NoPermission();
+        if (permission == IPlayer.GamePermission.IMMORTAL && !perms.immortal) revert NoPermission();
+        if (permission == IPlayer.GamePermission.EXPERIENCE && !perms.experience) revert NoPermission();
         _;
     }
 
@@ -352,6 +372,11 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         _;
     }
 
+    modifier onlyPlayerOwner(uint32 playerId) {
+        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+        _;
+    }
+
     /// @notice Ensures the contract is not paused
     /// @dev Reverts with ContractPaused if the contract is in a paused state
     modifier whenNotPaused() {
@@ -365,134 +390,32 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Initializes the Player contract with required dependencies
     /// @param skinRegistryAddress Address of the PlayerSkinRegistry contract
     /// @param nameRegistryAddress Address of the PlayerNameRegistry contract
+    /// @param equipmentRequirementsAddress Address of the EquipmentRequirements contract
     /// @param operator Address of the Gelato VRF operator
+    /// @param playerTicketsAddress Address of the PlayerTickets contract
+    /// @param playerCreationAddress Address of the PlayerCreation contract
+    /// @param playerDataCodecAddress Address of the PlayerDataCodec contract
     /// @dev Sets initial configuration values and connects to required registries
     constructor(
         address skinRegistryAddress,
         address nameRegistryAddress,
         address equipmentRequirementsAddress,
-        address operator
+        address operator,
+        address playerTicketsAddress,
+        address playerCreationAddress,
+        address playerDataCodecAddress
     ) Owned(msg.sender) Fighter(skinRegistryAddress) {
         _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
         _equipmentRequirements = IEquipmentRequirements(equipmentRequirementsAddress);
         _operatorAddress = operator;
+        _playerTickets = PlayerTickets(playerTicketsAddress);
+        _playerCreation = IPlayerCreation(playerCreationAddress);
+        _playerDataCodec = IPlayerDataCodec(playerDataCodecAddress);
     }
 
     //==============================================================//
     //                    EXTERNAL FUNCTIONS                        //
     //==============================================================//
-    // Pure Functions
-    /// @notice Packs player data into a compact bytes32 format for efficient storage/transmission
-    /// @param playerId The ID of the player to encode
-    /// @param stats The player's stats and attributes to encode
-    /// @return bytes32 Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][stance(1)][names(4)][records(6)]
-    /// @dev Byte layout: [0-3:playerId][4-9:stats][10-13:skinIndex][14-15:tokenId][16:stance][17-26:other data]
-    function encodePlayerData(uint32 playerId, PlayerStats memory stats) external pure returns (bytes32) {
-        bytes memory packed = new bytes(32);
-
-        // Pack playerId (4 bytes)
-        packed[0] = bytes1(uint8(playerId >> 24));
-        packed[1] = bytes1(uint8(playerId >> 16));
-        packed[2] = bytes1(uint8(playerId >> 8));
-        packed[3] = bytes1(uint8(playerId));
-
-        // Pack uint8 stats (6 bytes)
-        packed[4] = bytes1(stats.attributes.strength);
-        packed[5] = bytes1(stats.attributes.constitution);
-        packed[6] = bytes1(stats.attributes.size);
-        packed[7] = bytes1(stats.attributes.agility);
-        packed[8] = bytes1(stats.attributes.stamina);
-        packed[9] = bytes1(stats.attributes.luck);
-
-        // Pack skinIndex (4 bytes)
-        packed[10] = bytes1(uint8(stats.skin.skinIndex >> 24));
-        packed[11] = bytes1(uint8(stats.skin.skinIndex >> 16));
-        packed[12] = bytes1(uint8(stats.skin.skinIndex >> 8));
-        packed[13] = bytes1(uint8(stats.skin.skinIndex));
-
-        // Pack tokenId (2 bytes)
-        packed[14] = bytes1(uint8(stats.skin.skinTokenId >> 8));
-        packed[15] = bytes1(uint8(stats.skin.skinTokenId));
-
-        // Pack stance (1 byte)
-        packed[16] = bytes1(stats.stance);
-
-        // Pack name indices (4 bytes)
-        packed[17] = bytes1(uint8(stats.name.firstNameIndex >> 8));
-        packed[18] = bytes1(uint8(stats.name.firstNameIndex));
-        packed[19] = bytes1(uint8(stats.name.surnameIndex >> 8));
-        packed[20] = bytes1(uint8(stats.name.surnameIndex));
-
-        // Pack record data (6 bytes)
-        packed[21] = bytes1(uint8(stats.record.wins >> 8));
-        packed[22] = bytes1(uint8(stats.record.wins));
-        packed[23] = bytes1(uint8(stats.record.losses >> 8));
-        packed[24] = bytes1(uint8(stats.record.losses));
-        packed[25] = bytes1(uint8(stats.record.kills >> 8));
-        packed[26] = bytes1(uint8(stats.record.kills));
-
-        // Pack progression data (5 bytes)
-        packed[27] = bytes1(stats.level);
-        packed[28] = bytes1(uint8(stats.currentXP >> 8));
-        packed[29] = bytes1(uint8(stats.currentXP));
-        packed[30] = bytes1(stats.weaponSpecialization);
-        packed[31] = bytes1(stats.armorSpecialization);
-
-        return bytes32(packed);
-    }
-
-    /// @notice Unpacks player data from bytes32 format back into structured data
-    /// @param data The packed bytes32 data to decode
-    /// @return playerId The decoded player ID
-    /// @return stats The decoded player stats and attributes
-    /// @dev Reverses the encoding process from encodePlayerData
-    function decodePlayerData(bytes32 data) external pure returns (uint32 playerId, PlayerStats memory stats) {
-        bytes memory packed = new bytes(32);
-        assembly {
-            mstore(add(packed, 32), data)
-        }
-
-        // Decode playerId
-        playerId = uint32(uint8(packed[0])) << 24 | uint32(uint8(packed[1])) << 16 | uint32(uint8(packed[2])) << 8
-            | uint32(uint8(packed[3]));
-
-        // Decode uint8 stats
-        stats.attributes.strength = uint8(packed[4]);
-        stats.attributes.constitution = uint8(packed[5]);
-        stats.attributes.size = uint8(packed[6]);
-        stats.attributes.agility = uint8(packed[7]);
-        stats.attributes.stamina = uint8(packed[8]);
-        stats.attributes.luck = uint8(packed[9]);
-
-        // Decode skinIndex
-        uint32 skinIndex = uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16
-            | uint32(uint8(packed[12])) << 8 | uint32(uint8(packed[13]));
-        uint16 skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
-
-        // Decode stance
-        uint8 stance = uint8(packed[16]);
-
-        // Decode name indices
-        stats.name.firstNameIndex = uint16(uint8(packed[17])) << 8 | uint16(uint8(packed[18]));
-        stats.name.surnameIndex = uint16(uint8(packed[19])) << 8 | uint16(uint8(packed[20]));
-
-        // Decode record data
-        stats.record.wins = uint16(uint8(packed[21])) << 8 | uint16(uint8(packed[22]));
-        stats.record.losses = uint16(uint8(packed[23])) << 8 | uint16(uint8(packed[24]));
-        stats.record.kills = uint16(uint8(packed[25])) << 8 | uint16(uint8(packed[26]));
-
-        // Decode progression data
-        stats.level = uint8(packed[27]);
-        stats.currentXP = uint16(uint8(packed[28])) << 8 | uint16(uint8(packed[29]));
-        stats.weaponSpecialization = uint8(packed[30]);
-        stats.armorSpecialization = uint8(packed[31]);
-
-        // Construct skin and set stance
-        stats.skin = SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId});
-        stats.stance = stance;
-
-        return (playerId, stats);
-    }
 
     // View Functions
     /// @notice Gets the complete stats and attributes for a player
@@ -540,26 +463,21 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return _immortalPlayers[playerId];
     }
 
-    /// @notice Gets the number of name change charges available for an address
-    /// @param owner The address to check
-    /// @return Number of name change charges available
-    function nameChangeCharges(address owner) external view returns (uint256) {
-        return _nameChangeCharges[owner];
-    }
 
     /// @notice Gets the number of attribute swap charges available for an address
     /// @param owner The address to check
     /// @return Number of attribute swap charges available
-    function attributeSwapCharges(address owner) external view returns (uint256) {
+    function attributeSwapTickets(address owner) external view returns (uint256) {
         return _attributeSwapCharges[owner];
     }
 
-    /// @notice Gets the number of attribute point charges available for an address
-    /// @param owner The address to check
-    /// @return Number of attribute point charges available
-    function attributePointCharges(address owner) external view returns (uint256) {
-        return _attributePointCharges[owner];
+    /// @notice Gets the number of available attribute points for a player
+    /// @param playerId The player ID to check
+    /// @return Number of available attribute points from leveling
+    function attributePoints(uint32 playerId) external view returns (uint256) {
+        return _attributePoints[playerId];
     }
+
 
     /// @notice Calculates XP required for a specific level
     /// @param level The level to calculate XP requirement for (1-9, since level 10 is max)
@@ -625,6 +543,18 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
     function equipmentRequirements() public view returns (IEquipmentRequirements) {
         return _equipmentRequirements;
+    }
+
+    /// @notice Gets the PlayerTickets contract address
+    /// @return The PlayerTickets contract instance
+    function playerTickets() public view returns (PlayerTickets) {
+        return _playerTickets;
+    }
+
+    /// @notice Gets the PlayerDataCodec contract address
+    /// @return The PlayerDataCodec contract instance
+    function codec() public view returns (IPlayerDataCodec) {
+        return _playerDataCodec;
     }
 
     /// @notice Check if a player ID is valid
@@ -719,12 +649,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     function equipSkin(uint32 playerId, uint32 skinIndex, uint16 skinTokenId, uint8 stance)
         external
         playerExists(playerId)
+        onlyPlayerOwner(playerId)
     {
-        // Check ownership
-        if (_playerOwners[playerId] != msg.sender) {
-            revert NotPlayerOwner();
-        }
-
         // Check if player is retired
         if (_retiredPlayers[playerId]) {
             revert PlayerIsRetired(playerId);
@@ -797,21 +723,55 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return slotsToAdd;
     }
 
-    /// @notice Changes a player's name
-    /// @param playerId The ID of the player to update
-    /// @param firstNameIndex Index of the first name in the name registry
-    /// @param surnameIndex Index of the surname in the name registry
-    function changeName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex) external playerExists(playerId) {
-        if (_nameChangeCharges[msg.sender] == 0) revert InsufficientCharges();
-        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+    /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
+    /// @dev Each purchase adds 5 slots, requires burning player slot tickets
+    /// @param ticketCount Number of tickets to burn (each ticket = 1 slot)
+    /// @return Number of slots purchased
+    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8) {
+        if (ticketCount == 0) revert ValueMustBePositive();
+        
+        // Calculate current total slots
+        uint8 currentExtraSlots = _extraPlayerSlots[msg.sender];
+        uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
 
+        // Ensure we don't exceed maximum
+        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
+
+        // Calculate slots to add (cap at MAX_TOTAL_SLOTS)
+        uint8 slotsToAdd = ticketCount;
+        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
+            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
+        }
+
+        // Burn the required tickets
+        _playerTickets.burnFrom(msg.sender, _playerTickets.PLAYER_SLOT_TICKET(), slotsToAdd);
+
+        _extraPlayerSlots[msg.sender] += slotsToAdd;
+
+        emit PlayerSlotsPurchased(msg.sender, slotsToAdd, currentTotalSlots + slotsToAdd, 0);
+
+        return slotsToAdd;
+    }
+
+    /// @notice Changes a player's name by burning a name change NFT
+    /// @param playerId The ID of the player to update
+    /// @param nameChangeTokenId The token ID of the name change NFT to burn
+    function changeName(uint32 playerId, uint256 nameChangeTokenId)
+        external
+        playerExists(playerId)
+        onlyPlayerOwner(playerId)
+    {
+        // Get name data from the NFT
+        (uint16 firstNameIndex, uint16 surnameIndex) = _playerTickets.getNameChangeData(nameChangeTokenId);
+        
         // Validate name indices
         if (!nameRegistry().isValidFirstNameIndex(firstNameIndex) || surnameIndex >= nameRegistry().getSurnamesLength())
         {
             revert InvalidNameIndex();
         }
 
-        _nameChangeCharges[msg.sender]--;
+        // Burn the name change NFT
+        _playerTickets.burnFrom(msg.sender, nameChangeTokenId, 1);
 
         PlayerStats storage player = _players[playerId];
         player.name.firstNameIndex = firstNameIndex;
@@ -820,17 +780,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit PlayerNameUpdated(playerId, firstNameIndex, surnameIndex);
     }
 
-    /// @notice Swaps attributes between two player attributes
+    /// @notice Swaps attributes between two player attributes by burning an attribute swap ticket
     /// @param playerId The ID of the player to update
     /// @param decreaseAttribute The attribute to decrease
     /// @param increaseAttribute The attribute to increase
-    /// @dev Requires ATTRIBUTES permission and sufficient charges. Reverts if player doesn't exist or charges are insufficient
+    /// @dev Requires burning an attribute swap ticket. Reverts if player doesn't exist or swap is invalid
     function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute)
         external
         playerExists(playerId)
+        onlyPlayerOwner(playerId)
     {
-        if (_attributeSwapCharges[msg.sender] == 0) revert InsufficientCharges();
-        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
         if (decreaseAttribute == increaseAttribute) revert InvalidAttributeSwap();
 
         PlayerStats storage player = _players[playerId];
@@ -842,6 +801,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             revert InvalidAttributeSwap();
         }
 
+        // Use an attribute swap charge
+        if (_attributeSwapCharges[msg.sender] == 0) revert InsufficientCharges();
         _attributeSwapCharges[msg.sender]--;
 
         _setAttributeValue(player, decreaseAttribute, decreaseValue - 1);
@@ -856,41 +817,68 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         );
     }
 
-    /// @notice Uses an attribute point charge to increase a player's attribute by 1
+    /// @notice Uses an attribute point earned from leveling to increase a player's attribute by 1
     /// @param playerId The ID of the player to update
     /// @param attribute The attribute to increase
-    /// @dev Uses attribute point charges earned from leveling up
-    function useAttributePoint(uint32 playerId, Attribute attribute) external playerExists(playerId) {
-        if (_attributePointCharges[msg.sender] == 0) revert InsufficientCharges();
-        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+    /// @dev Uses attribute points earned from leveling up, allows stats to go above 21 (max 25)
+    function useAttributePoint(uint32 playerId, Attribute attribute)
+        external
+        playerExists(playerId)
+        onlyPlayerOwner(playerId)
+    {
+        // Check if this player has available attribute points
+        if (_attributePoints[playerId] == 0) {
+            revert InsufficientCharges();
+        }
 
         PlayerStats storage player = _players[playerId];
         uint8 currentValue = _getAttributeValue(player, attribute);
 
-        if (currentValue >= MAX_STAT) {
+        // Check if attribute is already at maximum for leveled players
+        if (currentValue >= MAX_LEVELING_STAT) {
             revert InvalidAttributeSwap(); // Reuse this error for simplicity
         }
 
-        _attributePointCharges[msg.sender]--;
+        // Consume one attribute point from THIS player
+        _attributePoints[playerId]--;
+
+        // Increase the attribute
         _setAttributeValue(player, attribute, currentValue + 1);
 
-        emit PlayerAttributesSwapped(playerId, attribute, attribute, currentValue, currentValue + 1);
+        emit PlayerAttributePointUsed(playerId, attribute, currentValue + 1, _attributePoints[playerId]);
     }
 
-    /// @notice Sets weapon specialization for a player
+
+    /// @notice Sets weapon specialization for a player by burning a specialization ticket
     /// @param playerId The ID of the player
     /// @param weaponType The weapon type to specialize in (255 = none)
-    function setWeaponSpecialization(uint32 playerId, uint8 weaponType) external playerExists(playerId) {
-        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+    function setWeaponSpecialization(uint32 playerId, uint8 weaponType)
+        external
+        playerExists(playerId)
+        onlyPlayerOwner(playerId)
+    {
+        // Burn a weapon specialization ticket
+        _playerTickets.burnFrom(msg.sender, _playerTickets.WEAPON_SPECIALIZATION_TICKET(), 1);
+        
         _players[playerId].weaponSpecialization = weaponType;
+        
+        emit PlayerWeaponSpecializationChanged(playerId, weaponType);
     }
 
-    /// @notice Sets armor specialization for a player
+    /// @notice Sets armor specialization for a player by burning a specialization ticket
     /// @param playerId The ID of the player
     /// @param armorType The armor type to specialize in (255 = none)
-    function setArmorSpecialization(uint32 playerId, uint8 armorType) external playerExists(playerId) {
-        if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
+    function setArmorSpecialization(uint32 playerId, uint8 armorType)
+        external
+        playerExists(playerId)
+        onlyPlayerOwner(playerId)
+    {
+        // Burn an armor specialization ticket
+        _playerTickets.burnFrom(msg.sender, _playerTickets.ARMOR_SPECIALIZATION_TICKET(), 1);
+        
         _players[playerId].armorSpecialization = armorType;
+        
+        emit PlayerArmorSpecializationChanged(playerId, armorType);
     }
 
     /// @notice Retires a player owned by the caller
@@ -988,14 +976,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
     }
 
-    /// @notice Awards a name change charge to an address
-    /// @param to Address to receive the charge
-    /// @dev Requires NAME permission
-    function awardNameChange(address to) external hasPermission(IPlayer.GamePermission.NAME) {
-        if (to == address(0)) revert BadZeroAddress();
-        _nameChangeCharges[to]++;
-        emit NameChangeAwarded(to, _nameChangeCharges[to]);
-    }
 
     /// @notice Awards an attribute swap charge to an address
     /// @param to Address to receive the charge
@@ -1031,23 +1011,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
             player.currentXP -= xpRequired;
             player.level++;
 
-            // Award attribute points (1 per level up)
+            // Award attribute points to this player
             uint8 attributePointsAwarded = 1;
-            _attributePointCharges[owner] += attributePointsAwarded;
-
+            _attributePoints[playerId] += attributePointsAwarded;
+            
             emit PlayerLevelUp(playerId, player.level, attributePointsAwarded);
-            emit AttributePointAwarded(owner, _attributePointCharges[owner]);
+            emit AttributePointAwarded(owner, _attributePoints[playerId]);
         }
     }
 
-    /// @notice Awards an attribute point charge to an address
-    /// @param to Address to receive the charge
-    /// @dev Requires ATTRIBUTES permission
-    function awardAttributePoint(address to) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) {
-        if (to == address(0)) revert BadZeroAddress();
-        _attributePointCharges[to]++;
-        emit AttributePointAwarded(to, _attributePointCharges[to]);
-    }
+
 
     /// @notice Allows a user to recover ETH from a timed-out player creation request
     /// @dev Checks if the request has exceeded the timeout period before allowing recovery
@@ -1058,7 +1031,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         PendingPlayer storage request = _pendingPlayers[requestId];
         if (request.owner != msg.sender) revert NotPlayerOwner();
         if (request.fulfilled) revert RequestAlreadyFulfilled();
-        if (block.timestamp <= request.timestamp + vrfRequestTimeout) revert("Not timed out yet");
+        if (block.timestamp <= request.timestamp + vrfRequestTimeout) revert VrfRequestNotTimedOut();
 
         // Effects - clear request data before transfer
         delete _pendingPlayers[requestId];
@@ -1158,7 +1131,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Updates the timeout period for VRF requests
     /// @param newValue The new timeout period in seconds
     function setVrfRequestTimeout(uint256 newValue) external onlyOwner {
-        require(newValue > 0, "Value must be positive");
+        if (newValue == 0) revert ValueMustBePositive();
         emit VrfRequestTimeoutUpdated(vrfRequestTimeout, newValue);
         vrfRequestTimeout = newValue;
     }
@@ -1190,8 +1163,18 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         // Effects
         _pendingPlayers[requestId].fulfilled = true;
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
-        (uint32 playerId, IPlayer.PlayerStats memory stats) =
-            _createPlayerWithRandomness(pending.owner, pending.useNameSetB, combinedSeed);
+
+        // Check player slot limit
+        if (_addressActivePlayerCount[pending.owner] >= getPlayerSlots(pending.owner)) revert TooManyPlayers();
+
+        // Generate player data using external helper
+        IPlayer.PlayerStats memory stats = _playerCreation.generatePlayerData(combinedSeed, pending.useNameSetB);
+
+        // Handle state changes in Player contract
+        uint32 playerId = nextPlayerId++;
+        _players[playerId] = stats;
+        _playerOwners[playerId] = pending.owner;
+        _addressActivePlayerCount[pending.owner]++;
 
         // Remove from user's pending requests and cleanup
         _removeFromPendingRequests(pending.owner, requestId);
@@ -1218,218 +1201,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     //                    PRIVATE FUNCTIONS                         //
     //==============================================================//
     // Pure helpers
-    /// @notice Returns the minimum of two numbers
-    /// @param a First number to compare
-    /// @param b Second number to compare
-    /// @return The smaller of the two numbers
-    function _min(uint256 a, uint256 b) private pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    /// @notice Validates that player stats are within allowed ranges and total correctly
-    /// @param player The player stats to validate
-    /// @return True if stats are valid, false otherwise
-    /// @dev Checks each stat is between MIN_STAT and MAX_STAT and total equals TOTAL_STATS
-    function _validateStats(IPlayer.PlayerStats memory player) private pure returns (bool) {
-        // Check stat bounds
-        if (player.attributes.strength < MIN_STAT || player.attributes.strength > MAX_STAT) return false;
-        if (player.attributes.constitution < MIN_STAT || player.attributes.constitution > MAX_STAT) return false;
-        if (player.attributes.size < MIN_STAT || player.attributes.size > MAX_STAT) return false;
-        if (player.attributes.agility < MIN_STAT || player.attributes.agility > MAX_STAT) return false;
-        if (player.attributes.stamina < MIN_STAT || player.attributes.stamina > MAX_STAT) return false;
-        if (player.attributes.luck < MIN_STAT || player.attributes.luck > MAX_STAT) return false;
-
-        // Calculate total stat points
-        uint256 total = uint256(player.attributes.strength) + uint256(player.attributes.constitution)
-            + uint256(player.attributes.size) + uint256(player.attributes.agility) + uint256(player.attributes.stamina)
-            + uint256(player.attributes.luck);
-
-        // Total should be exactly 72 (6 stats * 3 minimum = 18, plus 54 points to distribute)
-        return total == TOTAL_STATS;
-    }
-
-    /// @notice Adjusts invalid player stats to meet requirements
-    /// @param player The player stats to fix
-    /// @param seed Random seed for stat adjustment
-    /// @return Fixed player stats that meet all requirements
-    /// @dev Ensures stats are within bounds and total exactly TOTAL_STATS
-    function _fixStats(IPlayer.PlayerStats memory player, uint256 seed)
-        private
-        pure
-        returns (IPlayer.PlayerStats memory)
-    {
-        uint16 total = uint16(player.attributes.strength) + uint16(player.attributes.constitution)
-            + uint16(player.attributes.size) + uint16(player.attributes.agility) + uint16(player.attributes.stamina)
-            + uint16(player.attributes.luck);
-
-        // First ensure all stats are within 3-21 range
-        uint8[6] memory stats = [
-            player.attributes.strength,
-            player.attributes.constitution,
-            player.attributes.size,
-            player.attributes.agility,
-            player.attributes.stamina,
-            player.attributes.luck
-        ];
-
-        for (uint256 i = 0; i < 6; i++) {
-            if (stats[i] < 3) {
-                total += (3 - stats[i]);
-                stats[i] = 3;
-            } else if (stats[i] > 21) {
-                total -= (stats[i] - 21);
-                stats[i] = 21;
-            }
-        }
-
-        // Now adjust total to 72 if needed
-        while (total != 72) {
-            seed = uint256(keccak256(abi.encodePacked(seed)));
-
-            if (total < 72) {
-                uint256 statIndex = seed.uniform(6);
-                if (stats[statIndex] < 21) {
-                    stats[statIndex] += 1;
-                    total += 1;
-                }
-            } else {
-                seed = uint256(keccak256(abi.encodePacked(seed)));
-                uint256 statIndex = seed.uniform(6);
-                if (stats[statIndex] > 3) {
-                    stats[statIndex] -= 1;
-                    total -= 1;
-                }
-            }
-        }
-
-        return IPlayer.PlayerStats({
-            attributes: Fighter.Attributes({
-                strength: stats[0],
-                constitution: stats[1],
-                size: stats[2],
-                agility: stats[3],
-                stamina: stats[4],
-                luck: stats[5]
-            }),
-            skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            name: PlayerName({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
-            record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills}),
-            stance: 1, // Initialize to BALANCED stance
-            level: player.level, // Preserve level
-            currentXP: player.currentXP, // Preserve XP
-            weaponSpecialization: player.weaponSpecialization, // Preserve specialization
-            armorSpecialization: player.armorSpecialization // Preserve specialization
-        });
-    }
 
     // State-modifying helpers
-    /// @notice Creates a new player with random stats
-    /// @param owner Address that will own the player
-    /// @param useNameSetB Whether to use name set B for generation
-    /// @param randomSeed Seed for random number generation
-    /// @return playerId ID of the created player
-    /// @return stats Stats of the created player
-    /// @dev Handles stat distribution and name generation
-    function _createPlayerWithRandomness(address owner, bool useNameSetB, uint256 randomSeed)
-        private
-        returns (uint32 playerId, IPlayer.PlayerStats memory stats)
-    {
-        if (_addressActivePlayerCount[owner] >= getPlayerSlots(owner)) revert TooManyPlayers();
-
-        // Use incremental playerId
-        playerId = nextPlayerId++;
-
-        // Initialize base stats array with minimum values
-        uint8[6] memory statArray = [3, 3, 3, 3, 3, 3];
-        uint256 remainingPoints = 54; // 72 total - (6 * 3 minimum)
-
-        // Distribute remaining points across stats
-        uint256 order = uint256(keccak256(abi.encodePacked(randomSeed, "order")));
-
-        unchecked {
-            // Change to handle all 6 stats
-            for (uint256 i; i < 6; ++i) {
-                // Select random stat index and update order
-                uint256 statIndex = order.uniform(6 - i);
-                order = uint256(keccak256(abi.encodePacked(order)));
-
-                // Calculate available points for this stat
-                uint256 pointsNeededForRemaining = (5 - i) * 3; // Ensure minimum 3 points for each remaining stat
-                uint256 availablePoints =
-                    remainingPoints > pointsNeededForRemaining ? remainingPoints - pointsNeededForRemaining : 0;
-
-                // Add extra entropy and make high points rarer
-                uint256 chance = randomSeed.uniform(100);
-                randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, "chance")));
-
-                uint256 pointsCap = chance < 50
-                    ? 9 // 0-49: normal roll (3+9=12)
-                    : chance < 80
-                        ? 12 // 50-79: medium roll (3+12=15)
-                        : chance < 95
-                            ? 15 // 80-94: high roll (3+15=18)
-                            : 18; // 95-99: max roll (3+18=21)
-
-                // Add random points to selected stat using the cap
-                uint256 pointsToAdd = randomSeed.uniform(_min(availablePoints, pointsCap) + 1);
-                randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
-
-                // Update stat and remaining points
-                statArray[statIndex] += uint8(pointsToAdd);
-                remainingPoints -= pointsToAdd;
-
-                // Swap with last unprocessed stat to avoid reselecting
-                if (statIndex != 5 - i) {
-                    uint8 temp = statArray[statIndex];
-                    statArray[statIndex] = statArray[5 - i];
-                    statArray[5 - i] = temp;
-                }
-            }
-        }
-
-        // Generate name indices based on player preference
-        uint16 firstNameIndex;
-        if (useNameSetB) {
-            firstNameIndex = uint16(randomSeed.uniform(nameRegistry().getNameSetBLength()));
-        } else {
-            firstNameIndex =
-                uint16(randomSeed.uniform(nameRegistry().getNameSetALength())) + nameRegistry().getSetAStart();
-        }
-
-        uint16 surnameIndex = uint16(randomSeed.uniform(nameRegistry().getSurnamesLength()));
-
-        // Create stats struct
-        stats = IPlayer.PlayerStats({
-            attributes: Attributes({
-                strength: statArray[0],
-                constitution: statArray[1],
-                size: statArray[2],
-                agility: statArray[3],
-                stamina: statArray[4],
-                luck: statArray[5]
-            }),
-            skin: SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            name: PlayerName({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            stance: 1, // Initialize to BALANCED stance
-            level: 1, // Start at level 1
-            currentXP: 0, // Start with 0 XP
-            weaponSpecialization: 255, // No specialization
-            armorSpecialization: 255 // No specialization
-        });
-
-        // Validate and fix if necessary
-        if (!_validateStats(stats)) {
-            stats = _fixStats(stats, randomSeed);
-        }
-
-        // Store player data
-        _players[playerId] = stats;
-        _playerOwners[playerId] = owner;
-        _addressActivePlayerCount[owner]++;
-
-        return (playerId, stats);
-    }
 
     /// @notice Removes a request ID from a user's pending requests
     /// @param user The address whose request is being removed

@@ -37,7 +37,7 @@ contract GauntletGameDeployScript is Script {
         // Whitelist GauntletGame in Player contract
         Player playerContract = Player(playerAddr);
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, name: false, attributes: false, immortal: false, experience: false});
+            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(gauntletGame), perms);
 
         console2.log("\n=== Deployed Addresses ===");

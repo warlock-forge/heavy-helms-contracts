@@ -18,6 +18,9 @@ import {IPlayerSkinRegistry} from "../src/interfaces/fighters/registries/skins/I
 
 // Concrete implementations (needed for deployment)
 import {Player} from "../src/fighters/Player.sol";
+import {PlayerCreation} from "../src/fighters/PlayerCreation.sol";
+import {PlayerDataCodec} from "../src/lib/PlayerDataCodec.sol";
+import {PlayerTickets} from "../src/nft/PlayerTickets.sol";
 import {DefaultPlayer} from "../src/fighters/DefaultPlayer.sol";
 import {Monster} from "../src/fighters/Monster.sol";
 import {GameEngine} from "../src/game/engine/GameEngine.sol";
@@ -107,8 +110,21 @@ abstract contract TestBase is Test {
         gameEngine = new GameEngine();
 
         // Create the player contracts with all required dependencies
+        PlayerTickets playerTickets = new PlayerTickets();
+        PlayerCreation playerCreation = new PlayerCreation(nameRegistry);
+        PlayerDataCodec playerDataCodec = new PlayerDataCodec();
         playerContract =
-            new Player(address(skinRegistry), address(nameRegistry), address(equipmentRequirements), operator);
+            new Player(address(skinRegistry), address(nameRegistry), address(equipmentRequirements), operator, address(playerTickets), address(playerCreation), address(playerDataCodec));
+        
+        // Set playerContract permissions for tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true
+        });
+        playerTickets.setGameContractPermission(address(playerContract), ticketPerms);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));
         monsterContract = new Monster(address(skinRegistry), address(nameRegistry));
 

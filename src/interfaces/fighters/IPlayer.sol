@@ -12,6 +12,7 @@ pragma solidity ^0.8.13;
 //==============================================================//
 import "./registries/names/IPlayerNameRegistry.sol";
 import "./registries/skins/IPlayerSkinRegistry.sol";
+import "./IPlayerDataCodec.sol";
 import "../../fighters/Fighter.sol";
 import "../game/engine/IEquipmentRequirements.sol";
 
@@ -55,14 +56,12 @@ interface IPlayer {
     /// @notice Permission flags for game contracts
     /// @param record Can modify game records (wins, losses, kills)
     /// @param retire Can modify player retirement status
-    /// @param name Can modify player names
     /// @param attributes Can modify player attributes
     /// @param immortal Can modify player immortality status
     /// @param experience Can award experience points
     struct GamePermissions {
         bool record;
         bool retire;
-        bool name;
         bool attributes;
         bool immortal;
         bool experience;
@@ -75,7 +74,6 @@ interface IPlayer {
     enum GamePermission {
         RECORD,
         RETIRE,
-        NAME,
         ATTRIBUTES,
         IMMORTAL,
         EXPERIENCE
@@ -103,6 +101,10 @@ interface IPlayer {
     /// @notice Gets the skin registry contract reference
     /// @return The PlayerSkinRegistry contract instance
     function skinRegistry() external view returns (IPlayerSkinRegistry);
+
+    /// @notice Gets the PlayerDataCodec contract reference
+    /// @return The PlayerDataCodec contract instance
+    function codec() external view returns (IPlayerDataCodec);
 
     /// @notice Gets the complete stats for a player
     /// @param playerId The ID of the player to query
@@ -194,19 +196,6 @@ interface IPlayer {
     /// @return The player's current name
     function getCurrentName(uint32 playerId) external view returns (PlayerName memory);
 
-    // Pure Functions
-    /// @notice Encodes player data into a compact bytes32 format
-    /// @param playerId The ID of the player to encode
-    /// @param stats The player stats to encode
-    /// @return The encoded player data
-    function encodePlayerData(uint32 playerId, PlayerStats memory stats) external pure returns (bytes32);
-
-    /// @notice Decodes player data from bytes32 format
-    /// @param data The encoded player data
-    /// @return playerId The decoded player ID
-    /// @return stats The decoded player stats
-    function decodePlayerData(bytes32 data) external pure returns (uint32 playerId, PlayerStats memory stats);
-
     // State-Changing Functions
     /// @notice Requests creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation
@@ -242,19 +231,15 @@ interface IPlayer {
     /// @param retired The new retirement status
     function setPlayerRetired(uint32 playerId, bool retired) external;
 
-    /// @notice Awards a name change charge to an address
-    /// @param to Address to receive the charge
-    function awardNameChange(address to) external;
 
     /// @notice Awards an attribute swap charge to an address
     /// @param to Address to receive the charge
     function awardAttributeSwap(address to) external;
 
-    /// @notice Changes a player's name using a name change charge
+    /// @notice Changes a player's name by burning a name change NFT
     /// @param playerId The ID of the player to update
-    /// @param firstNameIndex Index of the first name in the name registry
-    /// @param surnameIndex Index of the surname in the name registry
-    function changeName(uint32 playerId, uint16 firstNameIndex, uint16 surnameIndex) external;
+    /// @param nameChangeTokenId The token ID of the name change NFT to burn
+    function changeName(uint32 playerId, uint256 nameChangeTokenId) external;
 
     /// @notice Swaps attributes between two player attributes
     /// @param playerId The ID of the player to update
@@ -262,20 +247,22 @@ interface IPlayer {
     /// @param increaseAttribute The attribute to increase
     function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute) external;
 
-    /// @notice Gets the number of name change charges available for an address
-    /// @param owner The address to check
-    /// @return Number of name change charges available
-    function nameChangeCharges(address owner) external view returns (uint256);
 
-    /// @notice Gets the number of attribute swap charges available for an address
+    /// @notice Gets the number of attribute swap tickets available for an address
     /// @param owner The address to check
-    /// @return Number of attribute swap charges available
-    function attributeSwapCharges(address owner) external view returns (uint256);
+    /// @return Number of attribute swap tickets available
+    function attributeSwapTickets(address owner) external view returns (uint256);
 
-    /// @notice Gets the number of attribute point charges available for an address
-    /// @param owner The address to check
-    /// @return Number of attribute point charges available
-    function attributePointCharges(address owner) external view returns (uint256);
+    /// @notice Gets the number of available attribute points for a player
+    /// @param playerId The player ID to check
+    /// @return Number of available attribute points from leveling
+    function attributePoints(uint32 playerId) external view returns (uint256);
+
+    /// @notice Uses an attribute point earned from leveling to increase a player's attribute by 1
+    /// @param playerId The ID of the player to update
+    /// @param attribute The attribute to increase
+    function useAttributePoint(uint32 playerId, Attribute attribute) external;
+
 
     /// @notice Calculates XP required for a specific level
     /// @param level The level to calculate XP requirement for
@@ -287,6 +274,12 @@ interface IPlayer {
     /// @return Number of slots purchased
     function purchasePlayerSlots() external payable returns (uint8);
 
+    /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
+    /// @dev Each ticket = 1 slot, requires burning player slot tickets
+    /// @param ticketCount Number of tickets to burn (each ticket = 1 slot)
+    /// @return Number of slots purchased
+    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8);
+
     /// @notice Set a player's immortality status
     /// @param playerId The ID of the player to update
     /// @param isImmortal The new immortality status
@@ -297,14 +290,7 @@ interface IPlayer {
     /// @param xpAmount The amount of experience to award
     function awardExperience(uint32 playerId, uint16 xpAmount) external;
 
-    /// @notice Awards an attribute point charge to an address
-    /// @param to Address to receive the charge
-    function awardAttributePoint(address to) external;
 
-    /// @notice Uses an attribute point charge to increase a player's attribute by 1
-    /// @param playerId The ID of the player to update
-    /// @param attribute The attribute to increase
-    function useAttributePoint(uint32 playerId, Attribute attribute) external;
 
     /// @notice Sets weapon specialization for a player
     /// @param playerId The ID of the player

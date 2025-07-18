@@ -9,10 +9,13 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../../src/fighters/Player.sol";
+import {PlayerCreation} from "../../src/fighters/PlayerCreation.sol";
+import {PlayerDataCodec} from "../../src/lib/PlayerDataCodec.sol";
 import {DefaultPlayer} from "../../src/fighters/DefaultPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {IPlayerNameRegistry} from "../../src/interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import {IDefaultPlayer} from "../../src/interfaces/fighters/IDefaultPlayer.sol";
@@ -39,14 +42,21 @@ contract FighterDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy Player contract with Gelato VRF operator and equipment requirements
-        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, equipmentRequirementsAddr, operator);
+        // 1. Deploy PlayerCreation helper contract
+        PlayerCreation playerCreation = new PlayerCreation(IPlayerNameRegistry(nameRegistryAddr));
 
-        // 2. Deploy DefaultPlayer and Monster contracts
+        // 2. Deploy PlayerDataCodec helper contract
+        PlayerDataCodec playerDataCodec = new PlayerDataCodec();
+
+        // 3. Deploy Player contract with Gelato VRF operator and equipment requirements
+        // Note: This will need to be updated to include playerTicketsAddr once PlayerTickets is deployed
+        Player playerContract = new Player(skinRegistryAddr, nameRegistryAddr, equipmentRequirementsAddr, operator, address(0), address(playerCreation), address(playerDataCodec));
+
+        // 4. Deploy DefaultPlayer and Monster contracts
         DefaultPlayer defaultPlayerContract = new DefaultPlayer(skinRegistryAddr, nameRegistryAddr);
         Monster monsterContract = new Monster(skinRegistryAddr, monsterNameRegistryAddr);
 
-        // 3. Deploy and setup DefaultPlayerSkinNFT
+        // 5. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
         MonsterSkinNFT monsterSkin = new MonsterSkinNFT();
 
