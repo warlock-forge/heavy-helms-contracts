@@ -48,7 +48,7 @@ contract MaliciousERC1155Receiver {
     function onERC1155Received(address, address, uint256, uint256, bytes calldata) external returns (bytes4) {
         if (attacking) {
             // Try to purchase slots during token transfer
-            target.purchasePlayerSlotsWithTickets(1);
+            target.purchasePlayerSlotsWithTickets();
         }
         return this.onERC1155Received.selector;
     }
@@ -124,7 +124,7 @@ contract PlayerSecurityTests is TestBase {
 
         // Try to purchase - burnFrom doesn't trigger callbacks
         vm.prank(address(tokenAttacker));
-        playerContract.purchasePlayerSlotsWithTickets(1);
+        playerContract.purchasePlayerSlotsWithTickets();
 
         // Verify purchase succeeded without any callback exploitation
         assertEq(playerContract.getPlayerSlots(address(tokenAttacker)), 10);
@@ -175,9 +175,9 @@ contract PlayerSecurityTests is TestBase {
 
         // Mixed purchases with fixed costs
         playerContract.purchasePlayerSlots{value: cost}();
-        playerContract.purchasePlayerSlotsWithTickets(1);
+        playerContract.purchasePlayerSlotsWithTickets();
         playerContract.purchasePlayerSlots{value: cost}(); // Same fixed cost
-        playerContract.purchasePlayerSlotsWithTickets(1);
+        playerContract.purchasePlayerSlotsWithTickets();
 
         vm.stopPrank();
 
@@ -206,11 +206,11 @@ contract PlayerSecurityTests is TestBase {
         tickets.setApprovalForAll(address(playerContract), true);
 
         // First purchase should succeed
-        playerContract.purchasePlayerSlotsWithTickets(1);
+        playerContract.purchasePlayerSlotsWithTickets();
 
         // Second purchase should fail (no tickets left)
         vm.expectRevert(); // Arithmetic underflow in ERC1155
-        playerContract.purchasePlayerSlotsWithTickets(1);
+        playerContract.purchasePlayerSlotsWithTickets();
 
         vm.stopPrank();
     }

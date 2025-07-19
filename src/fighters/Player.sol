@@ -118,6 +118,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     uint256 public createPlayerFeeAmount = 0.001 ether;
     /// @notice Cost in ETH for each additional slot batch (5 slots) - fixed cost
     uint256 public slotBatchCost = 0.005 ether;
+    /// @notice Number of slots added per batch purchase
+    uint8 public immutable SLOT_BATCH_SIZE = 5;
     /// @notice Whether the contract is paused (prevents new player creation)
     bool public isPaused;
 
@@ -683,25 +685,18 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     }
 
     /// @notice Purchase additional player slots
-    /// @dev Each purchase adds 5 slots for a fixed cost
-    /// @return Number of slots purchased
-    function purchasePlayerSlots() external payable returns (uint8) {
+    /// @dev Each purchase adds exactly SLOT_BATCH_SIZE slots for a fixed cost
+    function purchasePlayerSlots() external payable {
         if (msg.value < slotBatchCost) revert InsufficientFeeAmount();
-
-        return _addPlayerSlots(msg.sender, 5, msg.value);
+        _addPlayerSlotBatch(msg.sender);
     }
 
     /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
-    /// @dev Each ticket gives 5 slots
-    /// @param ticketCount Number of tickets to burn (each ticket = 5 slots)
-    /// @return Number of slots purchased
-    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8) {
-        if (ticketCount == 0) revert ValueMustBePositive();
-
-        // Burn the tickets first (will revert if insufficient balance)
-        _playerTickets.burnFrom(msg.sender, _playerTickets.PLAYER_SLOT_TICKET(), ticketCount);
-
-        return _addPlayerSlots(msg.sender, ticketCount * 5, 0);
+    /// @dev Burns exactly 1 ticket to add SLOT_BATCH_SIZE slots
+    function purchasePlayerSlotsWithTickets() external {
+        // Burn exactly 1 ticket (will revert if insufficient balance)
+        _playerTickets.burnFrom(msg.sender, _playerTickets.PLAYER_SLOT_TICKET(), 1);
+        _addPlayerSlotBatch(msg.sender);
     }
 
     /// @notice Changes a player's name by burning a name change NFT
@@ -1181,31 +1176,23 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         }
     }
 
-    /// @notice Internal function to add player slots with shared logic
+    /// @notice Internal function to add exactly one batch of player slots
     /// @param user The address receiving the slots
-    /// @param slotsToAdd Number of slots to add
-    /// @param paymentAmount ETH payment amount (0 for ticket purchases)
-    /// @return Number of slots actually added
-    function _addPlayerSlots(address user, uint8 slotsToAdd, uint256 paymentAmount) internal returns (uint8) {
+    function _addPlayerSlotBatch(address user) internal {
         // Calculate current total slots
         uint8 currentExtraSlots = _extraPlayerSlots[user];
         uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
 
-        // Ensure we don't exceed maximum
-        if (currentTotalSlots >= MAX_TOTAL_SLOTS) revert TooManyPlayers();
-
-        // Cap slots to add at MAX_TOTAL_SLOTS
-        if (currentTotalSlots + slotsToAdd > MAX_TOTAL_SLOTS) {
-            slotsToAdd = MAX_TOTAL_SLOTS - currentTotalSlots;
+        // Simple check - either the full batch fits or we revert
+        if (currentTotalSlots + SLOT_BATCH_SIZE > MAX_TOTAL_SLOTS) {
+            revert TooManyPlayers();
         }
 
-        // Update state
-        _extraPlayerSlots[user] += slotsToAdd;
+        // Update state - always add exactly SLOT_BATCH_SIZE
+        _extraPlayerSlots[user] += SLOT_BATCH_SIZE;
 
         // Emit event
-        emit PlayerSlotsPurchased(user, slotsToAdd, currentTotalSlots + slotsToAdd, paymentAmount);
-
-        return slotsToAdd;
+        emit PlayerSlotsPurchased(user, SLOT_BATCH_SIZE, currentTotalSlots + SLOT_BATCH_SIZE, msg.value);
     }
 
     /// @notice Gets the current value of a specified attribute

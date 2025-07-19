@@ -271,15 +271,12 @@ interface IPlayer {
     function getXPRequiredForLevel(uint8 level) external pure returns (uint16);
 
     /// @notice Purchase additional player slots
-    /// @dev Each purchase adds 5 slots, cost increases linearly with number of existing extra slots
-    /// @return Number of slots purchased
-    function purchasePlayerSlots() external payable returns (uint8);
+    /// @dev Each purchase adds exactly SLOT_BATCH_SIZE slots for a fixed cost
+    function purchasePlayerSlots() external payable;
 
     /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
-    /// @dev Each ticket = 1 slot, requires burning player slot tickets
-    /// @param ticketCount Number of tickets to burn (each ticket = 1 slot)
-    /// @return Number of slots purchased
-    function purchasePlayerSlotsWithTickets(uint8 ticketCount) external returns (uint8);
+    /// @dev Burns exactly 1 ticket to add SLOT_BATCH_SIZE slots
+    function purchasePlayerSlotsWithTickets() external;
 
     /// @notice Set a player's immortality status
     /// @param playerId The ID of the player to update
