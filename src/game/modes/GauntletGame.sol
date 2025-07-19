@@ -49,7 +49,7 @@ error MinTimeNotElapsed();
 //==============================================================//
 /// @title Gauntlet Game Mode for Heavy Helms
 /// @notice Manages a queue of players and triggers elimination brackets (Gauntlets)
-///         of dynamic size (4, 8, 16, or 32) with a dynamic entry fee.
+///         of dynamic size (4, 8, 16, 32, or 64) with a dynamic entry fee.
 /// @dev Relies on a trusted off-chain runner and Gelato VRF for randomness.
 ///      VRF fulfillment and potentially the queue clearing in setEntryFee can be gas-intensive.
 contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
@@ -76,7 +76,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     /// @notice Structure storing data for a specific Gauntlet run instance.
     /// @param id Unique identifier for the Gauntlet.
-    /// @param size Number of participants (4, 8, 16, or 32).
+    /// @param size Number of participants (4, 8, 16, 32, or 64).
     /// @param state Current state of the Gauntlet (PENDING or COMPLETED).
     /// @param vrfRequestId The ID of the VRF request associated with this Gauntlet.
     /// @param vrfRequestTimestamp Timestamp when the VRF request was initiated.
@@ -502,7 +502,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         if (size == 4) rounds = 2;
         else if (size == 8) rounds = 3;
         else if (size == 16) rounds = 4;
-        else rounds = 5; // size == 32 (guaranteed by setGauntletSize)
+        else if (size == 32) rounds = 5;
+        else rounds = 6; // size == 64 (guaranteed by setGauntletSize)
 
         for (uint256 roundIndex = 0; roundIndex < rounds; roundIndex++) {
             uint256 currentRoundSize = currentRoundIds.length;
@@ -754,7 +755,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         require(!isGameEnabled, "Game must be disabled to change gauntlet size");
 
         // Checks for valid size parameter
-        if (newSize != 4 && newSize != 8 && newSize != 16 && newSize != 32) {
+        if (newSize != 4 && newSize != 8 && newSize != 16 && newSize != 32 && newSize != 64) {
             revert InvalidGauntletSize(newSize);
         }
 

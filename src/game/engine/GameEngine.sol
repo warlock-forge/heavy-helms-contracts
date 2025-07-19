@@ -668,11 +668,11 @@ contract GameEngine is IGameEngine {
             bool isCritical = critRoll < attacker.stats.critChance;
 
             if (isCritical) {
-                // Apply both character and weapon crit multipliers (consistent with riposte/counter)
-                uint32 totalMultiplier =
-                    (uint32(attacker.stats.critMultiplier) * uint32(attacker.weapon.critMultiplier)) / 100;
-                uint32 critDamage = (uint32(baseDamage) * totalMultiplier) / 100;
-                baseDamage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
+                // Apply both character and weapon crit multipliers with improved precision
+                // Use uint64 to prevent overflow while avoiding compound division precision loss
+                uint64 critDamage64 = (uint64(baseDamage) * uint64(attacker.stats.critMultiplier) * uint64(attacker.weapon.critMultiplier)) / 10000;
+                // Cap at uint16 max if needed
+                baseDamage = critDamage64 > type(uint16).max ? type(uint16).max : uint16(critDamage64);
                 attackResult = uint8(CombatResultType.CRIT);
             } else {
                 attackResult = uint8(CombatResultType.ATTACK);
@@ -898,13 +898,9 @@ contract GameEngine is IGameEngine {
         ActionType actionType = counterType == CounterType.PARRY ? ActionType.RIPOSTE : ActionType.COUNTER;
 
         if (isCritical) {
-            // Use uint32 for intermediate calculations
-            uint32 totalMultiplier =
-                (uint32(defender.stats.critMultiplier) * uint32(defender.weapon.critMultiplier)) / 100;
-
-            // Calculate damage with overflow protection
-            uint32 critDamage = (uint32(counterDamage) * totalMultiplier) / 100;
-            counterDamage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
+            // Single division to avoid precision loss
+            uint64 critDamage64 = (uint64(counterDamage) * uint64(defender.stats.critMultiplier) * uint64(defender.weapon.critMultiplier)) / 10000;
+            counterDamage = critDamage64 > type(uint16).max ? type(uint16).max : uint16(critDamage64);
 
             // Apply armor reduction to counter damage
             counterDamage = applyDefensiveStats(
