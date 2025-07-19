@@ -115,20 +115,20 @@ contract PlayerSlotsTest is TestBase {
 
     function testCannotPurchaseSlotsWithoutTickets() public {
         vm.startPrank(USER_ONE);
-        
+
         // Try to purchase without tickets - should revert
         vm.expectRevert(); // ERC1155 insufficient balance
         playerContract.purchasePlayerSlotsWithTickets();
-        
+
         vm.stopPrank();
     }
 
     function testInsufficientETHForSlots() public {
         vm.startPrank(USER_ONE);
-        
+
         vm.expectRevert(InsufficientFeeAmount.selector);
         playerContract.purchasePlayerSlots{value: 0.001 ether}(); // Too little
-        
+
         vm.stopPrank();
     }
 
@@ -197,7 +197,7 @@ contract PlayerSlotsTest is TestBase {
             armorSpecialization: false
         });
         tickets.setGameContractPermission(address(this), ticketPerms);
-        
+
         // Calculate how many tickets needed (each ticket = 5 slots)
         uint256 ticketsNeeded = slotsNeeded / 5;
         tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), ticketsNeeded);
@@ -232,19 +232,19 @@ contract PlayerSlotsTest is TestBase {
 
     function testStateConsistencyUnderRapidCalls() public {
         uint256 cost = playerContract.slotBatchCost();
-        
+
         vm.startPrank(USER_ONE);
-        
+
         // Multiple rapid purchases - each should add exactly 5 slots
         playerContract.purchasePlayerSlots{value: cost}();
         assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
-        
+
         playerContract.purchasePlayerSlots{value: cost}();
         assertEq(playerContract.getPlayerSlots(USER_ONE), 15);
-        
+
         playerContract.purchasePlayerSlots{value: cost}();
         assertEq(playerContract.getPlayerSlots(USER_ONE), 20);
-        
+
         vm.stopPrank();
     }
 }
