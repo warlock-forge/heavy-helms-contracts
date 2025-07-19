@@ -670,7 +670,9 @@ contract GameEngine is IGameEngine {
             if (isCritical) {
                 // Apply both character and weapon crit multipliers with improved precision
                 // Use uint64 to prevent overflow while avoiding compound division precision loss
-                uint64 critDamage64 = (uint64(baseDamage) * uint64(attacker.stats.critMultiplier) * uint64(attacker.weapon.critMultiplier)) / 10000;
+                uint64 critDamage64 = (
+                    uint64(baseDamage) * uint64(attacker.stats.critMultiplier) * uint64(attacker.weapon.critMultiplier)
+                ) / 10000;
                 // Cap at uint16 max if needed
                 baseDamage = critDamage64 > type(uint16).max ? type(uint16).max : uint16(critDamage64);
                 attackResult = uint8(CombatResultType.CRIT);
@@ -899,7 +901,9 @@ contract GameEngine is IGameEngine {
 
         if (isCritical) {
             // Single division to avoid precision loss
-            uint64 critDamage64 = (uint64(counterDamage) * uint64(defender.stats.critMultiplier) * uint64(defender.weapon.critMultiplier)) / 10000;
+            uint64 critDamage64 = (
+                uint64(counterDamage) * uint64(defender.stats.critMultiplier) * uint64(defender.weapon.critMultiplier)
+            ) / 10000;
             counterDamage = critDamage64 > type(uint16).max ? type(uint16).max : uint16(critDamage64);
 
             // Apply armor reduction to counter damage
