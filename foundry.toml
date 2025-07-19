@@ -1,22 +1,6 @@
-[lint]
-exclude_lints = [
-    "incorrect-shift",
-    "divide-before-multiply", 
-    "pascal-case-struct",
-    "mixed-case-function",
-    "mixed-case-variable",
-    "screaming-snake-case-constant",
-    "screaming-snake-case-immutable",
-    "unchecked-call",
-    "erc20-unchecked-transfer",
-    "asm-keccak256",
-    "unaliased-plain-import"
-]
-
 [profile.default]
 # Compiler settings
 via_ir = true
-code_size_limit = 1200000
 optimizer = true
 optimizer_runs = 200
 lint_enabled = false
