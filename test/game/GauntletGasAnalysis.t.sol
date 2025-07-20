@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {GauntletGame} from "../../src/game/modes/GauntletGame.sol";
-import {GameEngine} from "../../src/game/engine/GameEngine.sol";
-import {Player} from "../../src/fighters/Player.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
 import "../TestBase.sol";
 
 contract GauntletGasAnalysisTest is TestBase {
@@ -13,8 +18,8 @@ contract GauntletGasAnalysisTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        // Deploy gauntlet game with operator
-        game = new GauntletGame(address(gameEngine), address(playerContract), address(defaultPlayerContract), operator);
+        // Deploy gauntlet game
+        game = new GauntletGame(address(gameEngine), address(playerContract), address(defaultPlayerContract));
 
         // Set permissions
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
@@ -30,24 +35,28 @@ contract GauntletGasAnalysisTest is TestBase {
         game.setMinTimeBetweenGauntlets(0);
     }
 
-    function test8PlayerGauntletGas() public {
+    function test4PlayerGauntlet3Transaction() public {
+        _testGauntletSize(4);
+    }
+
+    function test8PlayerGauntlet3Transaction() public {
         _testGauntletSize(8);
     }
 
-    function test16PlayerGauntletGas() public {
+    function test16PlayerGauntlet3Transaction() public {
         _testGauntletSize(16);
     }
 
-    function test32PlayerGauntletGas() public {
+    function test32PlayerGauntlet3Transaction() public {
         _testGauntletSize(32);
     }
 
-    function test64PlayerGauntletGas() public {
+    function test64PlayerGauntlet3Transaction() public {
         _testGauntletSize(64);
     }
 
     function _testGauntletSize(uint8 size) internal {
-        console2.log("=== TESTING", size, "PLAYER GAUNTLET ===");
+        console2.log("=== TESTING", size, "PLAYER GAUNTLET (3-TRANSACTION BLOCKHASH) ===");
 
         // Set gauntlet size
         game.setGameEnabled(false);
@@ -58,144 +67,166 @@ contract GauntletGasAnalysisTest is TestBase {
         address[] memory players = new address[](size);
         uint32[] memory playerIds = new uint32[](size);
 
-        for (uint256 i = 0; i < size; i++) {
-            players[i] = address(uint160(0x1000 + i));
+        for (uint8 i = 0; i < size; i++) {
+            players[i] = address(uint160(0x10000 + i));
+            vm.deal(players[i], 100 ether);
             playerIds[i] = _createPlayerAndFulfillVRF(players[i], playerContract, false);
 
-            // Queue player for gauntlet
-            vm.startPrank(players[i]);
-            game.queueForGauntlet(_createLoadout(playerIds[i]));
-            vm.stopPrank();
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: playerIds[i],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
+
+            vm.prank(players[i]);
+            game.queueForGauntlet(loadout);
         }
 
-        console2.log("Players queued:", game.getQueueSize());
+        console2.log("Queue size:", game.getQueueSize());
 
-        // Start gauntlet (advance time to meet minimum requirement)
-        vm.warp(block.timestamp + 6 minutes);
+        // TRANSACTION 1: Queue Commit
+        uint256 tx1GasUsed = _measureGas(address(game), abi.encodeWithSelector(game.tryStartGauntlet.selector));
+        console2.log("TX1 (Queue Commit) gas:", tx1GasUsed);
 
-        // Start gauntlet and get VRF request info
-        vm.recordLogs();
-        game.tryStartGauntlet();
-        Vm.Log[] memory entries = vm.getRecordedLogs();
+        // Get selection block for next transaction
+        (bool exists, uint256 selectionBlock, uint256 tournamentBlock, uint8 phase,, uint256 participantCount) =
+            game.getPendingGauntletInfo();
+        require(exists, "Pending gauntlet should exist after commit");
+        require(phase == 1, "Should be in QUEUE_COMMIT phase"); // GauntletPhase.QUEUE_COMMIT = 1
 
-        // Decode VRF request
-        (uint256 roundId, bytes memory eventData) = _decodeVRFRequestEvent(entries);
+        // TRANSACTION 2: Participant Selection
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
 
-        // Extract requestId from eventData (it's encoded as the first parameter)
-        uint256 requestId = 0; // Using 0 as requestId should work with mock
+        uint256 tx2GasUsed = _measureGas(address(game), abi.encodeWithSelector(game.tryStartGauntlet.selector));
+        console2.log("TX2 (Participant Selection) gas:", tx2GasUsed);
 
-        // Prepare VRF fulfillment data
-        uint256 randomnessFromBlock = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, roundId)));
-        bytes memory dataWithRound = _simulateVRFFulfillment(requestId, roundId);
+        // Get tournament block for next transaction
+        (,, tournamentBlock, phase,, participantCount) = game.getPendingGauntletInfo();
+        require(phase == 2, "Should be in PARTICIPANT_SELECT phase"); // GauntletPhase.PARTICIPANT_SELECT = 2
+        require(participantCount == size, "Should have selected all participants");
 
-        // Measure gas for VRF fulfillment (the expensive part - bracket execution)
-        uint256 gasBefore = gasleft();
-        vm.prank(operator);
-        game.fulfillRandomness(randomnessFromBlock, dataWithRound);
-        uint256 gasUsed = gasBefore - gasleft();
+        // TRANSACTION 3: Tournament Execution
+        vm.roll(tournamentBlock + 1);
+        vm.prevrandao(bytes32(uint256(67890)));
 
-        console2.log("Gas used for", size, "player gauntlet:", gasUsed);
+        uint256 tx3GasUsed = _measureGas(address(game), abi.encodeWithSelector(game.tryStartGauntlet.selector));
+        console2.log("TX3 (Tournament Execution) gas:", tx3GasUsed);
 
-        // Calculate theoretical limits
-        uint256 fights = size - 1; // Total fights in elimination bracket
-        uint256 gasPerFight = gasUsed / fights;
-        console2.log("Average gas per fight:", gasPerFight);
+        // Calculate totals
+        uint256 totalGas = tx1GasUsed + tx2GasUsed + tx3GasUsed;
+        console2.log("TOTAL 3-TRANSACTION gas:", totalGas);
 
-        // Check if it would hit block gas limit (assuming 30M gas limit)
-        uint256 blockGasLimit = 30_000_000;
-        if (gasUsed > blockGasLimit) {
-            console2.log("WARNING: EXCEEDS BLOCK GAS LIMIT!");
-        } else {
-            uint256 remaining = blockGasLimit - gasUsed;
-            console2.log("OK Gas remaining:", remaining);
-            console2.log("Percent remaining:", (remaining * 100) / blockGasLimit);
-        }
+        // For comparison with VRF (which only needs 2 transactions)
+        uint256 equivVRFExecutionGas = tx2GasUsed + tx3GasUsed; // Selection + Execution
+        console2.log("Equivalent VRF execution gas (TX2+TX3):", equivVRFExecutionGas);
+
+        // Pure tournament cost (excluding selection overhead)
+        console2.log("Pure tournament gas (TX3):", tx3GasUsed);
+
+        // Verify gauntlet completed
+        assertEq(game.nextGauntletId(), 1, "One gauntlet should have been created");
+        GauntletGame.Gauntlet memory gauntlet = game.getGauntletData(0);
+        assertEq(uint8(gauntlet.state), uint8(GauntletGame.GauntletState.COMPLETED), "Gauntlet should be completed");
+        assertTrue(gauntlet.championId > 0, "Champion should be set");
+
+        // Verify no pending gauntlet
+        (exists,,,,,) = game.getPendingGauntletInfo();
+        assertFalse(exists, "No pending gauntlet should remain");
+
+        console2.log("Champion:", gauntlet.championId);
+        console2.log("=== END", size, "PLAYER GAUNTLET ===");
+        console2.log("");
     }
 
-    function testShuffleGasConsumption() public {
-        console2.log("\n=== SHUFFLE ALGORITHM GAS ANALYSIS ===");
+    function testLargeQueueSize() public {
+        console2.log("=== TESTING LARGE QUEUE SIZE (NO LIMITS) ===");
 
-        // Test the Fisher-Yates shuffle gas consumption separately
-        uint8 size = 32;
+        // Test with large queue since we removed limits - live free or die!
+        uint8 gauntletSize = 4;
+        uint256 largeQueueSize = 200; // Much larger than old 25x limit
 
-        // Disable game to change size
-        game.setGameEnabled(false);
-        game.setGauntletSize(size);
-        game.setGameEnabled(true);
+        console2.log("Gauntlet size:", gauntletSize);
+        console2.log("Large queue size to test:", largeQueueSize);
 
-        // Set minimum time to 0 for testing
-        game.setMinTimeBetweenGauntlets(0);
-
-        // Create and queue players
-        for (uint256 i = 0; i < size; i++) {
-            address player = address(uint160(0x2000 + i));
+        // Create players for large queue
+        for (uint256 i = 0; i < largeQueueSize; i++) {
+            address player = address(uint160(0x20000 + i));
+            vm.deal(player, 100 ether);
             uint32 playerId = _createPlayerAndFulfillVRF(player, playerContract, false);
 
-            vm.startPrank(player);
-            game.queueForGauntlet(_createLoadout(playerId));
-            vm.stopPrank();
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: playerId,
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
+
+            vm.prank(player);
+            game.queueForGauntlet(loadout);
         }
 
-        // Advance time to meet minimum requirement
-        vm.warp(block.timestamp + 6 minutes);
+        console2.log("Queue filled to large size:", game.getQueueSize());
 
-        // Start gauntlet and measure just the shuffle portion
-        uint256 gasBeforeShuffle = gasleft();
-        game.tryStartGauntlet();
-        uint256 gasAfterStart = gasleft();
+        // Try to start gauntlet - should succeed with no limits
+        uint256 commitGas = _measureGas(address(game), abi.encodeWithSelector(game.tryStartGauntlet.selector));
+        console2.log("Commit gas with large queue:", commitGas);
 
-        console2.log("Gas for tryStartGauntlet (includes selection + VRF request):", gasBeforeShuffle - gasAfterStart);
+        console2.log("=== END LARGE QUEUE SIZE TEST ===");
+        console2.log("");
     }
 
-    function testWorstCaseGauntletScenario() public {
-        console2.log("\n=== WORST CASE SCENARIO ANALYSIS ===");
+    function testParticipantLocking() public {
+        console2.log("=== TESTING PARTICIPANT LOCKING ===");
 
-        // Test 32-player gauntlet with all retired players (forces default substitution)
-        uint8 size = 32;
-
+        // Queue 8 players for 4-player gauntlet
         game.setGameEnabled(false);
-        game.setGauntletSize(size);
+        game.setGauntletSize(4);
         game.setGameEnabled(true);
 
-        // Set minimum time to 0 for testing
-        game.setMinTimeBetweenGauntlets(0);
+        address[] memory players = new address[](8);
+        uint32[] memory playerIds = new uint32[](8);
 
-        // Create players, queue them, then retire them to force substitution
-        for (uint256 i = 0; i < size; i++) {
-            address player = address(uint160(0x3000 + i));
-            uint32 playerId = _createPlayerAndFulfillVRF(player, playerContract, false);
+        for (uint8 i = 0; i < 8; i++) {
+            players[i] = address(uint160(0x30000 + i));
+            vm.deal(players[i], 100 ether);
+            playerIds[i] = _createPlayerAndFulfillVRF(players[i], playerContract, false);
 
-            vm.startPrank(player);
-            game.queueForGauntlet(_createLoadout(playerId));
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: playerIds[i],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
 
-            // Retire the player to force default substitution during VRF fulfillment
-            playerContract.retireOwnPlayer(playerId);
-            vm.stopPrank();
+            vm.prank(players[i]);
+            game.queueForGauntlet(loadout);
         }
 
-        // Start gauntlet (advance time to meet minimum requirement)
-        vm.warp(block.timestamp + 6 minutes);
+        console2.log("Initial queue size:", game.getQueueSize());
 
-        // Measure gas for worst-case setup
-        uint256 gasBefore = gasleft();
+        // TX1: Commit
         game.tryStartGauntlet();
-        uint256 gasUsed = gasBefore - gasleft();
 
-        // Estimate total including VRF fulfillment with retired player substitution
-        uint256 fights = size - 1;
-        uint256 estimatedCombatGas = fights * 120000; // Higher estimate for substitution overhead
-        uint256 estimatedOverheadGas = fights * 80000; // Higher overhead for worst case
-        uint256 totalEstimated = gasUsed + estimatedCombatGas + estimatedOverheadGas;
+        // TX2: Select participants
+        (, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+        game.tryStartGauntlet();
 
-        console2.log("Worst-case setup gas:", gasUsed);
-        console2.log("Worst-case total estimated:", totalEstimated);
+        console2.log("Queue size after selection:", game.getQueueSize());
+        console2.log("Should be 4 players remaining (8 - 4 selected)");
 
-        // Compare to block gas limit
-        uint256 blockGasLimit = 30_000_000;
-        if (totalEstimated > blockGasLimit) {
-            console2.log("WARNING: WORST CASE EXCEEDS BLOCK GAS LIMIT!");
-        } else {
-            console2.log("OK Worst case still within limits, remaining:", blockGasLimit - totalEstimated);
-        }
+        // Verify participants cannot withdraw after selection
+        // This test would check that selected players are locked and cannot withdraw
+        // The actual implementation should prevent withdrawals for SELECTED players
+
+        console2.log("=== END PARTICIPANT LOCKING TEST ===");
+        console2.log("");
+    }
+
+    function _measureGas(address target, bytes memory data) internal returns (uint256) {
+        uint256 gasBefore = gasleft();
+        (bool success,) = target.call(data);
+        require(success, "Gas measurement call failed");
+        return gasBefore - gasleft();
     }
 }

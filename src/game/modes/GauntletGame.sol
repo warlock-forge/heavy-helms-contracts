@@ -13,7 +13,6 @@ pragma solidity ^0.8.13;
 import "./BaseGame.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
-import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
 import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
 import "../../interfaces/fighters/IPlayer.sol";
@@ -42,6 +41,13 @@ error TimeoutNotReached();
 error UnsupportedPlayerId();
 error InsufficientQueueSize(uint256 current, uint8 required);
 error MinTimeNotElapsed();
+error PendingGauntletExists();
+error NoPendingGauntlet();
+error InvalidPhaseTransition();
+error SelectionBlockNotReached(uint256 selectionBlock, uint256 currentBlock);
+error TournamentBlockNotReached(uint256 tournamentBlock, uint256 currentBlock);
+error InvalidFutureBlocks(uint256 blocks);
+error CannotRecoverYet();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -50,24 +56,33 @@ error MinTimeNotElapsed();
 /// @title Gauntlet Game Mode for Heavy Helms
 /// @notice Manages a queue of players and triggers elimination brackets (Gauntlets)
 ///         of dynamic size (4, 8, 16, 32, or 64) with a dynamic entry fee.
-/// @dev Relies on a trusted off-chain runner and Gelato VRF for randomness.
-///      VRF fulfillment and potentially the queue clearing in setEntryFee can be gas-intensive.
-contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
+/// @dev Uses a commit-reveal pattern with future blockhash for randomness.
+///      Eliminates VRF costs and delays while providing secure participant selection.
+contract GauntletGame is BaseGame, ReentrancyGuard {
     //==============================================================//
     //                          ENUMS                               //
     //==============================================================//
     /// @notice Represents the state of a Gauntlet run.
     enum GauntletState {
-        PENDING, // Gauntlet started, awaiting VRF result or recovery.
-        COMPLETED // Gauntlet finished normally or recovered after timeout.
+        PENDING, // Gauntlet started, awaiting completion.
+        COMPLETED // Gauntlet finished.
+
+    }
+
+    /// @notice Represents the phase of the 3-transaction gauntlet system.
+    enum GauntletPhase {
+        NONE, // No pending gauntlet
+        QUEUE_COMMIT, // Phase 1: Waiting for participant selection block
+        PARTICIPANT_SELECT, // Phase 2: Waiting for tournament execution block
+        TOURNAMENT_READY // Phase 3: Ready to execute tournament
 
     }
 
     /// @notice Represents the current status of a player in relation to the Gauntlet mode.
     enum PlayerStatus {
         NONE, // Not participating.
-        QUEUED, // Waiting in the queue.
-        IN_GAUNTLET // Actively participating in a Gauntlet run.
+        QUEUED, // Waiting in the queue, can withdraw.
+        IN_TOURNAMENT // Actively participating in a Gauntlet run.
 
     }
 
@@ -78,9 +93,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param id Unique identifier for the Gauntlet.
     /// @param size Number of participants (4, 8, 16, 32, or 64).
     /// @param state Current state of the Gauntlet (PENDING or COMPLETED).
-    /// @param vrfRequestId The ID of the VRF request associated with this Gauntlet.
-    /// @param vrfRequestTimestamp Timestamp when the VRF request was initiated.
-    /// @param completionTimestamp Timestamp when the Gauntlet was completed or recovered.
+    /// @param startTimestamp Timestamp when the Gauntlet was started.
+    /// @param completionTimestamp Timestamp when the Gauntlet was completed.
     /// @param participants Array of players registered for this Gauntlet, including their loadouts.
     /// @param winners Array storing the winner ID of each match (size - 1 elements).
     /// @param championId The ID of the final Gauntlet winner.
@@ -88,8 +102,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint256 id;
         uint8 size;
         GauntletState state;
-        uint256 vrfRequestId;
-        uint256 vrfRequestTimestamp;
+        uint256 startTimestamp;
         uint256 completionTimestamp;
         RegisteredPlayer[] participants;
         uint32[] winners; // Stores winners of each round except the final
@@ -104,6 +117,20 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         Fighter.PlayerLoadout loadout;
     }
 
+    /// @notice Structure for pending gauntlet using 3-transaction pattern.
+    /// @param phase Current phase of the gauntlet process.
+    /// @param selectionBlock Future block for participant selection randomness.
+    /// @param tournamentBlock Future block for tournament execution randomness.
+    /// @param commitTimestamp Timestamp when the gauntlet was initiated.
+    /// @param gauntletId The ID that will be assigned to this gauntlet when executed.
+    struct PendingGauntlet {
+        GauntletPhase phase;
+        uint256 selectionBlock;
+        uint256 tournamentBlock;
+        uint256 commitTimestamp;
+        uint256 gauntletId;
+    }
+
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -111,8 +138,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     // --- Configuration & Roles ---
     /// @notice Contract managing default player data.
     IDefaultPlayer public defaultPlayerContract;
-    address private _operatorAddress;
-    uint256 public vrfRequestTimeout = 4 hours;
+    /// @notice Number of blocks in the future for participant selection.
+    uint256 public futureBlocksForSelection = 20;
+    /// @notice Number of blocks in the future for tournament execution.
+    uint256 public futureBlocksForTournament = 20;
+    /// @notice Maximum number of players to clear per emergency clear operation.
+    uint256 public constant CLEAR_BATCH_SIZE = 50;
     bool public isGameEnabled = true;
     uint256 public minTimeBetweenGauntlets = 5 minutes;
     uint256 public lastGauntletStartTime;
@@ -129,8 +160,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint256 public nextGauntletId;
     /// @notice Maps Gauntlet IDs to their detailed `Gauntlet` struct data.
     mapping(uint256 => Gauntlet) public gauntlets;
-    /// @notice Maps VRF request IDs back to their corresponding Gauntlet ID.
-    mapping(uint256 => uint256) public requestToGauntletId;
+    /// @notice The pending gauntlet waiting for reveal.
+    PendingGauntlet public pendingGauntlet;
 
     // --- Queue State ---
     /// @notice Stores loadout data for players currently in the queue.
@@ -153,11 +184,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event PlayerQueued(uint32 indexed playerId, uint256 queueSize);
     /// @notice Emitted when a player successfully withdraws from the queue.
     event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
-    /// @notice Emitted when a new Gauntlet run is started by the off-chain runner.
-    event GauntletStarted(
-        uint256 indexed gauntletId, uint8 size, RegisteredPlayer[] participants, uint256 vrfRequestId
-    );
-    /// @notice Emitted when a Gauntlet is successfully completed via VRF fulfillment.
+    /// @notice Emitted when phase 1 is completed (queue committed).
+    event QueueCommitted(uint256 selectionBlock, uint256 queueSize);
+    /// @notice Emitted when phase 2 is completed (participants selected).
+    event ParticipantsSelected(uint256 indexed gauntletId, uint256 tournamentBlock, uint32[] selectedIds);
+    /// @notice Emitted when a Gauntlet is started (phase 3).
+    event GauntletStarted(uint256 indexed gauntletId, uint8 size, RegisteredPlayer[] participants);
+    /// @notice Emitted when a Gauntlet is successfully completed.
     event GauntletCompleted(
         uint256 indexed gauntletId,
         uint8 size,
@@ -165,8 +198,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         uint32[] participantIds,
         uint32[] roundWinners
     );
-    /// @notice Emitted when a pending Gauntlet is recovered after VRF timeout.
-    event GauntletRecovered(uint256 indexed gauntletId);
+    /// @notice Emitted when a pending Gauntlet is recovered after timeout.
+    event GauntletRecovered(uint256 commitTimestamp);
+    /// @notice Emitted when a pending Gauntlet is automatically recovered.
+    event GauntletRecoveredAutomatically();
     /// @notice Emitted when the default player contract address is updated.
     event DefaultPlayerContractSet(address indexed newContract);
     /// @notice Emitted when the Gauntlet size (participant count) is changed.
@@ -177,8 +212,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     event MaxDefaultPlayerSubstituteIdSet(uint32 newMaxId);
     /// @notice Emitted when the minimum time required between starting gauntlets is updated.
     event MinTimeBetweenGauntletsSet(uint256 newMinTime);
-    /// @notice Emitted when the Gelato VRF operator address is updated.
-    event OperatorSet(address indexed newOperator);
+    /// @notice Emitted when the future blocks for selection is updated.
+    event FutureBlocksForSelectionSet(uint256 blocks);
+    /// @notice Emitted when the future blocks for tournament is updated.
+    event FutureBlocksForTournamentSet(uint256 blocks);
+    /// @notice Emitted when emergency queue clear is performed.
+    event EmergencyQueueCleared(uint256 cleared, uint256 remaining);
+    /// @notice Emitted when queue is partially cleared during game disable.
+    event QueuePartiallyCleared(uint256 cleared, uint256 remaining);
     /// @notice Emitted when the game enabled state is updated.
     event GameEnabledUpdated(bool enabled);
     /// @notice Emitted when the queue is cleared due to the game being disabled.
@@ -203,36 +244,25 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param _gameEngine Address of the `GameEngine` contract.
     /// @param _playerContract Address of the `Player` contract.
     /// @param _defaultPlayerAddress Address of the `DefaultPlayer` contract.
-    /// @param _operatorAddr Address of the Gelato VRF operator.
-    constructor(address _gameEngine, address _playerContract, address _defaultPlayerAddress, address _operatorAddr)
+    constructor(address _gameEngine, address _playerContract, address _defaultPlayerAddress)
         BaseGame(_gameEngine, _playerContract)
-        GelatoVRFConsumerBase()
     {
         // Input validation
-        if (_operatorAddr == address(0)) revert ZeroAddress();
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
         if (maxDefaultPlayerSubstituteId == 0) revert InvalidDefaultPlayerRange(); // Ensure initial value is valid
 
-        // Set initial state (operator is no longer immutable)
-        _operatorAddress = _operatorAddr;
+        // Set initial state
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
         lastGauntletStartTime = block.timestamp; // Initialize to deployment time
 
-        // Emit initial settings (optional, but good practice)
+        // Emit initial settings
         emit DefaultPlayerContractSet(_defaultPlayerAddress);
         emit GauntletSizeSet(0, currentGauntletSize);
         emit MaxDefaultPlayerSubstituteIdSet(maxDefaultPlayerSubstituteId);
         emit MinTimeBetweenGauntletsSet(minTimeBetweenGauntlets);
-        emit OperatorSet(_operatorAddr); // Emit initial operator address
-    }
-
-    //==============================================================//
-    //                 GELATO VRF CONFIGURATION                     //
-    //==============================================================//
-    /// @notice Returns the operator address for VRF. Required by `GelatoVRFConsumerBase`.
-    /// @return operator Address of the Gelato VRF operator.
-    function _operator() internal view override returns (address) {
-        return _operatorAddress;
+        emit FutureBlocksForSelectionSet(futureBlocksForSelection);
+        emit FutureBlocksForTournamentSet(futureBlocksForTournament);
+        // No queue size limits - live free or die!
     }
 
     //==============================================================//
@@ -273,12 +303,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
     /// @notice Allows a player owner to withdraw their player from the queue before a Gauntlet starts.
     /// @param playerId The ID of the player to withdraw.
-    /// @dev Uses swap-and-pop to maintain queue integrity.
+    /// @dev Uses swap-and-pop to maintain queue integrity. Cannot withdraw after selection.
     function withdrawFromQueue(uint32 playerId) external nonReentrant {
         // Checks
         address owner = playerContract.getPlayerOwner(playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
-        if (playerStatus[playerId] != PlayerStatus.QUEUED) revert PlayerNotInQueue();
+        if (playerStatus[playerId] != PlayerStatus.QUEUED) {
+            revert PlayerNotInQueue();
+        }
 
         // Effects - update player state
         _removePlayerFromQueueArrayIndex(playerId); // Handles swap-and-pop and mapping updates
@@ -306,120 +338,204 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //                 GAUNTLET LIFECYCLE (Triggered Externally)    //
     //==============================================================//
 
-    /// @notice Attempts to start a new Gauntlet if enough time has passed and the queue has enough players.
-    /// @dev Callable by anyone (e.g., Gelato Automation). Randomly selects N players from the queue using
-    ///      pseudo-randomness derived from block variables. Uses swap-and-pop to remove selected players efficiently.
-    ///      WARNING: Random selection and removal can be more gas-intensive than FIFO, especially with large queues.
+    /// @notice Attempts to start a new Gauntlet using 3-transaction commit-reveal pattern.
+    /// @dev Callable by anyone. Handles three phases:
+    ///      1. QUEUE_COMMIT: Snapshots queue and sets selection block
+    ///      2. PARTICIPANT_SELECT: Selects participants and sets tournament block
+    ///      3. TOURNAMENT_READY: Executes the tournament
     function tryStartGauntlet() external whenGameEnabled nonReentrant {
-        // Checks
-        uint256 requiredTime = lastGauntletStartTime + minTimeBetweenGauntlets;
-        if (block.timestamp < requiredTime) {
-            // REVERT instead of return
-            revert MinTimeNotElapsed();
-        }
-        uint8 size = currentGauntletSize;
-        uint256 currentQueueSize = queueIndex.length;
-        if (currentQueueSize < size) {
-            // REVERT instead of return
-            revert InsufficientQueueSize(currentQueueSize, size);
-        }
+        // Handle pending gauntlet phases
+        if (pendingGauntlet.phase != GauntletPhase.NONE) {
+            // Check if we're past the 256-block limit from initial commit for auto-recovery
+            uint256 commitBlock = (pendingGauntlet.phase == GauntletPhase.QUEUE_COMMIT)
+                ? pendingGauntlet.selectionBlock - futureBlocksForSelection
+                : pendingGauntlet.tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
 
-        // --- Condition met, proceed to start Gauntlet ---
+            if (block.number > commitBlock + 256) {
+                // Auto-recovery if we missed the window
+                _recoverPendingGauntlet();
+                emit GauntletRecoveredAutomatically();
+            }
 
-        // Effects - Update timing
-        lastGauntletStartTime = block.timestamp; // Prevent re-entry immediately
+            if (pendingGauntlet.phase == GauntletPhase.QUEUE_COMMIT) {
+                // Phase 2: Participant Selection
+                if (block.number >= pendingGauntlet.selectionBlock) {
+                    _selectParticipantsPhase();
+                    return;
+                } else {
+                    revert SelectionBlockNotReached(pendingGauntlet.selectionBlock, block.number);
+                }
+            } else if (pendingGauntlet.phase == GauntletPhase.PARTICIPANT_SELECT) {
+                // Phase 3: Tournament Execution
+                if (block.number >= pendingGauntlet.tournamentBlock) {
+                    _executeTournamentPhase();
+                    return;
+                } else {
+                    revert TournamentBlockNotReached(pendingGauntlet.tournamentBlock, block.number);
+                }
+            }
 
-        // --- Randomly Select Participants ---
-        uint32[] memory selectedPlayerIds = new uint32[](size);
-        RegisteredPlayer[] memory participantsData = new RegisteredPlayer[](size);
-        uint32[] memory availableQueue = new uint32[](currentQueueSize); // Copy queue for selection
-        for (uint256 i = 0; i < currentQueueSize; i++) {
-            availableQueue[i] = queueIndex[i];
-        }
-
-        // Generate pseudo-random seed for selection
-        uint256 selectionSeed =
-            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, address(this), currentQueueSize)));
-        uint256 remainingToSelect = currentQueueSize; // Track size of availableQueue effectively
-
-        for (uint256 i = 0; i < size; i++) {
-            selectionSeed = uint256(keccak256(abi.encodePacked(selectionSeed, i))); // Evolve seed
-            uint256 randomIndex = selectionSeed % remainingToSelect; // Index within the *remaining* available players
-
-            uint32 selectedPlayerId = availableQueue[randomIndex];
-            selectedPlayerIds[i] = selectedPlayerId;
-
-            // Store participant data in memory
-            participantsData[i] =
-                RegisteredPlayer({playerId: selectedPlayerId, loadout: registrationQueue[selectedPlayerId]});
-
-            // Remove selected player from available pool using swap-and-pop for the *temporary* array
-            availableQueue[randomIndex] = availableQueue[remainingToSelect - 1];
-            remainingToSelect--; // Decrease the effective size
-        }
-        // `selectedPlayerIds` and `participantsData` now hold the randomly chosen participants
-
-        // --- Prepare Gauntlet Struct ---
-        uint256 gauntletId = nextGauntletId++;
-
-        Gauntlet storage newGauntlet = gauntlets[gauntletId];
-        newGauntlet.id = gauntletId;
-        newGauntlet.size = size;
-        newGauntlet.state = GauntletState.PENDING;
-        // Participants assigned *after* removal from main queue
-
-        // --- Remove Selected Participants from Actual Queue & Update State ---
-        // Now remove the *actually selected* players from the main queue structures
-        for (uint256 i = 0; i < size; i++) {
-            uint32 playerIdToRemove = selectedPlayerIds[i];
-
-            // Remove player from main queueIndex array & playerIndexInQueue mapping
-            // This helper handles the necessary swap-and-pop on the *actual* queueIndex
-            _removePlayerFromQueueArrayIndex(playerIdToRemove);
-
-            // Clear registration data and update status
-            delete registrationQueue[playerIdToRemove];
-            playerStatus[playerIdToRemove] = PlayerStatus.IN_GAUNTLET;
-            playerCurrentGauntlet[playerIdToRemove] = gauntletId;
-        }
-
-        // Assign selected participants to storage now that removals are done
-        newGauntlet.participants = participantsData;
-
-        // --- Request VRF Randomness ---
-        newGauntlet.vrfRequestTimestamp = block.timestamp; // Record timestamp *before* request
-        uint256 requestId = _requestRandomness(""); // Request randomness from Gelato VRF
-        requestToGauntletId[requestId] = gauntletId; // Link VRF request to this gauntlet
-        newGauntlet.vrfRequestId = requestId;
-
-        // Interactions (Event Emission)
-        emit GauntletStarted(gauntletId, size, participantsData, requestId);
-    }
-
-    //==============================================================//
-    //                    VRF FULFILLMENT                         //
-    //==============================================================//
-    /// @notice Internal callback function executed by Gelato VRF Operator upon receiving randomness.
-    /// @dev Simulates the Gauntlet bracket, determines the winner, distributes prizes/fees, and updates player states.
-    /// @param randomness The random value provided by the VRF oracle.
-    /// @param requestId The ID of the VRF request being fulfilled.
-    /// @param extraData Additional data (unused in this implementation).
-    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory extraData) internal override {
-        // Prevent unused parameter warning
-        extraData;
-
-        // Checks - Validate request and gauntlet state
-        uint256 gauntletId = requestToGauntletId[requestId];
-        Gauntlet storage gauntlet = gauntlets[gauntletId];
-        // If state is not PENDING (e.g., already completed or recovered), ignore fulfillment
-        if (gauntlet.state != GauntletState.PENDING) {
-            delete requestToGauntletId[requestId]; // Clean up mapping if stale request arrives
+            // If we reach here, we're waiting for the next phase
             return;
         }
 
-        // Effects - Update state immediately to prevent re-entry or duplicate processing
-        delete requestToGauntletId[requestId]; // Remove link once processed
-        // Note: Gauntlet state set to COMPLETED later
+        // Phase 1: Queue Commit - Create new pending gauntlet if conditions met
+        if (block.timestamp < lastGauntletStartTime + minTimeBetweenGauntlets) {
+            revert MinTimeNotElapsed();
+        }
+        if (queueIndex.length < currentGauntletSize) {
+            revert InsufficientQueueSize(queueIndex.length, currentGauntletSize);
+        }
+
+        _commitQueuePhase();
+    }
+
+    //==============================================================//
+    //                    COMMIT-REVEAL FUNCTIONS                   //
+    //==============================================================//
+
+    /// @notice Phase 1: Commits the queue and sets up for participant selection.
+    function _commitQueuePhase() private {
+        // No queue size limits - live free or die!
+
+        // Update timing
+        lastGauntletStartTime = block.timestamp;
+
+        // Initialize pending gauntlet for phase 1
+        pendingGauntlet.phase = GauntletPhase.QUEUE_COMMIT;
+        pendingGauntlet.selectionBlock = block.number + futureBlocksForSelection;
+        pendingGauntlet.commitTimestamp = block.timestamp;
+        pendingGauntlet.gauntletId = nextGauntletId;
+
+        emit QueueCommitted(pendingGauntlet.selectionBlock, queueIndex.length);
+    }
+
+    /// @notice Phase 2: Selects participants using blockhash randomness.
+    function _selectParticipantsPhase() private {
+        // Get randomness from selection block
+        uint256 seed = uint256(blockhash(pendingGauntlet.selectionBlock));
+        if (seed == 0) {
+            revert("Invalid blockhash");
+        }
+
+        // Select participants using hybrid algorithm
+        uint32[] memory selectedIds = _selectParticipants(seed, queueIndex);
+
+        // Create the actual gauntlet FIRST
+        uint256 gauntletId = pendingGauntlet.gauntletId;
+        nextGauntletId++; // Increment for next gauntlet
+        Gauntlet storage gauntlet = gauntlets[gauntletId];
+        gauntlet.id = gauntletId;
+        gauntlet.size = uint8(selectedIds.length);
+        gauntlet.state = GauntletState.PENDING;
+        gauntlet.startTimestamp = block.timestamp;
+
+        // Store participants ONLY in gauntlet (eliminate duplication)
+        for (uint256 i = 0; i < selectedIds.length; i++) {
+            uint32 playerId = selectedIds[i];
+            Fighter.PlayerLoadout memory loadout = registrationQueue[playerId];
+
+            // Store ONLY in gauntlet
+            gauntlet.participants.push(RegisteredPlayer({playerId: playerId, loadout: loadout}));
+
+            // Update player status to final state
+            playerStatus[playerId] = PlayerStatus.IN_TOURNAMENT;
+            playerCurrentGauntlet[playerId] = gauntletId;
+        }
+
+        // Remove selected players from queue one by one
+        for (uint256 i = 0; i < selectedIds.length; i++) {
+            uint32 playerId = selectedIds[i];
+            _removePlayerFromQueueArrayIndex(playerId);
+            delete registrationQueue[playerId];
+        }
+
+        // Emit start event NOW in TX2
+        emit GauntletStarted(gauntletId, gauntlet.size, gauntlet.participants);
+
+        // Set up tournament phase
+        pendingGauntlet.phase = GauntletPhase.PARTICIPANT_SELECT;
+        pendingGauntlet.tournamentBlock = block.number + futureBlocksForTournament;
+
+        emit ParticipantsSelected(pendingGauntlet.gauntletId, pendingGauntlet.tournamentBlock, selectedIds);
+    }
+
+    /// @notice Phase 3: Executes the tournament using blockhash randomness.
+    function _executeTournamentPhase() private {
+        // Get randomness from tournament block
+        uint256 seed = uint256(blockhash(pendingGauntlet.tournamentBlock));
+        if (seed == 0) {
+            revert("Invalid blockhash");
+        }
+
+        // Everything is already set up in TX2, just get the gauntlet ID
+        uint256 gauntletId = pendingGauntlet.gauntletId;
+
+        // Clear pending gauntlet
+        delete pendingGauntlet;
+
+        // Execute the tournament using gauntlet logic
+        _executeGauntletWithRandomness(gauntletId, seed);
+    }
+
+    /// @notice Selects participants using hybrid first-half randomization.
+    /// @param seed The random seed from blockhash.
+    /// @param queue The current queue array to select from.
+    /// @return selected Array of selected player IDs.
+    function _selectParticipants(uint256 seed, uint32[] memory queue) private view returns (uint32[] memory selected) {
+        uint8 size = currentGauntletSize;
+        uint256 queueSize = queue.length;
+
+        // Determine selection pool size
+        uint256 poolSize;
+        if (queueSize >= size * 2) {
+            // Hybrid mode: select from first half for fairness
+            poolSize = queueSize / 2;
+        } else {
+            // Pure random: select from entire queue
+            poolSize = queueSize;
+        }
+
+        // Random selection from pool
+        selected = new uint32[](size);
+        uint32[] memory pool = new uint32[](poolSize);
+
+        // Copy pool
+        for (uint256 i = 0; i < poolSize; i++) {
+            pool[i] = queue[i];
+        }
+
+        // Select players
+        uint256 remaining = poolSize;
+        for (uint256 i = 0; i < size; i++) {
+            seed = uint256(keccak256(abi.encodePacked(seed, i)));
+            uint256 index = seed % remaining;
+
+            selected[i] = pool[index];
+
+            // Swap and pop
+            pool[index] = pool[remaining - 1];
+            remaining--;
+        }
+    }
+
+    /// @notice Helper function to clean up pending gauntlet state during recovery.
+    function _recoverPendingGauntlet() private {
+        // In our architecture, recovery is simple - just clear the pending gauntlet
+        // Players remain in queue during QUEUE_COMMIT phase
+        // Players are in tournament during PARTICIPANT_SELECT phase (no recovery needed)
+        delete pendingGauntlet;
+    }
+
+    /// @notice Executes a gauntlet tournament using blockhash randomness.
+    /// @param gauntletId The ID of the gauntlet to execute.
+    /// @param randomness The random value from blockhash.
+    function _executeGauntletWithRandomness(uint256 gauntletId, uint256 randomness) private {
+        Gauntlet storage gauntlet = gauntlets[gauntletId];
+        // If state is not PENDING (shouldn't happen in blockhash version), return early
+        if (gauntlet.state != GauntletState.PENDING) {
+            return;
+        }
 
         // Load gauntlet parameters into memory for efficiency
         uint8 size = gauntlet.size;
@@ -466,11 +582,11 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             }
         }
 
-        // Shuffle participants using Fisher-Yates based on VRF randomness
+        // Shuffle participants using Fisher-Yates based on randomness
         uint32[] memory shuffledParticipantIds = new uint32[](size);
         IGameEngine.FighterStats[] memory shuffledParticipantStats = new IGameEngine.FighterStats[](size);
         bytes32[] memory shuffledParticipantData = new bytes32[](size);
-        uint256 shuffleRand = randomness; // Use VRF randomness as initial shuffle seed
+        uint256 shuffleRand = randomness; // Use randomness as initial shuffle seed
         bool[] memory picked = new bool[](size);
         uint256 count = 0;
         while (count < size) {
@@ -493,7 +609,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         IGameEngine.FighterStats[] memory nextRoundStats;
         bytes32[] memory nextRoundData;
 
-        uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, requestId))); // Base seed for all fights
+        uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, gauntletId))); // Base seed for all fights
         gauntlet.winners = new uint32[](size - 1); // Initialize array for round winners
         uint256 winnerIndex = 0;
 
@@ -572,7 +688,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         for (uint256 i = 0; i < size; i++) {
             uint32 pId = initialParticipants[i].playerId;
             // Check status and current gauntlet ID before clearing
-            if (playerStatus[pId] == PlayerStatus.IN_GAUNTLET && playerCurrentGauntlet[pId] == gauntletId) {
+            if (playerStatus[pId] == PlayerStatus.IN_TOURNAMENT && playerCurrentGauntlet[pId] == gauntletId) {
                 playerStatus[pId] = PlayerStatus.NONE;
                 delete playerCurrentGauntlet[pId];
             }
@@ -608,6 +724,39 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Clear the mapping for the removed player and shrink the array
         delete playerIndexInQueue[playerIdToRemove];
         queueIndex.pop();
+    }
+
+    /// @notice Efficiently removes multiple players from the queue in a single operation.
+    /// @param playerIds Array of player IDs to remove from the queue.
+    function _batchRemovePlayersFromQueue(uint32[] memory playerIds) internal {
+        // Clear registration data first
+        for (uint256 i = 0; i < playerIds.length; i++) {
+            delete registrationQueue[playerIds[i]];
+        }
+
+        // Use optimized removal: remove from end to avoid index shifting
+        // Sort removal indices in descending order for efficient removal
+        uint256[] memory indicesToRemove = new uint256[](playerIds.length);
+        for (uint256 i = 0; i < playerIds.length; i++) {
+            indicesToRemove[i] = playerIndexInQueue[playerIds[i]] - 1; // Convert to 0-based
+        }
+
+        // Simple bubble sort in descending order (small arrays only)
+        for (uint256 i = 0; i < indicesToRemove.length; i++) {
+            for (uint256 j = i + 1; j < indicesToRemove.length; j++) {
+                if (indicesToRemove[i] < indicesToRemove[j]) {
+                    uint256 temp = indicesToRemove[i];
+                    indicesToRemove[i] = indicesToRemove[j];
+                    indicesToRemove[j] = temp;
+                }
+            }
+        }
+
+        // Remove players from highest index to lowest to avoid shifting issues
+        for (uint256 i = 0; i < indicesToRemove.length; i++) {
+            uint32 playerIdToRemove = queueIndex[indicesToRemove[i]];
+            _removePlayerFromQueueArrayIndexWithIndex(playerIdToRemove, indicesToRemove[i]);
+        }
     }
 
     /// @notice Internal helper to get combat stats for a registered player.
@@ -658,6 +807,68 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         return gauntlets[gauntletId];
     }
 
+    /// @notice Returns information about the pending gauntlet.
+    /// @return exists Whether a pending gauntlet exists.
+    /// @return selectionBlock The block for participant selection (if in phase 1).
+    /// @return tournamentBlock The block for tournament execution (if in phase 2).
+    /// @return phase The current phase of the pending gauntlet.
+    /// @return gauntletId The ID assigned to this gauntlet.
+    /// @return participantCount Number of selected participants (if in phase 2+).
+    function getPendingGauntletInfo()
+        external
+        view
+        returns (
+            bool exists,
+            uint256 selectionBlock,
+            uint256 tournamentBlock,
+            uint8 phase,
+            uint256 gauntletId,
+            uint256 participantCount
+        )
+    {
+        exists = (pendingGauntlet.phase != GauntletPhase.NONE);
+        selectionBlock = pendingGauntlet.selectionBlock;
+        tournamentBlock = pendingGauntlet.tournamentBlock;
+        phase = uint8(pendingGauntlet.phase);
+        gauntletId = pendingGauntlet.gauntletId;
+        // Get participant count from the actual gauntlet if it exists
+        if (pendingGauntlet.phase != GauntletPhase.NONE && pendingGauntlet.phase != GauntletPhase.QUEUE_COMMIT) {
+            participantCount = gauntlets[pendingGauntlet.gauntletId].participants.length;
+        } else {
+            participantCount = 0;
+        }
+    }
+
+    /// @notice Checks if the pending gauntlet can be recovered.
+    /// @return True if recovery is possible (256 blocks have passed since commit).
+    function canRecoverPendingGauntlet() public view returns (bool) {
+        if (pendingGauntlet.phase == GauntletPhase.NONE) return false;
+
+        // After 256 blocks from commit, blockhash(revealBlock) returns 0
+        uint256 commitBlock;
+        if (pendingGauntlet.phase == GauntletPhase.QUEUE_COMMIT) {
+            commitBlock = pendingGauntlet.selectionBlock - futureBlocksForSelection;
+        } else {
+            commitBlock = pendingGauntlet.tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
+        }
+        return block.number > commitBlock + 256;
+    }
+
+    /// @notice Recovers a pending gauntlet after the 256-block window.
+    /// @dev Clears the pending gauntlet without executing it.
+    function recoverPendingGauntlet() external nonReentrant {
+        if (!canRecoverPendingGauntlet()) revert CannotRecoverYet();
+
+        // Store timestamp for event
+        uint256 timestamp = pendingGauntlet.commitTimestamp;
+
+        // Clear pending gauntlet
+        delete pendingGauntlet;
+
+        // No need to process participants - they're still in queue
+        emit GauntletRecovered(timestamp);
+    }
+
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
     //==============================================================//
@@ -670,14 +881,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         isGameEnabled = enabled;
 
-        // If disabling the game, clear the queue
-        if (!enabled) {
-            uint256 queueLength = queueIndex.length; // Cache initial length
+        // If disabling the game, clear queue in batches for gas safety
+        if (!enabled && queueIndex.length > 0) {
+            // Clear up to CLEAR_BATCH_SIZE players to avoid gas issues
+            uint256 clearCount = queueIndex.length > CLEAR_BATCH_SIZE ? CLEAR_BATCH_SIZE : queueIndex.length;
 
-            // Iterate backwards for safe swap-and-pop during iteration
-            for (uint256 i = queueLength; i > 0; i--) {
-                uint256 indexToRemove = i - 1; // Current 0-based index
-                uint32 playerId = queueIndex[indexToRemove];
+            for (uint256 i = 0; i < clearCount; i++) {
+                uint32 playerId = queueIndex[queueIndex.length - 1]; // Always remove last
 
                 // Clear player state if they were QUEUED
                 if (playerStatus[playerId] == PlayerStatus.QUEUED) {
@@ -685,57 +895,56 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
                     playerStatus[playerId] = PlayerStatus.NONE;
                 }
 
-                // Always remove from queue array via swap-and-pop
-                _removePlayerFromQueueArrayIndexWithIndex(playerId, indexToRemove);
+                // Remove from queue array
+                queueIndex.pop();
             }
+
+            emit QueuePartiallyCleared(clearCount, queueIndex.length);
         }
 
         // Always emit the state change event
         emit GameEnabledUpdated(enabled);
     }
 
-    /// @notice Sets the Gelato VRF operator address.
-    /// @param newOperator The new operator address.
-    function setOperator(address newOperator) external onlyOwner {
-        if (newOperator == address(0)) revert ZeroAddress();
-        if (newOperator == _operatorAddress) return; // No change needed
-        _operatorAddress = newOperator;
-        emit OperatorSet(newOperator);
+    /// @notice Sets the number of future blocks for participant selection.
+    /// @param blocks The number of blocks to wait before selection.
+    function setFutureBlocksForSelection(uint256 blocks) external onlyOwner {
+        if (blocks == 0 || blocks > 255) revert InvalidFutureBlocks(blocks);
+        if (blocks == futureBlocksForSelection) return; // No change needed
+        futureBlocksForSelection = blocks;
+        emit FutureBlocksForSelectionSet(blocks);
     }
 
-    /// @notice Allows anyone to trigger recovery for a timed-out Gauntlet.
-    /// @dev Marks the Gauntlet as COMPLETED and cleans up participant state. Intentionally public access after timeout.
-    /// @param gauntletId The ID of the Gauntlet to recover.
-    function recoverTimedOutVRF(uint256 gauntletId) external nonReentrant {
-        // Checks
-        Gauntlet storage gauntlet = gauntlets[gauntletId];
-        if (gauntlet.state != GauntletState.PENDING) revert GauntletNotPending();
-        if (block.timestamp < gauntlet.vrfRequestTimestamp + vrfRequestTimeout) revert TimeoutNotReached();
+    /// @notice Sets the number of future blocks for tournament execution.
+    /// @param blocks The number of blocks to wait before tournament.
+    function setFutureBlocksForTournament(uint256 blocks) external onlyOwner {
+        if (blocks == 0 || blocks > 255) revert InvalidFutureBlocks(blocks);
+        if (blocks == futureBlocksForTournament) return; // No change needed
+        futureBlocksForTournament = blocks;
+        emit FutureBlocksForTournamentSet(blocks);
+    }
 
-        // Effects - Mark gauntlet completed first
-        gauntlet.state = GauntletState.COMPLETED;
-        gauntlet.completionTimestamp = block.timestamp;
+    /// @notice Emergency function to clear players from queue in gas-safe batches.
+    /// @dev Clears up to CLEAR_BATCH_SIZE players per call. Call multiple times if needed.
+    function emergencyClearQueue() external onlyOwner {
+        if (queueIndex.length == 0) return; // Nothing to clear
 
-        // Clean up VRF request ID mapping if it exists
-        if (gauntlet.vrfRequestId != 0 && requestToGauntletId[gauntlet.vrfRequestId] == gauntletId) {
-            delete requestToGauntletId[gauntlet.vrfRequestId];
-        }
+        uint256 clearCount = queueIndex.length > CLEAR_BATCH_SIZE ? CLEAR_BATCH_SIZE : queueIndex.length;
 
-        // Process state cleanup for participants
-        RegisteredPlayer[] storage participants = gauntlet.participants;
-        uint8 size = gauntlet.size;
-        for (uint256 i = 0; i < size; i++) {
-            uint32 pId = participants[i].playerId;
-            // Check if the player was actually marked as IN_GAUNTLET for this specific run
-            if (playerStatus[pId] == PlayerStatus.IN_GAUNTLET && playerCurrentGauntlet[pId] == gauntletId) {
-                // Clean up player state
-                playerStatus[pId] = PlayerStatus.NONE;
-                delete playerCurrentGauntlet[pId];
+        for (uint256 i = 0; i < clearCount; i++) {
+            uint32 playerId = queueIndex[queueIndex.length - 1]; // Always remove last
+
+            // Clear player state regardless of status for emergency
+            delete registrationQueue[playerId];
+            if (playerStatus[playerId] == PlayerStatus.QUEUED) {
+                playerStatus[playerId] = PlayerStatus.NONE;
             }
+
+            // Remove from queue array
+            queueIndex.pop();
         }
 
-        // Interaction: Emit recovery event
-        emit GauntletRecovered(gauntletId);
+        emit EmergencyQueueCleared(clearCount, queueIndex.length);
     }
 
     /// @notice Updates the address of the `DefaultPlayer` contract.
@@ -767,7 +976,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         emit GauntletSizeSet(oldSize, newSize);
     }
 
-    /// @notice Sets the maximum ID used for default player substitutions during VRF fulfillment.
+    /// @notice Sets the maximum ID used for default player substitutions during tournament execution.
     /// @dev Owner must ensure this ID corresponds to an existing, valid player in the `DefaultPlayer` contract.
     ///      Must be within the range [1, 2000].
     /// @param _maxId The highest default player ID to consider for substitution.

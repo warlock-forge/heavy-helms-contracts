@@ -445,3 +445,8 @@ while (total != 72) { // Will always converge
 - **BY DESIGN**: PlayerSkinNFT allows public minting when enabled (with payment)
 - **BY DESIGN**: Practice mode uses predictable randomness (no stakes)
 - **KNOWN ISSUE**: Queue selection timing exploit (fix in progress with blockhash solution)
+
+## Memories
+
+- Never try a fresh forge build as it will just timeout - ask the user to do it
+- Always run `forge fmt` before we git add

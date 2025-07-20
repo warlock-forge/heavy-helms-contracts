@@ -24,7 +24,6 @@ contract GauntletGameDeployScript is Script {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
@@ -32,7 +31,7 @@ contract GauntletGameDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy GauntletGame
-        GauntletGame gauntletGame = new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr, operator);
+        GauntletGame gauntletGame = new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr);
 
         // Whitelist GauntletGame in Player contract
         Player playerContract = Player(playerAddr);
