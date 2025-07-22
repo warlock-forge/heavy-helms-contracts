@@ -214,7 +214,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param isPaused The new paused state
     event PausedStateChanged(bool isPaused);
 
-
     /// @notice Emitted when the slot batch cost is updated
     /// @param oldCost The previous cost
     /// @param newCost The new cost

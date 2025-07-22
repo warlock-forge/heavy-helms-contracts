@@ -193,6 +193,27 @@ contract BalanceTest is TestBase {
         });
     }
 
+    function createReachMage() private view returns (TestFighter memory) {
+        Fighter.Attributes memory attrs = Fighter.Attributes({
+            strength: lowStat, // Don't need much for reach weapons
+            constitution: mediumStat,
+            size: lowStat, // Light and nimble
+            agility: highStat, // Primary stat for reach weapons
+            stamina: highStat, // Keep distance and control
+            luck: mediumStat
+        });
+
+        return TestFighter({
+            name: "Reach Mage",
+            stats: IGameEngine.FighterStats({
+                attributes: attrs,
+                armor: 0, // ARMOR_CLOTH for maximum speed
+                weapon: 5, // WEAPON_QUARTERSTAFF
+                stance: 1 // STANCE_BALANCED
+            })
+        });
+    }
+
     // Create a fighter with specified weapon, armor, stance and attributes
     function createCustomFighter(
         string memory name,
