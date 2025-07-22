@@ -193,23 +193,23 @@ contract BalanceTest is TestBase {
         });
     }
 
-    function createReachMage() private view returns (TestFighter memory) {
+    function createMonk() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: lowStat, // Don't need much for reach weapons
-            constitution: mediumStat,
+            strength: lowStat, // Relies on technique over strength
+            constitution: highStat, // Monastic conditioning
             size: lowStat, // Light and nimble
-            agility: highStat, // Primary stat for reach weapons
-            stamina: highStat, // Keep distance and control
-            luck: mediumStat
+            agility: highStat, // Primary stat for quarterstaff mastery
+            stamina: highStat, // Endless training and discipline
+            luck: mediumStat // Some fortune from karma
         });
 
         return TestFighter({
-            name: "Reach Mage",
+            name: "Monk",
             stats: IGameEngine.FighterStats({
                 attributes: attrs,
-                armor: 0, // ARMOR_CLOTH for maximum speed
-                weapon: 5, // WEAPON_QUARTERSTAFF
-                stance: 1 // STANCE_BALANCED
+                armor: 0, // ARMOR_CLOTH - monastic robes
+                weapon: 5, // WEAPON_QUARTERSTAFF - traditional monk weapon
+                stance: 0 // STANCE_DEFENSIVE - patient, defensive kung fu
             })
         });
     }
@@ -873,12 +873,11 @@ contract BalanceTest is TestBase {
 
     // Test all Berserker variants vs Shield Tank variants
     function testBerserkerArchetypeVsShieldTankArchetype() public skipInCI {
-        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL, TRIDENT
-        uint8[] memory berserkerWeapons = new uint8[](4);
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL (all HEAVY_DEMOLITION: STR+SIZE)
+        uint8[] memory berserkerWeapons = new uint8[](3);
         berserkerWeapons[0] = 4; // BATTLEAXE
         berserkerWeapons[1] = 3; // GREATSWORD
         berserkerWeapons[2] = 25; // MAUL
-        berserkerWeapons[3] = 26; // TRIDENT
 
         // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
         uint8[] memory shieldWeapons = new uint8[](4);
@@ -959,12 +958,11 @@ contract BalanceTest is TestBase {
         assassinWeapons[3] = 20; // SCIMITAR_DAGGER
         assassinWeapons[4] = 6; // SPEAR (2-handed assassin weapon)
 
-        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL, TRIDENT
-        uint8[] memory berserkerWeapons = new uint8[](4);
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL (all HEAVY_DEMOLITION: STR+SIZE)
+        uint8[] memory berserkerWeapons = new uint8[](3);
         berserkerWeapons[0] = 4; // BATTLEAXE
         berserkerWeapons[1] = 3; // GREATSWORD
         berserkerWeapons[2] = 25; // MAUL
-        berserkerWeapons[3] = 26; // TRIDENT
 
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
@@ -1194,12 +1192,11 @@ contract BalanceTest is TestBase {
         parryWeapons[2] = 11; // SCIMITAR_BUCKLER
         parryWeapons[3] = 15; // FLAIL_BUCKLER
 
-        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL, TRIDENT
-        uint8[] memory berserkerWeapons = new uint8[](4);
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL (all HEAVY_DEMOLITION: STR+SIZE)
+        uint8[] memory berserkerWeapons = new uint8[](3);
         berserkerWeapons[0] = 4; // BATTLEAXE
         berserkerWeapons[1] = 3; // GREATSWORD
         berserkerWeapons[2] = 25; // MAUL
-        berserkerWeapons[3] = 26; // TRIDENT
 
         uint256 totalParryWins = 0;
         uint256 totalMatches = 0;
