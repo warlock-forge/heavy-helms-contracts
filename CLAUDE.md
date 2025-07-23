@@ -1181,15 +1181,19 @@ Average Weapon Damage = (minDamage + maxDamage) ÷ 2
 
 #### **3. Optimal Builds for Maximum DPR**
 
-**All optimal builds use STR=25 for universal +5% bonus:**
+## **STANDARDIZED DAMAGE MODIFIERS - NEVER CHANGE THESE**
 
-- **LIGHT_FINESSE**: AGI=25, STR=25 → Damage Modifier = **288.75**
-- **CURVED_BLADE**: AGI=25, STR=25 → Damage Modifier = **299.25**
-- **BALANCED_SWORD**: STR=25, AGI=25 → Damage Modifier = **299.25**
-- **PURE_BLUNT**: STR=25 → Damage Modifier = **288.75**
-- **HEAVY_DEMOLITION**: STR=25, SIZE=25 → Damage Modifier = **334.95**
-- **DUAL_WIELD_BRUTE**: STR=25, SIZE=25, AGI=25 → Damage Modifier = **346.50**
-- **REACH_CONTROL**: AGI=25, STR=25 → Damage Modifier = **304.50**
+**FINAL LOCKED DAMAGE MODIFIERS (DO NOT FUCKING CHANGE):**
+
+- **LIGHT_FINESSE**: **204.25** (AGI=19, STR=5, SIZE=5: Base 25 + 190 = 215, -5% SIZE = 204.25)
+- **CURVED_BLADE**: **204.00** (AGI=19, STR=12, SIZE=9: Base 35 + 133 + 36 = 204)
+- **BALANCED_SWORD**: **224.40** (STR=19, AGI=12, SIZE=9: Base 35 + 133 + 36 = 204, +10% OFFENSIVE = 224.40)
+- **PURE_BLUNT**: **236.50** (STR=19, SIZE=9: Base 25 + 190 = 215, +10% OFFENSIVE = 236.50)
+- **HEAVY_DEMOLITION**: **248.75** (STR=17, SIZE=21: Base 40 + 85 + 105 = 230, +3%+5% = 248.75)
+- **DUAL_WIELD_BRUTE**: **217.80** (STR=19, SIZE=19, AGI=5: Base 50 + 76 + 57 + 15 = 198, +5%+10% = 217.80)
+- **REACH_CONTROL**: **220.40** (AGI=19, STR=5, SIZE=5: Base 40 + 152 + 40 = 232, -5% SIZE = 220.40)
+
+**THESE NUMBERS ARE LOCKED. NEVER CHANGE THEM AGAIN.**
 
 #### **4. Action Point System**
 - **Attack Cost**: 149 action points (constant: `ATTACK_ACTION_COST`)

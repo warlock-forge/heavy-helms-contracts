@@ -209,7 +209,7 @@ contract BalanceTest is TestBase {
                 attributes: attrs,
                 armor: 0, // ARMOR_CLOTH - monastic robes
                 weapon: 5, // WEAPON_QUARTERSTAFF - traditional monk weapon
-                stance: 0 // STANCE_DEFENSIVE - patient, defensive kung fu
+                stance: 1 // STANCE_BALANCED - disciplined martial arts balance
             })
         });
     }

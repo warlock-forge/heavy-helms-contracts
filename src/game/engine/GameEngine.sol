@@ -139,7 +139,7 @@ contract GameEngine is IGameEngine {
     uint8 private immutable STAMINA_RIPOSTE = 6;
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
-    uint16 private constant REACH_DODGE_BONUS = 15;
+    uint16 private constant REACH_DODGE_BONUS = 25;
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
@@ -264,10 +264,10 @@ contract GameEngine is IGameEngine {
         uint32 healthFromStamina = uint32(player.attributes.stamina) * 3;
         uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize + healthFromStamina);
 
-        // Moderate endurance adjustment - less severe than before
+        // Balanced endurance: STR users need stamina for heavy weapons, STA users get more
         uint32 enduranceBase = 35;
-        uint32 enduranceFromStamina = uint32(player.attributes.stamina) * 16;
-        uint32 enduranceFromStrength = uint32(player.attributes.strength) * 2;
+        uint32 enduranceFromStamina = uint32(player.attributes.stamina) * 20; // Increased from 16 to 20
+        uint32 enduranceFromStrength = uint32(player.attributes.strength) * 5; // Increased from 2 to 5
         uint16 maxEndurance = uint16(enduranceBase + enduranceFromStamina + enduranceFromStrength);
 
         // Safe initiative calculation
@@ -338,10 +338,10 @@ contract GameEngine is IGameEngine {
             tempPowerMod = baseDamage + (uint32(player.attributes.strength) * 4) + (uint32(player.attributes.size) * 3)
                 + (uint32(player.attributes.agility) * 3);
         } else if (weaponStats.weaponClass == WeaponClass.REACH_CONTROL) {
-            // AGI+STR balanced scaling: AGI*5 + STR*5 (10x total, dual stat even split)
+            // AGI+STR scaling buffed for technique masters: AGI*8 + STR*8 (16x total)
             baseDamage = 40; // Dual stat even: Base 40
             tempPowerMod =
-                baseDamage + (uint32(player.attributes.agility) * 5) + (uint32(player.attributes.strength) * 5);
+                baseDamage + (uint32(player.attributes.agility) * 8) + (uint32(player.attributes.strength) * 8);
         } else {
             // Fallback to original formula if somehow no classification
             baseDamage = 25;
@@ -865,7 +865,7 @@ contract GameEngine is IGameEngine {
                         uint8 breakthroughRoll = uint8(seed.uniform(100));
 
                         // Heavy weapons get breakthrough based on their demolition power
-                        uint16 breakthroughChance = 25; // Fixed 25% for all HEAVY_DEMOLITION weapons
+                        uint16 breakthroughChance = 0; // Removed breakthrough - shields should be reliable
                         // No capping needed - fixed value
                         uint8 finalChance = uint8(breakthroughChance);
 
@@ -1456,8 +1456,8 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40,
-            maxDamage: 55,
+            minDamage: 30,
+            maxDamage: 40,
             attackSpeed: 75,
             parryChance: 140,
             riposteChance: 100,
@@ -1472,8 +1472,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 44, // Buffed from 35 (+26%)
-            maxDamage: 62, // Buffed from 50 (+24%)
+            minDamage: 32, // Nerfed to target 40 DPR (tower shield)
+            maxDamage: 43, // Nerfed to target 40 DPR (tower shield)
             attackSpeed: 70,
             parryChance: 140,
             riposteChance: 85,
@@ -1488,8 +1488,8 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 20, // Buffed from 15 (+33%)
-            maxDamage: 38, // Buffed from 30 (+27%)
+            minDamage: 32, // Buffed to target 45-50 DPR
+            maxDamage: 43, // Buffed to target 45-50 DPR
             attackSpeed: 90,
             parryChance: 280,
             riposteChance: 250,
@@ -1504,13 +1504,13 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 75,
-            maxDamage: 110,
+            minDamage: 68,
+            maxDamage: 82,
             attackSpeed: 60,
             parryChance: 120,
             riposteChance: 70,
             critMultiplier: 220,
-            staminaMultiplier: 375,
+            staminaMultiplier: 300, // Reduced from 375 (technique weapon)
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1520,8 +1520,8 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 100,
-            maxDamage: 150,
+            minDamage: 124,
+            maxDamage: 140,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
@@ -1536,8 +1536,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 25, // Lowest reach weapon due to superior parry/riposte
-            maxDamage: 35, // Defensive weapon trades damage for control
+            minDamage: 34, // Buffed to target 52-53 DPR (has superior parry/riposte)
+            maxDamage: 42, // Buffed to target 52-53 DPR (has superior parry/riposte)
             attackSpeed: 80,
             parryChance: 140,
             riposteChance: 120,
@@ -1568,8 +1568,8 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 20, // Buffed from 15 (+33%)
-            maxDamage: 38, // Buffed from 30 (+27%)
+            minDamage: 32, // Buffed to target 45-50 DPR
+            maxDamage: 43, // Buffed to target 45-50 DPR
             attackSpeed: 90,
             parryChance: 300,
             riposteChance: 260,
@@ -1600,8 +1600,8 @@ contract GameEngine is IGameEngine {
 
     function SCIMITAR_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 20,
-            maxDamage: 35,
+            minDamage: 32,
+            maxDamage: 43,
             attackSpeed: 85,
             parryChance: 260,
             riposteChance: 240,
@@ -1616,8 +1616,8 @@ contract GameEngine is IGameEngine {
 
     function AXE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 45,
-            maxDamage: 65,
+            minDamage: 25,
+            maxDamage: 35,
             attackSpeed: 70,
             parryChance: 120,
             riposteChance: 85,
@@ -1632,8 +1632,8 @@ contract GameEngine is IGameEngine {
 
     function AXE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40,
-            maxDamage: 60,
+            minDamage: 28,
+            maxDamage: 37,
             attackSpeed: 65,
             parryChance: 120,
             riposteChance: 65,
@@ -1648,8 +1648,8 @@ contract GameEngine is IGameEngine {
 
     function FLAIL_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50, // Buffed from 40 (+25%)
-            maxDamage: 68, // Buffed from 55 (+24%)
+            minDamage: 44, // Nerfed to reduce DPR from 61 to ~55
+            maxDamage: 58, // Nerfed to reduce DPR from 61 to ~55
             attackSpeed: 70,
             parryChance: 260,
             riposteChance: 220,
@@ -1664,8 +1664,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 56, // Buffed from 45 (+24%)
-            maxDamage: 74, // Buffed from 60 (+23%)
+            minDamage: 32, // Nerfed to target 40 DPR (kite shield)
+            maxDamage: 43, // Nerfed to target 40 DPR (kite shield)
             attackSpeed: 65,
             parryChance: 160,
             riposteChance: 100,
@@ -1680,8 +1680,8 @@ contract GameEngine is IGameEngine {
 
     function CLUB_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 44, // Buffed from 35 (+26%)
-            maxDamage: 62, // Buffed from 50 (+24%)
+            minDamage: 32, // Nerfed to target 40 DPR (tower shield)
+            maxDamage: 43, // Nerfed to target 40 DPR (tower shield)
             attackSpeed: 70,
             parryChance: 75,
             riposteChance: 65,
@@ -1713,8 +1713,8 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_DAGGER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 26, // Buffed from 20 (+30%)
-            maxDamage: 44, // Buffed from 35 (+26%)
+            minDamage: 40, // Buffed to target 60-65 DPR
+            maxDamage: 51, // Buffed to target 60-65 DPR
             attackSpeed: 100,
             parryChance: 140,
             riposteChance: 300,
@@ -1729,8 +1729,8 @@ contract GameEngine is IGameEngine {
 
     function DUAL_SCIMITARS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 30,
-            maxDamage: 45,
+            minDamage: 40,
+            maxDamage: 51,
             attackSpeed: 100,
             parryChance: 80,
             riposteChance: 80,
@@ -1751,7 +1751,7 @@ contract GameEngine is IGameEngine {
             parryChance: 50,
             riposteChance: 50,
             critMultiplier: 180,
-            staminaMultiplier: 140,
+            staminaMultiplier: 200, // Increased from 140 - brute weapons should be unsustainable
             survivalFactor: 95,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE,
@@ -1778,8 +1778,8 @@ contract GameEngine is IGameEngine {
 
     function SCIMITAR_DAGGER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 25,
-            maxDamage: 40,
+            minDamage: 38,
+            maxDamage: 49,
             attackSpeed: 105,
             parryChance: 140,
             riposteChance: 300,
@@ -1816,7 +1816,7 @@ contract GameEngine is IGameEngine {
             parryChance: 75,
             riposteChance: 70,
             critMultiplier: 280,
-            staminaMultiplier: 120,
+            staminaMultiplier: 180, // Increased from 120 - brute weapons should be unsustainable
             survivalFactor: 90,
             damageType: DamageType.Hybrid_Slash_Blunt,
             shieldType: ShieldType.NONE,
@@ -1832,7 +1832,7 @@ contract GameEngine is IGameEngine {
             parryChance: 200,
             riposteChance: 140,
             critMultiplier: 200,
-            staminaMultiplier: 125,
+            staminaMultiplier: 190, // Increased from 125 - brute weapons should be unsustainable
             survivalFactor: 95,
             damageType: DamageType.Hybrid_Pierce_Blunt,
             shieldType: ShieldType.NONE,
@@ -1848,7 +1848,7 @@ contract GameEngine is IGameEngine {
             parryChance: 160,
             riposteChance: 85,
             critMultiplier: 225,
-            staminaMultiplier: 110,
+            staminaMultiplier: 170, // Increased from 110 - brute weapons should be unsustainable
             survivalFactor: 105,
             damageType: DamageType.Hybrid_Slash_Blunt,
             shieldType: ShieldType.NONE,
@@ -1859,13 +1859,13 @@ contract GameEngine is IGameEngine {
     // Additional two-handed weapons
     function MAUL() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 100,
-            maxDamage: 150,
+            minDamage: 124,
+            maxDamage: 140,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
             critMultiplier: 320,
-            staminaMultiplier: 470,
+            staminaMultiplier: 470, // Highest stamina cost - hardest to wield
             survivalFactor: 85,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE,
@@ -1875,8 +1875,8 @@ contract GameEngine is IGameEngine {
 
     function TRIDENT() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 42, // Restored from 38 (highest reach weapon)
-            maxDamage: 57, // Restored from 51
+            minDamage: 65, // Buffed to target 60 DPR
+            maxDamage: 75, // Buffed to target 60 DPR
             attackSpeed: 55,
             parryChance: 100,
             riposteChance: 100,
