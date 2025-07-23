@@ -1143,6 +1143,83 @@ This would make AGI assassins actually scale with AGI for damage, solving the "w
 - ❌ **Old**: Equipment matchups dominated over stats (75% vs 51%)
 - ✅ **New**: Stats now matter significantly more due to proper scaling
 
+## TRUE DPR (Damage Per Round) Calculation System
+
+### **Formula**
+```
+TRUE DPR = (Average Weapon Damage × Damage Modifier ÷ 100) × (Attack Speed ÷ 149)
+```
+
+### **Components**
+
+#### **1. Average Weapon Damage**
+```
+Average Weapon Damage = (minDamage + maxDamage) ÷ 2
+```
+
+#### **2. Damage Modifier Calculation by Weapon Class**
+
+**Base Damage Formula by Classification:**
+- **LIGHT_FINESSE**: `Base 25 + (AGI × 10)`
+- **CURVED_BLADE**: `Base 35 + (AGI × 7) + (STR × 3)`
+- **BALANCED_SWORD**: `Base 35 + (STR × 7) + (AGI × 3)`
+- **PURE_BLUNT**: `Base 25 + (STR × 10)`
+- **HEAVY_DEMOLITION**: `Base 40 + (STR × 5) + (SIZE × 5)`
+- **DUAL_WIELD_BRUTE**: `Base 50 + (STR × 4) + (SIZE × 3) + (AGI × 3)`
+- **REACH_CONTROL**: `Base 40 + (AGI × 5) + (STR × 5)`
+
+**Universal Attribute Bonuses Applied:**
+1. **STR Universal Bonus** (affects ALL weapons):
+   - STR 3-8: -3% damage modifier
+   - STR 17-21: +3% damage modifier  
+   - STR 22+: +5% damage modifier
+
+2. **SIZE Mass/Leverage Bonus** (affects ALL weapons):
+   - SIZE 3-8: -5% damage modifier
+   - SIZE 17-21: +5% damage modifier
+   - SIZE 22+: +10% damage modifier
+
+#### **3. Optimal Builds for Maximum DPR**
+
+**All optimal builds use STR=25 for universal +5% bonus:**
+
+- **LIGHT_FINESSE**: AGI=25, STR=25 → Damage Modifier = **288.75**
+- **CURVED_BLADE**: AGI=25, STR=25 → Damage Modifier = **299.25**
+- **BALANCED_SWORD**: STR=25, AGI=25 → Damage Modifier = **299.25**
+- **PURE_BLUNT**: STR=25 → Damage Modifier = **288.75**
+- **HEAVY_DEMOLITION**: STR=25, SIZE=25 → Damage Modifier = **334.95**
+- **DUAL_WIELD_BRUTE**: STR=25, SIZE=25, AGI=25 → Damage Modifier = **346.50**
+- **REACH_CONTROL**: AGI=25, STR=25 → Damage Modifier = **304.50**
+
+#### **4. Action Point System**
+- **Attack Cost**: 149 action points (constant: `ATTACK_ACTION_COST`)
+- **Action Points Gained Per Round**: `weapon.attackSpeed`  
+- **Attacks Per Round**: `attackSpeed ÷ 149`
+
+### **Example Calculation: GREATSWORD**
+```
+Average Weapon Damage: (120 + 180) ÷ 2 = 150
+Damage Modifier: STR=25, SIZE=25 → 334.95
+Actual Damage Per Hit: (150 × 334.95) ÷ 100 = 502.43
+Attack Speed: 60
+Attacks Per Round: 60 ÷ 149 = 0.403
+TRUE DPR: 502.43 × 0.403 = 202.48
+```
+
+### **Current DPR Rankings (Top 10)**
+1. **GREATSWORD**: 202.48 DPR (BROKEN - needs nerf)
+2. **BATTLEAXE**: 132.29 DPR  
+3. **MAUL**: 132.29 DPR
+4. **DUAL_CLUBS**: 116.35 DPR
+5. **AXE_MACE**: 96.42 DPR
+6. **FLAIL_DAGGER**: 95.81 DPR
+7. **MACE_SHORTSWORD**: 95.81 DPR
+8. **DUAL_DAGGERS**: 89.63 DPR
+9. **ARMING_SWORD_SHORTSWORD**: 87.92 DPR
+10. **AXE_KITE**: 84.87 DPR
+
+**Shield Tank Validation**: Tower shield weapons properly rank at bottom (46-71 DPR)
+
 ## Memories
 
 - Never try a fresh forge build as it will just timeout - ask the user to do it

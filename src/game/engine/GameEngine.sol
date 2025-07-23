@@ -131,7 +131,7 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 13;
+    uint8 private immutable STAMINA_ATTACK = 8;
     uint8 private immutable STAMINA_BLOCK = 3;
     uint8 private immutable STAMINA_DODGE = 4;
     uint8 private immutable STAMINA_COUNTER = 6;
@@ -279,24 +279,25 @@ contract GameEngine is IGameEngine {
         // Safe defensive stats calculation
         uint16 dodgeChance =
             calculateDodgeChance(player.attributes.agility, player.attributes.size, player.attributes.stamina);
-        uint16 blockChance = calculateBlockChance(player.attributes.constitution, player.attributes.size);
+        uint16 blockChance =
+            calculateBlockChance(player.attributes.constitution, player.attributes.strength, player.attributes.size);
         uint16 parryChance =
             calculateParryChance(player.attributes.strength, player.attributes.agility, player.attributes.stamina);
 
-        // New hit chance calculation
+        // Rebalanced hit chance: AGI*0.5 + LUCK*2.5 (was AGI*1 + LUCK*2)
         uint32 baseChance = 50;
-        uint32 agilityBonus = uint32(player.attributes.agility);
-        uint32 luckBonus = uint32(player.attributes.luck) * 2;
+        uint32 agilityBonus = uint32(player.attributes.agility) / 2; // Reduced from *1 to *0.5
+        uint32 luckBonus = uint32(player.attributes.luck) * 25 / 10; // Increased from *2 to *2.5
         uint16 hitChance = uint16(baseChance + agilityBonus + luckBonus);
 
-        // Safe crit calculations
+        // Rebalanced crit calculations: AGI*0.2 + LUCK*0.5 (was AGI*0.33 + LUCK*0.33)
         uint16 critChance =
-            2 + uint16(uint32(player.attributes.agility) / 3) + uint16(uint32(player.attributes.luck) / 3);
+            2 + uint16(uint32(player.attributes.agility) / 5) + uint16(uint32(player.attributes.luck) / 2);
         uint16 critMultiplier =
             uint16(150 + (uint32(player.attributes.strength) * 3) + (uint32(player.attributes.size) * 2));
 
-        // Safe counter chance calculation (strength + agility based)
-        uint16 counterChance = uint16(3 + uint32(player.attributes.strength) + uint32(player.attributes.agility));
+        // Rebalanced counter chance: Pure STR overpowering (was STR + AGI)
+        uint16 counterChance = uint16(3 + uint32(player.attributes.strength) * 2);
 
         // Safe riposte chance calculation (agility + luck based)
         uint16 riposteChance = uint16(
@@ -347,7 +348,22 @@ contract GameEngine is IGameEngine {
             tempPowerMod = baseDamage + (uint32(player.attributes.strength) * 5) + (uint32(player.attributes.size) * 5);
         }
 
-        // Apply size damage bonus to the damage modifier
+        // Apply universal attribute damage bonuses to the damage modifier
+
+        // STR Universal Power Modifier: smaller but affects all weapons
+        if (player.attributes.strength <= 8) {
+            // STR 3-8: -3% damage modifier
+            tempPowerMod = (tempPowerMod * 97) / 100;
+        } else if (player.attributes.strength >= 17 && player.attributes.strength <= 21) {
+            // STR 17-21: +3% damage modifier
+            tempPowerMod = (tempPowerMod * 103) / 100;
+        } else if (player.attributes.strength >= 22) {
+            // STR 22+: +5% damage modifier
+            tempPowerMod = (tempPowerMod * 105) / 100;
+        }
+        // STR 9-16: 0% (baseline) - no modification needed
+
+        // SIZE Mass/Leverage Modifier: larger bonus but more specialized
         if (player.attributes.size <= 8) {
             // SIZE 3-8: -5% damage modifier
             tempPowerMod = (tempPowerMod * 95) / 100;
@@ -383,12 +399,14 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function calculateBlockChance(uint8 constitution, uint8 size) internal pure returns (uint16) {
-        return uint16(2 + (uint32(constitution) * 35 / 100) + (uint32(size) * 30 / 100));
+    function calculateBlockChance(uint8 constitution, uint8 strength, uint8 size) internal pure returns (uint16) {
+        // STR-focused blocking: strength overpowers, constitution endures, size provides mass
+        return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(constitution) * 35 / 100) + (uint32(size) * 10 / 100));
     }
 
     function calculateParryChance(uint8 strength, uint8 agility, uint8 stamina) internal pure returns (uint16) {
-        return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(agility) * 35 / 100) + (uint32(stamina) * 30 / 100)); // Increased multipliers
+        // Reduced AGI influence: STR*0.4 + AGI*0.25 + STA*0.3 (was AGI*0.35)
+        return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(agility) * 25 / 100) + (uint32(stamina) * 30 / 100));
     }
 
     function calculateDodgeChance(uint8 agility, uint8 size, uint8 stamina) internal pure returns (uint16) {
@@ -539,13 +557,11 @@ contract GameEngine is IGameEngine {
 
             roundCount++;
 
-            // Add action points for both players AFTER everything else
-            unchecked {
-                uint16 newP1Points = uint16(state.p1ActionPoints) + uint16(p1Calculated.weapon.attackSpeed);
-                uint16 newP2Points = uint16(state.p2ActionPoints) + uint16(p2Calculated.weapon.attackSpeed);
-                state.p1ActionPoints = newP1Points;
-                state.p2ActionPoints = newP2Points;
-            }
+            // Add action points for both players AFTER everything else with overflow protection
+            uint32 newP1Points = uint32(state.p1ActionPoints) + uint32(p1Calculated.weapon.attackSpeed);
+            uint32 newP2Points = uint32(state.p2ActionPoints) + uint32(p2Calculated.weapon.attackSpeed);
+            state.p1ActionPoints = newP1Points > type(uint16).max ? type(uint16).max : uint16(newP1Points);
+            state.p2ActionPoints = newP2Points > type(uint16).max ? type(uint16).max : uint16(newP2Points);
         }
 
         if (roundCount >= MAX_ROUNDS) {
@@ -683,6 +699,66 @@ contract GameEngine is IGameEngine {
         return (modifiedDamage > type(uint16).max ? type(uint16).max : uint16(modifiedDamage), nextSeed);
     }
 
+    /// @notice Apply PREDATOR MODE bonuses when attacking tired opponents
+    function applyStaminaModifiers(
+        CalculatedCombatStats memory attacker,
+        uint32 defenderCurrentStamina,
+        uint16 defenderMaxStamina
+    ) private pure returns (CalculatedCombatStats memory) {
+        uint256 defenderStaminaPercent = (uint256(defenderCurrentStamina) * 100) / defenderMaxStamina;
+
+        if (defenderStaminaPercent >= 50) {
+            return attacker; // No bonuses vs fresh opponents
+        }
+
+        if (defenderStaminaPercent >= 20) {
+            // Tired opponent (50%-20%): Hit bonus with overflow protection
+            uint32 newHitChance = uint32(attacker.stats.hitChance) + 10;
+            attacker.stats.hitChance = newHitChance > type(uint16).max ? type(uint16).max : uint16(newHitChance);
+        } else {
+            // BLOOD IN THE WATER (<20%): PREDATOR MODE ACTIVATED!
+            uint32 newHitChance = uint32(attacker.stats.hitChance) + 30;
+            attacker.stats.hitChance = newHitChance > type(uint16).max ? type(uint16).max : uint16(newHitChance);
+
+            uint32 newCritChance = uint32(attacker.stats.critChance) + 50;
+            attacker.stats.critChance = newCritChance > type(uint16).max ? type(uint16).max : uint16(newCritChance);
+            // DOUBLE DAMAGE with reasonable cap to prevent overflow in damage calculations
+            uint32 doubleCritMult = uint32(attacker.stats.critMultiplier) * 2;
+            attacker.stats.critMultiplier = doubleCritMult > 1000 ? 1000 : uint16(doubleCritMult);
+        }
+
+        return attacker;
+    }
+
+    /// @notice Apply defensive penalties to tired fighters
+    function applyDefensivePenalties(CalculatedCombatStats memory defender, uint32 defenderCurrentStamina)
+        private
+        pure
+        returns (CalculatedCombatStats memory)
+    {
+        uint256 defenderStaminaPercent = (uint256(defenderCurrentStamina) * 100) / defender.stats.maxEndurance;
+
+        if (defenderStaminaPercent >= 50) {
+            return defender; // No penalties for fresh fighters
+        }
+
+        uint256 penalty;
+        if (defenderStaminaPercent >= 20) {
+            // Tired (50%-20%): -30% defensive stats
+            penalty = 30;
+        } else {
+            // Exhausted (<20%): -60% defensive stats
+            penalty = 60;
+        }
+
+        uint256 multiplier = 100 - penalty;
+        defender.stats.blockChance = uint16((defender.stats.blockChance * multiplier) / 100);
+        defender.stats.parryChance = uint16((defender.stats.parryChance * multiplier) / 100);
+        defender.stats.dodgeChance = uint16((defender.stats.dodgeChance * multiplier) / 100);
+
+        return defender;
+    }
+
     function processCombatTurn(
         CalculatedCombatStats memory attacker,
         CalculatedCombatStats memory defender,
@@ -707,36 +783,43 @@ contract GameEngine is IGameEngine {
             return (uint8(CombatResultType.EXHAUSTED), 0, uint8(attackCost), 0, 0, 0, seed);
         }
 
-        // Hit check
-        uint8 finalHitChance = calculateHitChance(attacker);
+        // BLOOD IN THE WATER: Apply stamina-based combat modifiers
+        CalculatedCombatStats memory modifiedAttacker =
+            applyStaminaModifiers(attacker, uint32(defenderStamina), defender.stats.maxEndurance);
+        CalculatedCombatStats memory modifiedDefender = applyDefensivePenalties(defender, uint32(defenderStamina));
+
+        // Hit check with predator bonuses
+        uint8 finalHitChance = calculateHitChance(modifiedAttacker);
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 hitRoll = uint8(seed.uniform(100));
 
         if (hitRoll >= finalHitChance) {
-            return (uint8(CombatResultType.ATTACK), 0, uint8(attackCost), uint8(CombatResultType.MISS), 0, 0, seed);
+            uint8 safeAttackCost = attackCost > 255 ? 255 : uint8(attackCost);
+            return (uint8(CombatResultType.ATTACK), 0, safeAttackCost, uint8(CombatResultType.MISS), 0, 0, seed);
         }
 
-        // Process defense first
+        // Process defense first with stamina penalties
         seed = uint256(keccak256(abi.encodePacked(seed)));
         (defenseResult, defenseDamage, defenseStaminaCost, seed) =
-            processDefense(defender, attacker, defenderStamina, seed);
+            processDefense(modifiedDefender, modifiedAttacker, defenderStamina, attackerStamina, seed);
 
         // Only calculate damage if defense failed
         if (defenseResult == uint8(CombatResultType.HIT)) {
-            // Calculate base damage
+            // Calculate base damage with predator bonuses
             uint16 baseDamage;
-            (baseDamage, seed) = calculateDamage(attacker, seed);
+            (baseDamage, seed) = calculateDamage(modifiedAttacker, seed);
 
-            // Check for crit
+            // Check for crit with PREDATOR MODE bonuses
             seed = uint256(keccak256(abi.encodePacked(seed)));
             uint8 critRoll = uint8(seed.uniform(100));
-            bool isCritical = critRoll < attacker.stats.critChance;
+            bool isCritical = critRoll < modifiedAttacker.stats.critChance;
 
             if (isCritical) {
-                // Apply both character and weapon crit multipliers (consistent with riposte/counter)
-                uint32 totalMultiplier =
-                    (uint32(attacker.stats.critMultiplier) * uint32(attacker.weapon.critMultiplier)) / 100;
-                uint32 critDamage = (uint32(baseDamage) * totalMultiplier) / 100;
+                // Apply both character and weapon crit multipliers with overflow protection
+                uint64 totalMultiplier = (
+                    uint64(modifiedAttacker.stats.critMultiplier) * uint64(modifiedAttacker.weapon.critMultiplier)
+                ) / 100;
+                uint64 critDamage = (uint64(baseDamage) * totalMultiplier) / 100;
                 baseDamage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
                 attackResult = uint8(CombatResultType.CRIT);
             } else {
@@ -744,8 +827,12 @@ contract GameEngine is IGameEngine {
             }
 
             // Apply armor reduction
-            attackDamage =
-                applyDefensiveStats(baseDamage, defender.armor, attacker.weapon.damageType, attacker.weapon.attackSpeed);
+            attackDamage = applyDefensiveStats(
+                baseDamage,
+                modifiedDefender.armor,
+                modifiedAttacker.weapon.damageType,
+                modifiedAttacker.weapon.attackSpeed
+            );
         } else {
             attackResult = uint8(CombatResultType.ATTACK);
             attackDamage = 0;
@@ -759,6 +846,7 @@ contract GameEngine is IGameEngine {
         CalculatedCombatStats memory defender,
         CalculatedCombatStats memory attacker,
         uint256 defenderStamina,
+        uint256 attackerStamina,
         uint256 seed
     ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         // Check if defender has a shield
@@ -771,14 +859,14 @@ contract GameEngine is IGameEngine {
             if (blockRoll < finalBlockChance) {
                 uint256 blockStaminaCost = calculateStaminaCost(ActionType.BLOCK, defender);
                 if (defenderStamina >= blockStaminaCost) {
-                    // Add block breakthrough chance for slow weapons
-                    if (attacker.weapon.attackSpeed <= 60) {
+                    // Add block breakthrough chance for HEAVY_DEMOLITION weapons
+                    if (attacker.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
                         seed = uint256(keccak256(abi.encodePacked(seed)));
                         uint8 breakthroughRoll = uint8(seed.uniform(100));
 
-                        uint16 breakthroughChance = 10 + ((60 - attacker.weapon.attackSpeed) * 5 / 3);
-                        // Then if needed, cap it before converting
-                        breakthroughChance = breakthroughChance > 35 ? 35 : breakthroughChance;
+                        // Heavy weapons get breakthrough based on their demolition power
+                        uint16 breakthroughChance = 25; // Fixed 25% for all HEAVY_DEMOLITION weapons
+                        // No capping needed - fixed value
                         uint8 finalChance = uint8(breakthroughChance);
 
                         if (breakthroughRoll < finalChance) {
@@ -797,9 +885,12 @@ contract GameEngine is IGameEngine {
 
                     if (counterRoll < effectiveCounterChance) {
                         seed = uint256(keccak256(abi.encodePacked(seed)));
-                        return processCounterAttack(defender, attacker, seed, CounterType.COUNTER);
+                        return processCounterAttack(
+                            defender, attacker, defenderStamina, attackerStamina, seed, CounterType.COUNTER
+                        );
                     }
-                    return (uint8(CombatResultType.BLOCK), 0, uint8(blockStaminaCost), seed);
+                    uint8 safeBlockCost = blockStaminaCost > 255 ? 255 : uint8(blockStaminaCost);
+                    return (uint8(CombatResultType.BLOCK), 0, safeBlockCost, seed);
                 }
             }
         }
@@ -818,11 +909,11 @@ contract GameEngine is IGameEngine {
                 uint32 effectiveRiposteChance32 =
                     (uint32(defender.stats.riposteChance) * uint32(defender.weapon.riposteChance)) / 100;
 
-                // Add slow weapon riposte bonus - technical weapons counter slow weapons
-                if (attacker.weapon.attackSpeed <= 60) {
-                    uint16 riposteBonus = 5 + ((60 - attacker.weapon.attackSpeed));
-                    // Cap bonus at 20%
-                    riposteBonus = riposteBonus > 20 ? 20 : riposteBonus;
+                // Add riposte bonus vs HEAVY_DEMOLITION weapons - technical weapons counter brute force
+                if (attacker.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
+                    // Technical weapons get bonus ripostes vs heavy weapons
+                    uint16 riposteBonus = 15; // Fixed 15% bonus vs HEAVY_DEMOLITION
+                    // No capping needed - fixed value
                     effectiveRiposteChance32 += riposteBonus;
                 }
 
@@ -831,9 +922,12 @@ contract GameEngine is IGameEngine {
 
                 if (riposteRoll < effectiveRiposteChance) {
                     seed = uint256(keccak256(abi.encodePacked(seed)));
-                    return processCounterAttack(defender, attacker, seed, CounterType.PARRY);
+                    return processCounterAttack(
+                        defender, attacker, defenderStamina, attackerStamina, seed, CounterType.PARRY
+                    );
                 }
-                return (uint8(CombatResultType.PARRY), 0, uint8(parryStaminaCost), seed);
+                uint8 safeParryCost = parryStaminaCost > 255 ? 255 : uint8(parryStaminaCost);
+                return (uint8(CombatResultType.PARRY), 0, safeParryCost, seed);
             }
         }
 
@@ -845,7 +939,8 @@ contract GameEngine is IGameEngine {
         if (dodgeRoll < finalDodgeChance) {
             uint256 dodgeStaminaCost = calculateStaminaCost(ActionType.DODGE, defender);
             if (defenderStamina >= dodgeStaminaCost) {
-                return (uint8(CombatResultType.DODGE), 0, uint8(dodgeStaminaCost), seed);
+                uint8 safeDodgeCost = dodgeStaminaCost > 255 ? 255 : uint8(dodgeStaminaCost);
+                return (uint8(CombatResultType.DODGE), 0, safeDodgeCost, seed);
             }
         }
 
@@ -859,23 +954,18 @@ contract GameEngine is IGameEngine {
         returns (uint16)
     {
         uint32 baseBlockChance = uint32(defender.stats.blockChance);
-        uint32 neutralSpeed = 70; // Neutral point - neither bonus nor penalty
 
-        if (attacker.weapon.attackSpeed < neutralSpeed) {
-            // Slow weapon - harder to block (penalty)
-            // Scale from 0% at speed 60 to -25% at speed 40 or below
-            uint32 slownessFactor = neutralSpeed - uint32(attacker.weapon.attackSpeed);
-            slownessFactor = slownessFactor > 20 ? 20 : slownessFactor; // Cap at 20 points difference
-            uint32 blockPenalty = slownessFactor * 42 / 100;
+        // Apply weapon class modifiers to block chance
+        if (attacker.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
+            // HEAVY_DEMOLITION weapons are harder to block (penalty)
+            uint32 blockPenalty = 20; // Fixed 20% penalty
             baseBlockChance = baseBlockChance > blockPenalty ? baseBlockChance - blockPenalty : 0;
-        } else if (attacker.weapon.attackSpeed > neutralSpeed) {
-            // Fast weapon - easier to block (bonus) - enhanced for shield tanks
-            // Scale from 0% at speed 70 to +30% at speed 130 or above
-            uint32 speedFactor = uint32(attacker.weapon.attackSpeed) - neutralSpeed;
-            speedFactor = speedFactor > 70 ? 70 : speedFactor; // Cap at 70 points difference
-            uint32 blockBonus = speedFactor * 15 / 100; // Increased from 12 to 15
+        } else if (attacker.weapon.weaponClass == WeaponClass.LIGHT_FINESSE) {
+            // LIGHT_FINESSE weapons are easier to block (bonus)
+            uint32 blockBonus = 15; // Fixed 15% bonus
             baseBlockChance = baseBlockChance + blockBonus;
         }
+        // Other weapon classes get no modifier
 
         (uint16 shieldBlockBonus,,,) = getShieldStats(defender.weapon.shieldType);
         baseBlockChance = uint32(baseBlockChance * uint32(shieldBlockBonus)) / 100;
@@ -899,8 +989,8 @@ contract GameEngine is IGameEngine {
         pure
         returns (uint16)
     {
-        // Heavy weapons cannot dodge at all
-        if (defender.weapon.attackSpeed <= 60) {
+        // HEAVY_DEMOLITION weapons cannot dodge at all
+        if (defender.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
             return 0;
         }
 
@@ -910,17 +1000,16 @@ contract GameEngine is IGameEngine {
             baseDodgeChance += uint32(REACH_DODGE_BONUS);
         }
 
-        // Calculate speed bonus - scale based on weapon speed
-        uint32 speedDodgeBonus = 0;
-        if (attacker.weapon.attackSpeed <= 70) {
-            // The slower the weapon, the easier to dodge
-            uint32 slownessFactor = 70 - uint32(attacker.weapon.attackSpeed);
-            // More aggressive scaling: up to 25% bonus for slowest weapons
-            speedDodgeBonus = slownessFactor * 125 / 100;
+        // Calculate dodge bonus vs different weapon classes
+        uint32 classDodgeBonus = 0;
+        if (attacker.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
+            // HEAVY_DEMOLITION weapons are easier to dodge
+            classDodgeBonus = 25; // Fixed 25% bonus vs heavy weapons
         }
+        // Other weapon classes get no dodge bonus
 
-        // Add speed bonus to base dodge
-        uint32 totalDodgeBeforeArmor = baseDodgeChance + speedDodgeBonus;
+        // Add class bonus to base dodge
+        uint32 totalDodgeBeforeArmor = baseDodgeChance + classDodgeBonus;
 
         // Apply armor penalties to the total dodge (base + speed bonus)
         uint32 adjustedDodgeChance;
@@ -952,33 +1041,42 @@ contract GameEngine is IGameEngine {
     function processCounterAttack(
         CalculatedCombatStats memory defender,
         CalculatedCombatStats memory target,
+        uint256 defenderStamina,
+        uint256 targetStamina,
         uint256 seed,
         CounterType counterType
     ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
+        // BLOOD IN THE WATER: Apply stamina modifiers for counter attacks
+        CalculatedCombatStats memory modifiedDefender =
+            applyStaminaModifiers(defender, uint32(targetStamina), target.stats.maxEndurance);
+        CalculatedCombatStats memory modifiedTarget = applyDefensivePenalties(target, uint32(targetStamina));
         uint16 counterDamage;
-        (counterDamage, seed) = calculateDamage(defender, seed);
+        (counterDamage, seed) = calculateDamage(modifiedDefender, seed);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
         uint8 critRoll = uint8(seed.uniform(100));
-        bool isCritical = critRoll < defender.stats.critChance;
+        bool isCritical = critRoll < modifiedDefender.stats.critChance;
 
         ActionType actionType = counterType == CounterType.PARRY ? ActionType.RIPOSTE : ActionType.COUNTER;
 
         if (isCritical) {
-            // Use uint32 for intermediate calculations
-            uint32 totalMultiplier =
-                (uint32(defender.stats.critMultiplier) * uint32(defender.weapon.critMultiplier)) / 100;
+            // Use uint64 for intermediate calculations to prevent overflow
+            uint64 totalMultiplier =
+                (uint64(modifiedDefender.stats.critMultiplier) * uint64(modifiedDefender.weapon.critMultiplier)) / 100;
 
             // Calculate damage with overflow protection
-            uint32 critDamage = (uint32(counterDamage) * totalMultiplier) / 100;
+            uint64 critDamage = (uint64(counterDamage) * totalMultiplier) / 100;
             counterDamage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
 
-            // Apply armor reduction to counter damage
+            // Apply armor reduction to counter damage with stamina penalties
             counterDamage = applyDefensiveStats(
-                counterDamage, target.armor, defender.weapon.damageType, defender.weapon.attackSpeed
+                counterDamage,
+                modifiedTarget.armor,
+                modifiedDefender.weapon.damageType,
+                modifiedDefender.weapon.attackSpeed
             );
 
-            uint256 critModifiedStaminaCost = calculateStaminaCost(actionType, defender);
+            uint256 critModifiedStaminaCost = calculateStaminaCost(actionType, modifiedDefender);
             uint8 safeCost = critModifiedStaminaCost > 255 ? 255 : uint8(critModifiedStaminaCost);
 
             seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -990,11 +1088,12 @@ contract GameEngine is IGameEngine {
             );
         }
 
-        // Apply armor reduction to normal counter damage
-        counterDamage =
-            applyDefensiveStats(counterDamage, target.armor, defender.weapon.damageType, defender.weapon.attackSpeed);
+        // Apply armor reduction to normal counter damage with stamina penalties
+        counterDamage = applyDefensiveStats(
+            counterDamage, modifiedTarget.armor, modifiedDefender.weapon.damageType, modifiedDefender.weapon.attackSpeed
+        );
 
-        uint256 normalModifiedStaminaCost = calculateStaminaCost(actionType, defender);
+        uint256 normalModifiedStaminaCost = calculateStaminaCost(actionType, modifiedDefender);
         uint8 safeNormalCost = normalModifiedStaminaCost > 255 ? 255 : uint8(normalModifiedStaminaCost);
 
         seed = uint256(keccak256(abi.encodePacked(seed)));
@@ -1032,12 +1131,13 @@ contract GameEngine is IGameEngine {
         // First apply flat reduction
         uint32 afterFlat = incomingDamage > armor.defense ? uint32(incomingDamage) - armor.defense : 0;
 
-        // Calculate armor penetration for TRUE heavy weapons vs heavy armor
+        // Calculate armor penetration for HEAVY_DEMOLITION weapons vs heavy armor
         uint32 armorPen = 0;
+        // Need to determine weapon class from the calling context - for now use speed as fallback
+        // TODO: Pass weapon class to this function
         if (attackSpeed <= 60 && armor.weight >= 50) {
-            // Only slowest weapons (speed 60 or less) vs heavy armors
-            // More aggressive penetration for true heavy weapons
-            armorPen = (100 - attackSpeed) * 1 / 2; // Reduced from 3/4 to 1/2
+            // HEAVY_DEMOLITION weapons vs heavy armors get fixed penetration
+            armorPen = 30; // Fixed 30% armor penetration for heavy weapons
         }
 
         // Then apply percentage reduction with armor penetration
@@ -1404,13 +1504,13 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 120,
-            maxDamage: 180,
+            minDamage: 75,
+            maxDamage: 110,
             attackSpeed: 60,
             parryChance: 120,
             riposteChance: 70,
             critMultiplier: 220,
-            staminaMultiplier: 200,
+            staminaMultiplier: 375,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1420,13 +1520,13 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 120,
-            maxDamage: 180,
+            minDamage: 100,
+            maxDamage: 150,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
             critMultiplier: 270,
-            staminaMultiplier: 300,
+            staminaMultiplier: 420,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1458,7 +1558,7 @@ contract GameEngine is IGameEngine {
             parryChance: 130,
             riposteChance: 140,
             critMultiplier: 145,
-            staminaMultiplier: 160,
+            staminaMultiplier: 120,
             survivalFactor: 90,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1603,7 +1703,7 @@ contract GameEngine is IGameEngine {
             parryChance: 70,
             riposteChance: 70,
             critMultiplier: 130,
-            staminaMultiplier: 75,
+            staminaMultiplier: 60,
             survivalFactor: 95,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1619,7 +1719,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 300,
             critMultiplier: 120,
-            staminaMultiplier: 100,
+            staminaMultiplier: 60,
             survivalFactor: 110,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1635,7 +1735,7 @@ contract GameEngine is IGameEngine {
             parryChance: 80,
             riposteChance: 80,
             critMultiplier: 135,
-            staminaMultiplier: 165,
+            staminaMultiplier: 70,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1645,13 +1745,13 @@ contract GameEngine is IGameEngine {
 
     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 70,
+            minDamage: 45,
+            maxDamage: 62,
             attackSpeed: 85,
             parryChance: 50,
             riposteChance: 50,
             critMultiplier: 180,
-            staminaMultiplier: 120,
+            staminaMultiplier: 140,
             survivalFactor: 95,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE,
@@ -1684,7 +1784,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 300,
             critMultiplier: 150,
-            staminaMultiplier: 90,
+            staminaMultiplier: 55,
             survivalFactor: 100,
             damageType: DamageType.Hybrid_Slash_Pierce,
             shieldType: ShieldType.NONE,
@@ -1759,13 +1859,13 @@ contract GameEngine is IGameEngine {
     // Additional two-handed weapons
     function MAUL() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 120,
-            maxDamage: 180,
+            minDamage: 100,
+            maxDamage: 150,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
             critMultiplier: 320,
-            staminaMultiplier: 320,
+            staminaMultiplier: 470,
             survivalFactor: 85,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE,
