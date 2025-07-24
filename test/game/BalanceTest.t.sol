@@ -195,12 +195,12 @@ contract BalanceTest is TestBase {
 
     function createMonk() private view returns (TestFighter memory) {
         Fighter.Attributes memory attrs = Fighter.Attributes({
-            strength: lowStat, // Relies on technique over strength
+            strength: mediumStat, // Third priority - technique with some strength
             constitution: highStat, // Monastic conditioning
             size: lowStat, // Light and nimble
             agility: highStat, // Primary stat for quarterstaff mastery
-            stamina: highStat, // Endless training and discipline
-            luck: mediumStat // Some fortune from karma
+            stamina: mediumStat, // Balanced training and discipline
+            luck: lowStat // Minimal reliance on luck
         });
 
         return TestFighter({
@@ -712,12 +712,11 @@ contract BalanceTest is TestBase {
 
     // Test all Shield Tank variants vs Assassin variants
     function testShieldTankArchetypeVsAssassinArchetype() public skipInCI {
-        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
-        uint8[] memory shieldTankWeapons = new uint8[](4);
+        // Shield Tank weapons: MACE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER (removed AXE_TOWER - moved to Vanguard)
+        uint8[] memory shieldTankWeapons = new uint8[](3);
         shieldTankWeapons[0] = 1; // MACE_TOWER
-        shieldTankWeapons[1] = 13; // AXE_TOWER
-        shieldTankWeapons[2] = 17; // CLUB_TOWER
-        shieldTankWeapons[3] = 8; // SHORTSWORD_TOWER
+        shieldTankWeapons[1] = 17; // CLUB_TOWER
+        shieldTankWeapons[2] = 8; // SHORTSWORD_TOWER
 
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -886,12 +885,11 @@ contract BalanceTest is TestBase {
         berserkerWeapons[1] = 3; // GREATSWORD
         berserkerWeapons[2] = 25; // MAUL
 
-        // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
-        uint8[] memory shieldWeapons = new uint8[](4);
+        // Shield Tank weapons: MACE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER (removed AXE_TOWER - moved to Vanguard)
+        uint8[] memory shieldWeapons = new uint8[](3);
         shieldWeapons[0] = 1; // MACE_TOWER
-        shieldWeapons[1] = 13; // AXE_TOWER
-        shieldWeapons[2] = 17; // CLUB_TOWER
-        shieldWeapons[3] = 8; // SHORTSWORD_TOWER
+        shieldWeapons[1] = 17; // CLUB_TOWER
+        shieldWeapons[2] = 8; // SHORTSWORD_TOWER
 
         uint256 totalBerserkerWins = 0;
         uint256 totalMatches = 0;

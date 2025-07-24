@@ -259,7 +259,7 @@ contract GameEngine is IGameEngine {
     function calculateStats(FighterStats memory player) public pure returns (CalculatedStats memory) {
         // Health calculation remains unchanged
         uint32 healthBase = 50;
-        uint32 healthFromCon = uint32(player.attributes.constitution) * 15;
+        uint32 healthFromCon = uint32(player.attributes.constitution) * 17; // Back to 17 as requested
         uint32 healthFromSize = uint32(player.attributes.size) * 6;
         uint32 healthFromStamina = uint32(player.attributes.stamina) * 3;
         uint16 maxHealth = uint16(healthBase + healthFromCon + healthFromSize + healthFromStamina);
@@ -400,8 +400,8 @@ contract GameEngine is IGameEngine {
     }
 
     function calculateBlockChance(uint8 constitution, uint8 strength, uint8 size) internal pure returns (uint16) {
-        // STR-focused blocking: strength overpowers, constitution endures, size provides mass
-        return uint16(2 + (uint32(strength) * 40 / 100) + (uint32(constitution) * 35 / 100) + (uint32(size) * 10 / 100));
+        // Historically accurate blocking: strength primary for shield control, size for coverage/mass, constitution for endurance
+        return uint16(2 + (uint32(strength) * 50 / 100) + (uint32(size) * 30 / 100) + (uint32(constitution) * 20 / 100));
     }
 
     function calculateParryChance(uint8 strength, uint8 agility, uint8 stamina) internal pure returns (uint16) {
@@ -736,6 +736,12 @@ contract GameEngine is IGameEngine {
         pure
         returns (CalculatedCombatStats memory)
     {
+        // Shield Tanks (Tower Shield + Defensive Stance) are immune to stamina penalties
+        // Defensive stance has 125% block chance multiplier - this is more robust than checking stamina
+        if (defender.weapon.shieldType == ShieldType.TOWER_SHIELD && defender.stanceMultipliers.blockChance == 125) {
+            return defender; // No penalties for dedicated tank builds (Defensive Stance)
+        }
+
         uint256 defenderStaminaPercent = (uint256(defenderCurrentStamina) * 100) / defender.stats.maxEndurance;
 
         if (defenderStaminaPercent >= 50) {
@@ -747,8 +753,8 @@ contract GameEngine is IGameEngine {
             // Tired (50%-20%): -30% defensive stats
             penalty = 30;
         } else {
-            // Exhausted (<20%): -60% defensive stats
-            penalty = 60;
+            // Exhausted (<20%): -40% defensive stats (reduced from 60% to help tanks)
+            penalty = 40;
         }
 
         uint256 multiplier = 100 - penalty;
@@ -864,12 +870,17 @@ contract GameEngine is IGameEngine {
                         seed = uint256(keccak256(abi.encodePacked(seed)));
                         uint8 breakthroughRoll = uint8(seed.uniform(100));
 
-                        // Heavy weapons get breakthrough based on their demolition power
-                        uint16 breakthroughChance = 0; // Removed breakthrough - shields should be reliable
-                        // No capping needed - fixed value
-                        uint8 finalChance = uint8(breakthroughChance);
+                        // Heavy weapons get breakthrough based on their crushing power
+                        // Slowest weapons (Battleaxe/Maul 40 speed) = 20%, others = 8%
+                        uint16 breakthroughChance;
+                        if (attacker.weapon.attackSpeed <= 40) {
+                            breakthroughChance = 20; // Battleaxe, Maul - reduced for balance
+                        } else {
+                            breakthroughChance = 8; // Greatsword, Axe+Kite, Axe+Tower - reduced for balance
+                        }
 
-                        if (breakthroughRoll < finalChance) {
+                        if (breakthroughRoll < breakthroughChance) {
+                            // Breakthrough! Attack smashes through the shield
                             return (uint8(CombatResultType.HIT), 0, 0, seed);
                         }
                     }
@@ -955,20 +966,17 @@ contract GameEngine is IGameEngine {
     {
         uint32 baseBlockChance = uint32(defender.stats.blockChance);
 
-        // Apply weapon class modifiers to block chance
-        if (attacker.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
-            // HEAVY_DEMOLITION weapons are harder to block (penalty)
-            uint32 blockPenalty = 20; // Fixed 20% penalty
-            baseBlockChance = baseBlockChance > blockPenalty ? baseBlockChance - blockPenalty : 0;
-        } else if (attacker.weapon.weaponClass == WeaponClass.LIGHT_FINESSE) {
+        // Apply shield bonus first
+        (uint16 shieldBlockBonus,,,) = getShieldStats(defender.weapon.shieldType);
+        baseBlockChance = uint32(baseBlockChance * uint32(shieldBlockBonus)) / 100;
+
+        // Apply weapon class modifiers - only bonus for LIGHT_FINESSE
+        if (attacker.weapon.weaponClass == WeaponClass.LIGHT_FINESSE) {
             // LIGHT_FINESSE weapons are easier to block (bonus)
             uint32 blockBonus = 15; // Fixed 15% bonus
             baseBlockChance = baseBlockChance + blockBonus;
         }
-        // Other weapon classes get no modifier
-
-        (uint16 shieldBlockBonus,,,) = getShieldStats(defender.weapon.shieldType);
-        baseBlockChance = uint32(baseBlockChance * uint32(shieldBlockBonus)) / 100;
+        // HEAVY_DEMOLITION no longer gets a penalty - handled by breakthrough mechanic instead
         uint16 adjustedBlockChance = baseBlockChance > 80 ? 80 : uint16(baseBlockChance);
         return adjustedBlockChance;
     }
@@ -1456,8 +1464,8 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 30,
-            maxDamage: 40,
+            minDamage: 60, // Buffed to reach 48-52 DPR target
+            maxDamage: 80, // Buffed to reach 48-52 DPR target
             attackSpeed: 75,
             parryChance: 140,
             riposteChance: 100,
@@ -1472,8 +1480,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32, // Nerfed to target 40 DPR (tower shield)
-            maxDamage: 43, // Nerfed to target 40 DPR (tower shield)
+            minDamage: 40, // Adjusted to reach 30-35 DPR target
+            maxDamage: 51, // Adjusted to reach 30-35 DPR target
             attackSpeed: 70,
             parryChance: 140,
             riposteChance: 85,
@@ -1488,11 +1496,11 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32, // Buffed to target 45-50 DPR
-            maxDamage: 43, // Buffed to target 45-50 DPR
+            minDamage: 33, // Buffed to reach 50+ DPR target
+            maxDamage: 44, // Buffed to reach 50+ DPR target
             attackSpeed: 90,
-            parryChance: 280,
-            riposteChance: 250,
+            parryChance: 110, // Nerfed from 280 (-61%)
+            riposteChance: 95, // Nerfed from 250 (-62%)
             critMultiplier: 190,
             staminaMultiplier: 85,
             survivalFactor: 120,
@@ -1568,11 +1576,11 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32, // Buffed to target 45-50 DPR
-            maxDamage: 43, // Buffed to target 45-50 DPR
+            minDamage: 33, // Buffed to reach 50+ DPR target
+            maxDamage: 44, // Buffed to reach 50+ DPR target
             attackSpeed: 90,
-            parryChance: 300,
-            riposteChance: 260,
+            parryChance: 115, // Nerfed from 300 (-62%)
+            riposteChance: 100, // Nerfed from 260 (-62%)
             critMultiplier: 160,
             staminaMultiplier: 80,
             survivalFactor: 120,
@@ -1584,8 +1592,8 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 20, // Buffed from 15 (+33%)
-            maxDamage: 38, // Buffed from 30 (+27%)
+            minDamage: 55, // Buffed to reach 35 DPR target
+            maxDamage: 75, // Buffed to reach 35 DPR target
             attackSpeed: 85,
             parryChance: 120,
             riposteChance: 80,
@@ -1600,11 +1608,11 @@ contract GameEngine is IGameEngine {
 
     function SCIMITAR_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32,
-            maxDamage: 43,
+            minDamage: 34, // Buffed to reach 50+ DPR target
+            maxDamage: 46, // Buffed to reach 50+ DPR target
             attackSpeed: 85,
-            parryChance: 260,
-            riposteChance: 240,
+            parryChance: 100, // Nerfed from 260 (-62%)
+            riposteChance: 90, // Nerfed from 240 (-62%)
             critMultiplier: 180,
             staminaMultiplier: 85,
             survivalFactor: 120,
@@ -1616,8 +1624,8 @@ contract GameEngine is IGameEngine {
 
     function AXE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 25,
-            maxDamage: 35,
+            minDamage: 55, // Buffed to reach 48-52 DPR target
+            maxDamage: 75, // Buffed to reach 48-52 DPR target
             attackSpeed: 70,
             parryChance: 120,
             riposteChance: 85,
@@ -1632,10 +1640,10 @@ contract GameEngine is IGameEngine {
 
     function AXE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 28,
-            maxDamage: 37,
+            minDamage: 40, // Adjusted to reach 40-42 DPR target
+            maxDamage: 52, // Adjusted to reach 40-42 DPR target
             attackSpeed: 65,
-            parryChance: 120,
+            parryChance: 50, // Made really weak at parry
             riposteChance: 65,
             critMultiplier: 270,
             staminaMultiplier: 125,
@@ -1664,8 +1672,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32, // Nerfed to target 40 DPR (kite shield)
-            maxDamage: 43, // Nerfed to target 40 DPR (kite shield)
+            minDamage: 60, // Buffed to reach 48-52 DPR target
+            maxDamage: 80, // Buffed to reach 48-52 DPR target
             attackSpeed: 65,
             parryChance: 160,
             riposteChance: 100,
@@ -1680,8 +1688,8 @@ contract GameEngine is IGameEngine {
 
     function CLUB_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32, // Nerfed to target 40 DPR (tower shield)
-            maxDamage: 43, // Nerfed to target 40 DPR (tower shield)
+            minDamage: 40, // Adjusted to reach 30-35 DPR target
+            maxDamage: 51, // Adjusted to reach 30-35 DPR target
             attackSpeed: 70,
             parryChance: 75,
             riposteChance: 65,
@@ -1717,7 +1725,7 @@ contract GameEngine is IGameEngine {
             maxDamage: 51, // Buffed to target 60-65 DPR
             attackSpeed: 100,
             parryChance: 140,
-            riposteChance: 300,
+            riposteChance: 110, // Nerfed from 300 (-63%)
             critMultiplier: 120,
             staminaMultiplier: 60,
             survivalFactor: 110,
@@ -1745,8 +1753,8 @@ contract GameEngine is IGameEngine {
 
     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 45,
-            maxDamage: 62,
+            minDamage: 52, // Small buff from 50
+            maxDamage: 71, // Small buff from 68
             attackSpeed: 85,
             parryChance: 50,
             riposteChance: 50,
@@ -1782,7 +1790,7 @@ contract GameEngine is IGameEngine {
             maxDamage: 49,
             attackSpeed: 105,
             parryChance: 140,
-            riposteChance: 300,
+            riposteChance: 110, // Nerfed from 300 (-63%)
             critMultiplier: 150,
             staminaMultiplier: 55,
             survivalFactor: 100,
@@ -1810,8 +1818,8 @@ contract GameEngine is IGameEngine {
 
     function AXE_MACE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 55,
-            maxDamage: 75,
+            minDamage: 62, // Small buff from 60
+            maxDamage: 85, // Small buff from 82
             attackSpeed: 65,
             parryChance: 75,
             riposteChance: 70,
@@ -1826,8 +1834,8 @@ contract GameEngine is IGameEngine {
 
     function FLAIL_DAGGER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 70,
+            minDamage: 57, // Small buff from 55
+            maxDamage: 80, // Small buff from 77
             attackSpeed: 70,
             parryChance: 200,
             riposteChance: 140,
@@ -1842,8 +1850,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_SHORTSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 50,
-            maxDamage: 70,
+            minDamage: 57, // Small buff from 55
+            maxDamage: 80, // Small buff from 77
             attackSpeed: 70,
             parryChance: 160,
             riposteChance: 85,
@@ -1933,11 +1941,11 @@ contract GameEngine is IGameEngine {
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 9, weight: 50, slashResist: 25, pierceResist: 12, bluntResist: 25});
+        return ArmorStats({defense: 9, weight: 50, slashResist: 25, pierceResist: 12, bluntResist: 25}); // Back to 9 as requested
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 17, weight: 100, slashResist: 30, pierceResist: 37, bluntResist: 16});
+        return ArmorStats({defense: 18, weight: 100, slashResist: 30, pierceResist: 37, bluntResist: 16}); // Dialed back defense from 20 to 18
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
@@ -1958,13 +1966,13 @@ contract GameEngine is IGameEngine {
             hitChance: 85,
             critChance: 85,
             critMultiplier: 95,
-            blockChance: 125,
-            parryChance: 125,
-            dodgeChance: 125,
+            blockChance: 125, // Back to original 125
+            parryChance: 125, // Back to original 125
+            dodgeChance: 125, // Back to original 125
             counterChance: 115,
             riposteChance: 115,
-            staminaCostModifier: 90,
-            survivalFactor: 115
+            staminaCostModifier: 80,
+            survivalFactor: 125 // Buffed from 115
         });
     }
 
@@ -2058,11 +2066,11 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (80, 120, 120, 80);
+            return (90, 120, 120, 80); // Buffed block chance from 80 to 90
         } else if (shieldType == ShieldType.KITE_SHIELD) {
             return (120, 100, 75, 120);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (165, 55, 25, 160);
+            return (155, 55, 25, 120); // Reduced block from 165 to 155
         }
         return (0, 0, 100, 100);
     }

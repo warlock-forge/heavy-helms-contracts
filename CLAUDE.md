@@ -305,15 +305,25 @@ uint256 requestId = vrfMock.fulfillLatestRequest(randomness);
 
 ### Completed ✅
 - **Blockhash Gauntlet System**: Complete 3-transaction commit-reveal implementation
-  - Queue selection timing exploit FIXED
-  - VRF costs eliminated (50%+ gas savings)
-  - Instant gauntlet completion (no VRF delays)
-  - No queue size limits with gas-safe emergency clearing
-  - Comprehensive test coverage (23/23 tests passing)
-- Player creation with tickets (both ETH and ticket options work)
-- 64-player gauntlet support (~15M gas, well under 30M block limit)
+- **Enhanced Stamina System**: PREDATOR MODE mechanics with overflow fixes
+- **Weapon DPR Rebalancing**: Standardized damage modifiers and DPR hierarchy
+- **Combat System Fixes**: Arithmetic overflow bugs eliminated
 - All ticket types working correctly (Type 1-4)
-- GameEngine performance optimization analysis (bytes.concat is optimal)
+- GameEngine v26 weapon classification system implemented
+
+### Current Balance Issues ❌ (as of commit d5075d1)
+- **Berserkers still too OP**: 94% vs Shield Tanks (target 75-85%)
+- **Shield Tanks underperforming**: 41% vs Assassins (target 60-85%)
+- **Root cause**: Not pure DPR issue - deeper combat mechanics problem
+- **Investigation needed**: Core mechanics causing imbalance beyond damage scaling
+
+### Balance Test Status (6 failing tests):
+1. Assassin vs Parry Master: 18% (expected 20-75%)
+2. Berserker vs Shield Tank: 94% (expected 75-85%) 
+3. Berserker vs Shield Tank (alt): 86% (expected 65-85%)
+4. Shield Tank vs Assassin: 41% (expected 60-85%)
+5. Shield Tank vs Parry Master: 24% (expected 0-15%)
+6. Vanguard vs Bruiser: 35% (expected 40-85%)
 
 ### Future Considerations
 - Additional game modes using blockhash pattern
@@ -498,6 +508,73 @@ while (total != 72) { // Will always converge
 - **BY DESIGN**: Practice mode uses predictable randomness (no stakes)
 - **BY DESIGN**: Gauntlets use blockhash instead of VRF (security + gas efficiency)
 - **BY DESIGN**: No queue size limits in gauntlets ("live free or die!")
+
+## Player Archetypes & Weapon Classifications
+
+### Core Combat Archetypes
+Each archetype represents a distinct playstyle with specific stat priorities, equipment choices, and tactical approaches. These are used for balance testing with "perfect roll" characters.
+
+#### 1. **Assassin** (Fast AGI Damage Dealer)
+- **Stats**: STR=19, CON=5, SIZE=12, AGI=19, STA=5, LUCK=12 (Total: 72)
+- **Weapons**: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
+- **Armor**: Leather (mobility over protection)
+- **Stance**: Offensive (maximum damage output)
+- **Identity**: High AGI scaling damage, speed over defense
+
+#### 2. **Berserker** (Heavy STR+SIZE Damage Dealer)  
+- **Stats**: STR=19, CON=5, SIZE=19, AGI=12, STA=12, LUCK=5 (Total: 72)
+- **Weapons**: BATTLEAXE, MAUL, GREATSWORD
+- **Armor**: Leather (mobility for heavy weapons)
+- **Stance**: Offensive (pure aggression)
+- **Identity**: Massive damage, breakthrough mechanics, slower but devastating
+
+#### 3. **Shield Tank** (Pure Defensive Tank)
+- **Stats**: STR=12, CON=19, SIZE=19, AGI=5, STA=12, LUCK=5 (Total: 72)
+- **Weapons**: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
+- **Armor**: Plate (maximum protection)
+- **Stance**: Defensive (stamina immunity, maximum blocking)
+- **Identity**: Absorb damage, outlast opponents, defensive specialist
+
+#### 4. **Parry Master** (Technical Defensive Fighter)
+- **Stats**: STR=12, CON=19, SIZE=5, AGI=19, STA=5, LUCK=12 (Total: 72)
+- **Weapons**: RAPIER_BUCKLER, SCIMITAR_BUCKLER, SHORTSWORD_BUCKLER, RAPIER_DAGGER, SCIMITAR_DAGGER
+- **Armor**: Leather (mobility for technical combat)
+- **Stance**: Defensive (focus on parry/riposte mechanics)
+- **Identity**: Skill-based defense, counter-attacking, finesse over force
+
+#### 5. **Bruiser** (Brute Force Brawler)
+- **Stats**: STR=19, CON=5, SIZE=19, AGI=5, STA=12, LUCK=12 (Total: 72)
+- **Weapons**: DUAL_CLUBS, AXE_MACE, FLAIL_DAGGER, MACE_SHORTSWORD
+- **Armor**: Leather (mobility for dual-wielding)
+- **Stance**: Offensive (raw aggression)
+- **Identity**: Sustained damage output, dual-wield specialist, less finesse than Assassin
+
+#### 6. **Vanguard** (Balanced Heavy Fighter)
+- **Stats**: STR=19, CON=19, SIZE=12, AGI=5, STA=12, LUCK=5 (Total: 72)
+- **Weapons**: GREATSWORD, AXE_KITE, QUARTERSTAFF, FLAIL_BUCKLER
+- **Armor**: Chain (balance of protection and mobility)
+- **Stance**: Balanced (tactical flexibility)
+- **Identity**: Versatile heavy fighter, defensive capabilities with offensive potential
+
+#### 7. **Balanced** (All-Rounder Fighter)
+- **Stats**: STR=12, CON=12, SIZE=12, AGI=12, STA=12, LUCK=12 (Total: 72)
+- **Weapons**: ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, ARMING_SWORD_KITE, MACE_KITE
+- **Armor**: Chain (balanced protection)
+- **Stance**: Balanced (adaptable tactics)
+- **Identity**: Jack-of-all-trades, adaptable to different situations
+
+#### 8. **Monk** (Reach & Control Specialist)
+- **Stats**: STR=12, CON=19, SIZE=5, AGI=19, STA=12, LUCK=5 (Total: 72)
+- **Weapons**: TRIDENT, SPEAR, QUARTERSTAFF
+- **Armor**: Cloth (maximum mobility)
+- **Stance**: Balanced (disciplined approach)
+- **Identity**: Reach advantage, dodge-focused, technical combat
+
+### Archetype Balance Philosophy
+- **Rock-Paper-Scissors**: Each archetype should have clear strengths and weaknesses
+- **Perfect Rolls**: Balance testing uses optimal stat distributions (5/12/19 values)
+- **Multiple Weapons**: Each archetype has 3-4 weapon options for variety within playstyle
+- **Clear Identity**: Each archetype should feel distinct and enable different tactics
 
 ## Game Engine Mechanics Documentation
 
@@ -1181,19 +1258,41 @@ Average Weapon Damage = (minDamage + maxDamage) ÷ 2
 
 #### **3. Optimal Builds for Maximum DPR**
 
-## **STANDARDIZED DAMAGE MODIFIERS - NEVER CHANGE THESE**
+## **ARCHETYPE-BASED TRUE DPR ALGORITHM - NEVER DEVIATE FROM THIS**
 
-**FINAL LOCKED DAMAGE MODIFIERS (DO NOT FUCKING CHANGE):**
+**CRITICAL:** To ensure consistent DPR rankings, ALWAYS use this exact method:
 
-- **LIGHT_FINESSE**: **204.25** (AGI=19, STR=5, SIZE=5: Base 25 + 190 = 215, -5% SIZE = 204.25)
-- **CURVED_BLADE**: **204.00** (AGI=19, STR=12, SIZE=9: Base 35 + 133 + 36 = 204)
-- **BALANCED_SWORD**: **224.40** (STR=19, AGI=12, SIZE=9: Base 35 + 133 + 36 = 204, +10% OFFENSIVE = 224.40)
-- **PURE_BLUNT**: **236.50** (STR=19, SIZE=9: Base 25 + 190 = 215, +10% OFFENSIVE = 236.50)
-- **HEAVY_DEMOLITION**: **248.75** (STR=17, SIZE=21: Base 40 + 85 + 105 = 230, +3%+5% = 248.75)
-- **DUAL_WIELD_BRUTE**: **217.80** (STR=19, SIZE=19, AGI=5: Base 50 + 76 + 57 + 15 = 198, +5%+10% = 217.80)
-- **REACH_CONTROL**: **220.40** (AGI=19, STR=5, SIZE=5: Base 40 + 152 + 40 = 232, -5% SIZE = 220.40)
+### **Step 1: Weapon → Archetype Assignment (LOCKED)**
+Use the archetype that specializes in each weapon for DPR calculations:
 
-**THESE NUMBERS ARE LOCKED. NEVER CHANGE THEM AGAIN.**
+- **Assassin** (STR=19, SIZE=12): DUAL_DAGGERS, RAPIER_DAGGER, DUAL_SCIMITARS
+- **Parry Master** (STR=12, SIZE=5): RAPIER_BUCKLER, SCIMITAR_BUCKLER, SHORTSWORD_BUCKLER, SCIMITAR_DAGGER
+- **Berserker** (STR=19, SIZE=19): BATTLEAXE, MAUL, GREATSWORD
+- **Shield Tank** (STR=12, SIZE=19): MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
+- **Bruiser** (STR=19, SIZE=19): DUAL_CLUBS, AXE_MACE, FLAIL_DAGGER, MACE_SHORTSWORD
+- **Vanguard** (STR=19, SIZE=12): AXE_KITE, FLAIL_BUCKLER
+- **Balanced** (STR=12, SIZE=12): ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, ARMING_SWORD_KITE, MACE_KITE
+- **Monk** (STR=12, SIZE=5): TRIDENT, SPEAR, QUARTERSTAFF
+
+### **Step 2: Calculate Archetype Damage Modifier**
+Use the weapon class formula with the archetype's STR/SIZE stats:
+
+**LIGHT_FINESSE**: Base 25 + (AGI × 10)
+**CURVED_BLADE**: Base 35 + (AGI × 7) + (STR × 3)  
+**BALANCED_SWORD**: Base 35 + (STR × 7) + (AGI × 3)
+**PURE_BLUNT**: Base 25 + (STR × 10)
+**HEAVY_DEMOLITION**: Base 40 + (STR × 5) + (SIZE × 5)
+**DUAL_WIELD_BRUTE**: Base 50 + (STR × 4) + (SIZE × 3) + (AGI × 3)
+**REACH_CONTROL**: Base 40 + (AGI × 5) + (STR × 5)
+
+Then apply universal STR/SIZE bonuses from the archetype stats.
+
+### **Step 3: TRUE DPR Formula**
+```
+TRUE DPR = (Average Weapon Damage × Damage Modifier ÷ 100) × (Attack Speed ÷ 149)
+```
+
+**NEVER USE DIFFERENT ARCHETYPE STATS OR FORMULAS - THIS ENSURES CONSISTENCY**
 
 #### **4. Action Point System**
 - **Attack Cost**: 149 action points (constant: `ATTACK_ACTION_COST`)
@@ -1210,19 +1309,37 @@ Attacks Per Round: 60 ÷ 149 = 0.403
 TRUE DPR: 502.43 × 0.403 = 202.48
 ```
 
-### **Current DPR Rankings (Top 10)**
-1. **GREATSWORD**: 202.48 DPR (BROKEN - needs nerf)
-2. **BATTLEAXE**: 132.29 DPR  
-3. **MAUL**: 132.29 DPR
-4. **DUAL_CLUBS**: 116.35 DPR
-5. **AXE_MACE**: 96.42 DPR
-6. **FLAIL_DAGGER**: 95.81 DPR
-7. **MACE_SHORTSWORD**: 95.81 DPR
-8. **DUAL_DAGGERS**: 89.63 DPR
-9. **ARMING_SWORD_SHORTSWORD**: 87.92 DPR
-10. **AXE_KITE**: 84.87 DPR
+### **ARCHETYPE-BASED TRUE DPR RANKINGS (ALL 27 WEAPONS - FINAL)**
 
-**Shield Tank Validation**: Tower shield weapons properly rank at bottom (46-71 DPR)
+1. **BATTLEAXE** - **88.0 DPR** (Berserker: 132×248.04÷100×40÷149)
+2. **MAUL** - **88.0 DPR** (Berserker: 132×248.04÷100×40÷149)
+3. **DUAL_DAGGERS** - **83.2 DPR** (Assassin: 41×221.45÷100×115÷149)
+4. **GREATSWORD** - **75.0 DPR** (Berserker: 75×248.04÷100×60÷149)
+5. **RAPIER_DAGGER** - **80.5 DPR** (Assassin: 45.5×221.45÷100×100÷149)
+6. **DUAL_SCIMITARS** - **80.1 DPR** (Assassin: 45.5×221.45÷100×100÷149)
+7. **DUAL_CLUBS** - **64.9 DPR** (Bruiser: 53.5×213.57÷100×85÷149)
+8. **FLAIL_DAGGER** - **59.4 DPR** (Bruiser: 60×213.57÷100×70÷149)
+9. **MACE_SHORTSWORD** - **59.4 DPR** (Bruiser: 60×213.57÷100×70÷149)
+10. **AXE_MACE** - **57.1 DPR** (Bruiser: 65×213.57÷100×65÷149)
+11. **FLAIL_BUCKLER** - **55.4 DPR** (Vanguard: 51×221.45÷100×70÷149)
+12. **ARMING_SWORD_SHORTSWORD** - **55.1 DPR** (Balanced: 52.5×155÷100×85÷149)
+13. **SCIMITAR_DAGGER** - **54.5 DPR** (Parry Master: 43.5×193.80÷100×105÷149)
+14. **TRIDENT** - **50.9 DPR** (Monk: 70×185.25÷100×55÷149)
+15. **SPEAR** - **46.3 DPR** (Monk: 45×185.25÷100×80÷149)
+16. **ARMING_SWORD_CLUB** - **45.2 DPR** (Balanced: 52.5×155÷100×75÷149)
+17. **QUARTERSTAFF** - **38.9 DPR** (Monk: 38×185.25÷100×80÷149)
+18. **MACE_KITE** - **37.6 DPR** (Balanced: 47×145÷100×65÷149)
+19. **ARMING_SWORD_KITE** - **36.6 DPR** (Balanced: 42×155÷100×75÷149)
+20. **SCIMITAR_BUCKLER** - **36.2 DPR** (Parry Master: 40×193.80÷100×85÷149)
+21. **SHORTSWORD_BUCKLER** - **35.2 DPR** (Parry Master: 38.5×204.25÷100×90÷149)
+22. **RAPIER_BUCKLER** - **35.2 DPR** (Parry Master: 38.5×204.25÷100×90÷149)
+23. **AXE_KITE** - **32.6 DPR** (Vanguard: 36×200.85÷100×70÷149)
+24. **MACE_TOWER** - **32.4 DPR** (Shield Tank: 41×152.25÷100×70÷149)
+25. **CLUB_TOWER** - **32.4 DPR** (Shield Tank: 41×152.25÷100×70÷149)
+26. **AXE_TOWER** - **30.5 DPR** (Shield Tank: 36×204.75÷100×65÷149)
+27. **SHORTSWORD_TOWER** - **23.9 DPR** (Shield Tank: 35×78.75÷100×85÷149)
+
+**SUCCESS**: Tower weapons are now the bottom 4 as requested, with QUARTERSTAFF correctly using Monk stats.
 
 ## Memories
 
