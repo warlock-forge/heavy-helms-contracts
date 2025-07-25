@@ -1106,7 +1106,8 @@ contract BalanceTest is TestBase {
         // Apply progression directly with caps
         Fighter.Attributes memory newAttrs;
         newAttrs.strength = uint8(_capStat(baseFighter.stats.attributes.strength, attributeDistribution[0], maxStatCap));
-        newAttrs.constitution = uint8(_capStat(baseFighter.stats.attributes.constitution, attributeDistribution[1], maxStatCap));
+        newAttrs.constitution =
+            uint8(_capStat(baseFighter.stats.attributes.constitution, attributeDistribution[1], maxStatCap));
         newAttrs.size = uint8(_capStat(baseFighter.stats.attributes.size, attributeDistribution[2], maxStatCap));
         newAttrs.agility = uint8(_capStat(baseFighter.stats.attributes.agility, attributeDistribution[3], maxStatCap));
         newAttrs.stamina = uint8(_capStat(baseFighter.stats.attributes.stamina, attributeDistribution[4], maxStatCap));
@@ -1269,5 +1270,4 @@ contract BalanceTest is TestBase {
 
         console.log("Parry Master L10 vs Assassin L1 - Win Rate:", winRate, "%");
     }
-
 }
