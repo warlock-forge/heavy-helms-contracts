@@ -1143,8 +1143,12 @@ contract BalanceTest is TestBase {
         TestFighter memory assassinL10 = createProgressedFighter(assassinL1, progressionL10, 9, 25, "L10");
 
         // Log stats to verify progression
-        console.log("L1 Assassin - STR:", assassinL1.stats.attributes.strength, "AGI:", assassinL1.stats.attributes.agility);
-        console.log("L10 Assassin - STR:", assassinL10.stats.attributes.strength, "AGI:", assassinL10.stats.attributes.agility);
+        console.log(
+            "L1 Assassin - STR:", assassinL1.stats.attributes.strength, "AGI:", assassinL1.stats.attributes.agility
+        );
+        console.log(
+            "L10 Assassin - STR:", assassinL10.stats.attributes.strength, "AGI:", assassinL10.stats.attributes.agility
+        );
 
         // Run 100 matches
         matchCount = 100;
@@ -1170,8 +1174,12 @@ contract BalanceTest is TestBase {
         TestFighter memory berserkerL10 = createProgressedFighter(berserkerL1, progressionL10, 9, 25, "L10");
 
         // Log stats to verify progression
-        console.log("L1 Berserker - STR:", berserkerL1.stats.attributes.strength, "SIZE:", berserkerL1.stats.attributes.size);
-        console.log("L10 Berserker - STR:", berserkerL10.stats.attributes.strength, "SIZE:", berserkerL10.stats.attributes.size);
+        console.log(
+            "L1 Berserker - STR:", berserkerL1.stats.attributes.strength, "SIZE:", berserkerL1.stats.attributes.size
+        );
+        console.log(
+            "L10 Berserker - STR:", berserkerL10.stats.attributes.strength, "SIZE:", berserkerL10.stats.attributes.size
+        );
 
         matchCount = 100;
         (MatchStatistics memory statsL10, MatchStatistics memory statsL1) = runDuel(berserkerL10, berserkerL1);
@@ -1183,7 +1191,9 @@ contract BalanceTest is TestBase {
         console.log("L1 Avg Damage/Round:", statsL1.totalDamageDealt / statsL1.totalRounds);
 
         // Berserkers are volatile - even modest improvement is progress
-        assertTrue(winRate >= 50, "L10 should win 50%+ vs L1 (berserkers are volatile, will improve with level scaling)");
+        assertTrue(
+            winRate >= 50, "L10 should win 50%+ vs L1 (berserkers are volatile, will improve with level scaling)"
+        );
     }
 
     // Test Level 10 Shield Tank vs Level 1 Shield Tank (same archetype progression)
