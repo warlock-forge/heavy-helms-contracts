@@ -1103,23 +1103,14 @@ contract BalanceTest is TestBase {
         }
         require(totalPoints == totalPointsExpected, "Incorrect number of attribute points distributed");
 
-        // Create a new copy of attributes to avoid modifying the original
-        Fighter.Attributes memory newAttrs = Fighter.Attributes({
-            strength: baseFighter.stats.attributes.strength,
-            constitution: baseFighter.stats.attributes.constitution,
-            size: baseFighter.stats.attributes.size,
-            agility: baseFighter.stats.attributes.agility,
-            stamina: baseFighter.stats.attributes.stamina,
-            luck: baseFighter.stats.attributes.luck
-        });
-
-        // Apply progression points to the new copy with configurable cap
-        newAttrs.strength = uint8(min(maxStatCap, uint256(newAttrs.strength) + attributeDistribution[0]));
-        newAttrs.constitution = uint8(min(maxStatCap, uint256(newAttrs.constitution) + attributeDistribution[1]));
-        newAttrs.size = uint8(min(maxStatCap, uint256(newAttrs.size) + attributeDistribution[2]));
-        newAttrs.agility = uint8(min(maxStatCap, uint256(newAttrs.agility) + attributeDistribution[3]));
-        newAttrs.stamina = uint8(min(maxStatCap, uint256(newAttrs.stamina) + attributeDistribution[4]));
-        newAttrs.luck = uint8(min(maxStatCap, uint256(newAttrs.luck) + attributeDistribution[5]));
+        // Apply progression directly with caps
+        Fighter.Attributes memory newAttrs;
+        newAttrs.strength = uint8(_capStat(baseFighter.stats.attributes.strength, attributeDistribution[0], maxStatCap));
+        newAttrs.constitution = uint8(_capStat(baseFighter.stats.attributes.constitution, attributeDistribution[1], maxStatCap));
+        newAttrs.size = uint8(_capStat(baseFighter.stats.attributes.size, attributeDistribution[2], maxStatCap));
+        newAttrs.agility = uint8(_capStat(baseFighter.stats.attributes.agility, attributeDistribution[3], maxStatCap));
+        newAttrs.stamina = uint8(_capStat(baseFighter.stats.attributes.stamina, attributeDistribution[4], maxStatCap));
+        newAttrs.luck = uint8(_capStat(baseFighter.stats.attributes.luck, attributeDistribution[5], maxStatCap));
 
         return TestFighter({
             name: string(abi.encodePacked(baseFighter.name, " ", levelLabel)),
@@ -1130,6 +1121,11 @@ contract BalanceTest is TestBase {
                 stance: baseFighter.stats.stance
             })
         });
+    }
+
+    function _capStat(uint8 baseStat, uint8 bonus, uint8 cap) private pure returns (uint256) {
+        uint256 newStat = uint256(baseStat) + uint256(bonus);
+        return newStat > cap ? cap : newStat;
     }
 
     // Test Level 10 vs Level 1 Assassin progression (L10 cap, 25 stat cap)
@@ -1274,8 +1270,4 @@ contract BalanceTest is TestBase {
         console.log("Parry Master L10 vs Assassin L1 - Win Rate:", winRate, "%");
     }
 
-    // Helper for min function
-    function min(uint256 a, uint256 b) private pure returns (uint256) {
-        return a < b ? a : b;
-    }
 }

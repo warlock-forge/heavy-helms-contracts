@@ -132,7 +132,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param operator Address of the Gelato VRF operator
     constructor(address _gameEngine, address _playerContract, address operator)
         BaseGame(_gameEngine, _playerContract)
-        GelatoVRFConsumerBase()
     {
         require(operator != address(0), "Invalid operator address");
         _operatorAddress = operator;
