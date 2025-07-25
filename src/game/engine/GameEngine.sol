@@ -139,7 +139,7 @@ contract GameEngine is IGameEngine {
     uint8 private immutable STAMINA_RIPOSTE = 6;
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
-    uint16 private constant REACH_DODGE_BONUS = 25;
+    uint16 private constant REACH_DODGE_BONUS = 10; // Reduced from 25 - too overpowered vs slow weapons
     // Add base survival constant
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
@@ -1711,7 +1711,7 @@ contract GameEngine is IGameEngine {
             parryChance: 70,
             riposteChance: 70,
             critMultiplier: 130,
-            staminaMultiplier: 60,
+            staminaMultiplier: 85, // Increased from 60 - too stamina efficient
             survivalFactor: 95,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1727,7 +1727,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 110, // Nerfed from 300 (-63%)
             critMultiplier: 120,
-            staminaMultiplier: 60,
+            staminaMultiplier: 80, // Increased from 60 - too stamina efficient
             survivalFactor: 110,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1743,7 +1743,7 @@ contract GameEngine is IGameEngine {
             parryChance: 80,
             riposteChance: 80,
             critMultiplier: 135,
-            staminaMultiplier: 70,
+            staminaMultiplier: 85, // Increased from 70 - too stamina efficient
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1792,7 +1792,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 110, // Nerfed from 300 (-63%)
             critMultiplier: 150,
-            staminaMultiplier: 55,
+            staminaMultiplier: 80, // Increased from 55 - way too stamina efficient
             survivalFactor: 100,
             damageType: DamageType.Hybrid_Slash_Pierce,
             shieldType: ShieldType.NONE,
