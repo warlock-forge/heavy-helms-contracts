@@ -343,6 +343,7 @@ uint256 requestId = vrfMock.fulfillLatestRequest(randomness);
 - Keep commit messages clean and professional
 - Focus on what changed, not who made the changes
 - No "Generated with" or "Co-Authored-By" additions
+- No Claude Code branding or self-promotion of any kind
 
 ## Blockhash Gauntlet Architecture ✅ IMPLEMENTED
 
