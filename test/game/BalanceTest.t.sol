@@ -1083,4 +1083,162 @@ contract BalanceTest is TestBase {
     // REMOVED: Balanced archetype tests - 50% win rates are expected for balanced fighters
     // Balanced is not meant to hard-counter anything, it's the "average" archetype
     // Getting ~50% against most archetypes is actually the CORRECT behavior for Balanced
+
+    // TEST: Balanced should not dominate other archetypes
+    function testBalancedArchetypeVsAssassinArchetype() public skipInCI {
+        // Balanced weapons: ARMING_SWORD_KITE, ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, MACE_KITE
+        uint8[] memory balancedWeapons = new uint8[](4);
+        balancedWeapons[0] = 0; // ARMING_SWORD_KITE
+        balancedWeapons[1] = 19; // ARMING_SWORD_SHORTSWORD
+        balancedWeapons[2] = 21; // ARMING_SWORD_CLUB
+        balancedWeapons[3] = 16; // MACE_KITE
+
+        // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
+        uint8[] memory assassinWeapons = new uint8[](4);
+        assassinWeapons[0] = 9; // DUAL_DAGGERS
+        assassinWeapons[1] = 10; // RAPIER_DAGGER
+        assassinWeapons[2] = 20; // SCIMITAR_DAGGER
+        assassinWeapons[3] = 14; // DUAL_SCIMITARS
+
+        uint256 totalBalancedWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+        uint256 baseSeed = _generateTestSeed();
+
+        for (uint256 i = 0; i < balancedWeapons.length; i++) {
+            for (uint256 j = 0; j < assassinWeapons.length; j++) {
+                TestFighter memory balanced = createCustomFighter(
+                    "Balanced Variant",
+                    balancedWeapons[i], // weapon
+                    2, // CHAIN armor
+                    1, // BALANCED stance
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                TestFighter memory assassin = createCustomFighter(
+                    "Assassin Variant",
+                    assassinWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    highStat,
+                    lowStat,
+                    mediumStat
+                );
+
+                uint256 balancedWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+                    vm.roll(block.number + 1);
+
+                    uint256 seed = baseSeed + k;
+                    bytes memory results = gameEngine.processGame(balanced.stats, assassin.stats, seed, 0);
+
+                    (bool balancedWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (balancedWon) balancedWins++;
+                }
+
+                totalBalancedWins += balancedWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Balanced should not dominate assassins across ALL weapon combinations
+        uint256 winRate = (totalBalancedWins * 100) / totalMatches;
+        assertTrue(
+            winRate <= 65,
+            string(
+                abi.encodePacked(
+                    "Balanced archetype should not dominate Assassin (expected <= 65% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
+
+    function testBalancedArchetypeVsBerserkerArchetype() public skipInCI {
+        // Balanced weapons: ARMING_SWORD_KITE, ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, MACE_KITE
+        uint8[] memory balancedWeapons = new uint8[](4);
+        balancedWeapons[0] = 0; // ARMING_SWORD_KITE
+        balancedWeapons[1] = 19; // ARMING_SWORD_SHORTSWORD
+        balancedWeapons[2] = 21; // ARMING_SWORD_CLUB
+        balancedWeapons[3] = 16; // MACE_KITE
+
+        // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL
+        uint8[] memory berserkerWeapons = new uint8[](3);
+        berserkerWeapons[0] = 4; // BATTLEAXE
+        berserkerWeapons[1] = 3; // GREATSWORD
+        berserkerWeapons[2] = 25; // MAUL
+
+        uint256 totalBalancedWins = 0;
+        uint256 totalMatches = 0;
+        uint256 testRounds = 25;
+        uint256 baseSeed = _generateTestSeed();
+
+        for (uint256 i = 0; i < balancedWeapons.length; i++) {
+            for (uint256 j = 0; j < berserkerWeapons.length; j++) {
+                TestFighter memory balanced = createCustomFighter(
+                    "Balanced Variant",
+                    balancedWeapons[i], // weapon
+                    2, // CHAIN armor
+                    1, // BALANCED stance
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                TestFighter memory berserker = createCustomFighter(
+                    "Berserker Variant",
+                    berserkerWeapons[j], // weapon
+                    1, // LEATHER armor
+                    2, // OFFENSIVE stance
+                    highStat,
+                    lowStat,
+                    highStat,
+                    lowStat,
+                    mediumStat,
+                    mediumStat
+                );
+
+                uint256 balancedWins = 0;
+                for (uint256 k = 0; k < testRounds; k++) {
+                    vm.roll(block.number + 1);
+                    vm.warp(block.timestamp + 15);
+                    vm.roll(block.number + 1);
+
+                    uint256 seed = baseSeed + k;
+                    bytes memory results = gameEngine.processGame(balanced.stats, berserker.stats, seed, 0);
+
+                    (bool balancedWon,,,) = gameEngine.decodeCombatLog(results);
+                    if (balancedWon) balancedWins++;
+                }
+
+                totalBalancedWins += balancedWins;
+                totalMatches += testRounds;
+            }
+        }
+
+        // Balanced should not dominate berserkers across ALL weapon combinations - should lose more often
+        uint256 winRate = (totalBalancedWins * 100) / totalMatches;
+        assertTrue(
+            winRate >= 30 && winRate <= 50,
+            string(
+                abi.encodePacked(
+                    "Balanced vs Berserker should be competitive but favor berserkers (expected 30%-50% win rate): ",
+                    vm.toString(winRate)
+                )
+            )
+        );
+    }
 }

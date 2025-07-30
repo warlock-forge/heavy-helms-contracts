@@ -14,7 +14,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 26;
+    uint16 public constant version = 27;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -131,12 +131,12 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 8;
-    uint8 private immutable STAMINA_BLOCK = 3;
-    uint8 private immutable STAMINA_DODGE = 4;
-    uint8 private immutable STAMINA_COUNTER = 6;
-    uint8 private immutable STAMINA_PARRY = 4;
-    uint8 private immutable STAMINA_RIPOSTE = 6;
+    uint8 private immutable STAMINA_ATTACK = 13; // Increased to ensure exhaustion mechanics work properly
+    uint8 private immutable STAMINA_BLOCK = 2; // Cut in half - encourage defensive play
+    uint8 private immutable STAMINA_DODGE = 2; // Cut in half - encourage defensive play
+    uint8 private immutable STAMINA_COUNTER = 3; // Cut in half - encourage defensive play
+    uint8 private immutable STAMINA_PARRY = 2; // Cut in half - encourage defensive play
+    uint8 private immutable STAMINA_RIPOSTE = 3; // Cut in half - encourage defensive play
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
     uint16 private constant REACH_DODGE_BONUS = 10; // Reduced from 25 - too overpowered vs slow weapons
@@ -1464,8 +1464,8 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 60, // Buffed to reach 48-52 DPR target
-            maxDamage: 80, // Buffed to reach 48-52 DPR target
+            minDamage: 35, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
+            maxDamage: 43, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
             attackSpeed: 75,
             parryChance: 140,
             riposteChance: 100,
@@ -1480,13 +1480,13 @@ contract GameEngine is IGameEngine {
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40, // Adjusted to reach 30-35 DPR target
-            maxDamage: 51, // Adjusted to reach 30-35 DPR target
+            minDamage: 33, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
+            maxDamage: 42, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
             attackSpeed: 70,
             parryChance: 140,
             riposteChance: 85,
             critMultiplier: 220,
-            staminaMultiplier: 105,
+            staminaMultiplier: 85, // Tower shields should be very sustainable
             survivalFactor: 130,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.TOWER_SHIELD,
@@ -1496,13 +1496,13 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 33, // Buffed to reach 50+ DPR target
-            maxDamage: 44, // Buffed to reach 50+ DPR target
+            minDamage: 40, // Buffed to 38-40 DPR range
+            maxDamage: 52, // Buffed to 38-40 DPR range
             attackSpeed: 90,
             parryChance: 110, // Nerfed from 280 (-61%)
             riposteChance: 95, // Nerfed from 250 (-62%)
             critMultiplier: 190,
-            staminaMultiplier: 85,
+            staminaMultiplier: 105, // Light finesse efficient
             survivalFactor: 120,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.BUCKLER,
@@ -1512,13 +1512,13 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 68,
-            maxDamage: 82,
+            minDamage: 76, // Adjusted to achieve ~52 DPR - balanced power level
+            maxDamage: 85, // Adjusted to achieve ~52 DPR - balanced power level
             attackSpeed: 60,
             parryChance: 120,
             riposteChance: 70,
             critMultiplier: 220,
-            staminaMultiplier: 300, // Reduced from 375 (technique weapon)
+            staminaMultiplier: 230, // Heavy weapons should burn stamina but not be crippling
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1528,13 +1528,13 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 124,
-            maxDamage: 140,
+            minDamage: 130, // Adjusted to achieve ~58 DPR - powerful but not overpowering
+            maxDamage: 140, // Adjusted to achieve ~58 DPR - powerful but not overpowering
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
             critMultiplier: 270,
-            staminaMultiplier: 420,
+            staminaMultiplier: 250, // Heavy weapons should burn stamina but not be crippling
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1544,8 +1544,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 34, // Buffed to target 52-53 DPR (has superior parry/riposte)
-            maxDamage: 42, // Buffed to target 52-53 DPR (has superior parry/riposte)
+            minDamage: 29, // Nerfed to target ~40 DPR range
+            maxDamage: 36, // Nerfed to target ~40 DPR range
             attackSpeed: 80,
             parryChance: 140,
             riposteChance: 120,
@@ -1560,8 +1560,8 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 38, // Restored from 34 (middle reach weapon)
-            maxDamage: 52, // Restored from 47
+            minDamage: 32, // v27: Nerfed from 38 to balance DPR (~45 target)
+            maxDamage: 40, // v27: Nerfed from 52 to balance DPR (~45 target)
             attackSpeed: 80,
             parryChance: 130,
             riposteChance: 140,
@@ -1576,13 +1576,13 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 33, // Buffed to reach 50+ DPR target
-            maxDamage: 44, // Buffed to reach 50+ DPR target
+            minDamage: 40, // Buffed to 38-40 DPR range
+            maxDamage: 52, // Buffed to 38-40 DPR range
             attackSpeed: 90,
             parryChance: 115, // Nerfed from 300 (-62%)
             riposteChance: 100, // Nerfed from 260 (-62%)
             critMultiplier: 160,
-            staminaMultiplier: 80,
+            staminaMultiplier: 100, // Light finesse efficient
             survivalFactor: 120,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.BUCKLER,
@@ -1592,8 +1592,8 @@ contract GameEngine is IGameEngine {
 
     function SHORTSWORD_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 55, // Buffed to reach 35 DPR target
-            maxDamage: 75, // Buffed to reach 35 DPR target
+            minDamage: 32, // Nerfed to target ~31 DPR range (tower shields should be lowest)
+            maxDamage: 40, // Nerfed to target ~31 DPR range (tower shields should be lowest)
             attackSpeed: 85,
             parryChance: 120,
             riposteChance: 80,
@@ -1608,13 +1608,13 @@ contract GameEngine is IGameEngine {
 
     function SCIMITAR_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 34, // Buffed to reach 50+ DPR target
-            maxDamage: 46, // Buffed to reach 50+ DPR target
+            minDamage: 38, // Buckler weapons get slight damage advantage over tower shields
+            maxDamage: 50, // Buckler weapons get slight damage advantage over tower shields
             attackSpeed: 85,
             parryChance: 100, // Nerfed from 260 (-62%)
             riposteChance: 90, // Nerfed from 240 (-62%)
             critMultiplier: 180,
-            staminaMultiplier: 85,
+            staminaMultiplier: 110, // Curved blade balanced
             survivalFactor: 120,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.BUCKLER,
@@ -1624,8 +1624,8 @@ contract GameEngine is IGameEngine {
 
     function AXE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 55, // Buffed to reach 48-52 DPR target
-            maxDamage: 75, // Buffed to reach 48-52 DPR target
+            minDamage: 36, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
+            maxDamage: 44, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
             attackSpeed: 70,
             parryChance: 120,
             riposteChance: 85,
@@ -1640,13 +1640,13 @@ contract GameEngine is IGameEngine {
 
     function AXE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40, // Adjusted to reach 40-42 DPR target
-            maxDamage: 52, // Adjusted to reach 40-42 DPR target
+            minDamage: 34, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
+            maxDamage: 43, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
             attackSpeed: 65,
             parryChance: 50, // Made really weak at parry
             riposteChance: 65,
             critMultiplier: 270,
-            staminaMultiplier: 125,
+            staminaMultiplier: 90, // Tower shields should be sustainable
             survivalFactor: 120,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.TOWER_SHIELD,
@@ -1656,8 +1656,8 @@ contract GameEngine is IGameEngine {
 
     function FLAIL_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 44, // Nerfed to reduce DPR from 61 to ~55
-            maxDamage: 58, // Nerfed to reduce DPR from 61 to ~55
+            minDamage: 50, // Buffed to 38-40 DPR range
+            maxDamage: 63, // Buffed to 38-40 DPR range
             attackSpeed: 70,
             parryChance: 260,
             riposteChance: 220,
@@ -1672,8 +1672,8 @@ contract GameEngine is IGameEngine {
 
     function MACE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 60, // Buffed to reach 48-52 DPR target
-            maxDamage: 80, // Buffed to reach 48-52 DPR target
+            minDamage: 43, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
+            maxDamage: 53, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
             attackSpeed: 65,
             parryChance: 160,
             riposteChance: 100,
@@ -1688,13 +1688,13 @@ contract GameEngine is IGameEngine {
 
     function CLUB_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40, // Adjusted to reach 30-35 DPR target
-            maxDamage: 51, // Adjusted to reach 30-35 DPR target
+            minDamage: 33, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
+            maxDamage: 42, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
             attackSpeed: 70,
             parryChance: 75,
             riposteChance: 65,
             critMultiplier: 230,
-            staminaMultiplier: 85,
+            staminaMultiplier: 75, // Tower shields should be very sustainable
             survivalFactor: 125,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.TOWER_SHIELD,
@@ -1711,7 +1711,7 @@ contract GameEngine is IGameEngine {
             parryChance: 70,
             riposteChance: 70,
             critMultiplier: 130,
-            staminaMultiplier: 85, // Increased from 60 - too stamina efficient
+            staminaMultiplier: 95, // Most stamina efficient weapon
             survivalFactor: 95,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1727,7 +1727,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 110, // Nerfed from 300 (-63%)
             critMultiplier: 120,
-            staminaMultiplier: 80, // Increased from 60 - too stamina efficient
+            staminaMultiplier: 105, // Light finesse efficient
             survivalFactor: 110,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.NONE,
@@ -1743,7 +1743,7 @@ contract GameEngine is IGameEngine {
             parryChance: 80,
             riposteChance: 80,
             critMultiplier: 135,
-            staminaMultiplier: 85, // Increased from 70 - too stamina efficient
+            staminaMultiplier: 115, // Curved blade balanced
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1753,13 +1753,13 @@ contract GameEngine is IGameEngine {
 
     function DUAL_CLUBS() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 52, // Small buff from 50
-            maxDamage: 71, // Small buff from 68
+            minDamage: 51, // v27: Nerfed from 52 to ~55 DPR target
+            maxDamage: 62, // v27: Nerfed from 71 to ~55 DPR target
             attackSpeed: 85,
             parryChance: 50,
             riposteChance: 50,
             critMultiplier: 180,
-            staminaMultiplier: 200, // Increased from 140 - brute weapons should be unsustainable
+            staminaMultiplier: 160, // Brute weapons moderately stamina intensive
             survivalFactor: 95,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE,
@@ -1792,7 +1792,7 @@ contract GameEngine is IGameEngine {
             parryChance: 140,
             riposteChance: 110, // Nerfed from 300 (-63%)
             critMultiplier: 150,
-            staminaMultiplier: 80, // Increased from 55 - way too stamina efficient
+            staminaMultiplier: 110, // Curved blade balanced
             survivalFactor: 100,
             damageType: DamageType.Hybrid_Slash_Pierce,
             shieldType: ShieldType.NONE,
@@ -1802,8 +1802,8 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_CLUB() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 45,
-            maxDamage: 60,
+            minDamage: 50, // Buffed to target ~45 DPR range
+            maxDamage: 65, // Buffed to target ~45 DPR range
             attackSpeed: 75,
             parryChance: 90,
             riposteChance: 65,
@@ -1824,7 +1824,7 @@ contract GameEngine is IGameEngine {
             parryChance: 75,
             riposteChance: 70,
             critMultiplier: 280,
-            staminaMultiplier: 180, // Increased from 120 - brute weapons should be unsustainable
+            staminaMultiplier: 150, // Brute weapons moderately stamina intensive
             survivalFactor: 90,
             damageType: DamageType.Hybrid_Slash_Blunt,
             shieldType: ShieldType.NONE,
@@ -1840,7 +1840,7 @@ contract GameEngine is IGameEngine {
             parryChance: 200,
             riposteChance: 140,
             critMultiplier: 200,
-            staminaMultiplier: 190, // Increased from 125 - brute weapons should be unsustainable
+            staminaMultiplier: 170, // Brute weapons moderately stamina intensive
             survivalFactor: 95,
             damageType: DamageType.Hybrid_Pierce_Blunt,
             shieldType: ShieldType.NONE,
@@ -1856,7 +1856,7 @@ contract GameEngine is IGameEngine {
             parryChance: 160,
             riposteChance: 85,
             critMultiplier: 225,
-            staminaMultiplier: 170, // Increased from 110 - brute weapons should be unsustainable
+            staminaMultiplier: 160, // Brute weapons moderately stamina intensive
             survivalFactor: 105,
             damageType: DamageType.Hybrid_Slash_Blunt,
             shieldType: ShieldType.NONE,
@@ -1867,13 +1867,13 @@ contract GameEngine is IGameEngine {
     // Additional two-handed weapons
     function MAUL() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 124,
-            maxDamage: 140,
+            minDamage: 130, // Adjusted to achieve ~58 DPR - powerful but not overpowering
+            maxDamage: 140, // Adjusted to achieve ~58 DPR - powerful but not overpowering
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
             critMultiplier: 320,
-            staminaMultiplier: 470, // Highest stamina cost - hardest to wield
+            staminaMultiplier: 280, // Heavy weapons should burn stamina but not be crippling
             survivalFactor: 85,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.NONE,
@@ -1883,8 +1883,8 @@ contract GameEngine is IGameEngine {
 
     function TRIDENT() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 65, // Buffed to target 60 DPR
-            maxDamage: 75, // Buffed to target 60 DPR
+            minDamage: 47, // v27: Nerfed from 65 to balance DPR (~45 target)
+            maxDamage: 58, // v27: Nerfed from 75 to balance DPR (~45 target)
             attackSpeed: 55,
             parryChance: 100,
             riposteChance: 100,
@@ -1937,15 +1937,15 @@ contract GameEngine is IGameEngine {
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 4, weight: 15, slashResist: 8, pierceResist: 8, bluntResist: 12});
+        return ArmorStats({defense: 4, weight: 15, slashResist: 8, pierceResist: 8, bluntResist: 20});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 9, weight: 50, slashResist: 25, pierceResist: 12, bluntResist: 25}); // Back to 9 as requested
+        return ArmorStats({defense: 9, weight: 50, slashResist: 24, pierceResist: 12, bluntResist: 36});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 18, weight: 100, slashResist: 30, pierceResist: 37, bluntResist: 16}); // Dialed back defense from 20 to 18
+        return ArmorStats({defense: 18, weight: 100, slashResist: 36, pierceResist: 42, bluntResist: 20});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
