@@ -1342,6 +1342,40 @@ TRUE DPR: 502.43 × 0.403 = 202.48
 
 **SUCCESS**: Tower weapons are now the bottom 4 as requested, with QUARTERSTAFF correctly using Monk stats.
 
+## **CRITICAL: Two DPR Calculation Methods - NEVER CONFUSE THESE**
+
+### **1. ARCHETYPE DPR LIST** (Optimal Performance)
+- Uses optimal archetype stats for each weapon (e.g., Assassin STR=19/AGI=19 for DUAL_DAGGERS)
+- Shows best-case performance when properly built for competitive meta
+- Use for understanding matchups and weapon potential
+
+### **2. BASELINE DPR LIST** (Pure Weapon Balance)
+- Uses Balanced stats (STR=12, SIZE=12, AGI=12) for ALL 27 weapons
+- Shows pure weapon balance independent of build optimization
+- **USE THIS FOR ALL WEAPON BALANCE DECISIONS**
+
+### **BASELINE DPR Algorithm (MUST BE CONSISTENT EVERY TIME)**
+
+**Step 1**: Extract weapon stats from current GameEngine.sol
+- minDamage, maxDamage, attackSpeed, weaponClass
+
+**Step 2**: Calculate avgDamage = (minDamage + maxDamage) ÷ 2
+
+**Step 3**: Calculate damage modifier using current GameEngine.sol weapon class formulas:
+- **LIGHT_FINESSE**: Base 25 + (AGI × 10) = 25 + (12 × 10) = **145**
+- **CURVED_BLADE**: Base 35 + (AGI × 7) + (STR × 3) = 35 + (12 × 7) + (12 × 3) = **155**
+- **BALANCED_SWORD**: Base 35 + (STR × 7) + (AGI × 3) = 35 + (12 × 7) + (12 × 3) = **155**
+- **PURE_BLUNT**: Base 25 + (STR × 10) = 25 + (12 × 10) = **145**
+- **HEAVY_DEMOLITION**: Base 40 + (STR × 5) + (SIZE × 5) = 40 + (12 × 5) + (12 × 5) = **160**
+- **DUAL_WIELD_BRUTE**: Base 50 + (STR × 4) + (SIZE × 3) + (AGI × 3) = 50 + (12 × 4) + (12 × 3) + (12 × 3) = **170**
+- **REACH_CONTROL**: Base 40 + (AGI × 8) + (STR × 8) = 40 + (12 × 8) + (12 × 8) = **232** *(Buffed from 5x to 8x)*
+
+**Step 4**: No universal STR/SIZE bonuses (Balanced stats don't qualify)
+
+**Step 5**: TRUE DPR = (avgDamage × damageModifier ÷ 100) × (attackSpeed ÷ 149)
+
+**CRITICAL**: Always use the current GameEngine.sol implementation, NOT outdated CLAUDE.md formulas. REACH_CONTROL was buffed to AGI×8 + STR×8 (not AGI×5 + STR×5).
+
 ## Memories
 
 - Never try a fresh forge build as it will just timeout - ask the user to do it
