@@ -444,6 +444,10 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             attributes: defenderStats.attributes
         });
 
+        // Get seasonal records BEFORE the fight (for historical accuracy)
+        Fighter.Record memory challengerRecord = IPlayer(playerContract).getCurrentSeasonRecord(challenge.challengerId);
+        Fighter.Record memory defenderRecord = IPlayer(playerContract).getCurrentSeasonRecord(challenge.defenderId);
+
         // Execute the duel with the random seed
         bytes memory results = gameEngine.processGame(challengerCombat, defenderCombat, combinedSeed, 0);
 
@@ -456,8 +460,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Emit combat results with packed player data
         emit CombatResult(
-            IPlayer(playerContract).codec().encodePlayerData(challenge.challengerId, challengerStats),
-            IPlayer(playerContract).codec().encodePlayerData(challenge.defenderId, defenderStats),
+            IPlayer(playerContract).codec().encodePlayerData(challenge.challengerId, challengerStats, challengerRecord),
+            IPlayer(playerContract).codec().encodePlayerData(challenge.defenderId, defenderStats, defenderRecord),
             winnerId,
             results
         );

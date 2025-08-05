@@ -164,7 +164,8 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         defaultPlayerExists(playerId)
         returns (Record memory)
     {
-        return _defaultPlayers[playerId].record;
+        // Default players don't track records, return empty record
+        return Record({wins: 0, losses: 0, kills: 0});
     }
 
     /// @notice Get the current name for a default player

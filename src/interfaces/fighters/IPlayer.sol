@@ -31,7 +31,6 @@ interface IPlayer {
     /// @param attributes Attributes for player -> (strength, constitution, size, agility, stamina, luck)
     /// @param skin SkinInfo for player -> (skinIndex, skinTokenId)
     /// @param name PlayerName for player -> (firstNameIndex, surnameIndex)
-    /// @param record Record for player -> (wins, losses, kills)
     /// @param level Player level (1-10)
     /// @param currentXP Experience points toward next level
     /// @param weaponSpecialization Weapon type specialization (255 = none)
@@ -41,7 +40,6 @@ interface IPlayer {
         PlayerName name;
         Fighter.SkinInfo skin;
         uint8 stance;
-        Fighter.Record record;
         uint8 level;
         uint16 currentXP;
         uint8 weaponSpecialization;
@@ -297,4 +295,20 @@ interface IPlayer {
     /// @param playerId The ID of the player
     /// @param armorType The armor type to specialize in (255 = none)
     function setArmorSpecialization(uint32 playerId, uint8 armorType) external;
+
+    /// @notice Gets the current season record for a player
+    /// @param playerId The ID of the player
+    /// @return record The player's record for the current season
+    function getCurrentSeasonRecord(uint32 playerId) external view returns (Fighter.Record memory);
+
+    /// @notice Gets the lifetime record for a player
+    /// @param playerId The ID of the player
+    /// @return record The player's lifetime record (all seasons combined)
+    function getLifetimeRecord(uint32 playerId) external view returns (Fighter.Record memory);
+
+    /// @notice Gets the record for a player in a specific season
+    /// @param playerId The ID of the player
+    /// @param seasonId The season ID to get the record for
+    /// @return record The player's record for the specified season
+    function getSeasonRecord(uint32 playerId, uint256 seasonId) external view returns (Fighter.Record memory);
 }
