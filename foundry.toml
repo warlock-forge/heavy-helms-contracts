@@ -3,8 +3,6 @@
 via_ir = true
 optimizer = true
 optimizer_runs = 200
-lint_enabled = false
-disable_lint = true
 
 # Project structure
 src = "src"
@@ -13,8 +11,8 @@ libs = ["lib"]
 
 # Remappings
 remappings = [
-    "forge-std/=lib/forge-std/src/",
-    "ds-test/=lib/forge-std/lib/ds-test/src/",
-    "solmate/=lib/solmate/",
-    "vrf-contracts/=lib/vrf-contracts/"
+      "forge-std/=lib/forge-std/src/",
+      "solmate/=lib/solmate/",
+      "vrf-contracts/=lib/vrf-contracts/",
+      "BokkyPooBahsDateTimeLibrary/=lib/BokkyPooBahsDateTimeLibrary/contracts/"
 ]

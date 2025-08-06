@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "../TestBase.sol";
 import "../../src/fighters/Fighter.sol";
-import {BokkyPooBahsDateTimeLibrary} from "BokkyPooBahsDateTimeLibrary/contracts/BokkyPooBahsDateTimeLibrary.sol";
+import {BokkyPooBahsDateTimeLibrary} from "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
 
 contract SeasonTest is TestBase {
     uint32 public testPlayerId1;

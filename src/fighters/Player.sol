@@ -23,7 +23,7 @@ import "./Fighter.sol";
 import "../interfaces/fighters/IPlayerCreation.sol";
 import "../interfaces/fighters/IPlayerDataCodec.sol";
 // DateTime library for PST season calculations
-import "BokkyPooBahsDateTimeLibrary/contracts/BokkyPooBahsDateTimeLibrary.sol";
+import "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
