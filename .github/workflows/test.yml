@@ -23,7 +23,7 @@ jobs:
             foundry-rs/forge-std@1eea5ba \
             transmissions11/solmate@c93f771 \
             gelatodigital/vrf-contracts@fdb85db \
-            bokkypoobah/BokkyPooBahsDateTimeLibrary@v1.01
+            bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9
 
       - name: Run Forge fmt
         run: forge fmt --check
