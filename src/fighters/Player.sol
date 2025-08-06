@@ -22,6 +22,8 @@ import "../nft/PlayerTickets.sol";
 import "./Fighter.sol";
 import "../interfaces/fighters/IPlayerCreation.sol";
 import "../interfaces/fighters/IPlayerDataCodec.sol";
+// DateTime library for PST season calculations
+import "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
@@ -86,6 +88,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         bool useNameSetB;
         bool fulfilled;
         uint64 timestamp;
+    }
+
+    /// @notice Contains metadata about a season
+    /// @param startTimestamp Unix timestamp when the season started
+    /// @param startBlock Block number when the season started
+    struct Season {
+        uint256 startTimestamp;
+        uint256 startBlock;
     }
 
     //==============================================================//
@@ -165,6 +175,20 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Maps user address to their current pending request ID
     /// @dev 0 indicates no pending request, >0 is the active request ID
     mapping(address => uint256) private _userPendingRequest;
+
+    // Season tracking
+    /// @notice Current season number (starts at 0)
+    uint256 public currentSeason;
+    /// @notice Timestamp when the next season will start
+    uint256 public nextSeasonStart;
+    /// @notice Length of each season in months (configurable by owner)
+    uint256 public seasonLengthMonths = 1;
+    /// @notice Maps season ID to season metadata
+    mapping(uint256 => Season) public seasons;
+    /// @notice Maps player ID to seasonal records (playerId => seasonId => Record)
+    mapping(uint32 => mapping(uint256 => Fighter.Record)) public seasonalRecords;
+    /// @notice Maps player ID to lifetime records (playerId => Record)
+    mapping(uint32 => Fighter.Record) public lifetimeRecords;
 
     //==============================================================//
     //                          EVENTS                              //
@@ -338,6 +362,17 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param totalCharges Total number of attribute point charges available
     event AttributePointAwarded(address indexed to, uint256 totalCharges);
 
+    /// @notice Emitted when a new season starts
+    /// @param seasonId The ID of the new season
+    /// @param startTimestamp The timestamp when the season started
+    /// @param startBlock The block number when the season started
+    event SeasonStarted(uint256 indexed seasonId, uint256 startTimestamp, uint256 startBlock);
+
+    /// @notice Emitted when the season length is updated
+    /// @param oldLength The previous season length in months
+    /// @param newLength The new season length in months
+    event SeasonLengthUpdated(uint256 oldLength, uint256 newLength);
+
     /// @notice Emitted when a player uses an attribute point from leveling
     /// @param playerId The ID of the player
     /// @param attribute The attribute that was increased
@@ -415,6 +450,12 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         _playerTickets = PlayerTickets(playerTicketsAddress);
         _playerCreation = IPlayerCreation(playerCreationAddress);
         _playerDataCodec = IPlayerDataCodec(playerDataCodecAddress);
+
+        // Initialize season 0
+        currentSeason = 0;
+        seasons[0] = Season({startTimestamp: block.timestamp, startBlock: block.number});
+        nextSeasonStart = getNextSeasonStartPST();
+        emit SeasonStarted(0, block.timestamp, block.number);
     }
 
     //==============================================================//
@@ -600,7 +641,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         playerExists(playerId)
         returns (Record memory)
     {
-        return _players[playerId].record;
+        return seasonalRecords[playerId][currentSeason];
     }
 
     /// @notice Get the current name for a player
@@ -852,9 +893,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         hasPermission(IPlayer.GamePermission.RECORD)
         playerExists(playerId)
     {
-        PlayerStats storage stats = _players[playerId];
-        stats.record.wins++;
-        emit PlayerWinLossUpdated(playerId, stats.record.wins, stats.record.losses);
+        // Check for season transition
+        checkAndUpdateSeason();
+
+        // Update both seasonal and lifetime records
+        lifetimeRecords[playerId].wins++;
+        seasonalRecords[playerId][currentSeason].wins++;
+
+        // Get current seasonal record for event
+        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][currentSeason];
+        emit PlayerWinLossUpdated(playerId, seasonalRecord.wins, seasonalRecord.losses);
     }
 
     /// @notice Increments the loss count for a player
@@ -865,9 +913,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         hasPermission(IPlayer.GamePermission.RECORD)
         playerExists(playerId)
     {
-        PlayerStats storage stats = _players[playerId];
-        stats.record.losses++;
-        emit PlayerWinLossUpdated(playerId, stats.record.wins, stats.record.losses);
+        // Check for season transition
+        checkAndUpdateSeason();
+
+        // Update both seasonal and lifetime records
+        lifetimeRecords[playerId].losses++;
+        seasonalRecords[playerId][currentSeason].losses++;
+
+        // Get current seasonal record for event
+        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][currentSeason];
+        emit PlayerWinLossUpdated(playerId, seasonalRecord.wins, seasonalRecord.losses);
     }
 
     /// @notice Increments the kill count for a player
@@ -878,9 +933,16 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         hasPermission(IPlayer.GamePermission.RECORD)
         playerExists(playerId)
     {
-        PlayerStats storage stats = _players[playerId];
-        stats.record.kills++;
-        emit PlayerKillUpdated(playerId, stats.record.kills);
+        // Check for season transition
+        checkAndUpdateSeason();
+
+        // Update both seasonal and lifetime records
+        lifetimeRecords[playerId].kills++;
+        seasonalRecords[playerId][currentSeason].kills++;
+
+        // Get current seasonal record for event
+        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][currentSeason];
+        emit PlayerKillUpdated(playerId, seasonalRecord.kills);
     }
 
     /// @notice Sets the retirement status of a player
@@ -1076,6 +1138,83 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (newValue == 0) revert ValueMustBePositive();
         emit VrfRequestTimeoutUpdated(vrfRequestTimeout, newValue);
         vrfRequestTimeout = newValue;
+    }
+
+    /// @notice Updates the season length in months
+    /// @param months The new season length (1-12 months)
+    /// @dev Only callable by contract owner. Takes effect on next season transition.
+    function setSeasonLength(uint256 months) external onlyOwner {
+        require(months > 0 && months <= 12, "Invalid season length");
+
+        uint256 oldLength = seasonLengthMonths;
+        seasonLengthMonths = months;
+
+        // Recalculate next season start with new length
+        nextSeasonStart = getNextSeasonStartPST();
+
+        emit SeasonLengthUpdated(oldLength, months);
+    }
+
+    //==============================================================//
+    //                    SEASON FUNCTIONS                          //
+    //==============================================================//
+    /// @notice Checks if a new season should start and updates accordingly
+    /// @dev Can be called by anyone when timestamp condition is met
+    function checkAndUpdateSeason() public {
+        if (block.timestamp >= nextSeasonStart) {
+            currentSeason++;
+            seasons[currentSeason] = Season({startTimestamp: block.timestamp, startBlock: block.number});
+
+            // Calculate next season start
+            nextSeasonStart = getNextSeasonStartPST();
+
+            emit SeasonStarted(currentSeason, block.timestamp, block.number);
+        }
+    }
+
+    /// @notice Calculates the timestamp for the first day of next season at midnight PST
+    /// @return Timestamp for next season start
+    function getNextSeasonStartPST() public view returns (uint256) {
+        // Adjust current time to UTC-8 by adding 8 hours
+        uint256 adjustedTime = block.timestamp + 8 hours;
+
+        // Get current date components in UTC-8
+        (uint256 year, uint256 month, uint256 day) = BokkyPooBahsDateTimeLibrary.timestampToDate(adjustedTime);
+
+        // Add the configured number of months
+        month += seasonLengthMonths;
+        while (month > 12) {
+            month -= 12;
+            year += 1;
+        }
+
+        // Create timestamp for 1st of target month at midnight UTC-8
+        uint256 firstOfMonthUTC = BokkyPooBahsDateTimeLibrary.timestampFromDate(year, month, 1);
+
+        // Subtract 8 hours to get the actual UTC timestamp
+        return firstOfMonthUTC - 8 hours;
+    }
+
+    /// @notice Gets the current season record for a player
+    /// @param playerId The ID of the player
+    /// @return record The player's record for the current season
+    function getCurrentSeasonRecord(uint32 playerId) external view returns (Fighter.Record memory) {
+        return seasonalRecords[playerId][currentSeason];
+    }
+
+    /// @notice Gets the lifetime record for a player
+    /// @param playerId The ID of the player
+    /// @return record The player's lifetime record (all seasons combined)
+    function getLifetimeRecord(uint32 playerId) external view returns (Fighter.Record memory) {
+        return lifetimeRecords[playerId];
+    }
+
+    /// @notice Gets the record for a player in a specific season
+    /// @param playerId The ID of the player
+    /// @param seasonId The season ID to get the record for
+    /// @return record The player's record for the specified season
+    function getSeasonRecord(uint32 playerId, uint256 seasonId) external view returns (Fighter.Record memory) {
+        return seasonalRecords[playerId][seasonId];
     }
 
     //==============================================================//

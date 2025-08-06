@@ -109,6 +109,9 @@ abstract contract TestBase is Test {
 
         gameEngine = new GameEngine();
 
+        // Set up the test environment with a proper timestamp BEFORE deploying contracts
+        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
+
         // Create the player contracts with all required dependencies
         PlayerTickets playerTickets = new PlayerTickets();
         PlayerCreation playerCreation = new PlayerCreation(nameRegistry);
@@ -134,9 +137,6 @@ abstract contract TestBase is Test {
         playerTickets.setGameContractPermission(address(playerContract), ticketPerms);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));
         monsterContract = new Monster(address(skinRegistry), address(nameRegistry));
-
-        // Set up the test environment with a proper timestamp
-        vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Mint default characters and monsters
         _mintDefaultCharacters();

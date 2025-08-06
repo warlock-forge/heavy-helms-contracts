@@ -792,8 +792,11 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
             stance: pStats.stance,
             attributes: pStats.attributes
         });
+        // Get seasonal record for encoding
+        Fighter.Record memory seasonalRecord = playerContract.getCurrentSeasonRecord(playerId);
+
         // Encode player data using the codec
-        encodedData = playerContract.codec().encodePlayerData(playerId, pStats);
+        encodedData = playerContract.codec().encodePlayerData(playerId, pStats, seasonalRecord);
     }
 
     /// @notice Returns the full data structure for a specific Gauntlet run.

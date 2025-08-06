@@ -126,7 +126,6 @@ contract PlayerCreation {
             }),
             skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: IPlayer.PlayerName({firstNameIndex: firstNameIndex, surnameIndex: surnameIndex}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
             stance: 1, // Initialize to BALANCED stance
             level: 1, // Start at level 1
             currentXP: 0, // Start with 0 XP
@@ -240,7 +239,6 @@ contract PlayerCreation {
             }),
             skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
             name: IPlayer.PlayerName({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
-            record: Fighter.Record({wins: player.record.wins, losses: player.record.losses, kills: player.record.kills}),
             stance: 1, // Initialize to BALANCED stance
             level: player.level, // Preserve level
             currentXP: player.currentXP, // Preserve XP
