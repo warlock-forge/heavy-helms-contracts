@@ -19,6 +19,7 @@ import {UnlockNFT} from "../mocks/UnlockNFT.sol";
 import "../TestBase.sol";
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;
@@ -53,7 +54,7 @@ contract DuelGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        game = new DuelGame(address(gameEngine), address(playerContract), operator);
+        game = new DuelGame(address(gameEngine), address(playerContract), operator, address(playerTickets));
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
@@ -76,11 +77,26 @@ contract DuelGameTest is TestBase {
         // Give them ETH
         vm.deal(PLAYER_ONE, 100 ether);
         vm.deal(PLAYER_TWO, 100 ether);
+
+        // Give them duel tickets for testing
+        _mintDuelTickets(PLAYER_ONE, 10);
+        _mintDuelTickets(PLAYER_TWO, 10);
+
+        // Give players approval to DuelGame to burn their tickets
+        vm.prank(PLAYER_ONE);
+        playerTickets.setApprovalForAll(address(game), true);
+        vm.prank(PLAYER_TWO);
+        playerTickets.setApprovalForAll(address(game), true);
+    }
+
+    function _mintDuelTickets(address to, uint256 amount) internal {
+        playerTickets.mintFungibleTicket(to, playerTickets.DUEL_TICKET(), amount);
     }
 
     function testInitialState() public view {
         assertEq(address(game.gameEngine()), address(gameEngine));
         assertEq(address(game.playerContract()), address(playerContract));
+        assertEq(address(game.playerTickets()), address(playerTickets));
         assertEq(game.nextChallengeId(), 0);
     }
 
@@ -326,6 +342,77 @@ contract DuelGameTest is TestBase {
         assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after completion");
         assertFalse(game.isChallengePending(challengeId2), "Challenge should not be pending after completion");
         assertTrue(game.isChallengeCompleted(challengeId2), "Challenge should be completed after fulfillment");
+    }
+
+    function testDuelsDoNotUpdateWinLossRecords() public {
+        // Get initial win/loss records
+        Fighter.Record memory initialP1Record = playerContract.getCurrentSeasonRecord(PLAYER_ONE_ID);
+        Fighter.Record memory initialP2Record = playerContract.getCurrentSeasonRecord(PLAYER_TWO_ID);
+
+        // Complete a duel
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        vm.startPrank(PLAYER_TWO);
+        vm.recordLogs();
+        game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+        vm.stopPrank();
+
+        vm.prank(operator);
+        game.fulfillRandomness(0, dataWithRound);
+
+        // Verify win/loss records are unchanged
+        Fighter.Record memory finalP1Record = playerContract.getCurrentSeasonRecord(PLAYER_ONE_ID);
+        Fighter.Record memory finalP2Record = playerContract.getCurrentSeasonRecord(PLAYER_TWO_ID);
+
+        assertEq(finalP1Record.wins, initialP1Record.wins, "Player 1 wins should be unchanged");
+        assertEq(finalP1Record.losses, initialP1Record.losses, "Player 1 losses should be unchanged");
+        assertEq(finalP2Record.wins, initialP2Record.wins, "Player 2 wins should be unchanged");
+        assertEq(finalP2Record.losses, initialP2Record.losses, "Player 2 losses should be unchanged");
+    }
+
+    function testDuelTicketRequired() public {
+        // Create new player with no tickets
+        address newPlayer = address(0xABC);
+        vm.deal(newPlayer, 100 ether);
+        uint32 newPlayerId = _createPlayerAndFulfillVRF(newPlayer, playerContract, false);
+
+        // Verify player has no tickets
+        assertEq(
+            playerTickets.balanceOf(newPlayer, playerTickets.DUEL_TICKET()), 0, "New player should have no tickets"
+        );
+
+        // Try to create challenge without ticket - should fail
+        vm.startPrank(newPlayer);
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+            playerId: newPlayerId,
+            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+            stance: 1
+        });
+        vm.expectRevert();
+        game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Give them a ticket and try again - should work
+        _mintDuelTickets(newPlayer, 1);
+
+        // Give approval to burn tickets
+        vm.prank(newPlayer);
+        playerTickets.setApprovalForAll(address(game), true);
+
+        vm.startPrank(newPlayer);
+        uint256 challengeId = game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Verify challenge was created
+        (uint32 challengerId,,,,,,,) = game.challenges(challengeId);
+        assertEq(challengerId, newPlayerId);
+
+        // Verify ticket was burned
+        assertEq(playerTickets.balanceOf(newPlayer, playerTickets.DUEL_TICKET()), 0);
     }
 
     function test_RevertWhen_AcceptingExpiredChallenge() public {

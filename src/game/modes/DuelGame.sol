@@ -18,6 +18,15 @@ import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
 
 //==============================================================//
+//                         INTERFACES                           //
+//==============================================================//
+/// @notice Interface for PlayerTickets contract functions needed by DuelGame
+interface IPlayerTickets {
+    function DUEL_TICKET() external view returns (uint256);
+    function burnFrom(address from, uint256 tokenId, uint256 amount) external;
+}
+
+//==============================================================//
 //                         HEAVY HELMS                          //
 //                          DUEL GAME                           //
 //==============================================================//
@@ -37,6 +46,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint256 public timeUntilExpire = 7 days; // 7 days
     /// @notice Address of the Gelato VRF operator
     address private _operatorAddress;
+    /// @notice Player tickets contract for burning duel tickets
+    IPlayerTickets public playerTickets;
 
     // Enum
     /// @notice Enum representing the state of a duel challenge
@@ -130,11 +141,14 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param _gameEngine Address of the game engine contract
     /// @param _playerContract Address of the player contract
     /// @param operator Address of the Gelato VRF operator
-    constructor(address _gameEngine, address _playerContract, address operator)
+    /// @param _playerTickets Address of the player tickets contract
+    constructor(address _gameEngine, address _playerContract, address operator, address _playerTickets)
         BaseGame(_gameEngine, _playerContract)
     {
         require(operator != address(0), "Invalid operator address");
+        require(_playerTickets != address(0), "Invalid player tickets address");
         _operatorAddress = operator;
+        playerTickets = IPlayerTickets(_playerTickets);
     }
 
     //==============================================================//
@@ -208,6 +222,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // Verify players are not retired
         require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
         require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
+
+        // Burn duel ticket from challenger - duels require tickets to prevent spam
+        playerTickets.burnFrom(msg.sender, playerTickets.DUEL_TICKET(), 1);
 
         // Validate skin ownership and requirements
         address owner = IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId);
@@ -456,7 +473,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
 
         // Determine winner and loser IDs based on player1Won
         uint32 winnerId = player1Won ? challenge.challengerId : challenge.defenderId;
-        uint32 loserId = player1Won ? challenge.defenderId : challenge.challengerId;
 
         // Emit combat results with packed player data
         emit CombatResult(
@@ -466,9 +482,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
             results
         );
 
-        // Update player stats
-        IPlayer(playerContract).incrementWins(winnerId);
-        IPlayer(playerContract).incrementLosses(loserId);
+        // Duels no longer update win/loss records - they're just for flexing!
 
         // Emit results
         emit DuelComplete(challengeId, winnerId, randomness);

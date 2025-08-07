@@ -32,7 +32,8 @@ contract PlayerTickets is ERC1155, Owned {
     uint256 public constant PLAYER_SLOT_TICKET = 2;
     uint256 public constant WEAPON_SPECIALIZATION_TICKET = 3;
     uint256 public constant ARMOR_SPECIALIZATION_TICKET = 4;
-    // Reserved for future fungible tickets: 5-99
+    uint256 public constant DUEL_TICKET = 5;
+    // Reserved for future fungible tickets: 6-99
 
     // Non-fungible name change NFTs start at 100
     uint256 public nextNameChangeTokenId = 100;
@@ -53,6 +54,7 @@ contract PlayerTickets is ERC1155, Owned {
         bool nameChanges;
         bool weaponSpecialization;
         bool armorSpecialization;
+        bool duels;
     }
 
     //==============================================================//
@@ -64,7 +66,8 @@ contract PlayerTickets is ERC1155, Owned {
         PLAYER_SLOTS,
         NAME_CHANGES,
         WEAPON_SPECIALIZATION,
-        ARMOR_SPECIALIZATION
+        ARMOR_SPECIALIZATION,
+        DUELS
     }
 
     //==============================================================//
@@ -105,6 +108,8 @@ contract PlayerTickets is ERC1155, Owned {
                 hasRequiredPermission = permissions.weaponSpecialization;
             } else if (permission == TicketPermission.ARMOR_SPECIALIZATION) {
                 hasRequiredPermission = permissions.armorSpecialization;
+            } else if (permission == TicketPermission.DUELS) {
+                hasRequiredPermission = permissions.duels;
             }
 
             if (!hasRequiredPermission) revert NotAuthorizedToMint();
@@ -126,6 +131,9 @@ contract PlayerTickets is ERC1155, Owned {
     function uri(uint256 id) public pure override returns (string memory) {
         if (id == CREATE_PLAYER_TICKET) return "ipfs://create-player-ticket";
         if (id == PLAYER_SLOT_TICKET) return "ipfs://player-slot-ticket";
+        if (id == WEAPON_SPECIALIZATION_TICKET) return "ipfs://weapon-specialization-ticket";
+        if (id == ARMOR_SPECIALIZATION_TICKET) return "ipfs://armor-specialization-ticket";
+        if (id == DUEL_TICKET) return "ipfs://duel-ticket";
         if (id >= 100) return "ipfs://name-change-nft";
         return "";
     }
@@ -213,6 +221,7 @@ contract PlayerTickets is ERC1155, Owned {
         if (ticketType == PLAYER_SLOT_TICKET) return TicketPermission.PLAYER_SLOTS;
         if (ticketType == WEAPON_SPECIALIZATION_TICKET) return TicketPermission.WEAPON_SPECIALIZATION;
         if (ticketType == ARMOR_SPECIALIZATION_TICKET) return TicketPermission.ARMOR_SPECIALIZATION;
+        if (ticketType == DUEL_TICKET) return TicketPermission.DUELS;
         revert TokenDoesNotExist();
     }
 }

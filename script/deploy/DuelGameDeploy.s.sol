@@ -16,9 +16,10 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 contract DuelGameDeployScript is Script {
     function setUp() public {}
 
-    function run(address gameEngineAddr, address playerAddr) public {
+    function run(address gameEngineAddr, address playerAddr, address playerTicketsAddr) public {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
+        require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
 
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
@@ -31,7 +32,7 @@ contract DuelGameDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy DuelGame
-        DuelGame duelGame = new DuelGame(gameEngineAddr, playerAddr, operator);
+        DuelGame duelGame = new DuelGame(gameEngineAddr, playerAddr, operator, playerTicketsAddr);
 
         // Whitelist DuelGame in Player contract
         Player playerContract = Player(playerAddr);

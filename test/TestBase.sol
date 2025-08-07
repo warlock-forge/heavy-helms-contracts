@@ -59,6 +59,7 @@ abstract contract TestBase is Test {
     MonsterSkinNFT public monsterSkin;
     uint32 public monsterSkinIndex;
     MonsterNameRegistry public monsterNameRegistry;
+    PlayerTickets public playerTickets;
 
     /// @notice Event signatures for VRF event detection
     bytes32 constant VRF_REQUESTED_EVENT_SIG = keccak256("RequestedRandomness(uint256,bytes)");
@@ -113,7 +114,7 @@ abstract contract TestBase is Test {
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Create the player contracts with all required dependencies
-        PlayerTickets playerTickets = new PlayerTickets();
+        playerTickets = new PlayerTickets();
         PlayerCreation playerCreation = new PlayerCreation(nameRegistry);
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
         playerContract = new Player(
@@ -132,7 +133,8 @@ abstract contract TestBase is Test {
             playerSlots: true,
             nameChanges: true,
             weaponSpecialization: true,
-            armorSpecialization: true
+            armorSpecialization: true,
+            duels: true
         });
         playerTickets.setGameContractPermission(address(playerContract), ticketPerms);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));

@@ -111,7 +111,8 @@ contract PlayerSecurityTests is TestBase {
             playerSlots: true,
             nameChanges: false,
             weaponSpecialization: false,
-            armorSpecialization: false
+            armorSpecialization: false,
+            duels: false
         });
         tickets.setGameContractPermission(address(this), perms);
 
@@ -160,7 +161,8 @@ contract PlayerSecurityTests is TestBase {
             playerSlots: true,
             nameChanges: false,
             weaponSpecialization: false,
-            armorSpecialization: false
+            armorSpecialization: false,
+            duels: false
         });
         tickets.setGameContractPermission(address(this), perms);
 
@@ -195,7 +197,8 @@ contract PlayerSecurityTests is TestBase {
             playerSlots: true,
             nameChanges: false,
             weaponSpecialization: false,
-            armorSpecialization: false
+            armorSpecialization: false,
+            duels: false
         });
         tickets.setGameContractPermission(address(this), perms);
 
