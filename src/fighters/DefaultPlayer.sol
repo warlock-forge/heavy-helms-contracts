@@ -51,6 +51,12 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     /// @notice Maps default player ID to their stats
     /// @dev Only IDs within DEFAULT_PLAYER_START and DEFAULT_PLAYER_END range are valid
     mapping(uint32 => IPlayer.PlayerStats) private _defaultPlayers;
+    
+    /// @notice Array of all valid default player IDs that have been created
+    uint32[] private validDefaultPlayerIds;
+    
+    /// @notice Count of valid default players (gas-efficient alternative to array.length)
+    uint256 public validDefaultPlayerCount;
 
     //==============================================================//
     //                          EVENTS                              //
@@ -199,6 +205,14 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     function skinRegistry() public view override(Fighter, IDefaultPlayer) returns (IPlayerSkinRegistry) {
         return super.skinRegistry();
     }
+    
+    /// @notice Gets a valid default player ID by index
+    /// @param index The index in the valid IDs array (0 to validDefaultPlayerCount-1)
+    /// @return The default player ID at that index
+    function getValidDefaultPlayerId(uint256 index) external view returns (uint32) {
+        require(index < validDefaultPlayerIds.length, "Index out of bounds");
+        return validDefaultPlayerIds[index];
+    }
 
     // State-Changing Functions
     /// @notice Creates a new default player with specified stats
@@ -228,6 +242,10 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         }
 
         _defaultPlayers[playerId] = stats;
+        
+        // Add to valid IDs list
+        validDefaultPlayerIds.push(playerId);
+        validDefaultPlayerCount++;
 
         // Emit event for new player creation
         emit DefaultPlayerCreated(playerId, stats);

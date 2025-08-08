@@ -65,6 +65,10 @@ contract TournamentGasAnalysisTest is TestBase {
         _testTournamentSizeWithLethality(16, 0); // No lethality like gauntlet
     }
 
+    function test16PlayerTournamentWithHighLethality() public skipInCI {
+        _testTournamentSizeWithLethality(16, 100); // High lethality to test for lingering bugs
+    }
+
     function test32PlayerTournament3Transaction() public skipInCI {
         _testTournamentSize(32);
     }
@@ -76,7 +80,7 @@ contract TournamentGasAnalysisTest is TestBase {
     function _testTournamentSize(uint8 size) internal {
         console2.log("=== TESTING", size, "PLAYER TOURNAMENT (3-TRANSACTION BLOCKHASH) ===");
 
-        // Set tournament size (lethality defaults to 0 now)
+        // Set tournament size (lethality defaults to 20)
         game.setTournamentSize(size);
 
         // Create players and queue them

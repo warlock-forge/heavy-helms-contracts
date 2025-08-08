@@ -38,7 +38,6 @@ error TournamentNotPending();
 error GameDisabled();
 error InvalidTournamentSize(uint8 size);
 error QueueNotEmpty();
-error InvalidDefaultPlayerRange();
 error TimeoutNotReached();
 error UnsupportedPlayerId();
 error TournamentTooEarly();
@@ -52,6 +51,8 @@ error TournamentBlockNotReached(uint256 tournamentBlock, uint256 currentBlock);
 error InvalidFutureBlocks(uint256 blocks);
 error CannotRecoverYet();
 error InvalidRewardPercentages();
+error NoDefaultPlayersAvailable();
+error InsufficientDefaultPlayers(uint256 needed, uint256 available);
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -168,13 +169,11 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Window after tournament hour to run (1 hour).
     uint256 public constant TOURNAMENT_WINDOW_HOURS = 1;
     /// @notice Lethality factor for tournament matches.
-    uint16 public lethalityFactor = 0;
+    uint16 public lethalityFactor = 20;
 
     // --- Dynamic Settings ---
     /// @notice Current number of participants required for tournament (16, 32, or 64).
     uint8 public currentTournamentSize = 16;
-    /// @notice The maximum ID used when randomly substituting retired players with defaults.
-    uint32 public maxDefaultPlayerSubstituteId = 18;
 
     // --- Tournament State ---
     /// @notice Counter for assigning unique Tournament IDs.
@@ -489,7 +488,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             uint32 playerId = selectedIds[i];
 
             // Check if this is a default player (added to fill spots)
-            if (playerId <= maxDefaultPlayerSubstituteId) {
+            if (_isDefaultPlayerId(playerId)) {
                 // Create a default player registration
                 RegisteredPlayer memory defaultReg;
                 defaultReg.playerId = playerId;
@@ -510,7 +509,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Remove selected players from queue (not default players)
         for (uint256 i = 0; i < selectedIds.length; i++) {
             uint32 playerId = selectedIds[i];
-            if (playerId > maxDefaultPlayerSubstituteId && playerIndexInQueue[playerId] > 0) {
+            if (!_isDefaultPlayerId(playerId) && playerIndexInQueue[playerId] > 0) {
                 _removePlayerFromQueueArrayIndex(playerId);
                 delete registrationQueue[playerId];
             }
@@ -563,14 +562,15 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         // If still not enough players, fill with default players
         if (selectedCount < size) {
-            uint32 currentMaxDefaultId = maxDefaultPlayerSubstituteId;
-            if (currentMaxDefaultId == 0) currentMaxDefaultId = 1;
-
-            for (uint256 i = selectedCount; i < size; i++) {
-                seed = uint256(keccak256(abi.encodePacked(seed, i)));
-                uint32 defaultId = uint32(seed % currentMaxDefaultId) + 1;
-                // Ensure default player ID is in correct range
-                selected[i] = defaultId; // 1-18 for default players
+            uint256 defaultsNeeded = size - selectedCount;
+            
+            // Select unique defaults (no exclusions needed for initial fill)
+            uint32[] memory emptyExcludes = new uint32[](0);
+            uint32[] memory defaultIds = _selectUniqueDefaults(seed, defaultsNeeded, emptyExcludes);
+            
+            // Add selected defaults to the result
+            for (uint256 i = 0; i < defaultsNeeded; i++) {
+                selected[selectedCount + i] = defaultIds[i];
             }
         }
 
@@ -644,37 +644,56 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](size);
         bytes32[] memory participantEncodedData = new bytes32[](size);
 
-        // Load participant data, substituting retired players
+        // First pass: identify retired players and collect existing defaults
+        uint256[] memory retiredIndices = new uint256[](size);
+        uint256 retiredCount = 0;
+        uint32[] memory existingDefaults = new uint32[](size);
+        uint256 existingDefaultCount = 0;
+        
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
-
-            if (regPlayer.playerId <= maxDefaultPlayerSubstituteId) {
-                // This is a default player
-                uint32 defaultId = regPlayer.playerId;
-                activeParticipants[i] = regPlayer.playerId;
-
-                // Fetch default player stats
-                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(defaultId);
-                IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
-                    playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
-                IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-                    IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(defaultStats.skin.skinTokenId);
-
-                participantStats[i] = IGameEngine.FighterStats({
-                    weapon: skinAttrs.weapon,
-                    armor: skinAttrs.armor,
-                    stance: defaultStats.stance,
-                    attributes: defaultStats.attributes
-                });
-                participantEncodedData[i] = bytes32(uint256(regPlayer.playerId));
+            
+            if (_isDefaultPlayerId(regPlayer.playerId)) {
+                // Track existing default players
+                existingDefaults[existingDefaultCount++] = regPlayer.playerId;
             } else if (playerContract.isPlayerRetired(regPlayer.playerId)) {
-                // Substitute retired player with random default
-                uint256 derivedRand = uint256(keccak256(abi.encodePacked(randomness, i)));
-                uint32 defaultId = uint32(derivedRand % maxDefaultPlayerSubstituteId) + 1;
-                activeParticipants[i] = defaultId;
+                // Mark for substitution
+                retiredIndices[retiredCount++] = i;
+            }
+        }
+        
+        // Get unique substitutes for all retired players
+        uint32[] memory substituteIds = new uint32[](0);
+        if (retiredCount > 0) {
+            // Trim existing defaults array to actual size
+            uint32[] memory excludeDefaults = new uint32[](existingDefaultCount);
+            for (uint256 i = 0; i < existingDefaultCount; i++) {
+                excludeDefaults[i] = existingDefaults[i];
+            }
+            
+            substituteIds = _selectUniqueDefaults(randomness, retiredCount, excludeDefaults);
+        }
 
-                // Fetch substitute stats
-                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(defaultId);
+        // Second pass: load all participant data with substitutions
+        for (uint256 i = 0; i < size; i++) {
+            RegisteredPlayer storage regPlayer = initialParticipants[i];
+            uint32 activePlayerId = regPlayer.playerId;
+            
+            // Check if this player needs substitution
+            uint256 substituteIndex = type(uint256).max;
+            for (uint256 j = 0; j < retiredCount; j++) {
+                if (retiredIndices[j] == i) {
+                    substituteIndex = j;
+                    activePlayerId = substituteIds[j];
+                    break;
+                }
+            }
+            
+            activeParticipants[i] = activePlayerId;
+
+            if (_isDefaultPlayerId(activePlayerId)) {
+                // Load default player stats (either original or substitute)
+                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(activePlayerId);
                 IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
                     playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
                 IPlayerSkinNFT.SkinAttributes memory skinAttrs =
@@ -686,10 +705,9 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                     stance: defaultStats.stance,
                     attributes: defaultStats.attributes
                 });
-                participantEncodedData[i] = bytes32(uint256(defaultId));
+                participantEncodedData[i] = bytes32(uint256(activePlayerId));
             } else {
-                // Active player
-                activeParticipants[i] = regPlayer.playerId;
+                // Active real player (not retired, not default)
                 (participantStats[i], participantEncodedData[i]) =
                     _getFighterCombatStats(regPlayer.playerId, regPlayer.loadout);
             }
@@ -826,7 +844,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Clean up player statuses
         for (uint256 i = 0; i < size; i++) {
             uint32 pId = tournament.participants[i].playerId;
-            if (pId > maxDefaultPlayerSubstituteId && playerStatus[pId] == PlayerStatus.IN_TOURNAMENT) {
+            if (!_isDefaultPlayerId(pId) && playerStatus[pId] == PlayerStatus.IN_TOURNAMENT) {
                 playerStatus[pId] = PlayerStatus.NONE;
                 delete playerCurrentTournament[pId];
             }
@@ -1188,12 +1206,80 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         emit RewardConfigUpdated("thirdFourth", config);
     }
 
-    /// @notice Sets the maximum default player ID for substitutions.
-    function setMaxDefaultPlayerSubstituteId(uint32 _maxId) external onlyOwner {
-        if (_maxId == 0 || _maxId > 2000) {
-            revert InvalidDefaultPlayerRange();
+    /// @notice Helper to check if a player ID is a default player (1-2000 range)
+    /// @param playerId The player ID to check
+    /// @return True if the player ID is in default player range
+    function _isDefaultPlayerId(uint32 playerId) internal pure returns (bool) {
+        return playerId >= 1 && playerId <= 2000;
+    }
+    
+    /// @notice Helper to get a random valid default player ID
+    /// @param randomSeed Random seed for selection
+    /// @return A valid default player ID
+    function _getRandomDefaultPlayerId(uint256 randomSeed) internal view returns (uint32) {
+        uint256 defaultCount = defaultPlayerContract.validDefaultPlayerCount();
+        if (defaultCount == 0) revert NoDefaultPlayersAvailable();
+        
+        uint256 randomIndex = randomSeed % defaultCount;
+        return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
+    }
+    
+    /// @notice Helper to select unique default player IDs without duplicates
+    /// @param randomSeed Random seed for selection
+    /// @param count Number of unique defaults needed  
+    /// @param excludeIds Array of default IDs to exclude from selection
+    /// @return Array of unique default player IDs
+    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds) 
+        internal view returns (uint32[] memory) {
+        uint256 totalDefaults = defaultPlayerContract.validDefaultPlayerCount();
+        if (count > totalDefaults) revert InsufficientDefaultPlayers(count, totalDefaults);
+        
+        // Simple approach: select without replacement using exclusion
+        uint32[] memory selected = new uint32[](count);
+        uint256 selectedCount = 0;
+        uint256 attempts = 0;
+        uint256 maxAttempts = totalDefaults * 10; // Generous safety limit
+        
+        while (selectedCount < count && attempts < maxAttempts) {
+            // Generate next candidate
+            randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, attempts)));
+            uint256 randomIndex = randomSeed % totalDefaults;
+            uint32 candidate = defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
+            
+            // Check if candidate is already excluded
+            bool isExcluded = false;
+            for (uint256 i = 0; i < excludeIds.length; i++) {
+                if (candidate == excludeIds[i]) {
+                    isExcluded = true;
+                    break;
+                }
+            }
+            
+            // Check if candidate is already selected
+            if (!isExcluded) {
+                for (uint256 i = 0; i < selectedCount; i++) {
+                    if (candidate == selected[i]) {
+                        isExcluded = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Add to selection if unique
+            if (!isExcluded) {
+                selected[selectedCount] = candidate;
+                selectedCount++;
+            }
+            
+            attempts++;
         }
-        maxDefaultPlayerSubstituteId = _maxId;
+        
+        // Safety check - should never happen with sufficient defaults
+        if (selectedCount < count) {
+            revert InsufficientDefaultPlayers(count, totalDefaults - excludeIds.length);
+        }
+        
+        return selected;
     }
 
     /// @notice Toggles whether the game is enabled.

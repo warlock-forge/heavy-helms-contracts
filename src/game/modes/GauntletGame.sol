@@ -48,6 +48,8 @@ error SelectionBlockNotReached(uint256 selectionBlock, uint256 currentBlock);
 error TournamentBlockNotReached(uint256 tournamentBlock, uint256 currentBlock);
 error InvalidFutureBlocks(uint256 blocks);
 error CannotRecoverYet();
+error NoDefaultPlayersAvailable();
+error InsufficientDefaultPlayers(uint256 needed, uint256 available);
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -151,9 +153,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     // --- Dynamic Settings ---
     /// @notice Current number of participants required to start a Gauntlet (4, 8, 16, or 32).
     uint8 public currentGauntletSize = 4;
-    /// @notice The maximum ID used when randomly substituting retired players with defaults.
-    /// @dev Must be kept in sync with the highest valid ID in the `DefaultPlayer` contract.
-    uint32 public maxDefaultPlayerSubstituteId = 18;
 
     // --- Gauntlet State ---
     /// @notice Counter for assigning unique Gauntlet IDs.
@@ -249,7 +248,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     {
         // Input validation
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
-        if (maxDefaultPlayerSubstituteId == 0) revert InvalidDefaultPlayerRange(); // Ensure initial value is valid
+        // Validation will happen when trying to use defaults
 
         // Set initial state
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
@@ -258,7 +257,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         // Emit initial settings
         emit DefaultPlayerContractSet(_defaultPlayerAddress);
         emit GauntletSizeSet(0, currentGauntletSize);
-        emit MaxDefaultPlayerSubstituteIdSet(maxDefaultPlayerSubstituteId);
+        // MaxDefaultPlayerSubstituteId no longer used
         emit MinTimeBetweenGauntletsSet(minTimeBetweenGauntlets);
         emit FutureBlocksForSelectionSet(futureBlocksForSelection);
         emit FutureBlocksForTournamentSet(futureBlocksForTournament);
@@ -546,21 +545,44 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](size);
         bytes32[] memory participantEncodedData = new bytes32[](size);
 
-        // Substitute retired players with random default players
-        uint32 currentMaxDefaultId = maxDefaultPlayerSubstituteId;
-        if (currentMaxDefaultId == 0) currentMaxDefaultId = 1; // Safeguard against invalid config
-
+        // First pass: identify retired players
+        uint256[] memory retiredIndices = new uint256[](size);
+        uint256 retiredCount = 0;
+        
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             if (playerContract.isPlayerRetired(regPlayer.playerId)) {
-                // Generate pseudo-random index for default player selection
-                uint256 derivedRand = uint256(keccak256(abi.encodePacked(randomness, i)));
-                uint32 defaultId = uint32(derivedRand % currentMaxDefaultId) + 1; // Ensure ID is >= 1
+                retiredIndices[retiredCount++] = i;
+            }
+        }
+        
+        // Get unique substitutes for all retired players
+        uint32[] memory substituteIds = new uint32[](0);
+        if (retiredCount > 0) {
+            uint32[] memory emptyExcludes = new uint32[](0); // No existing defaults in gauntlet
+            substituteIds = _selectUniqueDefaults(randomness, retiredCount, emptyExcludes);
+        }
 
-                activeParticipants[i] = defaultId;
+        // Second pass: substitute retired players and load all data
+        for (uint256 i = 0; i < size; i++) {
+            RegisteredPlayer storage regPlayer = initialParticipants[i];
+            uint32 activePlayerId = regPlayer.playerId;
+            
+            // Check if this player needs substitution
+            for (uint256 j = 0; j < retiredCount; j++) {
+                if (retiredIndices[j] == i) {
+                    activePlayerId = substituteIds[j];
+                    break;
+                }
+            }
+            
+            activeParticipants[i] = activePlayerId;
+
+            if (activePlayerId != regPlayer.playerId) {
+                // This is a substitute default player
 
                 // Fetch substitute player stats
-                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(defaultId);
+                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(activePlayerId);
                 IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
                     playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
                 IPlayerSkinNFT.SkinAttributes memory skinAttrs =
@@ -573,7 +595,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     attributes: defaultStats.attributes
                 });
                 // Encode default player ID directly as data (no PlayerStats encoding needed)
-                participantEncodedData[i] = bytes32(uint256(defaultId));
+                participantEncodedData[i] = bytes32(uint256(activePlayerId));
             } else {
                 // Use non-retired player's ID and fetch/encode their stats
                 activeParticipants[i] = regPlayer.playerId;
@@ -979,22 +1001,80 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         emit GauntletSizeSet(oldSize, newSize);
     }
 
-    /// @notice Sets the maximum ID used for default player substitutions during tournament execution.
-    /// @dev Owner must ensure this ID corresponds to an existing, valid player in the `DefaultPlayer` contract.
-    ///      Must be within the range [1, 2000].
-    /// @param _maxId The highest default player ID to consider for substitution.
-    function setMaxDefaultPlayerSubstituteId(uint32 _maxId) external onlyOwner {
-        // Validate against the absolute range expected for DefaultPlayer IDs
-        if (_maxId == 0 || _maxId > 2000) {
-            // Assuming 1-2000 is the valid range for DefaultPlayer
-            revert InvalidDefaultPlayerRange();
+    /// @notice Helper to check if a player ID is a default player (1-2000 range)
+    /// @param playerId The player ID to check
+    /// @return True if the player ID is in default player range
+    function _isDefaultPlayerId(uint32 playerId) internal pure returns (bool) {
+        return playerId >= 1 && playerId <= 2000;
+    }
+    
+    /// @notice Helper to get a random valid default player ID
+    /// @param randomSeed Random seed for selection
+    /// @return A valid default player ID
+    function _getRandomDefaultPlayerId(uint256 randomSeed) internal view returns (uint32) {
+        uint256 defaultCount = defaultPlayerContract.validDefaultPlayerCount();
+        if (defaultCount == 0) revert NoDefaultPlayersAvailable();
+        
+        uint256 randomIndex = randomSeed % defaultCount;
+        return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
+    }
+    
+    /// @notice Helper to select unique default player IDs without duplicates  
+    /// @param randomSeed Random seed for selection
+    /// @param count Number of unique defaults needed
+    /// @param excludeIds Array of default IDs to exclude from selection
+    /// @return Array of unique default player IDs
+    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds) 
+        internal view returns (uint32[] memory) {
+        uint256 totalDefaults = defaultPlayerContract.validDefaultPlayerCount();
+        if (count > totalDefaults) revert InsufficientDefaultPlayers(count, totalDefaults);
+        
+        // Simple approach: select without replacement using exclusion
+        uint32[] memory selected = new uint32[](count);
+        uint256 selectedCount = 0;
+        uint256 attempts = 0;
+        uint256 maxAttempts = totalDefaults * 10; // Generous safety limit
+        
+        while (selectedCount < count && attempts < maxAttempts) {
+            // Generate next candidate
+            randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, attempts)));
+            uint256 randomIndex = randomSeed % totalDefaults;
+            uint32 candidate = defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
+            
+            // Check if candidate is already excluded
+            bool isExcluded = false;
+            for (uint256 i = 0; i < excludeIds.length; i++) {
+                if (candidate == excludeIds[i]) {
+                    isExcluded = true;
+                    break;
+                }
+            }
+            
+            // Check if candidate is already selected
+            if (!isExcluded) {
+                for (uint256 i = 0; i < selectedCount; i++) {
+                    if (candidate == selected[i]) {
+                        isExcluded = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Add to selection if unique
+            if (!isExcluded) {
+                selected[selectedCount] = candidate;
+                selectedCount++;
+            }
+            
+            attempts++;
         }
-        uint32 oldMaxId = maxDefaultPlayerSubstituteId;
-        if (oldMaxId == _maxId) return; // No change needed
-
-        // Effect & Interaction
-        maxDefaultPlayerSubstituteId = _maxId;
-        emit MaxDefaultPlayerSubstituteIdSet(_maxId);
+        
+        // Safety check - should never happen with sufficient defaults
+        if (selectedCount < count) {
+            revert InsufficientDefaultPlayers(count, totalDefaults - excludeIds.length);
+        }
+        
+        return selected;
     }
 
     /// @notice Sets the minimum time required between starting gauntlets.
