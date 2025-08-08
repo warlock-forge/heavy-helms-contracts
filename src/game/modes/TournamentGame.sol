@@ -1,0 +1,1223 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+pragma solidity ^0.8.13;
+
+//==============================================================//
+//                          IMPORTS                             //
+//==============================================================//
+import "./BaseGame.sol";
+import "solmate/src/utils/ReentrancyGuard.sol";
+import "solmate/src/utils/SafeTransferLib.sol";
+import "../../lib/UniformRandomNumber.sol";
+import "../../interfaces/game/engine/IGameEngine.sol";
+import "../../interfaces/fighters/IPlayer.sol";
+import "../../interfaces/fighters/IPlayerDataCodec.sol";
+import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import "../../fighters/Fighter.sol";
+import "../../interfaces/fighters/IDefaultPlayer.sol";
+import {Player} from "../../fighters/Player.sol";
+import {PlayerTickets} from "../../nft/PlayerTickets.sol";
+
+//==============================================================//
+//                       CUSTOM ERRORS                          //
+//==============================================================//
+error TournamentDoesNotExist();
+error PlayerNotInQueue();
+error AlreadyInQueue();
+error PlayerIsRetired();
+error InvalidLoadout();
+error InvalidSkin();
+error CallerNotPlayerOwner();
+error TournamentNotPending();
+error GameDisabled();
+error InvalidTournamentSize(uint8 size);
+error QueueNotEmpty();
+error InvalidDefaultPlayerRange();
+error TimeoutNotReached();
+error UnsupportedPlayerId();
+error TournamentTooEarly();
+error TournamentTooLate();
+error MinTimeNotElapsed();
+error PendingTournamentExists();
+error NoPendingTournament();
+error InvalidPhaseTransition();
+error SelectionBlockNotReached(uint256 selectionBlock, uint256 currentBlock);
+error TournamentBlockNotReached(uint256 tournamentBlock, uint256 currentBlock);
+error InvalidFutureBlocks(uint256 blocks);
+error CannotRecoverYet();
+error InvalidRewardPercentages();
+
+//==============================================================//
+//                         HEAVY HELMS                          //
+//                      TOURNAMENT GAME                         //
+//==============================================================//
+/// @title Tournament Game Mode for Heavy Helms
+/// @notice Manages daily elimination tournaments with level-based priority,
+///         tournament ratings, death mechanics, and reward distribution.
+/// @dev Uses a commit-reveal pattern with future blockhash for randomness.
+contract TournamentGame is BaseGame, ReentrancyGuard {
+    using UniformRandomNumber for uint256;
+    using SafeTransferLib for address;
+
+    //==============================================================//
+    //                          ENUMS                               //
+    //==============================================================//
+    /// @notice Represents the state of a Tournament run.
+    enum TournamentState {
+        PENDING, // Tournament started, awaiting completion.
+        COMPLETED // Tournament finished.
+
+    }
+
+    /// @notice Represents the phase of the 3-transaction tournament system.
+    enum TournamentPhase {
+        NONE, // No pending tournament
+        QUEUE_COMMIT, // Phase 1: Waiting for participant selection block
+        PARTICIPANT_SELECT, // Phase 2: Waiting for tournament execution block
+        TOURNAMENT_READY // Phase 3: Ready to execute tournament
+
+    }
+
+    /// @notice Represents the current status of a player in relation to the Tournament mode.
+    enum PlayerStatus {
+        NONE, // Not participating.
+        QUEUED, // Waiting in the queue, can withdraw.
+        IN_TOURNAMENT // Actively participating in a Tournament run.
+
+    }
+
+    /// @notice Types of rewards that can be distributed.
+    enum RewardType {
+        NONE,
+        ATTRIBUTE_SWAP,
+        CREATE_PLAYER_TICKET,
+        PLAYER_SLOT_TICKET,
+        WEAPON_SPECIALIZATION_TICKET,
+        ARMOR_SPECIALIZATION_TICKET,
+        DUEL_TICKET
+    }
+
+    //==============================================================//
+    //                         STRUCTS                              //
+    //==============================================================//
+    /// @notice Tournament data structure for contract storage.
+    /// @dev Participants needed for commit-reveal, other arrays kept in memory only.
+    struct Tournament {
+        uint256 id;
+        uint8 size;
+        TournamentState state;
+        uint256 startTimestamp;
+        uint256 completionTimestamp;
+        RegisteredPlayer[] participants; // Needed for commit-reveal pattern
+        uint32 championId;
+        uint32 runnerUpId;
+    }
+
+    /// @notice Compact struct storing participant data within a Tournament.
+    struct RegisteredPlayer {
+        uint32 playerId;
+        Fighter.PlayerLoadout loadout;
+        uint8 playerLevel; // Store level at registration time
+    }
+
+    /// @notice Structure for pending tournament using 3-transaction pattern.
+    struct PendingTournament {
+        TournamentPhase phase;
+        uint256 selectionBlock;
+        uint256 tournamentBlock;
+        uint256 commitTimestamp;
+        uint256 tournamentId;
+    }
+
+    /// @notice Reward configuration for a placement range.
+    struct RewardConfig {
+        uint16 nonePercent;
+        uint16 attributeSwapPercent;
+        uint16 createPlayerPercent;
+        uint16 playerSlotPercent;
+        uint16 weaponSpecPercent;
+        uint16 armorSpecPercent;
+        uint16 duelTicketPercent;
+    }
+
+    //==============================================================//
+    //                    STATE VARIABLES                           //
+    //==============================================================//
+
+    // --- Configuration & Roles ---
+    /// @notice Contract managing default player data.
+    IDefaultPlayer public defaultPlayerContract;
+    /// @notice PlayerTickets contract for minting rewards.
+    PlayerTickets public playerTickets;
+    /// @notice Number of blocks in the future for participant selection.
+    uint256 public futureBlocksForSelection = 20;
+    /// @notice Number of blocks in the future for tournament execution.
+    uint256 public futureBlocksForTournament = 20;
+    /// @notice Maximum number of players to clear per emergency clear operation.
+    uint256 public constant CLEAR_BATCH_SIZE = 50;
+    /// @notice Whether the game is enabled for queueing.
+    bool public isGameEnabled = true;
+    /// @notice Daily tournament hour in UTC (20:00 = noon PST).
+    uint256 public constant DAILY_TOURNAMENT_HOUR = 20;
+    /// @notice Window after tournament hour to run (1 hour).
+    uint256 public constant TOURNAMENT_WINDOW_HOURS = 1;
+    /// @notice Lethality factor for tournament matches.
+    uint16 public lethalityFactor = 0;
+
+    // --- Dynamic Settings ---
+    /// @notice Current number of participants required for tournament (16, 32, or 64).
+    uint8 public currentTournamentSize = 16;
+    /// @notice The maximum ID used when randomly substituting retired players with defaults.
+    uint32 public maxDefaultPlayerSubstituteId = 18;
+
+    // --- Tournament State ---
+    /// @notice Counter for assigning unique Tournament IDs.
+    uint256 public nextTournamentId;
+    /// @notice Maps Tournament IDs to their detailed `Tournament` struct data.
+    mapping(uint256 => Tournament) public tournaments;
+    /// @notice The pending tournament waiting for reveal.
+    PendingTournament public pendingTournament;
+    /// @notice Last timestamp when a tournament was started.
+    uint256 public lastTournamentStartTimestamp;
+    /// @notice Previous tournament winner and runner-up for auto-queue.
+    uint32 public previousChampionId;
+    uint32 public previousRunnerUpId;
+
+    // --- Queue State ---
+    /// @notice Stores loadout data for players currently in the queue.
+    mapping(uint32 => RegisteredPlayer) public registrationQueue;
+    /// @notice Array containing the IDs of players currently in the queue.
+    uint32[] public queueIndex;
+    /// @notice Maps player IDs to their (1-based) index within the `queueIndex` array for O(1) lookup during removal.
+    mapping(uint32 => uint256) public playerIndexInQueue;
+
+    // --- Player State ---
+    /// @notice Tracks the current status (NONE, QUEUED, IN_TOURNAMENT) of a player.
+    mapping(uint32 => PlayerStatus) public playerStatus;
+    /// @notice If status is IN_TOURNAMENT, maps player ID to the `tournamentId` they are participating in.
+    mapping(uint32 => uint256) public playerCurrentTournament;
+
+    // --- Tournament Rating State ---
+    /// @notice Maps player ID to their tournament rating for the current season.
+    mapping(uint32 => uint256) public currentSeasonRatings;
+    /// @notice Maps player ID to season ID to their tournament rating.
+    mapping(uint32 => mapping(uint256 => uint256)) public seasonalRatings;
+
+    // --- Reward Configuration ---
+    /// @notice Reward percentages for winners (1st place).
+    RewardConfig public winnerRewards = RewardConfig({
+        nonePercent: 4000, // 40%
+        attributeSwapPercent: 1000, // 10%
+        createPlayerPercent: 1000, // 10% TODO: Adjust these placeholder values
+        playerSlotPercent: 1000, // 10% TODO: Adjust these placeholder values
+        weaponSpecPercent: 1000, // 10% TODO: Adjust these placeholder values
+        armorSpecPercent: 1000, // 10% TODO: Adjust these placeholder values
+        duelTicketPercent: 1000 // 10% TODO: Adjust these placeholder values
+    });
+
+    /// @notice Reward percentages for runner-up (2nd place).
+    RewardConfig public runnerUpRewards = RewardConfig({
+        nonePercent: 8400, // 84%
+        attributeSwapPercent: 100, // 1%
+        createPlayerPercent: 300, // 3% TODO: Adjust these placeholder values
+        playerSlotPercent: 300, // 3% TODO: Adjust these placeholder values
+        weaponSpecPercent: 300, // 3% TODO: Adjust these placeholder values
+        armorSpecPercent: 300, // 3% TODO: Adjust these placeholder values
+        duelTicketPercent: 300 // 3% TODO: Adjust these placeholder values
+    });
+
+    /// @notice Reward percentages for 3rd-4th place.
+    RewardConfig public thirdFourthRewards = RewardConfig({
+        nonePercent: 7000, // 70%
+        attributeSwapPercent: 0, // 0%
+        createPlayerPercent: 0, // 0%
+        playerSlotPercent: 0, // 0%
+        weaponSpecPercent: 0, // 0%
+        armorSpecPercent: 0, // 0%
+        duelTicketPercent: 3000 // 30% TODO: Adjust these placeholder values
+    });
+
+    //==============================================================//
+    //                          EVENTS                              //
+    //==============================================================//
+    /// @notice Emitted when a player successfully joins the queue.
+    event PlayerQueued(uint32 indexed playerId, uint8 playerLevel, uint256 queueSize);
+    /// @notice Emitted when a player successfully withdraws from the queue.
+    event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
+    /// @notice Emitted when phase 1 is completed (queue committed).
+    event QueueCommitted(uint256 selectionBlock, uint256 queueSize);
+    /// @notice Emitted when phase 2 is completed (participants selected).
+    event ParticipantsSelected(uint256 indexed tournamentId, uint256 tournamentBlock, uint32[] selectedIds);
+    /// @notice Emitted when a Tournament is started (phase 3).
+    event TournamentStarted(uint256 indexed tournamentId, uint8 size, RegisteredPlayer[] participants);
+    /// @notice Emitted when a Tournament is successfully completed.
+    event TournamentCompleted(
+        uint256 indexed tournamentId,
+        uint8 size,
+        uint32 indexed championId,
+        uint32 runnerUpId,
+        uint32[] participantIds,
+        uint32[] roundWinners
+    );
+    /// @notice Emitted when tournament ratings are awarded.
+    event TournamentRatingsAwarded(
+        uint256 indexed tournamentId, uint256 indexed seasonId, uint32[] playerIds, uint256[] ratings
+    );
+    /// @notice Emitted when a player is retired due to death in tournament.
+    event PlayerRetiredInTournament(uint256 indexed tournamentId, uint32 indexed playerId);
+    /// @notice Emitted when rewards are distributed to a player.
+    event RewardDistributed(
+        uint256 indexed tournamentId, uint32 indexed playerId, RewardType rewardType, uint256 ticketId
+    );
+    /// @notice Emitted when a new season starts (synced from Player contract).
+    /// @notice Emitted when the tournament size is changed.
+    event TournamentSizeSet(uint8 oldSize, uint8 newSize);
+    /// @notice Emitted when the lethality factor is updated.
+    event LethalityFactorSet(uint16 oldFactor, uint16 newFactor);
+    /// @notice Emitted when reward configurations are updated.
+    event RewardConfigUpdated(string placement, RewardConfig config);
+    // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
+
+    //==============================================================//
+    //                        MODIFIERS                             //
+    //==============================================================//
+    /// @notice Ensures the game is not disabled before proceeding.
+    modifier whenGameEnabled() {
+        if (!isGameEnabled) revert GameDisabled();
+        _;
+    }
+
+    //==============================================================//
+    //                       CONSTRUCTOR                            //
+    //==============================================================//
+    /// @notice Initializes the TournamentGame contract.
+    /// @param _gameEngine Address of the `GameEngine` contract.
+    /// @param _playerContract Address of the `Player` contract.
+    /// @param _defaultPlayerAddress Address of the `DefaultPlayer` contract.
+    /// @param _playerTicketsAddress Address of the `PlayerTickets` contract.
+    constructor(
+        address _gameEngine,
+        address _playerContract,
+        address _defaultPlayerAddress,
+        address _playerTicketsAddress
+    ) BaseGame(_gameEngine, _playerContract) {
+        // Input validation
+        if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
+        if (_playerTicketsAddress == address(0)) revert ZeroAddress();
+
+        // Set initial state
+        defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
+        playerTickets = PlayerTickets(_playerTicketsAddress);
+        lastTournamentStartTimestamp = block.timestamp;
+
+        // No need to store season - always get from Player contract
+    }
+
+    //==============================================================//
+    //                       QUEUE MANAGEMENT                       //
+    //==============================================================//
+
+    /// @notice Allows a player owner to join the Tournament queue with a specific loadout.
+    /// @param loadout The player's chosen skin and stance for the potential Tournament.
+    /// @dev Auto-accepts previous champion and runner-up. Uses level-based priority.
+    function queueForTournament(Fighter.PlayerLoadout calldata loadout) external whenGameEnabled nonReentrant {
+        // Checks
+        if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
+        address owner = playerContract.getPlayerOwner(loadout.playerId);
+        if (msg.sender != owner) revert CallerNotPlayerOwner();
+        if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
+
+        // Validate skin and equipment requirements via Player contract registries
+        try playerContract.skinRegistry().validateSkinOwnership(loadout.skin, owner) {}
+        catch {
+            revert InvalidSkin();
+        }
+        try playerContract.skinRegistry().validateSkinRequirements(
+            loadout.skin, playerContract.getPlayer(loadout.playerId).attributes, playerContract.equipmentRequirements()
+        ) {} catch {
+            revert InvalidLoadout();
+        }
+
+        // Get player level for priority queue
+        IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(loadout.playerId);
+        uint8 playerLevel = playerStats.level;
+
+        // Effects
+        uint32 playerId = loadout.playerId;
+        registrationQueue[playerId] = RegisteredPlayer({playerId: playerId, loadout: loadout, playerLevel: playerLevel});
+        queueIndex.push(playerId);
+        playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
+        playerStatus[playerId] = PlayerStatus.QUEUED;
+
+        // Interactions (Event Emission)
+        emit PlayerQueued(playerId, playerLevel, queueIndex.length);
+    }
+
+    /// @notice Allows a player owner to withdraw their player from the queue before a Tournament starts.
+    /// @param playerId The ID of the player to withdraw.
+    function withdrawFromQueue(uint32 playerId) external nonReentrant {
+        // Checks
+        address owner = playerContract.getPlayerOwner(playerId);
+        if (msg.sender != owner) revert CallerNotPlayerOwner();
+        if (playerStatus[playerId] != PlayerStatus.QUEUED) {
+            revert PlayerNotInQueue();
+        }
+
+        // Effects - update player state
+        _removePlayerFromQueueArrayIndex(playerId);
+        delete registrationQueue[playerId];
+        playerStatus[playerId] = PlayerStatus.NONE;
+
+        // Interactions - emit event
+        emit PlayerWithdrew(playerId, queueIndex.length);
+    }
+
+    /// @notice Returns the current number of players waiting in the queue.
+    function getQueueSize() external view returns (uint256) {
+        return queueIndex.length;
+    }
+
+    //==============================================================//
+    //                 TOURNAMENT LIFECYCLE                         //
+    //==============================================================//
+
+    /// @notice Attempts to start a new Tournament using 3-transaction commit-reveal pattern.
+    /// @dev Callable by anyone. Enforces daily timing constraints.
+    function tryStartTournament() external whenGameEnabled nonReentrant {
+        // Handle pending tournament phases
+        if (pendingTournament.phase != TournamentPhase.NONE) {
+            // Check if we're past the 256-block limit from initial commit for auto-recovery
+            uint256 commitBlock = (pendingTournament.phase == TournamentPhase.QUEUE_COMMIT)
+                ? pendingTournament.selectionBlock - futureBlocksForSelection
+                : pendingTournament.tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
+
+            if (block.number > commitBlock + 256) {
+                // Auto-recovery if we missed the window
+                _recoverPendingTournament();
+            }
+
+            if (pendingTournament.phase == TournamentPhase.QUEUE_COMMIT) {
+                // Phase 2: Participant Selection
+                if (block.number >= pendingTournament.selectionBlock) {
+                    _selectParticipantsPhase();
+                    return;
+                } else {
+                    revert SelectionBlockNotReached(pendingTournament.selectionBlock, block.number);
+                }
+            } else if (pendingTournament.phase == TournamentPhase.PARTICIPANT_SELECT) {
+                // Phase 3: Tournament Execution
+                if (block.number >= pendingTournament.tournamentBlock) {
+                    _executeTournamentPhase();
+                    return;
+                } else {
+                    revert TournamentBlockNotReached(pendingTournament.tournamentBlock, block.number);
+                }
+            }
+
+            // If we reach here, we're waiting for the next phase
+            return;
+        }
+
+        // Phase 1: Queue Commit - Check daily timing constraints
+        uint256 currentHour = (block.timestamp / 1 hours) % 24;
+        uint256 currentDay = block.timestamp / 1 days;
+        uint256 lastTournamentDay = lastTournamentStartTimestamp / 1 days;
+
+        // Must be after tournament hour but within window
+        if (currentHour < DAILY_TOURNAMENT_HOUR) {
+            revert TournamentTooEarly();
+        }
+        if (currentHour >= DAILY_TOURNAMENT_HOUR + TOURNAMENT_WINDOW_HOURS) {
+            revert TournamentTooLate();
+        }
+        // Ensure only one tournament per day
+        if (currentDay <= lastTournamentDay) {
+            revert MinTimeNotElapsed();
+        }
+
+        _commitQueuePhase();
+    }
+
+    //==============================================================//
+    //                    COMMIT-REVEAL FUNCTIONS                   //
+    //==============================================================//
+
+    /// @notice Phase 1: Commits the queue and sets up for participant selection.
+    function _commitQueuePhase() private {
+        // Update timing
+        lastTournamentStartTimestamp = block.timestamp;
+
+        // Initialize pending tournament for phase 1
+        pendingTournament.phase = TournamentPhase.QUEUE_COMMIT;
+        pendingTournament.selectionBlock = block.number + futureBlocksForSelection;
+        pendingTournament.commitTimestamp = block.timestamp;
+        pendingTournament.tournamentId = nextTournamentId;
+
+        emit QueueCommitted(pendingTournament.selectionBlock, queueIndex.length);
+    }
+
+    /// @notice Phase 2: Selects participants using blockhash randomness and level priority.
+    function _selectParticipantsPhase() private {
+        // Get randomness from selection block
+        uint256 seed = uint256(blockhash(pendingTournament.selectionBlock));
+        if (seed == 0) {
+            revert("Invalid blockhash");
+        }
+
+        // No need to sync - always get current season from Player contract
+
+        // Select participants with level-based priority
+        uint32[] memory selectedIds = _selectParticipantsWithPriority(seed);
+
+        // Create the actual tournament
+        uint256 tournamentId = pendingTournament.tournamentId;
+        nextTournamentId++;
+        Tournament storage tournament = tournaments[tournamentId];
+        tournament.id = tournamentId;
+        tournament.size = uint8(selectedIds.length);
+        tournament.state = TournamentState.PENDING;
+        tournament.startTimestamp = block.timestamp;
+
+        // Store participants (needed for commit-reveal pattern)
+        for (uint256 i = 0; i < selectedIds.length; i++) {
+            uint32 playerId = selectedIds[i];
+
+            // Check if this is a default player (added to fill spots)
+            if (playerId <= maxDefaultPlayerSubstituteId) {
+                // Create a default player registration
+                RegisteredPlayer memory defaultReg;
+                defaultReg.playerId = playerId;
+                defaultReg.playerLevel = 1; // Default players are level 1
+                // Default loadout - will be handled during combat
+                tournament.participants.push(defaultReg);
+            } else {
+                // Regular player from queue
+                RegisteredPlayer memory regPlayer = registrationQueue[playerId];
+                tournament.participants.push(regPlayer);
+
+                // Update player status
+                playerStatus[playerId] = PlayerStatus.IN_TOURNAMENT;
+                playerCurrentTournament[playerId] = tournamentId;
+            }
+        }
+
+        // Remove selected players from queue (not default players)
+        for (uint256 i = 0; i < selectedIds.length; i++) {
+            uint32 playerId = selectedIds[i];
+            if (playerId > maxDefaultPlayerSubstituteId && playerIndexInQueue[playerId] > 0) {
+                _removePlayerFromQueueArrayIndex(playerId);
+                delete registrationQueue[playerId];
+            }
+        }
+
+        // Emit start event
+        emit TournamentStarted(tournamentId, tournament.size, tournament.participants);
+
+        // Set up tournament phase
+        pendingTournament.phase = TournamentPhase.PARTICIPANT_SELECT;
+        pendingTournament.tournamentBlock = block.number + futureBlocksForTournament;
+
+        emit ParticipantsSelected(pendingTournament.tournamentId, pendingTournament.tournamentBlock, selectedIds);
+    }
+
+    /// @notice Selects participants with level-based priority and auto-accepts previous winners.
+    function _selectParticipantsWithPriority(uint256 seed) private view returns (uint32[] memory selected) {
+        uint8 size = currentTournamentSize;
+        selected = new uint32[](size);
+        uint256 selectedCount = 0;
+
+        // First, auto-accept previous champion and runner-up if they're in queue
+        if (previousChampionId != 0 && playerStatus[previousChampionId] == PlayerStatus.QUEUED) {
+            selected[selectedCount++] = previousChampionId;
+        }
+        if (previousRunnerUpId != 0 && playerStatus[previousRunnerUpId] == PlayerStatus.QUEUED && selectedCount < size)
+        {
+            selected[selectedCount++] = previousRunnerUpId;
+        }
+
+        // Sort queue by level (descending) for remaining spots
+        uint32[] memory sortedQueue = _sortQueueByLevel();
+
+        // Fill remaining spots from sorted queue
+        uint256 sortedIndex = 0;
+        while (selectedCount < size && sortedIndex < sortedQueue.length) {
+            uint32 playerId = sortedQueue[sortedIndex++];
+            // Skip if already selected (champion/runner-up)
+            bool alreadySelected = false;
+            for (uint256 i = 0; i < selectedCount; i++) {
+                if (selected[i] == playerId) {
+                    alreadySelected = true;
+                    break;
+                }
+            }
+            if (!alreadySelected) {
+                selected[selectedCount++] = playerId;
+            }
+        }
+
+        // If still not enough players, fill with default players
+        if (selectedCount < size) {
+            uint32 currentMaxDefaultId = maxDefaultPlayerSubstituteId;
+            if (currentMaxDefaultId == 0) currentMaxDefaultId = 1;
+
+            for (uint256 i = selectedCount; i < size; i++) {
+                seed = uint256(keccak256(abi.encodePacked(seed, i)));
+                uint32 defaultId = uint32(seed % currentMaxDefaultId) + 1;
+                // Ensure default player ID is in correct range
+                selected[i] = defaultId; // 1-18 for default players
+            }
+        }
+
+        return selected;
+    }
+
+    /// @notice Sorts the queue by player level in descending order.
+    function _sortQueueByLevel() private view returns (uint32[] memory) {
+        uint256 queueLength = queueIndex.length;
+        uint32[] memory sorted = new uint32[](queueLength);
+
+        // Copy queue
+        for (uint256 i = 0; i < queueLength; i++) {
+            sorted[i] = queueIndex[i];
+        }
+
+        // Simple bubble sort (fine for small queues)
+        for (uint256 i = 0; i < queueLength; i++) {
+            for (uint256 j = i + 1; j < queueLength; j++) {
+                uint8 levelI = registrationQueue[sorted[i]].playerLevel;
+                uint8 levelJ = registrationQueue[sorted[j]].playerLevel;
+                if (levelJ > levelI) {
+                    uint32 temp = sorted[i];
+                    sorted[i] = sorted[j];
+                    sorted[j] = temp;
+                }
+            }
+        }
+
+        return sorted;
+    }
+
+    /// @notice Phase 3: Executes the tournament using blockhash randomness.
+    function _executeTournamentPhase() private {
+        // Get randomness from tournament block
+        uint256 seed = uint256(blockhash(pendingTournament.tournamentBlock));
+        if (seed == 0) {
+            revert("Invalid blockhash");
+        }
+
+        uint256 tournamentId = pendingTournament.tournamentId;
+
+        // Clear pending tournament
+        delete pendingTournament;
+
+        // Execute the tournament
+        _executeTournamentWithRandomness(tournamentId, seed);
+    }
+
+    /// @notice Helper function to clean up pending tournament state during recovery.
+    function _recoverPendingTournament() private {
+        delete pendingTournament;
+    }
+
+    //==============================================================//
+    //                  TOURNAMENT EXECUTION                        //
+    //==============================================================//
+
+    /// @notice Executes a tournament with death mechanics and rating distribution.
+    function _executeTournamentWithRandomness(uint256 tournamentId, uint256 randomness) private {
+        Tournament storage tournament = tournaments[tournamentId];
+        if (tournament.state != TournamentState.PENDING) {
+            return;
+        }
+
+        uint8 size = tournament.size;
+        RegisteredPlayer[] storage initialParticipants = tournament.participants;
+
+        // Prepare arrays for active participants
+        uint32[] memory activeParticipants = new uint32[](size);
+        IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](size);
+        bytes32[] memory participantEncodedData = new bytes32[](size);
+
+        // Load participant data, substituting retired players
+        for (uint256 i = 0; i < size; i++) {
+            RegisteredPlayer storage regPlayer = initialParticipants[i];
+
+            if (regPlayer.playerId <= maxDefaultPlayerSubstituteId) {
+                // This is a default player
+                uint32 defaultId = regPlayer.playerId;
+                activeParticipants[i] = regPlayer.playerId;
+
+                // Fetch default player stats
+                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(defaultId);
+                IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
+                    playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
+                IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+                    IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(defaultStats.skin.skinTokenId);
+
+                participantStats[i] = IGameEngine.FighterStats({
+                    weapon: skinAttrs.weapon,
+                    armor: skinAttrs.armor,
+                    stance: defaultStats.stance,
+                    attributes: defaultStats.attributes
+                });
+                participantEncodedData[i] = bytes32(uint256(regPlayer.playerId));
+            } else if (playerContract.isPlayerRetired(regPlayer.playerId)) {
+                // Substitute retired player with random default
+                uint256 derivedRand = uint256(keccak256(abi.encodePacked(randomness, i)));
+                uint32 defaultId = uint32(derivedRand % maxDefaultPlayerSubstituteId) + 1;
+                activeParticipants[i] = defaultId;
+
+                // Fetch substitute stats
+                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(defaultId);
+                IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
+                    playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
+                IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+                    IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(defaultStats.skin.skinTokenId);
+
+                participantStats[i] = IGameEngine.FighterStats({
+                    weapon: skinAttrs.weapon,
+                    armor: skinAttrs.armor,
+                    stance: defaultStats.stance,
+                    attributes: defaultStats.attributes
+                });
+                participantEncodedData[i] = bytes32(uint256(defaultId));
+            } else {
+                // Active player
+                activeParticipants[i] = regPlayer.playerId;
+                (participantStats[i], participantEncodedData[i]) =
+                    _getFighterCombatStats(regPlayer.playerId, regPlayer.loadout);
+            }
+        }
+
+        // Shuffle participants
+        (activeParticipants, participantStats, participantEncodedData) =
+            _shuffleParticipants(activeParticipants, participantStats, participantEncodedData, randomness);
+
+        // Run tournament rounds
+        _runTournamentRounds(
+            tournament, tournamentId, activeParticipants, participantStats, participantEncodedData, randomness
+        );
+    }
+
+    /// @notice Runs all tournament rounds with death mechanics.
+    function _runTournamentRounds(
+        Tournament storage tournament,
+        uint256 tournamentId,
+        uint32[] memory participants,
+        IGameEngine.FighterStats[] memory stats,
+        bytes32[] memory encodedData,
+        uint256 randomness
+    ) private {
+        uint8 size = tournament.size;
+        uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, tournamentId)));
+
+        // Initialize memory arrays to track eliminations (not stored in contract)
+        uint32[] memory roundWinners = new uint32[](size - 1);
+        uint32[] memory eliminatedByRound = new uint32[](size);
+        uint256 winnerIndex = 0;
+        uint256 eliminatedIndex = 0;
+
+        // Current round participants
+        uint32[] memory currentRoundIds = participants;
+        IGameEngine.FighterStats[] memory currentRoundStats = stats;
+        bytes32[] memory currentRoundData = encodedData;
+
+        // Determine number of rounds
+        uint8 rounds = size == 16 ? 4 : (size == 32 ? 5 : 6);
+
+        // Declare arrays outside loop to avoid repeated allocations
+        uint32[] memory nextRoundIds;
+        IGameEngine.FighterStats[] memory nextRoundStats;
+        bytes32[] memory nextRoundData;
+
+        for (uint256 roundIndex = 0; roundIndex < rounds; roundIndex++) {
+            uint256 currentRoundSize = currentRoundIds.length;
+            uint256 nextRoundSize = currentRoundSize / 2;
+
+            nextRoundIds = new uint32[](nextRoundSize);
+            nextRoundStats = new IGameEngine.FighterStats[](nextRoundSize);
+            nextRoundData = new bytes32[](nextRoundSize);
+
+            // Process fights in this round
+            for (uint256 fightIndex = 0; fightIndex < currentRoundSize; fightIndex += 2) {
+                uint32 p1Id = currentRoundIds[fightIndex];
+                uint32 p2Id = currentRoundIds[fightIndex + 1];
+                IGameEngine.FighterStats memory fighter1Stats = currentRoundStats[fightIndex];
+                IGameEngine.FighterStats memory fighter2Stats = currentRoundStats[fightIndex + 1];
+                bytes32 p1Data = currentRoundData[fightIndex];
+                bytes32 p2Data = currentRoundData[fightIndex + 1];
+
+                // Generate fight seed
+                uint256 fightSeed = uint256(keccak256(abi.encodePacked(fightSeedBase, roundIndex, fightIndex)));
+
+                // Process fight WITH LETHALITY
+                bytes memory results = gameEngine.processGame(fighter1Stats, fighter2Stats, fightSeed, lethalityFactor);
+                (bool p1Won,, IGameEngine.WinCondition condition,) = gameEngine.decodeCombatLog(results);
+
+                // Determine winner and handle death
+                uint32 winnerId;
+                uint32 loserId;
+                uint256 nextRoundArrayIndex = fightIndex / 2;
+
+                if (p1Won) {
+                    winnerId = p1Id;
+                    loserId = p2Id;
+                    nextRoundIds[nextRoundArrayIndex] = p1Id;
+                    nextRoundStats[nextRoundArrayIndex] = fighter1Stats;
+                    nextRoundData[nextRoundArrayIndex] = p1Data;
+                } else {
+                    winnerId = p2Id;
+                    loserId = p1Id;
+                    nextRoundIds[nextRoundArrayIndex] = p2Id;
+                    nextRoundStats[nextRoundArrayIndex] = fighter2Stats;
+                    nextRoundData[nextRoundArrayIndex] = p2Data;
+                }
+
+                // Store round winner in memory
+                if (winnerIndex < size - 1) {
+                    roundWinners[winnerIndex++] = winnerId;
+                }
+
+                // Track elimination round for rating purposes in memory
+                eliminatedByRound[eliminatedIndex++] = loserId;
+
+                // Emit combat result
+                emit CombatResult(p1Data, p2Data, winnerId, results);
+
+                // Update records and handle death
+                if (_getFighterType(winnerId) == Fighter.FighterType.PLAYER) {
+                    playerContract.incrementWins(winnerId);
+                }
+                if (_getFighterType(loserId) == Fighter.FighterType.PLAYER) {
+                    playerContract.incrementLosses(loserId);
+
+                    // Check if player died
+                    if (condition == IGameEngine.WinCondition.DEATH) {
+                        // Retire the player using game contract permission
+                        playerContract.setPlayerRetired(loserId, true);
+                        emit PlayerRetiredInTournament(tournamentId, loserId);
+                    }
+                }
+            }
+
+            // Move to next round
+            currentRoundIds = nextRoundIds;
+            currentRoundStats = nextRoundStats;
+            currentRoundData = nextRoundData;
+        }
+
+        // Tournament complete - record final results
+        uint32 finalWinnerId = currentRoundIds[0];
+        tournament.championId = finalWinnerId;
+        tournament.runnerUpId = eliminatedByRound[eliminatedIndex - 1]; // Last eliminated
+        tournament.completionTimestamp = block.timestamp;
+        tournament.state = TournamentState.COMPLETED;
+
+        // Update previous champion/runner-up for next tournament
+        previousChampionId = finalWinnerId;
+        previousRunnerUpId = tournament.runnerUpId;
+
+        // Clean up player statuses
+        for (uint256 i = 0; i < size; i++) {
+            uint32 pId = tournament.participants[i].playerId;
+            if (pId > maxDefaultPlayerSubstituteId && playerStatus[pId] == PlayerStatus.IN_TOURNAMENT) {
+                playerStatus[pId] = PlayerStatus.NONE;
+                delete playerCurrentTournament[pId];
+            }
+        }
+
+        // Award ratings and distribute rewards
+        _awardTournamentRatings(tournament, eliminatedByRound);
+        _distributeRewards(tournament, eliminatedByRound);
+        
+        // Emit completion event with memory arrays (for subgraph)
+        emit TournamentCompleted(
+            tournamentId, size, finalWinnerId, tournament.runnerUpId, participants, roundWinners
+        );
+    }
+
+    //==============================================================//
+    //                    RATING & REWARDS                          //
+    //==============================================================//
+
+    /// @notice Awards tournament rating points based on placement.
+    function _awardTournamentRatings(Tournament storage tournament, uint32[] memory eliminatedByRound) private {
+        uint8 size = tournament.size;
+        uint32[] memory playerIds = new uint32[](size);
+        uint256[] memory ratings = new uint256[](size);
+        uint256 playerCount = 0;
+        
+        // Cache current season to avoid multiple cross-contract calls
+        uint256 currentSeason = _getCurrentSeason();
+
+        // Award champion
+        if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
+            uint256 championRating = 100;
+            currentSeasonRatings[tournament.championId] += championRating;
+            seasonalRatings[tournament.championId][currentSeason] += championRating;
+            playerIds[playerCount] = tournament.championId;
+            ratings[playerCount++] = championRating;
+        }
+
+        // Award runner-up
+        if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
+            uint256 runnerUpRating = 75;
+            currentSeasonRatings[tournament.runnerUpId] += runnerUpRating;
+            seasonalRatings[tournament.runnerUpId][currentSeason] += runnerUpRating;
+            playerIds[playerCount] = tournament.runnerUpId;
+            ratings[playerCount++] = runnerUpRating;
+        }
+
+        // Award other placements based on elimination round
+        uint256[] memory roundRatings;
+        if (size == 16) {
+            roundRatings = new uint256[](4);
+            roundRatings[3] = 0; // Round 1 losers (9th-16th)
+            roundRatings[2] = 10; // Round 2 losers (5th-8th)
+            roundRatings[1] = 40; // Round 3 losers (3rd-4th)
+            roundRatings[0] = 75; // Round 4 loser (2nd) - already handled
+        } else if (size == 32) {
+            roundRatings = new uint256[](5);
+            roundRatings[4] = 0; // Round 1 losers (17th-32nd)
+            roundRatings[3] = 10; // Round 2 losers (9th-16th)
+            roundRatings[2] = 25; // Round 3 losers (5th-8th)
+            roundRatings[1] = 50; // Round 4 losers (3rd-4th)
+            roundRatings[0] = 75; // Round 5 loser (2nd) - already handled
+        } else {
+            // size == 64
+            roundRatings = new uint256[](6);
+            roundRatings[5] = 0; // Round 1 losers (33rd-64th)
+            roundRatings[4] = 5; // Round 2 losers (17th-32nd)
+            roundRatings[3] = 20; // Round 3 losers (9th-16th)
+            roundRatings[2] = 40; // Round 4 losers (5th-8th)
+            roundRatings[1] = 60; // Round 5 losers (3rd-4th)
+            roundRatings[0] = 75; // Round 6 loser (2nd) - already handled
+        }
+
+        // Process eliminated players (skip the last one as it's the runner-up)
+        uint256 eliminatedPerRound = size / 2;
+        uint256 currentRound = 0;
+
+        for (uint256 i = 0; i < eliminatedByRound.length - 1; i++) {
+            uint32 playerId = eliminatedByRound[i];
+
+            // Calculate which round this player was eliminated in
+            if (i > 0 && i % eliminatedPerRound == 0) {
+                currentRound++;
+                eliminatedPerRound /= 2;
+            }
+
+            if (_getFighterType(playerId) == Fighter.FighterType.PLAYER && roundRatings[currentRound] > 0) {
+                currentSeasonRatings[playerId] += roundRatings[currentRound];
+                seasonalRatings[playerId][currentSeason] += roundRatings[currentRound];
+                playerIds[playerCount] = playerId;
+                ratings[playerCount++] = roundRatings[currentRound];
+            }
+        }
+
+        // Emit rating event with actual player count
+        if (playerCount > 0) {
+            uint32[] memory actualPlayerIds = new uint32[](playerCount);
+            uint256[] memory actualRatings = new uint256[](playerCount);
+            for (uint256 i = 0; i < playerCount; i++) {
+                actualPlayerIds[i] = playerIds[i];
+                actualRatings[i] = ratings[i];
+            }
+            emit TournamentRatingsAwarded(tournament.id, currentSeason, actualPlayerIds, actualRatings);
+        }
+    }
+
+    /// @notice Distributes rewards to tournament winners.
+    function _distributeRewards(Tournament storage tournament, uint32[] memory eliminatedByRound) private {
+        // Reward champion
+        if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
+            _distributeReward(tournament.id, tournament.championId, winnerRewards);
+        }
+
+        // Reward runner-up
+        if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
+            _distributeReward(tournament.id, tournament.runnerUpId, runnerUpRewards);
+        }
+
+        // Reward 3rd-4th place (semi-final losers)
+        uint256 semiFinalistStart = eliminatedByRound.length - 3; // Last 3 eliminated: 2nd, 3rd, 4th
+        for (uint256 i = semiFinalistStart; i < eliminatedByRound.length - 1; i++) {
+            uint32 playerId = eliminatedByRound[i];
+            if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
+                _distributeReward(tournament.id, playerId, thirdFourthRewards);
+            }
+        }
+    }
+
+    /// @notice Distributes a single reward based on configured percentages.
+    function _distributeReward(uint256 tournamentId, uint32 playerId, RewardConfig memory config) private {
+        uint256 random = uint256(keccak256(abi.encodePacked(tournamentId, playerId, block.timestamp)));
+        uint256 roll = random % 10000; // 0-9999 for percentage precision
+
+        RewardType rewardType;
+        uint256 ticketId;
+
+        if (roll < config.nonePercent) {
+            return; // No reward
+        }
+        roll -= config.nonePercent;
+
+        if (roll < config.attributeSwapPercent) {
+            rewardType = RewardType.ATTRIBUTE_SWAP;
+            // Award attribute swap charge directly to player
+            address owner = playerContract.getPlayerOwner(playerId);
+            playerContract.awardAttributeSwap(owner);
+        } else if (roll < config.attributeSwapPercent + config.createPlayerPercent) {
+            rewardType = RewardType.CREATE_PLAYER_TICKET;
+            ticketId = playerTickets.CREATE_PLAYER_TICKET();
+        } else if (roll < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent) {
+            rewardType = RewardType.PLAYER_SLOT_TICKET;
+            ticketId = playerTickets.PLAYER_SLOT_TICKET();
+        } else if (
+            roll
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent
+        ) {
+            rewardType = RewardType.WEAPON_SPECIALIZATION_TICKET;
+            ticketId = playerTickets.WEAPON_SPECIALIZATION_TICKET();
+        } else if (
+            roll
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent
+        ) {
+            rewardType = RewardType.ARMOR_SPECIALIZATION_TICKET;
+            ticketId = playerTickets.ARMOR_SPECIALIZATION_TICKET();
+        } else {
+            rewardType = RewardType.DUEL_TICKET;
+            ticketId = playerTickets.DUEL_TICKET();
+        }
+
+        // Mint ticket if not attribute swap
+        if (rewardType != RewardType.ATTRIBUTE_SWAP && ticketId > 0) {
+            address owner = playerContract.getPlayerOwner(playerId);
+            playerTickets.mintFungibleTicket(owner, ticketId, 1);
+        }
+
+        emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
+    }
+
+    //==============================================================//
+    //                  HELPER & VIEW FUNCTIONS                     //
+    //==============================================================//
+
+    /// @notice Gets the current season from the Player contract.
+    function _getCurrentSeason() private view returns (uint256) {
+        // Cast to Player contract to access public currentSeason variable
+        return Player(address(playerContract)).currentSeason();
+    }
+
+    /// @notice Shuffles participants using Fisher-Yates algorithm.
+    function _shuffleParticipants(
+        uint32[] memory ids,
+        IGameEngine.FighterStats[] memory stats,
+        bytes32[] memory data,
+        uint256 seed
+    ) private pure returns (uint32[] memory, IGameEngine.FighterStats[] memory, bytes32[] memory) {
+        uint256 size = ids.length;
+        uint32[] memory shuffledIds = new uint32[](size);
+        IGameEngine.FighterStats[] memory shuffledStats = new IGameEngine.FighterStats[](size);
+        bytes32[] memory shuffledData = new bytes32[](size);
+
+        uint256 shuffleRand = seed;
+        bool[] memory picked = new bool[](size);
+        uint256 count = 0;
+
+        while (count < size) {
+            shuffleRand = uint256(keccak256(abi.encodePacked(shuffleRand, count)));
+            uint256 k = shuffleRand % size;
+            if (!picked[k]) {
+                shuffledIds[count] = ids[k];
+                shuffledStats[count] = stats[k];
+                shuffledData[count] = data[k];
+                picked[k] = true;
+                count++;
+            }
+        }
+
+        return (shuffledIds, shuffledStats, shuffledData);
+    }
+
+    /// @notice Internal helper to remove a player from queue using swap-and-pop.
+    function _removePlayerFromQueueArrayIndex(uint32 playerId) internal {
+        uint256 indexToRemove = playerIndexInQueue[playerId] - 1;
+        uint256 lastIndex = queueIndex.length - 1;
+
+        if (indexToRemove != lastIndex) {
+            uint32 playerToMove = queueIndex[lastIndex];
+            queueIndex[indexToRemove] = playerToMove;
+            playerIndexInQueue[playerToMove] = indexToRemove + 1;
+        }
+
+        delete playerIndexInQueue[playerId];
+        queueIndex.pop();
+    }
+
+    /// @notice Gets combat stats for a registered player.
+    function _getFighterCombatStats(uint32 playerId, Fighter.PlayerLoadout memory loadout)
+        internal
+        view
+        returns (IGameEngine.FighterStats memory stats, bytes32 encodedData)
+    {
+        if (_getFighterType(playerId) != Fighter.FighterType.PLAYER) {
+            revert UnsupportedPlayerId();
+        }
+
+        IPlayer.PlayerStats memory pStats = playerContract.getPlayer(playerId);
+        pStats.skin = loadout.skin;
+        pStats.stance = loadout.stance;
+
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
+            playerContract.skinRegistry().getSkin(pStats.skin.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(pStats.skin.skinTokenId);
+
+        stats = IGameEngine.FighterStats({
+            weapon: skinAttrs.weapon,
+            armor: skinAttrs.armor,
+            stance: pStats.stance,
+            attributes: pStats.attributes
+        });
+
+        Fighter.Record memory seasonalRecord = playerContract.getCurrentSeasonRecord(playerId);
+        encodedData = playerContract.codec().encodePlayerData(playerId, pStats, seasonalRecord);
+    }
+
+    /// @notice Returns tournament data.
+    function getTournamentData(uint256 tournamentId) external view returns (Tournament memory) {
+        if (tournamentId >= nextTournamentId) revert TournamentDoesNotExist();
+        return tournaments[tournamentId];
+    }
+
+    /// @notice Returns a player's current season tournament rating.
+    function getPlayerRating(uint32 playerId) external view returns (uint256) {
+        // Always get from seasonal mapping using current season from Player contract
+        return seasonalRatings[playerId][_getCurrentSeason()];
+    }
+
+    /// @notice Returns a player's tournament rating for a specific season.
+    function getPlayerSeasonRating(uint32 playerId, uint256 seasonId) external view returns (uint256) {
+        return seasonalRatings[playerId][seasonId];
+    }
+
+    /// @notice Returns information about the pending tournament.
+    function getPendingTournamentInfo()
+        external
+        view
+        returns (
+            bool exists,
+            uint256 selectionBlock,
+            uint256 tournamentBlock,
+            uint8 phase,
+            uint256 tournamentId,
+            uint256 participantCount
+        )
+    {
+        exists = (pendingTournament.phase != TournamentPhase.NONE);
+        selectionBlock = pendingTournament.selectionBlock;
+        tournamentBlock = pendingTournament.tournamentBlock;
+        phase = uint8(pendingTournament.phase);
+        tournamentId = pendingTournament.tournamentId;
+        // Get participant count from the actual tournament if it exists
+        if (pendingTournament.phase != TournamentPhase.NONE && pendingTournament.phase != TournamentPhase.QUEUE_COMMIT) {
+            participantCount = tournaments[pendingTournament.tournamentId].participants.length;
+        } else {
+            participantCount = 0;
+        }
+    }
+
+
+    //==============================================================//
+    //                     ADMIN FUNCTIONS                          //
+    //==============================================================//
+
+    /// @notice Sets the tournament size (16, 32, or 64).
+    function setTournamentSize(uint8 newSize) external onlyOwner {
+        if (newSize != 16 && newSize != 32 && newSize != 64) {
+            revert InvalidTournamentSize(newSize);
+        }
+        uint8 oldSize = currentTournamentSize;
+        currentTournamentSize = newSize;
+        emit TournamentSizeSet(oldSize, newSize);
+    }
+
+    /// @notice Sets the lethality factor for tournament matches.
+    function setLethalityFactor(uint16 newFactor) external onlyOwner {
+        uint16 oldFactor = lethalityFactor;
+        lethalityFactor = newFactor;
+        emit LethalityFactorSet(oldFactor, newFactor);
+    }
+
+    /// @notice Updates reward configuration for winners.
+    function setWinnerRewards(RewardConfig calldata config) external onlyOwner {
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        winnerRewards = config;
+        emit RewardConfigUpdated("winner", config);
+    }
+
+    /// @notice Updates reward configuration for runner-up.
+    function setRunnerUpRewards(RewardConfig calldata config) external onlyOwner {
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        runnerUpRewards = config;
+        emit RewardConfigUpdated("runnerUp", config);
+    }
+
+    /// @notice Updates reward configuration for 3rd-4th place.
+    function setThirdFourthRewards(RewardConfig calldata config) external onlyOwner {
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        thirdFourthRewards = config;
+        emit RewardConfigUpdated("thirdFourth", config);
+    }
+
+    /// @notice Sets the maximum default player ID for substitutions.
+    function setMaxDefaultPlayerSubstituteId(uint32 _maxId) external onlyOwner {
+        if (_maxId == 0 || _maxId > 2000) {
+            revert InvalidDefaultPlayerRange();
+        }
+        maxDefaultPlayerSubstituteId = _maxId;
+    }
+
+    /// @notice Toggles whether the game is enabled.
+    function setGameEnabled(bool enabled) external onlyOwner {
+        isGameEnabled = enabled;
+    }
+
+    //==============================================================//
+    //             BASEGAME ABSTRACT IMPLEMENTATIONS                //
+    //==============================================================//
+
+    /// @notice Checks if a player ID is supported by this game mode.
+    function _isPlayerIdSupported(uint32 playerId) internal pure override returns (bool) {
+        Fighter.FighterType fighterType = _getFighterType(playerId);
+        return fighterType == Fighter.FighterType.PLAYER || fighterType == Fighter.FighterType.DEFAULT_PLAYER;
+    }
+
+    /// @notice Gets the contract address responsible for handling the given fighter type.
+    function _getFighterContract(uint32 playerId) internal view override returns (Fighter) {
+        Fighter.FighterType fighterType = _getFighterType(playerId);
+        if (fighterType == Fighter.FighterType.PLAYER || fighterType == Fighter.FighterType.DEFAULT_PLAYER) {
+            return Fighter(address(playerContract));
+        } else {
+            revert UnsupportedPlayerId();
+        }
+    }
+}
