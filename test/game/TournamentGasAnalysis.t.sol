@@ -20,10 +20,7 @@ contract TournamentGasAnalysisTest is TestBase {
 
         // Deploy tournament game
         game = new TournamentGame(
-            address(gameEngine),
-            address(playerContract),
-            address(defaultPlayerContract),
-            address(playerTickets)
+            address(gameEngine), address(playerContract), address(defaultPlayerContract), address(playerTickets)
         );
 
         // Transfer ownership of defaultPlayerContract to the game
@@ -152,7 +149,9 @@ contract TournamentGasAnalysisTest is TestBase {
         // Verify tournament completed
         assertEq(game.nextTournamentId(), 1, "One tournament should have been created");
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
-        assertEq(uint8(tournament.state), uint8(TournamentGame.TournamentState.COMPLETED), "Tournament should be completed");
+        assertEq(
+            uint8(tournament.state), uint8(TournamentGame.TournamentState.COMPLETED), "Tournament should be completed"
+        );
         assertTrue(tournament.championId > 0, "Champion should be set");
 
         // Verify no pending tournament

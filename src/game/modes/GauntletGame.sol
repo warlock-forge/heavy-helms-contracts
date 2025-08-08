@@ -548,14 +548,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         // First pass: identify retired players
         uint256[] memory retiredIndices = new uint256[](size);
         uint256 retiredCount = 0;
-        
+
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             if (playerContract.isPlayerRetired(regPlayer.playerId)) {
                 retiredIndices[retiredCount++] = i;
             }
         }
-        
+
         // Get unique substitutes for all retired players
         uint32[] memory substituteIds = new uint32[](0);
         if (retiredCount > 0) {
@@ -567,7 +567,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             uint32 activePlayerId = regPlayer.playerId;
-            
+
             // Check if this player needs substitution
             for (uint256 j = 0; j < retiredCount; j++) {
                 if (retiredIndices[j] == i) {
@@ -575,7 +575,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     break;
                 }
             }
-            
+
             activeParticipants[i] = activePlayerId;
 
             if (activePlayerId != regPlayer.playerId) {
@@ -1007,40 +1007,43 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function _isDefaultPlayerId(uint32 playerId) internal pure returns (bool) {
         return playerId >= 1 && playerId <= 2000;
     }
-    
+
     /// @notice Helper to get a random valid default player ID
     /// @param randomSeed Random seed for selection
     /// @return A valid default player ID
     function _getRandomDefaultPlayerId(uint256 randomSeed) internal view returns (uint32) {
         uint256 defaultCount = defaultPlayerContract.validDefaultPlayerCount();
         if (defaultCount == 0) revert NoDefaultPlayersAvailable();
-        
+
         uint256 randomIndex = randomSeed % defaultCount;
         return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
     }
-    
-    /// @notice Helper to select unique default player IDs without duplicates  
+
+    /// @notice Helper to select unique default player IDs without duplicates
     /// @param randomSeed Random seed for selection
     /// @param count Number of unique defaults needed
     /// @param excludeIds Array of default IDs to exclude from selection
     /// @return Array of unique default player IDs
-    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds) 
-        internal view returns (uint32[] memory) {
+    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds)
+        internal
+        view
+        returns (uint32[] memory)
+    {
         uint256 totalDefaults = defaultPlayerContract.validDefaultPlayerCount();
         if (count > totalDefaults) revert InsufficientDefaultPlayers(count, totalDefaults);
-        
+
         // Simple approach: select without replacement using exclusion
         uint32[] memory selected = new uint32[](count);
         uint256 selectedCount = 0;
         uint256 attempts = 0;
         uint256 maxAttempts = totalDefaults * 10; // Generous safety limit
-        
+
         while (selectedCount < count && attempts < maxAttempts) {
             // Generate next candidate
             randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, attempts)));
             uint256 randomIndex = randomSeed % totalDefaults;
             uint32 candidate = defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
-            
+
             // Check if candidate is already excluded
             bool isExcluded = false;
             for (uint256 i = 0; i < excludeIds.length; i++) {
@@ -1049,7 +1052,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     break;
                 }
             }
-            
+
             // Check if candidate is already selected
             if (!isExcluded) {
                 for (uint256 i = 0; i < selectedCount; i++) {
@@ -1059,21 +1062,21 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     }
                 }
             }
-            
+
             // Add to selection if unique
             if (!isExcluded) {
                 selected[selectedCount] = candidate;
                 selectedCount++;
             }
-            
+
             attempts++;
         }
-        
+
         // Safety check - should never happen with sufficient defaults
         if (selectedCount < count) {
             revert InsufficientDefaultPlayers(count, totalDefaults - excludeIds.length);
         }
-        
+
         return selected;
     }
 

@@ -8,7 +8,15 @@
 pragma solidity ^0.8.13;
 
 import "../TestBase.sol";
-import {TournamentGame, AlreadyInQueue, TournamentTooEarly, TournamentTooLate, MinTimeNotElapsed, InvalidTournamentSize, InvalidRewardPercentages} from "../../src/game/modes/TournamentGame.sol";
+import {
+    TournamentGame,
+    AlreadyInQueue,
+    TournamentTooEarly,
+    TournamentTooLate,
+    MinTimeNotElapsed,
+    InvalidTournamentSize,
+    InvalidRewardPercentages
+} from "../../src/game/modes/TournamentGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
@@ -33,10 +41,7 @@ contract TournamentGameTest is TestBase {
 
         // Deploy tournament game
         game = new TournamentGame(
-            address(gameEngine),
-            address(playerContract),
-            address(defaultPlayerContract),
-            address(playerTickets)
+            address(gameEngine), address(playerContract), address(defaultPlayerContract), address(playerTickets)
         );
 
         // Transfer ownership of defaultPlayerContract to the game
@@ -51,7 +56,7 @@ contract TournamentGameTest is TestBase {
             experience: true // Need this for test helper function
         });
         playerContract.setGameContractPermission(address(game), perms);
-        
+
         // Also give this test contract experience permissions for leveling up players
         IPlayer.GamePermissions memory testPerms = IPlayer.GamePermissions({
             record: false,
@@ -185,7 +190,7 @@ contract TournamentGameTest is TestBase {
         uint256 futureTime = block.timestamp + 48 hours;
         futureTime = futureTime - (futureTime % 1 days) + 20 hours; // Align to 20:00 UTC
         vm.warp(futureTime);
-        
+
         // Run complete tournament (will consume 16 players from queue)
         _runFullTournament();
 
@@ -209,7 +214,7 @@ contract TournamentGameTest is TestBase {
             address player = address(uint160(0x1000 + i));
             vm.deal(player, 100 ether);
             uint32 playerId = _createPlayerAndFulfillVRF(player, playerContract, false);
-            
+
             // Vary levels
             if (i >= 15) {
                 _levelUpPlayer(playerId, 9); // Level 10
@@ -235,18 +240,18 @@ contract TournamentGameTest is TestBase {
         uint256 futureTime = block.timestamp + 48 hours;
         futureTime = futureTime - (futureTime % 1 days) + 20 hours; // Align to 20:00 UTC
         vm.warp(futureTime);
-        
+
         // Phase 1: Commit queue
         uint256 startBlock = block.number;
         game.tryStartTournament();
-        
+
         // Get the actual selection block and advance PAST it
         (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         vm.roll(selectionBlock + 1);
-        
+
         // Phase 2: Select participants
         game.tryStartTournament();
-        
+
         // Should have selected 16 players, prioritizing highest levels
         // Check that tournament was created
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
@@ -269,7 +274,7 @@ contract TournamentGameTest is TestBase {
         // Phase 1: Commit queue
         uint256 startBlock = block.number;
         game.tryStartTournament();
-        
+
         (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         assertTrue(exists);
         assertEq(selectionBlock, startBlock + 20);
@@ -277,7 +282,7 @@ contract TournamentGameTest is TestBase {
         // Phase 2: Select participants (advance PAST selection block)
         vm.roll(selectionBlock + 1);
         game.tryStartTournament();
-        
+
         // Check tournament was created
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
         assertEq(tournament.size, 16);
@@ -287,7 +292,7 @@ contract TournamentGameTest is TestBase {
         (,, uint256 tournamentBlock,,,) = game.getPendingTournamentInfo();
         vm.roll(tournamentBlock + 1);
         game.tryStartTournament();
-        
+
         // Tournament should be completed
         tournament = game.getTournamentData(0);
         assertEq(uint256(tournament.state), uint256(TournamentGame.TournamentState.COMPLETED));
@@ -329,14 +334,16 @@ contract TournamentGameTest is TestBase {
 
         // Check rating distribution
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
-        
+
         // Champion should get 100 points
-        if (tournament.championId <= 2000) { // Not a default player
+        if (tournament.championId <= 2000) {
+            // Not a default player
             assertEq(game.getPlayerRating(tournament.championId), 100);
         }
-        
-        // Runner-up should get 75 points  
-        if (tournament.runnerUpId <= 2000) { // Not a default player
+
+        // Runner-up should get 75 points
+        if (tournament.runnerUpId <= 2000) {
+            // Not a default player
             assertEq(game.getPlayerRating(tournament.runnerUpId), 75);
         }
     }
@@ -371,7 +378,7 @@ contract TournamentGameTest is TestBase {
         _runFullTournament();
 
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
-        
+
         // Check that some rewards were distributed (events would be emitted)
         // Since rewards are probabilistic, we mainly verify the mechanism doesn't revert
         assertTrue(tournament.championId != 0);
@@ -434,7 +441,7 @@ contract TournamentGameTest is TestBase {
 
     function _queuePlayers(uint256 count) internal {
         require(count <= 64, "Too many players requested");
-        
+
         // Queue existing players first
         uint256 existingPlayers = playerIds.length;
         for (uint256 i = 0; i < existingPlayers && i < count; i++) {
@@ -477,19 +484,19 @@ contract TournamentGameTest is TestBase {
         // Phase 1: Commit queue
         uint256 startBlock = block.number;
         game.tryStartTournament();
-        
+
         // Get the actual selection block from the pending tournament
         (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         require(exists, "Pending tournament should exist after commit");
-        
+
         // Phase 2: Select participants (advance PAST the selection block)
         vm.roll(selectionBlock + 1);
         vm.prevrandao(bytes32(uint256(12345)));
         game.tryStartTournament();
-        
+
         // Get the actual tournament block from the pending tournament
         (,, uint256 tournamentBlock,,,) = game.getPendingTournamentInfo();
-        
+
         // Phase 3: Execute tournament (advance PAST the tournament block)
         vm.roll(tournamentBlock + 1);
         vm.prevrandao(bytes32(uint256(67890)));

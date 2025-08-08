@@ -68,12 +68,12 @@ interface IDefaultPlayer {
     /// @param playerId The ID of the default player
     /// @return The default player's current name
     function getCurrentName(uint32 playerId) external view returns (IPlayer.PlayerName memory);
-    
+
     /// @notice Gets a valid default player ID by index
     /// @param index The index in the valid IDs array (0 to validDefaultPlayerCount-1)
     /// @return The default player ID at that index
     function getValidDefaultPlayerId(uint256 index) external view returns (uint32);
-    
+
     /// @notice Gets the count of valid default players created
     /// @return The number of valid default player IDs
     function validDefaultPlayerCount() external view returns (uint256);

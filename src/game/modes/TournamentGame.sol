@@ -563,11 +563,11 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // If still not enough players, fill with default players
         if (selectedCount < size) {
             uint256 defaultsNeeded = size - selectedCount;
-            
+
             // Select unique defaults (no exclusions needed for initial fill)
             uint32[] memory emptyExcludes = new uint32[](0);
             uint32[] memory defaultIds = _selectUniqueDefaults(seed, defaultsNeeded, emptyExcludes);
-            
+
             // Add selected defaults to the result
             for (uint256 i = 0; i < defaultsNeeded; i++) {
                 selected[selectedCount + i] = defaultIds[i];
@@ -649,10 +649,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         uint256 retiredCount = 0;
         uint32[] memory existingDefaults = new uint32[](size);
         uint256 existingDefaultCount = 0;
-        
+
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
-            
+
             if (_isDefaultPlayerId(regPlayer.playerId)) {
                 // Track existing default players
                 existingDefaults[existingDefaultCount++] = regPlayer.playerId;
@@ -661,7 +661,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 retiredIndices[retiredCount++] = i;
             }
         }
-        
+
         // Get unique substitutes for all retired players
         uint32[] memory substituteIds = new uint32[](0);
         if (retiredCount > 0) {
@@ -670,7 +670,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             for (uint256 i = 0; i < existingDefaultCount; i++) {
                 excludeDefaults[i] = existingDefaults[i];
             }
-            
+
             substituteIds = _selectUniqueDefaults(randomness, retiredCount, excludeDefaults);
         }
 
@@ -678,7 +678,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             uint32 activePlayerId = regPlayer.playerId;
-            
+
             // Check if this player needs substitution
             uint256 substituteIndex = type(uint256).max;
             for (uint256 j = 0; j < retiredCount; j++) {
@@ -688,7 +688,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                     break;
                 }
             }
-            
+
             activeParticipants[i] = activePlayerId;
 
             if (_isDefaultPlayerId(activePlayerId)) {
@@ -853,11 +853,9 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Award ratings and distribute rewards
         _awardTournamentRatings(tournament, eliminatedByRound);
         _distributeRewards(tournament, eliminatedByRound);
-        
+
         // Emit completion event with memory arrays (for subgraph)
-        emit TournamentCompleted(
-            tournamentId, size, finalWinnerId, tournament.runnerUpId, participants, roundWinners
-        );
+        emit TournamentCompleted(tournamentId, size, finalWinnerId, tournament.runnerUpId, participants, roundWinners);
     }
 
     //==============================================================//
@@ -870,7 +868,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         uint32[] memory playerIds = new uint32[](size);
         uint256[] memory ratings = new uint256[](size);
         uint256 playerCount = 0;
-        
+
         // Cache current season to avoid multiple cross-contract calls
         uint256 currentSeason = _getCurrentSeason();
 
@@ -1147,13 +1145,13 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         phase = uint8(pendingTournament.phase);
         tournamentId = pendingTournament.tournamentId;
         // Get participant count from the actual tournament if it exists
-        if (pendingTournament.phase != TournamentPhase.NONE && pendingTournament.phase != TournamentPhase.QUEUE_COMMIT) {
+        if (pendingTournament.phase != TournamentPhase.NONE && pendingTournament.phase != TournamentPhase.QUEUE_COMMIT)
+        {
             participantCount = tournaments[pendingTournament.tournamentId].participants.length;
         } else {
             participantCount = 0;
         }
     }
-
 
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
@@ -1212,40 +1210,43 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function _isDefaultPlayerId(uint32 playerId) internal pure returns (bool) {
         return playerId >= 1 && playerId <= 2000;
     }
-    
+
     /// @notice Helper to get a random valid default player ID
     /// @param randomSeed Random seed for selection
     /// @return A valid default player ID
     function _getRandomDefaultPlayerId(uint256 randomSeed) internal view returns (uint32) {
         uint256 defaultCount = defaultPlayerContract.validDefaultPlayerCount();
         if (defaultCount == 0) revert NoDefaultPlayersAvailable();
-        
+
         uint256 randomIndex = randomSeed % defaultCount;
         return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
     }
-    
+
     /// @notice Helper to select unique default player IDs without duplicates
     /// @param randomSeed Random seed for selection
-    /// @param count Number of unique defaults needed  
+    /// @param count Number of unique defaults needed
     /// @param excludeIds Array of default IDs to exclude from selection
     /// @return Array of unique default player IDs
-    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds) 
-        internal view returns (uint32[] memory) {
+    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds)
+        internal
+        view
+        returns (uint32[] memory)
+    {
         uint256 totalDefaults = defaultPlayerContract.validDefaultPlayerCount();
         if (count > totalDefaults) revert InsufficientDefaultPlayers(count, totalDefaults);
-        
+
         // Simple approach: select without replacement using exclusion
         uint32[] memory selected = new uint32[](count);
         uint256 selectedCount = 0;
         uint256 attempts = 0;
         uint256 maxAttempts = totalDefaults * 10; // Generous safety limit
-        
+
         while (selectedCount < count && attempts < maxAttempts) {
             // Generate next candidate
             randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, attempts)));
             uint256 randomIndex = randomSeed % totalDefaults;
             uint32 candidate = defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
-            
+
             // Check if candidate is already excluded
             bool isExcluded = false;
             for (uint256 i = 0; i < excludeIds.length; i++) {
@@ -1254,7 +1255,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                     break;
                 }
             }
-            
+
             // Check if candidate is already selected
             if (!isExcluded) {
                 for (uint256 i = 0; i < selectedCount; i++) {
@@ -1264,21 +1265,21 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                     }
                 }
             }
-            
+
             // Add to selection if unique
             if (!isExcluded) {
                 selected[selectedCount] = candidate;
                 selectedCount++;
             }
-            
+
             attempts++;
         }
-        
+
         // Safety check - should never happen with sufficient defaults
         if (selectedCount < count) {
             revert InsufficientDefaultPlayers(count, totalDefaults - excludeIds.length);
         }
-        
+
         return selected;
     }
 
