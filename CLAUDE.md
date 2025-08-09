@@ -354,6 +354,7 @@ All tests inherit from `TestBase.sol` which provides:
 
 - Never try a fresh forge build as it will just timeout - ask the user to do it
 - Always run `forge fmt` before we git add
+- **CRITICAL: NEVER MAKE ASSUMPTIONS ABOUT WHAT THE CODE DOES - ALWAYS READ THE ACTUAL CODE FIRST!** Don't tell the user what you think happens, READ THE FUCKING CODE and tell them what ACTUALLY happens. Making assumptions wastes everyone's time and makes you look incompetent. When asked about ANY implementation detail, your FIRST action should be to grep/read the relevant code, NOT to guess based on what you remember or what seems logical.
 
 ## TODO: Gas Optimization Issues to Fix Later
 

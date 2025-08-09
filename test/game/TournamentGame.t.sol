@@ -90,9 +90,11 @@ contract TournamentGameTest is TestBase {
         PLAYER_THREE_ID = _createPlayerAndFulfillVRF(PLAYER_THREE, playerContract, false);
         PLAYER_FOUR_ID = _createPlayerAndFulfillVRF(PLAYER_FOUR, playerContract, false);
 
-        // Level up some players for priority queue testing
-        _levelUpPlayer(PLAYER_TWO_ID, 3); // Level 4
-        _levelUpPlayer(PLAYER_THREE_ID, 9); // Level 10 (max)
+        // Level up ALL players to level 10 for tournament eligibility
+        _levelUpPlayer(PLAYER_ONE_ID, 9); // Level 10
+        _levelUpPlayer(PLAYER_TWO_ID, 9); // Level 10
+        _levelUpPlayer(PLAYER_THREE_ID, 9); // Level 10
+        _levelUpPlayer(PLAYER_FOUR_ID, 9); // Level 10
 
         // Give them ETH
         vm.deal(PLAYER_ONE, 100 ether);
@@ -205,58 +207,8 @@ contract TournamentGameTest is TestBase {
     }
 
     //==============================================================//
-    //                  PRIORITY QUEUE TESTS                       //
+    //                  TOURNAMENT SELECTION TESTS                 //
     //==============================================================//
-
-    function testLevelBasedPriority() public {
-        // Create more players with different levels
-        for (uint256 i = 5; i <= 20; i++) {
-            address player = address(uint160(0x1000 + i));
-            vm.deal(player, 100 ether);
-            uint32 playerId = _createPlayerAndFulfillVRF(player, playerContract, false);
-
-            // Vary levels
-            if (i >= 15) {
-                _levelUpPlayer(playerId, 9); // Level 10
-            } else if (i >= 10) {
-                _levelUpPlayer(playerId, 4); // Level 5
-            }
-            // Rest stay at level 1
-
-            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-                playerId: playerId,
-                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                stance: 1
-            });
-
-            vm.prank(player);
-            game.queueForTournament(loadout);
-        }
-
-        // Queue our test players too
-        _queuePlayers(4);
-
-        // Set proper time and start tournament selection (48+ hours after deployment)
-        uint256 futureTime = block.timestamp + 48 hours;
-        futureTime = futureTime - (futureTime % 1 days) + 20 hours; // Align to 20:00 UTC
-        vm.warp(futureTime);
-
-        // Phase 1: Commit queue
-        uint256 startBlock = block.number;
-        game.tryStartTournament();
-
-        // Get the actual selection block and advance PAST it
-        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
-        vm.roll(selectionBlock + 1);
-
-        // Phase 2: Select participants
-        game.tryStartTournament();
-
-        // Should have selected 16 players, prioritizing highest levels
-        // Check that tournament was created
-        TournamentGame.Tournament memory tournament = game.getTournamentData(0);
-        assertEq(tournament.size, 16);
-    }
 
     //==============================================================//
     //                  COMMIT-REVEAL FLOW TESTS                   //
@@ -435,6 +387,175 @@ contract TournamentGameTest is TestBase {
         game.setWinnerRewards(invalidConfig);
     }
 
+    function testPreviousWinnersGuaranteedSelection() public {
+        // Use actual blockchain entropy for true randomness
+        uint256 randomSeed = uint256(keccak256(abi.encode(block.prevrandao, block.timestamp, gasleft())));
+        _testPreviousWinnersWithRandomness(randomSeed);
+    }
+
+    function testTournamentSelectionPoolSize() public {
+        // Queue 50 players to test the "first half" selection pool
+        _queuePlayers(50);
+        console2.log("Queued 50 players");
+        console2.log("Tournament size: 16");
+        console2.log("Expected pool size: 25 (first half since 50 >= 16*2)");
+
+        // Set proper daily time
+        uint256 futureTime = block.timestamp + 48 hours;
+        futureTime = futureTime - (futureTime % 1 days) + 20 hours;
+        vm.warp(futureTime);
+
+        // Phase 1: Commit queue
+        game.tryStartTournament();
+
+        // Phase 2: Select participants
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        vm.roll(selectionBlock + 1);
+        game.tryStartTournament();
+
+        // Get selected participants
+        TournamentGame.Tournament memory tournament = game.getTournamentData(0);
+
+        // First, let's debug our queue order
+        console2.log("Queue order (first 10 players in queue):");
+        for (uint256 i = 0; i < 10 && i < playerIds.length; i++) {
+            console2.log("  Queue pos %s: Player %s", i + 1, playerIds[i]);
+        }
+
+        console2.log("Selected participants:");
+        bool foundSecondHalf = false;
+        for (uint256 i = 0; i < tournament.participants.length; i++) {
+            uint32 playerId = tournament.participants[i].playerId;
+
+            // Find this player's position in our playerIds array
+            uint256 arrayIndex = 999;
+            for (uint256 j = 0; j < playerIds.length; j++) {
+                if (playerIds[j] == playerId) {
+                    arrayIndex = j;
+                    break;
+                }
+            }
+
+            // Since we queued in REVERSE order, queue position = 50 - arrayIndex
+            uint256 queuePosition = 50 - arrayIndex;
+            console2.log("  Tournament pos %s: Player %s (queue pos %s)", i, playerId, queuePosition);
+
+            // Should be from first 25 queue positions
+            if (queuePosition > 25) {
+                console2.log("    ^^ ERROR: This is from second half!");
+                foundSecondHalf = true;
+            }
+        }
+
+        assertEq(tournament.participants.length, 16, "Should select exactly 16 participants");
+        assertFalse(foundSecondHalf, "Should NOT select any player from second half of queue");
+    }
+
+    function _testPreviousWinnersWithRandomness(uint256 randomSeed) internal {
+        // Set low lethality to prevent player deaths during testing
+        game.setLethalityFactor(0);
+
+        // First tournament - queue 50 players (tournament will only take 16)
+        _queuePlayers(50);
+        console2.log("Initial queue size: %s", game.getQueueSize());
+
+        _runFullTournamentWithSeed(randomSeed);
+
+        // Get champion and runner-up from first tournament
+        TournamentGame.Tournament memory firstTournament = game.getTournamentData(0);
+
+        // Log Tournament 1 participants to see if we get high IDs
+        console2.log("Tournament 1 participants:");
+        for (uint256 i = 0; i < firstTournament.participants.length; i++) {
+            console2.log("  Position %s: Player %s", i, firstTournament.participants[i].playerId);
+        }
+        uint32 championId = firstTournament.championId;
+        uint32 runnerUpId = firstTournament.runnerUpId;
+
+        // Skip test if winners are default players (1-2000)
+        if ((championId >= 1 && championId <= 2000) || (runnerUpId >= 1 && runnerUpId <= 2000)) {
+            console2.log("Skipping test - default player won (champion: %s, runner-up: %s)", championId, runnerUpId);
+            return; // Can't test with default players
+        }
+
+        console2.log("Tournament 1 - Champion: %s, Runner-up: %s", championId, runnerUpId);
+        console2.log("Queue size after first tournament: %s", game.getQueueSize()); // Should be 34!
+
+        // Move to next day
+        vm.warp(block.timestamp + 1 days);
+
+        // Now requeue ALL 16 players from first tournament (they were removed from queue)
+        console2.log("Requeueing all 16 players from first tournament...");
+        for (uint256 i = 0; i < firstTournament.participants.length; i++) {
+            uint32 playerId = firstTournament.participants[i].playerId;
+
+            // Skip default players
+            if (playerId >= 1 && playerId <= 2000) continue;
+
+            address owner = playerContract.getPlayerOwner(playerId);
+            vm.prank(owner);
+            game.queueForTournament(
+                Fighter.PlayerLoadout({
+                    playerId: playerId,
+                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                    stance: 1
+                })
+            );
+        }
+
+        // Verify we have 50 players queued
+        uint256 actualQueueSize = game.getQueueSize();
+        console2.log("Queue size after requeueing all players: %s", actualQueueSize);
+        assertEq(actualQueueSize, 50, "Should have 50 players queued");
+
+        // Start the second tournament phases with new random seed
+        game.tryStartTournament(); // Phase 1: Commit queue
+        vm.roll(block.number + 21);
+        vm.prevrandao(bytes32(randomSeed + 1000)); // Different seed for second tournament
+        game.tryStartTournament(); // Phase 2: Select participants
+
+        // Get the pending tournament info to verify it's been created
+        (bool exists,,, uint8 phase, uint256 tournamentId,) = game.getPendingTournamentInfo();
+        assertTrue(exists, "Pending tournament should exist");
+        assertEq(
+            phase, uint8(TournamentGame.TournamentPhase.PARTICIPANT_SELECT), "Should be in participant select phase"
+        );
+
+        // Get the tournament data to check participants
+        TournamentGame.Tournament memory secondTournament = game.getTournamentData(tournamentId);
+
+        // Log all participants to see what's happening
+        console2.log("Second tournament participants:");
+        for (uint256 i = 0; i < secondTournament.participants.length; i++) {
+            console2.log("  Position %s: Player %s", i, secondTournament.participants[i].playerId);
+        }
+
+        // Verify champion and runner-up are in the participant list
+        bool championFound = false;
+        bool runnerUpFound = false;
+
+        for (uint256 i = 0; i < secondTournament.participants.length; i++) {
+            if (secondTournament.participants[i].playerId == championId) championFound = true;
+            if (secondTournament.participants[i].playerId == runnerUpId) runnerUpFound = true;
+        }
+
+        assertTrue(championFound, "Previous champion not selected");
+        assertTrue(runnerUpFound, "Previous runner-up not selected");
+
+        // Verify we still have exactly 16 participants (selected from 50 queued)
+        assertEq(secondTournament.participants.length, 16, "Tournament size incorrect");
+
+        // EXTRA VERIFICATION: Check that they were selected FIRST (should be in first 2 positions)
+        bool championInFirstTwo = false;
+        bool runnerUpInFirstTwo = false;
+        for (uint256 i = 0; i < 2 && i < secondTournament.participants.length; i++) {
+            if (secondTournament.participants[i].playerId == championId) championInFirstTwo = true;
+            if (secondTournament.participants[i].playerId == runnerUpId) runnerUpInFirstTwo = true;
+        }
+        assertTrue(championInFirstTwo, "Champion should be in first 2 positions (priority selection)");
+        assertTrue(runnerUpInFirstTwo, "Runner-up should be in first 2 positions (priority selection)");
+    }
+
     //==============================================================//
     //                       HELPER FUNCTIONS                      //
     //==============================================================//
@@ -442,40 +563,39 @@ contract TournamentGameTest is TestBase {
     function _queuePlayers(uint256 count) internal {
         require(count <= 64, "Too many players requested");
 
-        // Queue existing players first
+        // Create ALL players first
         uint256 existingPlayers = playerIds.length;
-        for (uint256 i = 0; i < existingPlayers && i < count; i++) {
-            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-                playerId: playerIds[i],
-                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                stance: 1
-            });
 
-            vm.prank(players[i]);
-            game.queueForTournament(loadout);
-        }
-
-        // Create additional players if needed
+        // Create additional players if needed (create them all first)
         for (uint256 i = existingPlayers; i < count; i++) {
             address newPlayer = address(uint160(0x2000 + i));
             vm.deal(newPlayer, 100 ether);
-            uint32 newPlayerId = _createPlayerAndFulfillVRF(newPlayer, playerContract, false);
-
-            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-                playerId: newPlayerId,
-                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                stance: 1
-            });
-
-            vm.prank(newPlayer);
-            game.queueForTournament(loadout);
+            uint32 newPlayerId = _createLevel10Player(newPlayer, false);
 
             players.push(newPlayer);
             playerIds.push(newPlayerId);
         }
+
+        // Now queue them in REVERSE order to mix up the selection pool
+        // This ensures higher-ID players are in the "first half" of the queue
+        for (uint256 i = count; i > 0; i--) {
+            uint256 index = i - 1;
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: playerIds[index],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1
+            });
+
+            vm.prank(players[index]);
+            game.queueForTournament(loadout);
+        }
     }
 
     function _runFullTournament() internal {
+        _runFullTournamentWithSeed(uint256(keccak256(abi.encode(block.timestamp, gasleft()))));
+    }
+
+    function _runFullTournamentWithSeed(uint256 baseSeed) internal {
         // Set proper daily time (20:00 UTC) at least 48 hours after deployment
         uint256 futureTime = block.timestamp + 48 hours;
         futureTime = futureTime - (futureTime % 1 days) + 20 hours; // Align to 20:00 UTC
@@ -491,7 +611,7 @@ contract TournamentGameTest is TestBase {
 
         // Phase 2: Select participants (advance PAST the selection block)
         vm.roll(selectionBlock + 1);
-        vm.prevrandao(bytes32(uint256(12345)));
+        vm.prevrandao(bytes32(baseSeed));
         game.tryStartTournament();
 
         // Get the actual tournament block from the pending tournament
@@ -499,7 +619,7 @@ contract TournamentGameTest is TestBase {
 
         // Phase 3: Execute tournament (advance PAST the tournament block)
         vm.roll(tournamentBlock + 1);
-        vm.prevrandao(bytes32(uint256(67890)));
+        vm.prevrandao(bytes32(baseSeed + 12345));
         game.tryStartTournament();
     }
 
@@ -510,5 +630,12 @@ contract TournamentGameTest is TestBase {
             uint16 xpNeeded = playerContract.getXPRequiredForLevel(stats.level + 1) - stats.currentXP;
             playerContract.awardExperience(playerId, xpNeeded);
         }
+    }
+
+    /// @notice Creates a level 10 player for tournament testing
+    function _createLevel10Player(address owner, bool useSetB) internal returns (uint32) {
+        uint32 playerId = _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
+        _levelUpPlayer(playerId, 9); // Level up from 1 to 10
+        return playerId;
     }
 }
