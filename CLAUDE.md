@@ -567,6 +567,7 @@ pragma solidity ^0.8.13;
 //                          SECTION_NAME                        //
 //==============================================================//
 ```
+*Note: Total width is 66 characters (// + 62 equal signs + //)*
 
 **Section Order (maintain this strict ordering):**
 1. IMPORTS

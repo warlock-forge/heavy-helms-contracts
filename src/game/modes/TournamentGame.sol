@@ -8,7 +8,7 @@
 pragma solidity ^0.8.13;
 
 //==============================================================//
-//                          IMPORTS                             //
+//                            IMPORTS                           //
 //==============================================================//
 import "./BaseGame.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
@@ -26,7 +26,7 @@ import {Player} from "../../fighters/Player.sol";
 import {PlayerTickets} from "../../nft/PlayerTickets.sol";
 
 //==============================================================//
-//                       CUSTOM ERRORS                          //
+//                         CUSTOM ERRORS                        //
 //==============================================================//
 error TournamentDoesNotExist();
 error PlayerNotInQueue();
@@ -59,8 +59,8 @@ error PlayerLevelTooLow();
 error InvalidBlockhash();
 
 //==============================================================//
-//                         HEAVY HELMS                          //
-//                      TOURNAMENT GAME                         //
+//                           HEAVY HELMS                        //
+//                        TOURNAMENT GAME                       //
 //==============================================================//
 /// @title Tournament Game Mode for Heavy Helms
 /// @notice Manages daily elimination tournaments with level-based priority,
@@ -109,7 +109,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
-    //                         STRUCTS                              //
+    //                           STRUCTS                            //
     //==============================================================//
     /// @notice Tournament data structure for contract storage.
     /// @dev Participants needed for commit-reveal, other arrays kept in memory only.
@@ -158,7 +158,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
-    //                    STATE VARIABLES                           //
+    //                          STATE VARIABLES                     //
     //==============================================================//
 
     // --- Configuration & Roles ---
@@ -247,7 +247,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     });
 
     //==============================================================//
-    //                          EVENTS                              //
+    //                            EVENTS                            //
     //==============================================================//
     /// @notice Emitted when a player successfully joins the queue.
     event PlayerQueued(uint32 indexed playerId, uint256 queueSize);
@@ -296,7 +296,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
-    //                        MODIFIERS                             //
+    //                          MODIFIERS                           //
     //==============================================================//
     /// @notice Ensures the game is not disabled before proceeding.
     modifier whenGameEnabled() {
@@ -305,7 +305,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
-    //                       CONSTRUCTOR                            //
+    //                         CONSTRUCTOR                          //
     //==============================================================//
     /// @notice Initializes the TournamentGame contract.
     /// @param _gameEngine Address of the `GameEngine` contract.
@@ -331,8 +331,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
-    //                       QUEUE MANAGEMENT                       //
+    //                      EXTERNAL FUNCTIONS                      //
     //==============================================================//
+
+    // --- Queue Management ---
 
     /// @notice Allows a player owner to join the Tournament queue with a specific loadout.
     /// @param loadout The player's chosen skin and stance for the potential Tournament.
@@ -400,9 +402,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         return queueIndex.length;
     }
 
-    //==============================================================//
-    //                 TOURNAMENT LIFECYCLE                         //
-    //==============================================================//
+    // --- Tournament Lifecycle ---
 
     /// @notice Attempts to start a new Tournament using 3-transaction commit-reveal pattern.
     /// @dev Callable by anyone. Enforces daily timing constraints.
@@ -473,9 +473,124 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         _commitQueuePhase();
     }
 
+    // --- View Functions ---
+
+    /// @notice Returns tournament data.
+    function getTournamentData(uint256 tournamentId) external view returns (Tournament memory) {
+        if (tournamentId >= nextTournamentId) revert TournamentDoesNotExist();
+        return tournaments[tournamentId];
+    }
+
+    /// @notice Returns a player's current season tournament rating.
+    function getPlayerRating(uint32 playerId) external view returns (uint256) {
+        // Always get from seasonal mapping using current season from Player contract
+        return seasonalRatings[playerId][_getCurrentSeason()];
+    }
+
+    /// @notice Returns a player's tournament rating for a specific season.
+    function getPlayerSeasonRating(uint32 playerId, uint256 seasonId) external view returns (uint256) {
+        return seasonalRatings[playerId][seasonId];
+    }
+
+    /// @notice Helper function to get a player's current season rating.
+    /// @dev This is a convenience method that's equivalent to getPlayerRating.
+    function currentSeasonRating(uint32 playerId) external view returns (uint256) {
+        return seasonalRatings[playerId][_getCurrentSeason()];
+    }
+
+    /// @notice Returns information about the pending tournament.
+    function getPendingTournamentInfo()
+        external
+        view
+        returns (
+            bool exists,
+            uint256 selectionBlock,
+            uint256 tournamentBlock,
+            uint8 phase,
+            uint256 tournamentId,
+            uint256 participantCount
+        )
+    {
+        exists = (pendingTournament.phase != TournamentPhase.NONE);
+        selectionBlock = pendingTournament.selectionBlock;
+        tournamentBlock = pendingTournament.tournamentBlock;
+        phase = uint8(pendingTournament.phase);
+        tournamentId = pendingTournament.tournamentId;
+        // Get participant count from the actual tournament if it exists
+        if (pendingTournament.phase != TournamentPhase.NONE && pendingTournament.phase != TournamentPhase.QUEUE_COMMIT)
+        {
+            participantCount = tournaments[pendingTournament.tournamentId].participants.length;
+        } else {
+            participantCount = 0;
+        }
+    }
+
     //==============================================================//
-    //                    COMMIT-REVEAL FUNCTIONS                   //
+    //                       ADMIN FUNCTIONS                        //
     //==============================================================//
+
+    /// @notice Sets the tournament size (16, 32, or 64).
+    function setTournamentSize(uint8 newSize) external onlyOwner {
+        if (pendingTournament.phase != TournamentPhase.NONE) {
+            revert PendingTournamentExists();
+        }
+        if (newSize != 16 && newSize != 32 && newSize != 64) {
+            revert InvalidTournamentSize(newSize);
+        }
+        uint8 oldSize = currentTournamentSize;
+        currentTournamentSize = newSize;
+        emit TournamentSizeSet(oldSize, newSize);
+    }
+
+    /// @notice Sets the lethality factor for tournament matches.
+    function setLethalityFactor(uint16 newFactor) external onlyOwner {
+        uint16 oldFactor = lethalityFactor;
+        lethalityFactor = newFactor;
+        emit LethalityFactorSet(oldFactor, newFactor);
+    }
+
+    /// @notice Updates reward configuration for winners.
+    function setWinnerRewards(RewardConfig calldata config) external onlyOwner {
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        winnerRewards = config;
+        emit RewardConfigUpdated("winner", config);
+    }
+
+    /// @notice Updates reward configuration for runner-up.
+    function setRunnerUpRewards(RewardConfig calldata config) external onlyOwner {
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        runnerUpRewards = config;
+        emit RewardConfigUpdated("runnerUp", config);
+    }
+
+    /// @notice Updates reward configuration for 3rd-4th place.
+    function setThirdFourthRewards(RewardConfig calldata config) external onlyOwner {
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        thirdFourthRewards = config;
+        emit RewardConfigUpdated("thirdFourth", config);
+    }
+
+    /// @notice Toggles whether the game is enabled.
+    function setGameEnabled(bool enabled) external onlyOwner {
+        bool oldEnabled = isGameEnabled;
+        isGameEnabled = enabled;
+        emit GameEnabledChanged(oldEnabled, enabled);
+    }
+
+    //==============================================================//
+    //                     INTERNAL FUNCTIONS                       //
+    //==============================================================//
+
+    // --- Commit-Reveal Functions ---
 
     /// @notice Phase 1: Commits the queue and sets up for participant selection.
     function _commitQueuePhase() private {
@@ -669,9 +784,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         delete pendingTournament;
     }
 
-    //==============================================================//
-    //                  TOURNAMENT EXECUTION                        //
-    //==============================================================//
+    // --- Tournament Execution ---
 
     /// @notice Executes a tournament with death mechanics and rating distribution.
     function _executeTournamentWithRandomness(uint256 tournamentId, uint256 randomness) private {
@@ -915,9 +1028,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         emit TournamentCompleted(tournamentId, size, finalWinnerId, tournament.runnerUpId, participantIds, roundWinners);
     }
 
-    //==============================================================//
-    //                    RATING & REWARDS                          //
-    //==============================================================//
+    // --- Rating & Rewards ---
 
     /// @notice Awards tournament rating points based on placement.
     function _awardTournamentRatings(Tournament storage tournament, uint32[] memory eliminatedByRound) private {
@@ -1082,9 +1193,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
     }
 
-    //==============================================================//
-    //                  INTERNAL HELPERS                            //
-    //==============================================================//
+    // --- Internal Helpers ---
     /// @notice Generates enhanced randomness combining multiple entropy sources
     /// @param futureBlock The future block number to use for base randomness
     /// @return Enhanced random seed combining blockhash with additional entropy
@@ -1250,122 +1359,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
-    //                  VIEW FUNCTIONS                              //
-    //==============================================================//
-
-    /// @notice Returns tournament data.
-    function getTournamentData(uint256 tournamentId) external view returns (Tournament memory) {
-        if (tournamentId >= nextTournamentId) revert TournamentDoesNotExist();
-        return tournaments[tournamentId];
-    }
-
-    /// @notice Returns a player's current season tournament rating.
-    function getPlayerRating(uint32 playerId) external view returns (uint256) {
-        // Always get from seasonal mapping using current season from Player contract
-        return seasonalRatings[playerId][_getCurrentSeason()];
-    }
-
-    /// @notice Returns a player's tournament rating for a specific season.
-    function getPlayerSeasonRating(uint32 playerId, uint256 seasonId) external view returns (uint256) {
-        return seasonalRatings[playerId][seasonId];
-    }
-
-    /// @notice Helper function to get a player's current season rating.
-    /// @dev This is a convenience method that's equivalent to getPlayerRating.
-    function currentSeasonRating(uint32 playerId) external view returns (uint256) {
-        return seasonalRatings[playerId][_getCurrentSeason()];
-    }
-
-    /// @notice Returns information about the pending tournament.
-    function getPendingTournamentInfo()
-        external
-        view
-        returns (
-            bool exists,
-            uint256 selectionBlock,
-            uint256 tournamentBlock,
-            uint8 phase,
-            uint256 tournamentId,
-            uint256 participantCount
-        )
-    {
-        exists = (pendingTournament.phase != TournamentPhase.NONE);
-        selectionBlock = pendingTournament.selectionBlock;
-        tournamentBlock = pendingTournament.tournamentBlock;
-        phase = uint8(pendingTournament.phase);
-        tournamentId = pendingTournament.tournamentId;
-        // Get participant count from the actual tournament if it exists
-        if (pendingTournament.phase != TournamentPhase.NONE && pendingTournament.phase != TournamentPhase.QUEUE_COMMIT)
-        {
-            participantCount = tournaments[pendingTournament.tournamentId].participants.length;
-        } else {
-            participantCount = 0;
-        }
-    }
-
-    //==============================================================//
-    //                     ADMIN FUNCTIONS                          //
-    //==============================================================//
-
-    /// @notice Sets the tournament size (16, 32, or 64).
-    function setTournamentSize(uint8 newSize) external onlyOwner {
-        if (pendingTournament.phase != TournamentPhase.NONE) {
-            revert PendingTournamentExists();
-        }
-        if (newSize != 16 && newSize != 32 && newSize != 64) {
-            revert InvalidTournamentSize(newSize);
-        }
-        uint8 oldSize = currentTournamentSize;
-        currentTournamentSize = newSize;
-        emit TournamentSizeSet(oldSize, newSize);
-    }
-
-    /// @notice Sets the lethality factor for tournament matches.
-    function setLethalityFactor(uint16 newFactor) external onlyOwner {
-        uint16 oldFactor = lethalityFactor;
-        lethalityFactor = newFactor;
-        emit LethalityFactorSet(oldFactor, newFactor);
-    }
-
-    /// @notice Updates reward configuration for winners.
-    function setWinnerRewards(RewardConfig calldata config) external onlyOwner {
-        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
-            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
-        if (total != 10000) revert InvalidRewardPercentages();
-
-        winnerRewards = config;
-        emit RewardConfigUpdated("winner", config);
-    }
-
-    /// @notice Updates reward configuration for runner-up.
-    function setRunnerUpRewards(RewardConfig calldata config) external onlyOwner {
-        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
-            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
-        if (total != 10000) revert InvalidRewardPercentages();
-
-        runnerUpRewards = config;
-        emit RewardConfigUpdated("runnerUp", config);
-    }
-
-    /// @notice Updates reward configuration for 3rd-4th place.
-    function setThirdFourthRewards(RewardConfig calldata config) external onlyOwner {
-        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
-            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent;
-        if (total != 10000) revert InvalidRewardPercentages();
-
-        thirdFourthRewards = config;
-        emit RewardConfigUpdated("thirdFourth", config);
-    }
-
-    /// @notice Toggles whether the game is enabled.
-    function setGameEnabled(bool enabled) external onlyOwner {
-        bool oldEnabled = isGameEnabled;
-        isGameEnabled = enabled;
-        emit GameEnabledChanged(oldEnabled, enabled);
-    }
-
-    //==============================================================//
-    //             BASEGAME ABSTRACT IMPLEMENTATIONS                //
+    //                 BASEGAME ABSTRACT IMPLEMENTATIONS            //
     //==============================================================//
 
     /// @notice Checks if a player ID is supported by this game mode.
