@@ -14,7 +14,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 28;
+    uint16 public constant version = 29;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -1240,15 +1240,13 @@ contract GameEngine is IGameEngine {
                 lethalityFactor
             );
 
-            // If they survived the lethal blow, give them 1 health
+            // If they survived the lethal blow, it's a KO (not death)
             if (survived) {
-                if (isPlayer1Attacker) {
-                    state.p2Health = 1;
-                } else {
-                    state.p1Health = 1;
-                }
+                // Survived the death save - results in KO, not death
+                state.player1Won = isPlayer1Attacker;
+                state.condition = WinCondition.HEALTH;
             } else {
-                // They died - update win condition
+                // Failed the death save - they died
                 state.player1Won = isPlayer1Attacker;
                 state.condition = WinCondition.DEATH;
             }
