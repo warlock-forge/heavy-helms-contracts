@@ -21,6 +21,7 @@ import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 import "../../fighters/Fighter.sol";
 import "../../interfaces/fighters/IDefaultPlayer.sol";
+import "../../interfaces/game/engine/IEquipmentRequirements.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -49,7 +50,7 @@ error TournamentBlockNotReached(uint256 tournamentBlock, uint256 currentBlock);
 error InvalidFutureBlocks(uint256 blocks);
 error CannotRecoverYet();
 error NoDefaultPlayersAvailable();
-error InsufficientDefaultPlayers(uint256 needed, uint256 available);
+error InvalidBlockhash();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -98,16 +99,15 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @param startTimestamp Timestamp when the Gauntlet was started.
     /// @param completionTimestamp Timestamp when the Gauntlet was completed.
     /// @param participants Array of players registered for this Gauntlet, including their loadouts.
-    /// @param winners Array storing the winner ID of each match (size - 1 elements).
     /// @param championId The ID of the final Gauntlet winner.
+    /// @dev Winners array removed for gas efficiency - only needed for events, kept in memory only.
     struct Gauntlet {
         uint256 id;
         uint8 size;
         GauntletState state;
         uint256 startTimestamp;
         uint256 completionTimestamp;
-        RegisteredPlayer[] participants;
-        uint32[] winners; // Stores winners of each round except the final
+        RegisteredPlayer[] participants; // Needed for commit-reveal pattern
         uint32 championId;
     }
 
@@ -117,6 +117,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     struct RegisteredPlayer {
         uint32 playerId;
         Fighter.PlayerLoadout loadout;
+    }
+
+    /// @notice Active participant with all combat data ready for gauntlet execution.
+    struct ActiveParticipant {
+        uint32 playerId;
+        IGameEngine.FighterStats stats;
+        bytes32 encodedData;
     }
 
     /// @notice Structure for pending gauntlet using 3-transaction pattern.
@@ -199,16 +206,16 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     );
     /// @notice Emitted when a pending Gauntlet is recovered after timeout.
     event GauntletRecovered(uint256 commitTimestamp);
-    /// @notice Emitted when a pending Gauntlet is automatically recovered.
-    event GauntletRecoveredAutomatically();
+    /// @notice Emitted when a gauntlet is auto-recovered due to blockhash expiration.
+    event GauntletAutoRecovered(uint256 commitBlock, uint256 currentBlock, GauntletPhase phase);
+    /// @notice Emitted when a player is replaced during gauntlet execution.
+    event PlayerReplaced(
+        uint256 indexed gauntletId, uint32 indexed originalPlayerId, uint32 indexed replacementPlayerId, string reason
+    );
     /// @notice Emitted when the default player contract address is updated.
     event DefaultPlayerContractSet(address indexed newContract);
     /// @notice Emitted when the Gauntlet size (participant count) is changed.
     event GauntletSizeSet(uint8 oldSize, uint8 newSize);
-    /// @notice Emitted when the queue is cleared due to `setEntryFee` being called with `refundPlayers=true`.
-    event QueueClearedDueToSettingsChange(uint256 playersRefunded, uint256 totalRefunded);
-    /// @notice Emitted when the maximum default player ID for substitutions is updated.
-    event MaxDefaultPlayerSubstituteIdSet(uint32 newMaxId);
     /// @notice Emitted when the minimum time required between starting gauntlets is updated.
     event MinTimeBetweenGauntletsSet(uint256 newMinTime);
     /// @notice Emitted when the future blocks for selection is updated.
@@ -221,10 +228,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     event QueuePartiallyCleared(uint256 cleared, uint256 remaining);
     /// @notice Emitted when the game enabled state is updated.
     event GameEnabledUpdated(bool enabled);
-    /// @notice Emitted when the queue is cleared due to the game being disabled.
-    /// @param playerIds Array of player IDs removed from the queue.
-    /// @param totalRefunded Total amount of ETH refunded to the players.
-    event QueueClearedDueToGameDisabled(uint32[] playerIds, uint256 totalRefunded);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
@@ -278,13 +281,17 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
 
+        // Cache external contract references to save gas
+        IPlayerSkinRegistry skinRegistry = playerContract.skinRegistry();
+        IEquipmentRequirements equipmentReqs = playerContract.equipmentRequirements();
+
         // Validate skin and equipment requirements via Player contract registries
-        try playerContract.skinRegistry().validateSkinOwnership(loadout.skin, owner) {}
+        try skinRegistry.validateSkinOwnership(loadout.skin, owner) {}
         catch {
             revert InvalidSkin();
         }
-        try playerContract.skinRegistry().validateSkinRequirements(
-            loadout.skin, playerContract.getPlayer(loadout.playerId).attributes, playerContract.equipmentRequirements()
+        try skinRegistry.validateSkinRequirements(
+            loadout.skin, playerContract.getPlayer(loadout.playerId).attributes, equipmentReqs
         ) {} catch {
             revert InvalidLoadout();
         }
@@ -344,33 +351,40 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     ///      3. TOURNAMENT_READY: Executes the tournament
     function tryStartGauntlet() external whenGameEnabled nonReentrant {
         // Handle pending gauntlet phases
-        if (pendingGauntlet.phase != GauntletPhase.NONE) {
-            // Check if we're past the 256-block limit from initial commit for auto-recovery
-            uint256 commitBlock = (pendingGauntlet.phase == GauntletPhase.QUEUE_COMMIT)
-                ? pendingGauntlet.selectionBlock - futureBlocksForSelection
-                : pendingGauntlet.tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
+        // Cache pending gauntlet state to avoid multiple storage reads
+        GauntletPhase currentPhase = pendingGauntlet.phase;
+        if (currentPhase != GauntletPhase.NONE) {
+            uint256 selectionBlock = pendingGauntlet.selectionBlock;
+            uint256 tournamentBlock = pendingGauntlet.tournamentBlock;
+            uint256 currentBlock = block.number; // Cache block.number to save gas
 
-            if (block.number > commitBlock + 256) {
+            // Check if we're past the 256-block limit from initial commit for auto-recovery
+            uint256 commitBlock = (currentPhase == GauntletPhase.QUEUE_COMMIT)
+                ? selectionBlock - futureBlocksForSelection
+                : tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
+
+            if (currentBlock >= commitBlock + 256) {
                 // Auto-recovery if we missed the window
+                emit GauntletAutoRecovered(commitBlock, currentBlock, currentPhase);
                 _recoverPendingGauntlet();
-                emit GauntletRecoveredAutomatically();
+                return;
             }
 
-            if (pendingGauntlet.phase == GauntletPhase.QUEUE_COMMIT) {
+            if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
                 // Phase 2: Participant Selection
-                if (block.number >= pendingGauntlet.selectionBlock) {
+                if (currentBlock >= selectionBlock) {
                     _selectParticipantsPhase();
                     return;
                 } else {
-                    revert SelectionBlockNotReached(pendingGauntlet.selectionBlock, block.number);
+                    revert SelectionBlockNotReached(selectionBlock, currentBlock);
                 }
-            } else if (pendingGauntlet.phase == GauntletPhase.PARTICIPANT_SELECT) {
+            } else if (currentPhase == GauntletPhase.PARTICIPANT_SELECT) {
                 // Phase 3: Tournament Execution
-                if (block.number >= pendingGauntlet.tournamentBlock) {
+                if (currentBlock >= tournamentBlock) {
                     _executeTournamentPhase();
                     return;
                 } else {
-                    revert TournamentBlockNotReached(pendingGauntlet.tournamentBlock, block.number);
+                    revert TournamentBlockNotReached(tournamentBlock, currentBlock);
                 }
             }
 
@@ -409,13 +423,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         emit QueueCommitted(pendingGauntlet.selectionBlock, queueIndex.length);
     }
 
-    /// @notice Phase 2: Selects participants using blockhash randomness.
+    /// @notice Phase 2: Selects participants using enhanced randomness.
     function _selectParticipantsPhase() private {
-        // Get randomness from selection block
-        uint256 seed = uint256(blockhash(pendingGauntlet.selectionBlock));
-        if (seed == 0) {
-            revert("Invalid blockhash");
-        }
+        // Get enhanced randomness from selection block
+        uint256 seed = _getEnhancedRandomness(pendingGauntlet.selectionBlock);
 
         // Select participants using hybrid algorithm
         uint32[] memory selectedIds = _selectParticipants(seed, queueIndex);
@@ -430,7 +441,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         gauntlet.startTimestamp = block.timestamp;
 
         // Store participants ONLY in gauntlet (eliminate duplication)
-        for (uint256 i = 0; i < selectedIds.length; i++) {
+        uint256 selectedCount = selectedIds.length; // Cache length to save gas
+        for (uint256 i = 0; i < selectedCount; i++) {
             uint32 playerId = selectedIds[i];
             Fighter.PlayerLoadout memory loadout = registrationQueue[playerId];
 
@@ -443,7 +455,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         }
 
         // Remove selected players from queue one by one
-        for (uint256 i = 0; i < selectedIds.length; i++) {
+        for (uint256 i = 0; i < selectedCount; i++) {
             uint32 playerId = selectedIds[i];
             _removePlayerFromQueueArrayIndex(playerId);
             delete registrationQueue[playerId];
@@ -461,11 +473,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Phase 3: Executes the tournament using blockhash randomness.
     function _executeTournamentPhase() private {
-        // Get randomness from tournament block
-        uint256 seed = uint256(blockhash(pendingGauntlet.tournamentBlock));
-        if (seed == 0) {
-            revert("Invalid blockhash");
-        }
+        // Get enhanced randomness from tournament block
+        uint256 seed = _getEnhancedRandomness(pendingGauntlet.tournamentBlock);
 
         // Everything is already set up in TX2, just get the gauntlet ID
         uint256 gauntletId = pendingGauntlet.gauntletId;
@@ -540,175 +549,152 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint8 size = gauntlet.size;
         RegisteredPlayer[] storage initialParticipants = gauntlet.participants;
 
-        // Prepare arrays for active participants (handling retired player substitution)
-        uint32[] memory activeParticipants = new uint32[](size);
-        IGameEngine.FighterStats[] memory participantStats = new IGameEngine.FighterStats[](size);
-        bytes32[] memory participantEncodedData = new bytes32[](size);
+        // Create active participants array with proper struct
+        ActiveParticipant[] memory activeParticipants = new ActiveParticipant[](size);
 
-        // First pass: identify retired players
-        uint256[] memory retiredIndices = new uint256[](size);
-        uint256 retiredCount = 0;
+        // Cache skin registry to save gas on repeated calls
+        IPlayerSkinRegistry skinRegistry = playerContract.skinRegistry();
 
-        for (uint256 i = 0; i < size; i++) {
-            RegisteredPlayer storage regPlayer = initialParticipants[i];
-            if (playerContract.isPlayerRetired(regPlayer.playerId)) {
-                retiredIndices[retiredCount++] = i;
-            }
-        }
-
-        // Get unique substitutes for all retired players
-        uint32[] memory substituteIds = new uint32[](0);
-        if (retiredCount > 0) {
-            uint32[] memory emptyExcludes = new uint32[](0); // No existing defaults in gauntlet
-            substituteIds = _selectUniqueDefaults(randomness, retiredCount, emptyExcludes);
-        }
-
-        // Second pass: substitute retired players and load all data
+        // Build active participants with simple replacement logic for gauntlets
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
             uint32 activePlayerId = regPlayer.playerId;
 
-            // Check if this player needs substitution
-            for (uint256 j = 0; j < retiredCount; j++) {
-                if (retiredIndices[j] == i) {
-                    activePlayerId = substituteIds[j];
-                    break;
+            // Check if player needs replacement
+            bool shouldReplace = false;
+            string memory reason = "";
+
+            // Check if player is retired
+            if (playerContract.isPlayerRetired(regPlayer.playerId)) {
+                shouldReplace = true;
+                reason = "PLAYER_RETIRED";
+            }
+
+            // Check if player still owns their skin
+            if (!shouldReplace) {
+                address playerOwner = playerContract.getPlayerOwner(regPlayer.playerId);
+                try skinRegistry.validateSkinOwnership(regPlayer.loadout.skin, playerOwner) {
+                    // Skin validation passed
+                } catch {
+                    // Skin validation failed - player no longer owns the skin
+                    shouldReplace = true;
+                    reason = "SKIN_OWNERSHIP_LOST";
                 }
             }
 
-            activeParticipants[i] = activePlayerId;
+            // Replace with simple random default if needed
+            if (shouldReplace) {
+                uint32 originalPlayerId = activePlayerId;
 
-            if (activePlayerId != regPlayer.playerId) {
-                // This is a substitute default player
+                // Get a simple random default player (no uniqueness needed for gauntlets)
+                activePlayerId = _getRandomDefaultPlayerId(randomness + i);
 
-                // Fetch substitute player stats
-                IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(activePlayerId);
-                IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
-                    playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
-                IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-                    IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(defaultStats.skin.skinTokenId);
+                // Emit replacement event for subgraph tracking
+                emit PlayerReplaced(gauntletId, originalPlayerId, activePlayerId, reason);
+            }
 
-                participantStats[i] = IGameEngine.FighterStats({
-                    weapon: skinAttrs.weapon,
-                    armor: skinAttrs.armor,
-                    stance: defaultStats.stance,
-                    attributes: defaultStats.attributes
-                });
-                // Encode default player ID directly as data (no PlayerStats encoding needed)
-                participantEncodedData[i] = bytes32(uint256(activePlayerId));
+            // Load combat data based on player type
+            if (_isDefaultPlayerId(activePlayerId)) {
+                activeParticipants[i] = _loadDefaultPlayerData(activePlayerId);
             } else {
-                // Use non-retired player's ID and fetch/encode their stats
-                activeParticipants[i] = regPlayer.playerId;
-                (participantStats[i], participantEncodedData[i]) =
-                    _getFighterCombatStats(regPlayer.playerId, regPlayer.loadout);
+                // Use original player's loadout since they passed validation
+                activeParticipants[i] = _loadPlayerData(activePlayerId, regPlayer.loadout);
             }
         }
 
-        // Shuffle participants using Fisher-Yates based on randomness
-        uint32[] memory shuffledParticipantIds = new uint32[](size);
-        IGameEngine.FighterStats[] memory shuffledParticipantStats = new IGameEngine.FighterStats[](size);
-        bytes32[] memory shuffledParticipantData = new bytes32[](size);
-        uint256 shuffleRand = randomness; // Use randomness as initial shuffle seed
-        bool[] memory picked = new bool[](size);
-        uint256 count = 0;
-        while (count < size) {
-            shuffleRand = uint256(keccak256(abi.encodePacked(shuffleRand, count))); // Evolve seed
-            uint256 k = shuffleRand % size;
-            if (!picked[k]) {
-                shuffledParticipantIds[count] = activeParticipants[k];
-                shuffledParticipantStats[count] = participantStats[k];
-                shuffledParticipantData[count] = participantEncodedData[k];
-                picked[k] = true;
-                count++;
-            }
-        }
+        // Shuffle participants using clean Fisher-Yates (tournament pattern)
+        activeParticipants = _shuffleParticipants(activeParticipants, randomness);
 
-        // Simulate Gauntlet Rounds
-        uint32[] memory currentRoundIds = shuffledParticipantIds;
-        IGameEngine.FighterStats[] memory currentRoundStats = shuffledParticipantStats;
-        bytes32[] memory currentRoundData = shuffledParticipantData;
-        uint32[] memory nextRoundIds;
-        IGameEngine.FighterStats[] memory nextRoundStats;
-        bytes32[] memory nextRoundData;
+        // Run gauntlet rounds with improved structure
+        _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness);
+    }
 
-        uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, gauntletId))); // Base seed for all fights
-        gauntlet.winners = new uint32[](size - 1); // Initialize array for round winners
+    /// @notice Runs all gauntlet rounds with clean memory management.
+    function _runGauntletRounds(
+        Gauntlet storage gauntlet,
+        uint256 gauntletId,
+        ActiveParticipant[] memory participants,
+        uint256 randomness
+    ) private {
+        uint8 size = gauntlet.size;
+
+        uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, gauntletId)));
+
+        // Initialize memory arrays to track round winners (not stored in contract)
+        uint32[] memory roundWinners = new uint32[](size - 1);
         uint256 winnerIndex = 0;
 
-        // Determine number of rounds based on size
-        uint8 rounds;
-        if (size == 4) rounds = 2;
-        else if (size == 8) rounds = 3;
-        else if (size == 16) rounds = 4;
-        else if (size == 32) rounds = 5;
-        else rounds = 6; // size == 64 (guaranteed by setGauntletSize)
+        // Current round participants - clean struct array
+        ActiveParticipant[] memory currentRound = participants;
+
+        // Determine number of rounds
+        uint8 rounds = size == 4 ? 2 : (size == 8 ? 3 : (size == 16 ? 4 : (size == 32 ? 5 : 6)));
 
         for (uint256 roundIndex = 0; roundIndex < rounds; roundIndex++) {
-            uint256 currentRoundSize = currentRoundIds.length;
+            uint256 currentRoundSize = currentRound.length;
             uint256 nextRoundSize = currentRoundSize / 2;
-            nextRoundIds = new uint32[](nextRoundSize);
-            nextRoundStats = new IGameEngine.FighterStats[](nextRoundSize);
-            nextRoundData = new bytes32[](nextRoundSize);
 
+            // Next round participants
+            ActiveParticipant[] memory nextRound = new ActiveParticipant[](nextRoundSize);
+
+            // Process fights in this round
             for (uint256 fightIndex = 0; fightIndex < currentRoundSize; fightIndex += 2) {
-                // Get participants and stats for the current fight
-                uint32 p1Id = currentRoundIds[fightIndex];
-                uint32 p2Id = currentRoundIds[fightIndex + 1];
-                IGameEngine.FighterStats memory fighter1Stats = currentRoundStats[fightIndex];
-                IGameEngine.FighterStats memory fighter2Stats = currentRoundStats[fightIndex + 1];
-                bytes32 p1Data = currentRoundData[fightIndex];
-                bytes32 p2Data = currentRoundData[fightIndex + 1];
+                ActiveParticipant memory fighter1 = currentRound[fightIndex];
+                ActiveParticipant memory fighter2 = currentRound[fightIndex + 1];
 
-                // Generate unique seed for this specific fight
+                // Generate fight seed
                 uint256 fightSeed = uint256(keccak256(abi.encodePacked(fightSeedBase, roundIndex, fightIndex)));
 
-                // Call GameEngine to simulate the fight
-                bytes memory results = gameEngine.processGame(fighter1Stats, fighter2Stats, fightSeed, 0);
+                // Process fight (no lethality for gauntlets)
+                bytes memory results = gameEngine.processGame(fighter1.stats, fighter2.stats, fightSeed, 0);
                 (bool p1Won,,,) = gameEngine.decodeCombatLog(results);
 
-                // Determine winner and loser, prepare for next round
-                uint32 winnerId;
+                // Determine winner and advance to next round
+                ActiveParticipant memory winner;
                 uint32 loserId;
                 uint256 nextRoundArrayIndex = fightIndex / 2;
+
                 if (p1Won) {
-                    winnerId = p1Id;
-                    loserId = p2Id;
-                    nextRoundIds[nextRoundArrayIndex] = p1Id;
-                    nextRoundStats[nextRoundArrayIndex] = fighter1Stats;
-                    nextRoundData[nextRoundArrayIndex] = p1Data;
+                    winner = fighter1;
+                    loserId = fighter2.playerId;
                 } else {
-                    winnerId = p2Id;
-                    loserId = p1Id;
-                    nextRoundIds[nextRoundArrayIndex] = p2Id;
-                    nextRoundStats[nextRoundArrayIndex] = fighter2Stats;
-                    nextRoundData[nextRoundArrayIndex] = p2Data;
+                    winner = fighter2;
+                    loserId = fighter1.playerId;
                 }
 
-                // Store round winner (except final winner)
-                if (winnerIndex < size - 1) gauntlet.winners[winnerIndex++] = winnerId;
+                // Advance winner to next round
+                nextRound[nextRoundArrayIndex] = winner;
 
-                // Interaction: Emit combat result via BaseGame event
-                emit CombatResult(p1Data, p2Data, winnerId, results);
+                // Store round winner in memory
+                if (winnerIndex < size - 1) {
+                    roundWinners[winnerIndex++] = winner.playerId;
+                }
 
-                // Interaction: Update player win/loss records via Player contract
-                if (_getFighterType(winnerId) == Fighter.FighterType.PLAYER) playerContract.incrementWins(winnerId);
-                if (_getFighterType(loserId) == Fighter.FighterType.PLAYER) playerContract.incrementLosses(loserId);
+                // Emit combat result
+                emit CombatResult(fighter1.encodedData, fighter2.encodedData, winner.playerId, results);
+
+                // Update records
+                if (_getFighterType(winner.playerId) == Fighter.FighterType.PLAYER) {
+                    playerContract.incrementWins(winner.playerId);
+                }
+                if (_getFighterType(loserId) == Fighter.FighterType.PLAYER) {
+                    playerContract.incrementLosses(loserId);
+                }
             }
-            // Move to the next round
-            currentRoundIds = nextRoundIds;
-            currentRoundStats = nextRoundStats;
-            currentRoundData = nextRoundData;
+
+            // Move to next round - clean single assignment
+            currentRound = nextRound;
         }
 
-        // Final Effects: Record winner, calculate prizes/fees, update states
-        uint32 finalWinnerId = currentRoundIds[0];
+        // Gauntlet complete - record final results
+        uint32 finalWinnerId = currentRound[0].playerId;
         gauntlet.championId = finalWinnerId;
         gauntlet.completionTimestamp = block.timestamp;
-        gauntlet.state = GauntletState.COMPLETED; // Mark as completed *after* simulation
+        gauntlet.state = GauntletState.COMPLETED;
 
         // Clean up player statuses
         for (uint256 i = 0; i < size; i++) {
-            uint32 pId = initialParticipants[i].playerId;
+            uint32 pId = gauntlet.participants[i].playerId;
             // Check status and current gauntlet ID before clearing
             if (playerStatus[pId] == PlayerStatus.IN_TOURNAMENT && playerCurrentGauntlet[pId] == gauntletId) {
                 playerStatus[pId] = PlayerStatus.NONE;
@@ -716,8 +702,15 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
             }
         }
 
-        // Interaction: Emit final completion event with additional data
-        emit GauntletCompleted(gauntletId, size, finalWinnerId, shuffledParticipantIds, gauntlet.winners);
+        // Extract participant IDs for event emission
+        uint256 participantCount = participants.length;
+        uint32[] memory participantIds = new uint32[](participantCount);
+        for (uint256 i = 0; i < participantCount; i++) {
+            participantIds[i] = participants[i].playerId;
+        }
+
+        // Emit completion event with memory arrays (for subgraph)
+        emit GauntletCompleted(gauntletId, size, finalWinnerId, participantIds, roundWinners);
     }
 
     //==============================================================//
@@ -748,37 +741,35 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         queueIndex.pop();
     }
 
-    /// @notice Efficiently removes multiple players from the queue in a single operation.
-    /// @param playerIds Array of player IDs to remove from the queue.
-    function _batchRemovePlayersFromQueue(uint32[] memory playerIds) internal {
-        // Clear registration data first
-        for (uint256 i = 0; i < playerIds.length; i++) {
-            delete registrationQueue[playerIds[i]];
-        }
+    /// @notice Efficiently clears players from queue in batches to save gas.
+    /// @param maxClearCount Maximum number of players to clear in this batch.
+    /// @return actualCleared The actual number of players cleared.
+    function _batchClearQueue(uint256 maxClearCount) internal returns (uint256 actualCleared) {
+        if (queueIndex.length == 0) return 0; // Nothing to clear
 
-        // Use optimized removal: remove from end to avoid index shifting
-        // Sort removal indices in descending order for efficient removal
-        uint256[] memory indicesToRemove = new uint256[](playerIds.length);
-        for (uint256 i = 0; i < playerIds.length; i++) {
-            indicesToRemove[i] = playerIndexInQueue[playerIds[i]] - 1; // Convert to 0-based
-        }
+        // Determine how many players to clear
+        actualCleared = queueIndex.length > maxClearCount ? maxClearCount : queueIndex.length;
 
-        // Simple bubble sort in descending order (small arrays only)
-        for (uint256 i = 0; i < indicesToRemove.length; i++) {
-            for (uint256 j = i + 1; j < indicesToRemove.length; j++) {
-                if (indicesToRemove[i] < indicesToRemove[j]) {
-                    uint256 temp = indicesToRemove[i];
-                    indicesToRemove[i] = indicesToRemove[j];
-                    indicesToRemove[j] = temp;
-                }
+        // Clear mappings first in a batch (most gas efficient)
+        uint256 queueLength = queueIndex.length; // Cache length to save gas
+        uint256 startIndex = queueLength - actualCleared;
+        for (uint256 i = startIndex; i < queueLength; i++) {
+            uint32 playerId = queueIndex[i];
+            // Clear all mappings in batch
+            delete registrationQueue[playerId];
+            delete playerIndexInQueue[playerId];
+            if (playerStatus[playerId] == PlayerStatus.QUEUED) {
+                playerStatus[playerId] = PlayerStatus.NONE;
             }
         }
 
-        // Remove players from highest index to lowest to avoid shifting issues
-        for (uint256 i = 0; i < indicesToRemove.length; i++) {
-            uint32 playerIdToRemove = queueIndex[indicesToRemove[i]];
-            _removePlayerFromQueueArrayIndexWithIndex(playerIdToRemove, indicesToRemove[i]);
+        // Shrink array once at the end (much more gas efficient than repeated pop())
+        uint256 newLength = queueIndex.length - actualCleared;
+        assembly {
+            sstore(queueIndex.slot, newLength)
         }
+
+        return actualCleared;
     }
 
     /// @notice Internal helper to get combat stats for a registered player.
@@ -908,22 +899,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
         // If disabling the game, clear queue in batches for gas safety
         if (!enabled && queueIndex.length > 0) {
-            // Clear up to CLEAR_BATCH_SIZE players to avoid gas issues
-            uint256 clearCount = queueIndex.length > CLEAR_BATCH_SIZE ? CLEAR_BATCH_SIZE : queueIndex.length;
-
-            for (uint256 i = 0; i < clearCount; i++) {
-                uint32 playerId = queueIndex[queueIndex.length - 1]; // Always remove last
-
-                // Clear player state if they were QUEUED
-                if (playerStatus[playerId] == PlayerStatus.QUEUED) {
-                    delete registrationQueue[playerId];
-                    playerStatus[playerId] = PlayerStatus.NONE;
-                }
-
-                // Remove from queue array
-                queueIndex.pop();
-            }
-
+            uint256 clearCount = _batchClearQueue(CLEAR_BATCH_SIZE);
             emit QueuePartiallyCleared(clearCount, queueIndex.length);
         }
 
@@ -954,21 +930,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function emergencyClearQueue() external onlyOwner {
         if (queueIndex.length == 0) return; // Nothing to clear
 
-        uint256 clearCount = queueIndex.length > CLEAR_BATCH_SIZE ? CLEAR_BATCH_SIZE : queueIndex.length;
-
-        for (uint256 i = 0; i < clearCount; i++) {
-            uint32 playerId = queueIndex[queueIndex.length - 1]; // Always remove last
-
-            // Clear player state regardless of status for emergency
-            delete registrationQueue[playerId];
-            if (playerStatus[playerId] == PlayerStatus.QUEUED) {
-                playerStatus[playerId] = PlayerStatus.NONE;
-            }
-
-            // Remove from queue array
-            queueIndex.pop();
-        }
-
+        uint256 clearCount = _batchClearQueue(CLEAR_BATCH_SIZE);
         emit EmergencyQueueCleared(clearCount, queueIndex.length);
     }
 
@@ -1019,73 +981,80 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
     }
 
-    /// @notice Helper to select unique default player IDs without duplicates
-    /// @param randomSeed Random seed for selection
-    /// @param count Number of unique defaults needed
-    /// @param excludeIds Array of default IDs to exclude from selection
-    /// @return Array of unique default player IDs
-    function _selectUniqueDefaults(uint256 randomSeed, uint256 count, uint32[] memory excludeIds)
-        internal
-        view
-        returns (uint32[] memory)
-    {
-        uint256 totalDefaults = defaultPlayerContract.validDefaultPlayerCount();
-        if (count > totalDefaults) revert InsufficientDefaultPlayers(count, totalDefaults);
-
-        // Simple approach: select without replacement using exclusion
-        uint32[] memory selected = new uint32[](count);
-        uint256 selectedCount = 0;
-        uint256 attempts = 0;
-        uint256 maxAttempts = totalDefaults * 10; // Generous safety limit
-
-        while (selectedCount < count && attempts < maxAttempts) {
-            // Generate next candidate
-            randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, attempts)));
-            uint256 randomIndex = randomSeed % totalDefaults;
-            uint32 candidate = defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
-
-            // Check if candidate is already excluded
-            bool isExcluded = false;
-            for (uint256 i = 0; i < excludeIds.length; i++) {
-                if (candidate == excludeIds[i]) {
-                    isExcluded = true;
-                    break;
-                }
-            }
-
-            // Check if candidate is already selected
-            if (!isExcluded) {
-                for (uint256 i = 0; i < selectedCount; i++) {
-                    if (candidate == selected[i]) {
-                        isExcluded = true;
-                        break;
-                    }
-                }
-            }
-
-            // Add to selection if unique
-            if (!isExcluded) {
-                selected[selectedCount] = candidate;
-                selectedCount++;
-            }
-
-            attempts++;
-        }
-
-        // Safety check - should never happen with sufficient defaults
-        if (selectedCount < count) {
-            revert InsufficientDefaultPlayers(count, totalDefaults - excludeIds.length);
-        }
-
-        return selected;
-    }
-
     /// @notice Sets the minimum time required between starting gauntlets.
     /// @param newMinTime The new minimum time in seconds.
     function setMinTimeBetweenGauntlets(uint256 newMinTime) external onlyOwner {
         // Optional: Add reasonable bounds check if desired (e.g., require(newMinTime >= 60 seconds))
         minTimeBetweenGauntlets = newMinTime;
         emit MinTimeBetweenGauntletsSet(newMinTime);
+    }
+
+    //==============================================================//
+    //                     INTERNAL FUNCTIONS                       //
+    //==============================================================//
+
+    // --- Enhanced Randomness ---
+
+    /// @notice Generates enhanced randomness combining multiple entropy sources
+    /// @param futureBlock The future block number to use for base randomness
+    /// @return Enhanced random seed combining blockhash with additional entropy
+    function _getEnhancedRandomness(uint256 futureBlock) private view returns (uint256) {
+        uint256 baseHash = uint256(blockhash(futureBlock));
+        if (baseHash == 0) revert InvalidBlockhash();
+
+        return uint256(keccak256(abi.encodePacked(baseHash, block.timestamp, block.number, gasleft(), tx.origin)));
+    }
+
+    // --- Helper Functions ---
+
+    /// @notice Loads combat data for a default player.
+    function _loadDefaultPlayerData(uint32 playerId) private view returns (ActiveParticipant memory) {
+        IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(playerId);
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
+            playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
+        IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(defaultStats.skin.skinTokenId);
+
+        return ActiveParticipant({
+            playerId: playerId,
+            stats: IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: defaultStats.stance,
+                attributes: defaultStats.attributes
+            }),
+            encodedData: bytes32(uint256(playerId))
+        });
+    }
+
+    /// @notice Loads combat data for a regular player.
+    function _loadPlayerData(uint32 playerId, Fighter.PlayerLoadout memory loadout)
+        private
+        view
+        returns (ActiveParticipant memory)
+    {
+        (IGameEngine.FighterStats memory stats, bytes32 encodedData) = _getFighterCombatStats(playerId, loadout);
+        return ActiveParticipant({playerId: playerId, stats: stats, encodedData: encodedData});
+    }
+
+    /// @notice Shuffles participants using proper Fisher-Yates algorithm.
+    function _shuffleParticipants(ActiveParticipant[] memory participants, uint256 seed)
+        private
+        pure
+        returns (ActiveParticipant[] memory)
+    {
+        // True Fisher-Yates shuffle - clean and simple!
+        for (uint256 i = participants.length - 1; i > 0; i--) {
+            seed = uint256(keccak256(abi.encodePacked(seed, i)));
+            uint256 j = seed % (i + 1);
+
+            // Single swap operation
+            ActiveParticipant memory temp = participants[i];
+            participants[i] = participants[j];
+            participants[j] = temp;
+        }
+
+        return participants;
     }
 
     //==============================================================//

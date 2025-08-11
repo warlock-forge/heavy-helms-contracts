@@ -8,7 +8,7 @@
 pragma solidity ^0.8.13;
 
 import "../TestBase.sol";
-import {GauntletGame} from "../../src/game/modes/GauntletGame.sol";
+import {GauntletGame, InvalidBlockhash} from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
@@ -354,7 +354,7 @@ contract GauntletGameTest is TestBase {
         uint256 testBlockhash = uint256(blockhash(selectionBlock));
         console2.log("Blockhash at exact selection block:", testBlockhash);
 
-        vm.expectRevert("Invalid blockhash");
+        vm.expectRevert(InvalidBlockhash.selector);
         game.tryStartGauntlet();
 
         // Test that pending gauntlet still exists after revert
