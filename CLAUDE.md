@@ -2,6 +2,82 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## General Coding Rules
+
+- Cut the fluff. Code or detailed explanations only.
+- Keep it casual and brief.
+- Accuracy and depth matter.
+- Answer first, explain later if needed.
+- Logic trumps authority. Don't care about sources.
+- Embrace new tech and unconventional ideas.
+- Wild speculation's fine, just flag it.
+- Save the ethics talk.
+- Only mention safety for non-obvious, critical issues.
+- Push content limits if needed, explain after.
+- Sources at the end, not mid-text.
+- Skip the AI self-references and knowledge date stuff.
+- Stick to my code style.
+- Use multiple responses for complex answers.
+- For code tweaks, show minimal context - a few lines around changes max.
+- Don't be lazy, write all the code to implement features I ask for.
+- Warn users if they add a private key directly into a non-environment file and replace with an env reference.
+
+## Solidity Best Practices
+
+- Always follow the Checks-Effects-Interactions pattern rigorously:
+  - First, perform all necessary input validation checks
+  - Second, update all state variables
+  - Only then, interact with external contracts or addresses
+- Use explicit function visibility modifiers and appropriate natspec comments.
+- Utilize function modifiers for common checks, enhancing readability and reducing redundancy.
+- Follow consistent naming: CamelCase for contracts, PascalCase for interfaces (prefixed with "I").
+- Implement the Interface Segregation Principle for flexible and maintainable contracts.
+- Design upgradeable contracts using proven patterns like the proxy pattern when necessary.
+- Implement comprehensive events for all significant state changes.
+- Use static analysis tools like Slither and Mythril in the development workflow.
+- Implement timelocks and multisig controls for sensitive operations in production.
+- Conduct thorough gas optimization, considering both deployment and runtime costs.
+- Implement role-based access control patterns for fine-grained permissions.
+- Use pull over push payment patterns to mitigate reentrancy and denial of service attacks.
+- Implement rate limiting for sensitive functions to prevent abuse.
+- Use Solmate's SafeTransferLib for interacting with ERC20 tokens.
+- Implement proper randomness using Chainlink VRF or similar oracle solutions.
+- Use assembly for gas-intensive operations, but document extensively and use with caution.
+  - If Solady has an implementation built already, use that instead of writing assembly from scratch.
+- Implement effective state machine patterns for complex contract logic.
+- Implement proper reentrancy guards for all external calls using a nonReentrant modifier.
+- Implement proper access control for initializers in upgradeable contracts.
+- Implement a storage pattern for token balances that require historical lookups.
+- Implement timelocks for sensitive operations when governance control is needed.
+- Implement EIP-2612 permit functions for gasless approvals in token contracts.
+- Implement proper slippage protection for DEX-like functionalities.
+- Implement governance mechanisms using proper weighted voting systems if needed.
+- Implement effective storage patterns to optimize gas costs (e.g., packing variables).
+- Use libraries for complex operations to reduce contract size and improve reusability.
+- Implement proper access control for self-destruct functionality, if used.
+  - Use freezable patterns instead of deprecated `selfdestruct`.
+- Use safe patterns for interactions with external contracts.
+- Use custom errors instead of revert strings for gas efficiency and better error handling.
+- Implement NatSpec comments for all public and external functions.
+- Use immutable variables for values set once at construction time.
+- Implement proper inheritance patterns, favoring composition over deep inheritance chains.
+- Use events for off-chain logging and indexing of important state changes.
+- Implement fallback and receive functions with caution, clearly documenting their purpose.
+- Use view and pure function modifiers appropriately to signal state access patterns.
+- Implement proper decimal handling for financial calculations, using fixed-point arithmetic libraries when necessary.
+- Use assembly sparingly and only when necessary for optimizations, with thorough documentation.
+- Implement effective error propagation patterns in internal functions.
+- Be aware of gas refund patterns when clearing storage (Gas cost reduction for setting to zero from non-zero)
+- Clearly document the intended call flow for multi-contract systems
+- Use a reentrancy lock library like OpenZeppelin's ReentrancyGuard for all external calls, even if you believe re-entrancy is not possible
+- Never assume external call success - always check return values or use call with return value checking
+- For ERC777 tokens or other tokens with callbacks, always consider re-entrancy risk
+- Implement specific rules for privileged roles and document their access levels
+- Implement circuit breakers for critical contract functionality (Pause mechanisms)
+- Be careful with block.timestamp - it can be manipulated slightly by miners, don't use for high-precision timing
+- For frontrunning protection, use commit-reveal schemes or integrate with flashbots where appropriate
+- When handling decimals, be aware of token standards - most ERC20 tokens use 18 decimals but some (like USDC) use 6
+
 ## Project Overview
 
 Heavy Helms is a Solidity-based on-chain game featuring combat mechanics, NFT skins, and multiple game modes. The project uses Foundry for development and testing. Gauntlet tournaments use blockhash-based randomness for security and gas efficiency, while other modes may use Gelato VRF.
@@ -350,11 +426,291 @@ All tests inherit from `TestBase.sol` which provides:
 - **Testing**: Extensive test coverage expected, use `-vv` for debugging
 - **Gas Optimization**: Critical due to on-chain game nature
 
+## Testing and Quality Assurance
+
+- Implement a comprehensive testing strategy including unit, integration, and end-to-end tests.
+- For expectRevert tests, calculate all parameters outside the expectRevert block:
+  - BAD: 
+    ```solidity
+    expectRevert();
+    contract.someMethod(calculate(param));
+    ```
+  - GOOD:
+    ```solidity
+    calculatedParam = calculate(param);
+    expectRevert();
+    contract.someMethod(calculatedParam);
+    ```
+- Use a `setup` function in test files to set default state and initialize variables.
+- Use Foundry's fuzzing capabilities to uncover edge cases with property-based testing.
+- Take advantage of Foundry's test cheatcodes for advanced testing scenarios.
+- Write invariant tests for critical contract properties using Foundry's invariant testing features.
+- Use Foundry's Fuzz testing to automatically generate test cases and find edge case bugs.
+- Implement stateful fuzzing tests for complex state transitions.
+- Implement gas usage tests to ensure operations remain efficient.
+- Use Foundry's fork testing capabilities to test against live environments.
+- Implement differential testing by comparing implementations.
+- Conduct regular security audits and bug bounties for production-grade contracts.
+- Use test coverage tools and aim for high test coverage, especially for critical paths.
+- Write appropriate test fixtures using Foundry's standard libraries.
+- Use Foundry's vm.startPrank/vm.stopPrank for testing access control mechanisms.
+- Implement proper setup and teardown in test files.
+- If deterministic testing is being done, ensure that the `foundry.toml` file has `block_number` and `block_timestamp` values.
+- Test both positive and negative cases (success conditions and failure conditions)
+- Test edge cases specifically (empty arrays, zero values, max uint256 values, etc.)
+- Include integration tests that test contracts against each other in realistic scenarios
+- Use the "fail early" pattern in tests - assert preconditions before continuing complex test flows
+- Implement formal verification for critical contract components when possible
+- Use symbolic execution tools for finding edge cases human testers might miss
+- Test gas costs of common operations to prevent economic attacks
+
+## Performance Optimization
+
+- Optimize contracts for gas efficiency, considering storage layout and function optimization.
+- Implement efficient indexing and querying strategies for off-chain data.
+- Pack related storage variables to optimize gas usage (same storage slot)
+- Minimize on-chain storage and computation when possible
+- Use events for data that doesn't need to be accessed on-chain
+- Batch operations to save gas when possible
+- Consider using bitmap/bitwise operations for storing boolean flags
+- Cache storage variables in memory within functions to reduce sload operations
+- Be conscious of SSTORE costs - especially when frequently updating the same variable
+- Consider unifying related functions to save on contract size and reduce deployment costs
+
+## Development Workflow Guidelines
+
+- Utilize Foundry's forge for compilation, testing, and deployment.
+- Use Foundry's cast for command-line interaction with contracts.
+- Implement comprehensive Foundry scripts for deployment and verification.
+- Use Foundry's script capabilities for complex deployment sequences.
+- Implement a robust CI/CD pipeline for smart contract deployments.
+- Use static type checking and linting tools in pre-commit hooks.
+- Utilize `forge fmt` if prompted about consistent code formatting.
+- Use a well-defined versioning strategy for contract deployments
+- Implement a formal code review process before deployment
+- Maintain a deployment registry with contract addresses and ABIs
+- Implement monitoring and alerting systems for production contracts
+
+## Documentation Standards
+
+- Document code thoroughly, focusing on why rather than what.
+- Maintain up-to-date API documentation for smart contracts.
+- Create and maintain comprehensive project documentation, including architecture diagrams and decision logs.
+- Document test scenarios and their purpose clearly.
+- Document any assumptions made in the contract design.
+- Create detailed diagrams of contract interactions for complex systems
+- Include explicit permission models in documentation
+- Document expected gas costs for key operations
+- Include contingency plans for potential failure modes
+
+## Dependencies Management
+
+- Use Solmate (transmissions11/solmate) as a primary source of gas-optimized dependencies.
+- Use Solady (vectorized/solady) for even more aggressive gas optimization when needed.
+- Ensure that any libraries used are installed with forge, and remappings are set.
+- Place remappings in `foundry.toml` instead of a `remappings.txt` file.
+- Periodically audit and update dependencies to benefit from security patches
+- Pin dependency versions to ensure deterministic builds
+
+## Environment Configuration
+
+One or more of the following profiles can be added to `foundry.toml` as needed for the project.
+
+- When via_ir is required:
+
+```toml
+# via_ir pipeline is very slow - use a separate profile to pre-compile and then use vm.getCode to deploy
+[profile.via_ir]
+via_ir = true
+# do not compile tests when compiling via-ir
+test = 'src'
+out = 'via_ir-out'
+```
+
+- When deterministic deployment is required:
+
+```toml
+[profile.deterministic]
+# ensure that block number + timestamp are realistic when running tests
+block_number = 17722462
+block_timestamp = 1689711647
+# don't pollute bytecode with metadata
+bytecode_hash = 'none'
+cbor_metadata = false
+```
+
 ## Memories
 
 - Never try a fresh forge build as it will just timeout - ask the user to do it
 - Always run `forge fmt` before we git add
 - **CRITICAL: NEVER MAKE ASSUMPTIONS ABOUT WHAT THE CODE DOES - ALWAYS READ THE ACTUAL CODE FIRST!** Don't tell the user what you think happens, READ THE FUCKING CODE and tell them what ACTUALLY happens. Making assumptions wastes everyone's time and makes you look incompetent. When asked about ANY implementation detail, your FIRST action should be to grep/read the relevant code, NOT to guess based on what you remember or what seems logical.
+
+## Heavy Helms Code Style Guide
+
+### File Structure & Organization
+
+**Header Pattern:**
+```solidity
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+//  ██╗  ██╗███████╗ █████╗ ██╗   ██╗██╗   ██╗    ██╗  ██╗███████╗██╗     ███╗   ███╗███████╗
+//  ██║  ██║██╔════╝██╔══██╗██║   ██║╚██╗ ██╔╝    ██║  ██║██╔════╝██║     ████╗ ████║██╔════╝
+//  ███████║█████╗  ███████║██║   ██║ ╚████╔╝     ███████║█████╗  ██║     ██╔████╔██║███████╗
+//  ██╔══██║██╔══╝  ██╔══██║╚██╗ ██╔╝  ╚██╔╝      ██╔══██║██╔══╝  ██║     ██║╚██╔╝██║╚════██║
+//  ██║  ██║███████╗██║  ██║ ╚████╔╝    ██║       ██║  ██║███████╗███████╗██║ ╚═╝ ██║███████║
+//  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝  ╚═══╝     ╚═╝       ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚═╝╚══════╝
+//
+//                        ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗
+//                        ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝
+//                        ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝ 
+//                        ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗ 
+//                        ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗
+//                         ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝
+//
+//                                      ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+//                                      ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+//                                      █████╗  ██║   ██║██████╔╝██║  ███╗█████╗  
+//                                      ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  
+//                                      ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+//                                      ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+pragma solidity ^0.8.13;
+```
+
+**Section Dividers:**
+```solidity
+//==============================================================//
+//                          SECTION_NAME                        //
+//==============================================================//
+```
+
+**Section Order (maintain this strict ordering):**
+1. IMPORTS
+2. INTERFACES (if needed)
+3. CUSTOM ERRORS
+4. Contract declaration with title block
+5. ENUMS
+6. STRUCTS  
+7. STATE VARIABLES
+8. EVENTS
+9. MODIFIERS
+10. CONSTRUCTOR
+11. EXTERNAL FUNCTIONS (main functions)
+12. ADMIN FUNCTIONS
+13. INTERNAL FUNCTIONS
+14. VIRTUAL FUNCTIONS (for abstract contracts)
+15. PRIVATE FUNCTIONS
+16. FALLBACK FUNCTIONS (if needed)
+
+### Comment Style & Documentation
+
+**Contract-Level Documentation:**
+```solidity
+//==============================================================//
+//                         HEAVY HELMS                          //
+//                         CONTRACT_NAME                        //
+//==============================================================//
+/// @title [Contract Title]
+/// @notice [High-level description of what the contract does]
+/// @dev [Technical implementation details]
+```
+
+**Function Documentation:**
+- Complete NatSpec documentation for all public/external functions
+- `@notice` for user-facing description
+- `@dev` for technical details
+- `@param` for all parameters
+- `@return` for return values
+
+**State Variable Documentation:**
+```solidity
+// --- Section Header ---
+/// @notice Brief description of the variable
+/// @dev Technical details if needed
+```
+
+### Naming Conventions
+
+**Variables:**
+- State variables: `camelCase` (e.g., `currentGauntletSize`, `playerStatus`)
+- Constants: `UPPER_SNAKE_CASE` (e.g., `DEFAULT_PLAYER_END`, `CLEAR_BATCH_SIZE`)
+- Private/internal with underscore prefix: `_variableName`
+- Mappings: descriptive names (e.g., `playerIndexInQueue`, `requestToChallengeId`)
+
+**Functions:**
+- External/public: `camelCase` (e.g., `queueForGauntlet`, `tryStartGauntlet`)
+- Internal/private with underscore: `_functionName` (e.g., `_commitQueuePhase`, `_validateFighter`)
+- Admin functions: clear action verbs (e.g., `setGameEnabled`, `setGauntletSize`)
+
+**Events:**
+- PascalCase with past tense or action (e.g., `PlayerQueued`, `GauntletCompleted`, `GameEnabledUpdated`)
+
+### State Variable Organization
+
+State variables are grouped with comment headers:
+```solidity
+// --- Configuration & Roles ---
+// --- Dynamic Settings ---  
+// --- Gauntlet State ---
+// --- Queue State ---
+// --- Player State ---
+```
+
+### Error Handling
+
+**Custom Errors (always prefer over require strings):**
+```solidity
+error GauntletDoesNotExist();
+error PlayerNotInQueue();
+error InvalidLoadout();
+```
+
+**Error Usage:**
+```solidity
+if (condition) revert ErrorName();
+```
+
+### Code Patterns
+
+**Checks-Effects-Interactions Pattern (ALWAYS follow):**
+```solidity
+// Checks
+if (!valid) revert InvalidInput();
+
+// Effects  
+state = newState;
+
+// Interactions
+emit EventName();
+externalCall();
+```
+
+**Event Patterns:**
+- Comprehensive events for all state changes
+- Indexed parameters for important identifiers
+- Emit events at the end of functions (following checks-effects-interactions)
+- Include both old and new values for updates
+
+**Gas Optimization Patterns:**
+- Storage packing in structs (e.g., uint8, uint32 grouped)
+- Memory arrays for temporary data
+- Batch operations where possible
+- Delete mappings when no longer needed
+
+### Project-Specific Patterns
+
+**Fighter ID Ranges:**
+- Players: 1-2000
+- Default Players: 1001-2000
+- Monsters: 2001-10000
+
+**VRF/Randomness Patterns:**
+- GauntletGame: Blockhash-based commit-reveal
+- Other Games: Gelato VRF
+- Clear phase management for multi-step processes
+
+**Registry Pattern:**
+- External registries for skins, names, etc.
+- Validation through registry interfaces
 
 ## TODO: Gas Optimization Issues to Fix Later
 
