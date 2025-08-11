@@ -126,7 +126,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     struct RegisteredPlayer {
         uint32 playerId;
         Fighter.PlayerLoadout loadout;
-        uint8 playerLevel; // Store level at registration time
     }
 
     /// @notice Active participant with all combat data ready for tournament execution.
@@ -208,8 +207,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     mapping(uint32 => PlayerStatus) public playerStatus;
 
     // --- Tournament Rating State ---
-    /// @notice Maps player ID to their tournament rating for the current season.
-    mapping(uint32 => uint256) public currentSeasonRatings;
     /// @notice Maps player ID to season ID to their tournament rating.
     mapping(uint32 => mapping(uint256 => uint256)) public seasonalRatings;
 
@@ -251,7 +248,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     //                          EVENTS                              //
     //==============================================================//
     /// @notice Emitted when a player successfully joins the queue.
-    event PlayerQueued(uint32 indexed playerId, uint8 playerLevel, uint256 queueSize);
+    event PlayerQueued(uint32 indexed playerId, uint256 queueSize);
     /// @notice Emitted when a player successfully withdraws from the queue.
     event PlayerWithdrew(uint32 indexed playerId, uint256 queueSize);
     /// @notice Emitted when phase 1 is completed (queue committed).
@@ -278,6 +275,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Emitted when rewards are distributed to a player.
     event RewardDistributed(
         uint256 indexed tournamentId, uint32 indexed playerId, RewardType rewardType, uint256 ticketId
+    );
+    /// @notice Emitted when a player is replaced during tournament execution.
+    event PlayerReplaced(
+        uint256 indexed tournamentId, uint32 indexed originalPlayerId, uint32 indexed replacementPlayerId, string reason
     );
     /// @notice Emitted when a new season starts (synced from Player contract).
     /// @notice Emitted when the tournament size is changed.
@@ -340,7 +341,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Get player stats for validation and level requirement
         IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(loadout.playerId);
         if (playerStats.level < 10) revert PlayerLevelTooLow();
-        uint8 playerLevel = playerStats.level;
 
         // Validate skin and equipment requirements via Player contract registries
         try playerContract.skinRegistry().validateSkinOwnership(loadout.skin, owner) {}
@@ -355,13 +355,13 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         // Effects
         uint32 playerId = loadout.playerId;
-        registrationQueue[playerId] = RegisteredPlayer({playerId: playerId, loadout: loadout, playerLevel: playerLevel});
+        registrationQueue[playerId] = RegisteredPlayer({playerId: playerId, loadout: loadout});
         queueIndex.push(playerId);
         playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
         playerStatus[playerId] = PlayerStatus.QUEUED;
 
         // Interactions (Event Emission)
-        emit PlayerQueued(playerId, playerLevel, queueIndex.length);
+        emit PlayerQueued(playerId, queueIndex.length);
     }
 
     /// @notice Allows a player owner to withdraw their player from the queue before a Tournament starts.
@@ -498,7 +498,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 // Create a default player registration
                 RegisteredPlayer memory defaultReg;
                 defaultReg.playerId = playerId;
-                defaultReg.playerLevel = 1; // Default players are level 1
                 // Default loadout - will be handled during combat
                 tournament.participants.push(defaultReg);
             } else {
@@ -634,30 +633,56 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Create active participants array with proper struct
         ActiveParticipant[] memory activeParticipants = new ActiveParticipant[](size);
 
-        // First pass: identify retired players and collect existing defaults
+        // First pass: identify retired/invalid players and collect existing defaults
         uint32[] memory existingDefaults = new uint32[](size);
         uint256 existingDefaultCount = 0;
-        uint256[] memory retiredIndices = new uint256[](size);
-        uint256 retiredCount = 0;
+        uint256[] memory invalidIndices = new uint256[](size);
+        string[] memory replacementReasons = new string[](size);
+        uint256 invalidCount = 0;
 
         for (uint256 i = 0; i < size; i++) {
             RegisteredPlayer storage regPlayer = initialParticipants[i];
 
             if (_isDefaultPlayerId(regPlayer.playerId)) {
                 existingDefaults[existingDefaultCount++] = regPlayer.playerId;
-            } else if (playerContract.isPlayerRetired(regPlayer.playerId)) {
-                retiredIndices[retiredCount++] = i;
+            } else {
+                bool shouldReplace = false;
+                string memory reason = "";
+
+                // Check if player is retired
+                if (playerContract.isPlayerRetired(regPlayer.playerId)) {
+                    shouldReplace = true;
+                    reason = "PLAYER_RETIRED";
+                }
+
+                // Check if player still owns their skin
+                if (!shouldReplace) {
+                    address playerOwner = playerContract.getPlayerOwner(regPlayer.playerId);
+                    try playerContract.skinRegistry().validateSkinOwnership(regPlayer.loadout.skin, playerOwner) {
+                        // Skin validation passed
+                    } catch {
+                        // Skin validation failed - player no longer owns the skin
+                        shouldReplace = true;
+                        reason = "SKIN_OWNERSHIP_LOST";
+                    }
+                }
+
+                if (shouldReplace) {
+                    invalidIndices[invalidCount] = i;
+                    replacementReasons[invalidCount] = reason;
+                    invalidCount++;
+                }
             }
         }
 
-        // Get substitutes for retired players
+        // Get substitutes for invalid players (retired or skin-invalid)
         uint32[] memory substituteIds = new uint32[](0);
-        if (retiredCount > 0) {
+        if (invalidCount > 0) {
             uint32[] memory excludeDefaults = new uint32[](existingDefaultCount);
             for (uint256 i = 0; i < existingDefaultCount; i++) {
                 excludeDefaults[i] = existingDefaults[i];
             }
-            substituteIds = _selectUniqueDefaults(randomness, retiredCount, excludeDefaults);
+            substituteIds = _selectUniqueDefaults(randomness, invalidCount, excludeDefaults);
         }
 
         // Build active participants with all combat data
@@ -666,9 +691,13 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             uint32 activePlayerId = regPlayer.playerId;
 
             // Check for substitution
-            for (uint256 j = 0; j < retiredCount; j++) {
-                if (retiredIndices[j] == i) {
+            for (uint256 j = 0; j < invalidCount; j++) {
+                if (invalidIndices[j] == i) {
+                    uint32 originalPlayerId = activePlayerId;
                     activePlayerId = substituteIds[j];
+                    
+                    // Emit replacement event for subgraph tracking
+                    emit PlayerReplaced(tournamentId, originalPlayerId, activePlayerId, replacementReasons[j]);
                     break;
                 }
             }
@@ -677,7 +706,8 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             if (_isDefaultPlayerId(activePlayerId)) {
                 activeParticipants[i] = _loadDefaultPlayerData(activePlayerId);
             } else {
-                activeParticipants[i] = _loadPlayerData(regPlayer.playerId, regPlayer.loadout);
+                // Use original player's loadout since they passed validation
+                activeParticipants[i] = _loadPlayerData(activePlayerId, regPlayer.loadout);
             }
         }
 
@@ -857,7 +887,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Award champion
         if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
             uint256 championRating = 100;
-            currentSeasonRatings[tournament.championId] += championRating;
             seasonalRatings[tournament.championId][currentSeason] += championRating;
             playerIds[playerCount] = tournament.championId;
             ratings[playerCount++] = championRating;
@@ -866,7 +895,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Award runner-up
         if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
             uint256 runnerUpRating = 75;
-            currentSeasonRatings[tournament.runnerUpId] += runnerUpRating;
             seasonalRatings[tournament.runnerUpId][currentSeason] += runnerUpRating;
             playerIds[playerCount] = tournament.runnerUpId;
             ratings[playerCount++] = runnerUpRating;
@@ -912,7 +940,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             }
 
             if (_getFighterType(playerId) == Fighter.FighterType.PLAYER && roundRatings[currentRound] > 0) {
-                currentSeasonRatings[playerId] += roundRatings[currentRound];
                 seasonalRatings[playerId][currentSeason] += roundRatings[currentRound];
                 playerIds[playerCount] = playerId;
                 ratings[playerCount++] = roundRatings[currentRound];
@@ -1095,6 +1122,12 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Returns a player's tournament rating for a specific season.
     function getPlayerSeasonRating(uint32 playerId, uint256 seasonId) external view returns (uint256) {
         return seasonalRatings[playerId][seasonId];
+    }
+
+    /// @notice Helper function to get a player's current season rating.
+    /// @dev This is a convenience method that's equivalent to getPlayerRating.
+    function currentSeasonRating(uint32 playerId) external view returns (uint256) {
+        return seasonalRatings[playerId][_getCurrentSeason()];
     }
 
     /// @notice Returns information about the pending tournament.

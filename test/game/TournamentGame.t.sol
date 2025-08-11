@@ -15,9 +15,13 @@ import {
     TournamentTooLate,
     MinTimeNotElapsed,
     InvalidTournamentSize,
-    InvalidRewardPercentages
+    InvalidRewardPercentages,
+    InvalidBlockhash,
+    InsufficientDefaultPlayers
 } from "../../src/game/modes/TournamentGame.sol";
+import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -637,5 +641,258 @@ contract TournamentGameTest is TestBase {
         uint32 playerId = _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
         _levelUpPlayer(playerId, 9); // Level up from 1 to 10
         return playerId;
+    }
+
+    // Test that our skin validation logic works and replaces invalid players
+    function testSkinOwnershipValidationDuringTournament() public {
+        console2.log("=== TESTING SKIN OWNERSHIP VALIDATION ===");
+        
+        // Create a PlayerSkinNFT as the owner (test contract)
+        PlayerSkinNFT testSkinNFT = new PlayerSkinNFT("Test Skins", "TST", 0);
+        
+        // As the owner, we can mint for free without enabling public minting
+        // Register it with the skin registry
+        vm.deal(address(this), 1 ether); // Fund for registration fee
+        uint32 testSkinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(testSkinNFT));
+        skinRegistry.setSkinType(testSkinIndex, IPlayerSkinRegistry.SkinType.Player);
+        skinRegistry.setSkinVerification(testSkinIndex, true);
+        
+        // Set tournament size to 16
+        game.setTournamentSize(16);
+
+        // Create 15 normal players for tournament
+        address[] memory normalPlayers = new address[](15);
+        uint32[] memory normalPlayerIds = new uint32[](15);
+
+        for (uint256 i = 0; i < 15; i++) {
+            normalPlayers[i] = address(uint160(0x2000 + i));
+            vm.deal(normalPlayers[i], 100 ether);
+            normalPlayerIds[i] = _createLevel10Player(normalPlayers[i], false);
+        }
+
+        // Create the "cheating" player who will lose their skin
+        address cheater = address(0x3000);
+        vm.deal(cheater, 100 ether);
+        uint32 cheaterPlayerId = _createLevel10Player(cheater, false);
+
+        // Mint a skin NFT for the cheater - as owner we can mint for free
+        // Use weapon=5 (QUARTERSTAFF), armor=0 (CLOTH) - zero requirements, fits everyone
+        uint256 skinTokenId = testSkinNFT.mintSkin(cheater, 5, 0); // weapon=5 (QUARTERSTAFF), armor=0 (CLOTH)
+        console2.log("Minted skin token ID:", skinTokenId);
+        console2.log("Cheater owns the skin:", testSkinNFT.ownerOf(skinTokenId) == cheater);
+
+        // Queue all normal players with default skin (index 0)
+        for (uint256 i = 0; i < 15; i++) {
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: normalPlayerIds[i],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
+
+            vm.prank(normalPlayers[i]);
+            game.queueForTournament(loadout);
+        }
+
+        // Queue the cheater with their special skin
+        console2.log("Test skin index:", testSkinIndex);
+        console2.log("Skin token ID:", skinTokenId);
+        
+        Fighter.PlayerLoadout memory cheaterLoadout = Fighter.PlayerLoadout({
+            playerId: cheaterPlayerId,
+            skin: Fighter.SkinInfo({skinIndex: testSkinIndex, skinTokenId: uint16(skinTokenId)}),
+            stance: 1 // BALANCED
+        });
+
+        vm.prank(cheater);
+        game.queueForTournament(cheaterLoadout);
+
+        console2.log("Queue size after all players joined:", game.getQueueSize());
+        assertEq(game.getQueueSize(), 16, "Should have 16 players in queue");
+
+        // Set time to daily tournament time (20:00 UTC)
+        uint256 futureTime = block.timestamp + 48 hours;
+        futureTime = futureTime - (futureTime % 1 days) + 20 hours;
+        vm.warp(futureTime);
+
+        // TRANSACTION 1: Queue Commit
+        game.tryStartTournament();
+
+        // Get selection block for next transaction
+        (bool exists, uint256 selectionBlock, uint256 tournamentBlock, uint8 phase,, uint256 participantCount) =
+            game.getPendingTournamentInfo();
+        require(exists, "Pending tournament should exist after commit");
+        require(phase == 1, "Should be in QUEUE_COMMIT phase");
+
+        // TRANSACTION 2: Participant Selection
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+
+        game.tryStartTournament();
+
+        // Get tournament block for next transaction
+        (,, tournamentBlock, phase,, participantCount) = game.getPendingTournamentInfo();
+        require(phase == 2, "Should be in PARTICIPANT_SELECT phase");
+        require(participantCount == 16, "Should have selected 16 participants");
+
+        // NOW THE KEY PART: Transfer the cheater's skin NFT to someone else
+        // This simulates the cheater selling/transferring their skin after queuing but before tournament
+        address skinThief = address(0x4000);
+        vm.prank(cheater);
+        testSkinNFT.transferFrom(cheater, skinThief, skinTokenId);
+
+        console2.log("Skin NFT transferred from cheater to skinThief");
+        console2.log("Cheater owns skin:", testSkinNFT.ownerOf(skinTokenId) == cheater);
+        console2.log("SkinThief owns skin:", testSkinNFT.ownerOf(skinTokenId) == skinThief);
+
+        // TRANSACTION 3: Tournament Execution - This should detect the cheater no longer owns the skin
+        vm.roll(tournamentBlock + 1);
+        vm.prevrandao(bytes32(uint256(67890)));
+
+        // Debug: Check how many default players are available
+        console2.log("Default players available:", defaultPlayerContract.validDefaultPlayerCount());
+
+        // Record logs to capture the TournamentCompleted event
+        vm.recordLogs();
+        
+        try game.tryStartTournament() {
+            console2.log("Tournament execution succeeded");
+        } catch Error(string memory reason) {
+            console2.log("Tournament execution failed with reason:", reason);
+            revert(reason);
+        } catch (bytes memory lowLevelData) {
+            console2.log("Tournament execution failed with low level error");
+            // Try to decode common errors
+            if (lowLevelData.length >= 4) {
+                bytes4 errorSelector = bytes4(lowLevelData);
+                console2.log("Error selector:", vm.toString(errorSelector));
+                if (errorSelector == InvalidBlockhash.selector) {
+                    console2.log("InvalidBlockhash error detected");
+                } else if (errorSelector == InsufficientDefaultPlayers.selector) {
+                    console2.log("InsufficientDefaultPlayers error detected");
+                }
+            }
+            assembly {
+                revert(add(lowLevelData, 0x20), mload(lowLevelData))
+            }
+        }
+        
+        // Get the recorded logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        console2.log("Total logs captured:", logs.length);
+        
+        // Look for PlayerReplaced events
+        bytes32 playerReplacedTopic = keccak256("PlayerReplaced(uint256,uint32,uint32,string)");
+        console2.log("Looking for PlayerReplaced events:");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == playerReplacedTopic) {
+                console2.log("Found PlayerReplaced event at log index", i);
+                // Decode indexed parameters from topics
+                uint256 tournamentId = uint256(logs[i].topics[1]);
+                uint32 originalPlayerId = uint32(uint256(logs[i].topics[2]));
+                uint32 replacementPlayerId = uint32(uint256(logs[i].topics[3]));
+                // Decode non-indexed parameter from data  
+                (string memory reason) = abi.decode(logs[i].data, (string));
+                console2.log("Tournament ID:", tournamentId);
+                console2.log("Original Player ID:", originalPlayerId);
+                console2.log("Replacement Player ID:", replacementPlayerId);
+                console2.log("Replacement Reason:", reason);
+                
+                // Verify this is our expected replacement
+                if (originalPlayerId == cheaterPlayerId) {
+                    assertEq(reason, "SKIN_OWNERSHIP_LOST", "Expected SKIN_OWNERSHIP_LOST as replacement reason");
+                    console2.log("VERIFIED: Replacement reason for cheater is correct");
+                }
+            }
+        }
+
+        // Find and decode the TournamentCompleted event
+        // The event signature is: TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])
+        bytes32 tournamentCompletedTopic = keccak256("TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])");
+        console2.log("Looking for topic:", vm.toString(tournamentCompletedTopic));
+        
+        uint32[] memory emittedParticipants;
+        bool eventFound = false;
+        
+        for (uint256 i = 0; i < logs.length; i++) {
+            console2.log("Log", i, "- topics:", logs[i].topics.length);
+            if (logs[i].topics.length > 0) {
+                console2.log("Topic 0:", vm.toString(logs[i].topics[0]));
+                if (logs[i].topics[0] == tournamentCompletedTopic) {
+                    console2.log("Found matching TournamentCompleted event at log index", i);
+                    // Decode the event data - only non-indexed parameters are in data
+                    // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint32[] participantIds, uint32[] roundWinners)
+                    // In data: size, runnerUpId, participantIds, roundWinners
+                    try this.decodeTournamentEvent(logs[i].data) returns (uint32[] memory participantIds) {
+                        emittedParticipants = participantIds;
+                        eventFound = true;
+                        console2.log("Successfully decoded event with", participantIds.length, "participants");
+                        break;
+                    } catch Error(string memory reason) {
+                        console2.log("Failed to decode TournamentCompleted event data:", reason);
+                    } catch {
+                        console2.log("Failed to decode TournamentCompleted event data - unknown error");
+                    }
+                }
+            }
+        }
+        
+        assertTrue(eventFound, "TournamentCompleted event should be emitted");
+        
+        // Check the emitted participant list for the cheater
+        bool cheaterFoundInEmittedList = false;
+        console2.log("Checking emitted participant list from TournamentCompleted event:");
+        for (uint256 i = 0; i < emittedParticipants.length; i++) {
+            console2.log("Emitted Participant", i, ":", emittedParticipants[i]);
+            if (emittedParticipants[i] == cheaterPlayerId) {
+                cheaterFoundInEmittedList = true;
+            }
+        }
+        
+        // Also check the stored tournament data
+        assertEq(game.nextTournamentId(), 1, "One tournament should have been created");
+        TournamentGame.Tournament memory tournament = game.getTournamentData(0);
+        assertEq(
+            uint8(tournament.state), uint8(TournamentGame.TournamentState.COMPLETED), "Tournament should be completed"
+        );
+
+        // Check all participants in storage to ensure cheater is NOT in the list
+        bool cheaterFoundInStoredParticipants = false;
+        console2.log("\nChecking stored tournament participants:");
+        for (uint256 i = 0; i < tournament.participants.length; i++) {
+            uint32 participantId = tournament.participants[i].playerId;
+            console2.log("Stored Participant", i, ":", participantId);
+            if (participantId == cheaterPlayerId) {
+                cheaterFoundInStoredParticipants = true;
+            }
+        }
+
+        console2.log("Tournament Champion ID:", tournament.championId);
+        console2.log("Tournament Runner-up ID:", tournament.runnerUpId);
+        console2.log("Cheater Player ID:", cheaterPlayerId);
+        console2.log("Cheater found in stored participants:", cheaterFoundInStoredParticipants);
+        console2.log("Cheater found in emitted participants:", cheaterFoundInEmittedList);
+
+        // The critical assertions: 
+        // 1. Cheater should NOT be in emitted participant list (they were replaced during execution)
+        assertFalse(cheaterFoundInEmittedList, "Cheater should NOT be in emitted TournamentCompleted participant list");
+        
+        // 2. Cheater IS still in stored participant list (original registration data preserved)
+        // This is expected behavior - storage shows original registrations, event shows actual tournament
+        assertTrue(cheaterFoundInStoredParticipants, "Cheater should be in stored participant list (original registration preserved)");
+
+        // Also verify they're not champion/runner-up
+        assertTrue(tournament.championId != cheaterPlayerId, "Cheater should not be champion");
+        assertTrue(tournament.runnerUpId != cheaterPlayerId, "Cheater should not be runner-up");
+
+        console2.log("=== SKIN OWNERSHIP VALIDATION TEST PASSED ===");
+    }
+
+    // Helper function for decoding tournament event
+    // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint32[] participantIds, uint32[] roundWinners)
+    // Only non-indexed parameters are in data: size, runnerUpId, participantIds, roundWinners
+    function decodeTournamentEvent(bytes memory data) external pure returns (uint32[] memory participantIds) {
+        (uint8 size, uint32 runnerUpId, uint32[] memory participants, uint32[] memory winners) = 
+            abi.decode(data, (uint8, uint32, uint32[], uint32[]));
+        return participants;
     }
 }
