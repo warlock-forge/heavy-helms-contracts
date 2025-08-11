@@ -17,7 +17,8 @@ import {
     InvalidTournamentSize,
     InvalidRewardPercentages,
     InvalidBlockhash,
-    InsufficientDefaultPlayers
+    InsufficientDefaultPlayers,
+    QueueEmpty
 } from "../../src/game/modes/TournamentGame.sol";
 import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
@@ -646,17 +647,17 @@ contract TournamentGameTest is TestBase {
     // Test that our skin validation logic works and replaces invalid players
     function testSkinOwnershipValidationDuringTournament() public {
         console2.log("=== TESTING SKIN OWNERSHIP VALIDATION ===");
-        
+
         // Create a PlayerSkinNFT as the owner (test contract)
         PlayerSkinNFT testSkinNFT = new PlayerSkinNFT("Test Skins", "TST", 0);
-        
+
         // As the owner, we can mint for free without enabling public minting
         // Register it with the skin registry
         vm.deal(address(this), 1 ether); // Fund for registration fee
         uint32 testSkinIndex = skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(address(testSkinNFT));
         skinRegistry.setSkinType(testSkinIndex, IPlayerSkinRegistry.SkinType.Player);
         skinRegistry.setSkinVerification(testSkinIndex, true);
-        
+
         // Set tournament size to 16
         game.setTournamentSize(16);
 
@@ -696,7 +697,7 @@ contract TournamentGameTest is TestBase {
         // Queue the cheater with their special skin
         console2.log("Test skin index:", testSkinIndex);
         console2.log("Skin token ID:", skinTokenId);
-        
+
         Fighter.PlayerLoadout memory cheaterLoadout = Fighter.PlayerLoadout({
             playerId: cheaterPlayerId,
             skin: Fighter.SkinInfo({skinIndex: testSkinIndex, skinTokenId: uint16(skinTokenId)}),
@@ -753,7 +754,7 @@ contract TournamentGameTest is TestBase {
 
         // Record logs to capture the TournamentCompleted event
         vm.recordLogs();
-        
+
         try game.tryStartTournament() {
             console2.log("Tournament execution succeeded");
         } catch Error(string memory reason) {
@@ -775,11 +776,11 @@ contract TournamentGameTest is TestBase {
                 revert(add(lowLevelData, 0x20), mload(lowLevelData))
             }
         }
-        
+
         // Get the recorded logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
         console2.log("Total logs captured:", logs.length);
-        
+
         // Look for PlayerReplaced events
         bytes32 playerReplacedTopic = keccak256("PlayerReplaced(uint256,uint32,uint32,string)");
         console2.log("Looking for PlayerReplaced events:");
@@ -790,13 +791,13 @@ contract TournamentGameTest is TestBase {
                 uint256 tournamentId = uint256(logs[i].topics[1]);
                 uint32 originalPlayerId = uint32(uint256(logs[i].topics[2]));
                 uint32 replacementPlayerId = uint32(uint256(logs[i].topics[3]));
-                // Decode non-indexed parameter from data  
+                // Decode non-indexed parameter from data
                 (string memory reason) = abi.decode(logs[i].data, (string));
                 console2.log("Tournament ID:", tournamentId);
                 console2.log("Original Player ID:", originalPlayerId);
                 console2.log("Replacement Player ID:", replacementPlayerId);
                 console2.log("Replacement Reason:", reason);
-                
+
                 // Verify this is our expected replacement
                 if (originalPlayerId == cheaterPlayerId) {
                     assertEq(reason, "SKIN_OWNERSHIP_LOST", "Expected SKIN_OWNERSHIP_LOST as replacement reason");
@@ -807,12 +808,13 @@ contract TournamentGameTest is TestBase {
 
         // Find and decode the TournamentCompleted event
         // The event signature is: TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])
-        bytes32 tournamentCompletedTopic = keccak256("TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])");
+        bytes32 tournamentCompletedTopic =
+            keccak256("TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])");
         console2.log("Looking for topic:", vm.toString(tournamentCompletedTopic));
-        
+
         uint32[] memory emittedParticipants;
         bool eventFound = false;
-        
+
         for (uint256 i = 0; i < logs.length; i++) {
             console2.log("Log", i, "- topics:", logs[i].topics.length);
             if (logs[i].topics.length > 0) {
@@ -835,9 +837,9 @@ contract TournamentGameTest is TestBase {
                 }
             }
         }
-        
+
         assertTrue(eventFound, "TournamentCompleted event should be emitted");
-        
+
         // Check the emitted participant list for the cheater
         bool cheaterFoundInEmittedList = false;
         console2.log("Checking emitted participant list from TournamentCompleted event:");
@@ -847,7 +849,7 @@ contract TournamentGameTest is TestBase {
                 cheaterFoundInEmittedList = true;
             }
         }
-        
+
         // Also check the stored tournament data
         assertEq(game.nextTournamentId(), 1, "One tournament should have been created");
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
@@ -872,13 +874,16 @@ contract TournamentGameTest is TestBase {
         console2.log("Cheater found in stored participants:", cheaterFoundInStoredParticipants);
         console2.log("Cheater found in emitted participants:", cheaterFoundInEmittedList);
 
-        // The critical assertions: 
+        // The critical assertions:
         // 1. Cheater should NOT be in emitted participant list (they were replaced during execution)
         assertFalse(cheaterFoundInEmittedList, "Cheater should NOT be in emitted TournamentCompleted participant list");
-        
+
         // 2. Cheater IS still in stored participant list (original registration data preserved)
         // This is expected behavior - storage shows original registrations, event shows actual tournament
-        assertTrue(cheaterFoundInStoredParticipants, "Cheater should be in stored participant list (original registration preserved)");
+        assertTrue(
+            cheaterFoundInStoredParticipants,
+            "Cheater should be in stored participant list (original registration preserved)"
+        );
 
         // Also verify they're not champion/runner-up
         assertTrue(tournament.championId != cheaterPlayerId, "Cheater should not be champion");
@@ -891,8 +896,176 @@ contract TournamentGameTest is TestBase {
     // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint32[] participantIds, uint32[] roundWinners)
     // Only non-indexed parameters are in data: size, runnerUpId, participantIds, roundWinners
     function decodeTournamentEvent(bytes memory data) external pure returns (uint32[] memory participantIds) {
-        (uint8 size, uint32 runnerUpId, uint32[] memory participants, uint32[] memory winners) = 
+        (uint8 size, uint32 runnerUpId, uint32[] memory participants, uint32[] memory winners) =
             abi.decode(data, (uint8, uint32, uint32[], uint32[]));
         return participants;
     }
+
+    // Test auto-recovery from QUEUE_COMMIT phase after 256 blocks
+    function testAutoRecoveryFromQueueCommitPhase() public {
+        // Set tournament size to 16 and queue 16 players
+        game.setTournamentSize(16);
+        _queuePlayers(16);
+
+        // Set time to tournament window
+        uint256 tournamentTime = block.timestamp + 48 hours;
+        tournamentTime = tournamentTime - (tournamentTime % 1 days) + 20 hours;
+        vm.warp(tournamentTime);
+
+        // TRANSACTION 1: Queue Commit
+        game.tryStartTournament();
+
+        // Verify we're in QUEUE_COMMIT phase
+        (bool exists, uint256 selectionBlock,, uint8 phase,,) = game.getPendingTournamentInfo();
+        assertTrue(exists, "Pending tournament should exist");
+        assertEq(uint256(phase), 1, "Should be in QUEUE_COMMIT phase");
+
+        // Simulate 256+ blocks passing (blockhash expires)
+        // commitBlock = selectionBlock - futureBlocksForSelection = selectionBlock - 20
+        uint256 commitBlock = selectionBlock - 20;
+        vm.roll(commitBlock + 256); // Exactly at the recovery threshold
+
+        // Expect recovery event
+        vm.expectEmit(true, true, true, true);
+        emit TournamentAutoRecovered(commitBlock, commitBlock + 256, TournamentGame.TournamentPhase.QUEUE_COMMIT);
+
+        // Try to proceed - should trigger recovery
+        game.tryStartTournament();
+
+        // Verify recovery happened
+        (bool existsAfter,,,,,) = game.getPendingTournamentInfo();
+        assertFalse(existsAfter, "Pending tournament should be cleared after recovery");
+
+        // Verify queue is still intact (no players removed in QUEUE_COMMIT phase)
+        assertEq(game.getQueueSize(), 16, "Queue should still have 16 players");
+
+        // Verify we can start a new tournament immediately after recovery (timestamp reset to 0)
+        game.tryStartTournament();
+        (bool newExists,,, uint8 newPhase,,) = game.getPendingTournamentInfo();
+        assertTrue(newExists, "Should be able to start new tournament immediately after recovery");
+        assertEq(uint256(newPhase), 1, "New tournament should be in QUEUE_COMMIT phase");
+    }
+
+    // Test auto-recovery from PARTICIPANT_SELECT phase after 256 blocks
+    function testAutoRecoveryFromParticipantSelectPhase() public {
+        // Set tournament size to 16 and queue 16 players
+        game.setTournamentSize(16);
+        _queuePlayers(16);
+
+        // Set time to tournament window
+        uint256 tournamentTime = block.timestamp + 48 hours;
+        tournamentTime = tournamentTime - (tournamentTime % 1 days) + 20 hours;
+        vm.warp(tournamentTime);
+
+        // TRANSACTION 1: Queue Commit
+        game.tryStartTournament();
+
+        // TRANSACTION 2: Participant Selection
+        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+        game.tryStartTournament();
+
+        // Verify we're in PARTICIPANT_SELECT phase with selected players
+        (,, uint256 tournamentBlock, uint8 phase,, uint256 participantCount) = game.getPendingTournamentInfo();
+        assertEq(uint256(phase), 2, "Should be in PARTICIPANT_SELECT phase");
+        assertEq(participantCount, 16, "Should have 16 participants selected");
+
+        // Verify players were removed from queue during selection
+        assertEq(game.getQueueSize(), 0, "Queue should be empty after participant selection");
+
+        // Verify tournament was created with participants
+        assertEq(game.nextTournamentId(), 1, "Tournament ID should be 1");
+        TournamentGame.Tournament memory tournament = game.getTournamentData(0);
+        assertEq(tournament.participants.length, 16, "Tournament should have 16 participants");
+
+        // Simulate 256+ blocks passing from the original commit block
+        uint256 commitBlock = tournamentBlock - 40; // tournamentBlock - futureBlocksForTournament - futureBlocksForSelection
+        vm.roll(commitBlock + 256); // Recovery threshold reached
+
+        // Expect recovery event
+        vm.expectEmit(true, true, true, true);
+        emit TournamentAutoRecovered(commitBlock, commitBlock + 256, TournamentGame.TournamentPhase.PARTICIPANT_SELECT);
+
+        // Try to proceed - should trigger recovery
+        game.tryStartTournament();
+
+        // Verify recovery happened
+        (bool existsAfter,,,,,) = game.getPendingTournamentInfo();
+        assertFalse(existsAfter, "Pending tournament should be cleared after recovery");
+
+        // Verify players were restored to queue
+        assertEq(game.getQueueSize(), 16, "All 16 players should be restored to queue");
+
+        // Verify tournament was cleaned up
+        assertEq(game.nextTournamentId(), 0, "Tournament ID should be rolled back to 0");
+
+        // Verify the tournament data was deleted (should revert)
+        vm.expectRevert(); // TournamentDoesNotExist
+        game.getTournamentData(0);
+
+        // Verify player statuses were restored to QUEUED
+        for (uint256 i = 0; i < playerIds.length && i < 16; i++) {
+            uint256 status = uint256(game.playerStatus(playerIds[i]));
+            assertEq(status, 1, "Player should be back in QUEUED status"); // 1 = QUEUED
+        }
+
+        // Verify we can start a new tournament immediately after recovery (timestamp reset to 0)
+        game.tryStartTournament();
+        (bool newExists,,, uint8 newPhase,,) = game.getPendingTournamentInfo();
+        assertTrue(newExists, "Should be able to start new tournament immediately after recovery");
+        assertEq(uint256(newPhase), 1, "New tournament should be in QUEUE_COMMIT phase");
+    }
+
+    // Test that recovery doesn't trigger before 256 blocks
+    function testNoRecoveryBefore256Blocks() public {
+        // Set tournament size to 16 and queue 16 players
+        game.setTournamentSize(16);
+        _queuePlayers(16);
+
+        // Set time to tournament window
+        uint256 tournamentTime = block.timestamp + 48 hours;
+        tournamentTime = tournamentTime - (tournamentTime % 1 days) + 20 hours;
+        vm.warp(tournamentTime);
+
+        // TRANSACTION 1: Queue Commit
+        game.tryStartTournament();
+
+        (bool exists, uint256 selectionBlock,, uint8 phase,,) = game.getPendingTournamentInfo();
+        uint256 commitBlock = selectionBlock - 20;
+
+        // Move to exactly 255 blocks later (should NOT trigger recovery, but should proceed normally)
+        vm.roll(commitBlock + 255);
+        vm.prevrandao(bytes32(uint256(12345)));
+
+        // Should proceed to participant selection (no recovery yet)
+        game.tryStartTournament();
+
+        // Verify tournament progressed to PARTICIPANT_SELECT phase (no recovery triggered)
+        (bool stillExists,,, uint8 newPhase,,) = game.getPendingTournamentInfo();
+        assertTrue(stillExists, "Pending tournament should still exist before 256 blocks");
+        assertEq(uint256(newPhase), 2, "Should be in PARTICIPANT_SELECT phase, not recovered");
+    }
+
+    // Test that tournament won't start with empty queue
+    function testEmptyQueuePrevention() public {
+        // Set time to tournament window
+        uint256 tournamentTime = block.timestamp + 48 hours;
+        tournamentTime = tournamentTime - (tournamentTime % 1 days) + 20 hours;
+        vm.warp(tournamentTime);
+
+        // Verify queue is empty
+        assertEq(game.getQueueSize(), 0, "Queue should be empty");
+
+        // Try to start tournament with empty queue - should revert
+        vm.expectRevert(QueueEmpty.selector);
+        game.tryStartTournament();
+
+        // Verify no tournament was created
+        (bool exists,,,,,) = game.getPendingTournamentInfo();
+        assertFalse(exists, "No tournament should exist with empty queue");
+    }
+
+    // Helper function to simulate TournamentAutoRecovered event
+    event TournamentAutoRecovered(uint256 commitBlock, uint256 currentBlock, TournamentGame.TournamentPhase phase);
 }

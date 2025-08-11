@@ -350,4 +350,132 @@ contract TournamentGasAnalysisTest is TestBase {
             playerContract.awardExperience(playerId, xpNeeded);
         }
     }
+
+    /// @notice Test to measure gas costs of queue removal operations for DOS analysis
+    function testQueueRemovalGasAnalysis() public skipInCI {
+        console2.log("=== QUEUE REMOVAL GAS ANALYSIS ===");
+        console2.log("Testing potential DOS attack via mass queue removal");
+        console2.log("");
+
+        // Create a large queue to test removal costs
+        uint256 queueSize = 1000;
+        console2.log("Creating queue of size:", queueSize);
+
+        address[] memory players = new address[](queueSize);
+        uint32[] memory playerIds = new uint32[](queueSize);
+
+        // Create and queue 1000 players
+        for (uint256 i = 0; i < queueSize; i++) {
+            players[i] = address(uint160(0x50000 + i));
+            vm.deal(players[i], 100 ether);
+            playerIds[i] = _createLevel10Player(players[i], false);
+
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: playerIds[i],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
+
+            vm.prank(players[i]);
+            game.queueForTournament(loadout);
+        }
+
+        console2.log("Queue size after queueing:", game.getQueueSize());
+        console2.log("");
+
+        // Measure gas costs for removing players from various positions
+        uint256[] memory testIndices = new uint256[](5);
+        testIndices[0] = 0;           // First player
+        testIndices[1] = 249;        // Quarter way
+        testIndices[2] = 499;        // Middle
+        testIndices[3] = 749;        // Three-quarters
+        testIndices[4] = 999;        // Last player
+
+        uint256 totalGasCost = 0;
+        uint256 minGas = type(uint256).max;
+        uint256 maxGas = 0;
+
+        console2.log("Measuring gas costs for removing players at different positions:");
+        
+        for (uint256 i = 0; i < testIndices.length; i++) {
+            uint256 idx = testIndices[i];
+            if (idx >= game.getQueueSize()) continue; // Skip if queue got smaller
+            
+            uint32 playerToRemove = playerIds[idx];
+            
+            // Measure gas for removing this specific player
+            uint256 gasUsed = _measurePlayerRemovalGas(players[idx], playerToRemove);
+            
+            console2.log("Position", idx, "gas used:", gasUsed);
+            
+            totalGasCost += gasUsed;
+            if (gasUsed < minGas) minGas = gasUsed;
+            if (gasUsed > maxGas) maxGas = gasUsed;
+        }
+
+        console2.log("");
+        console2.log("Gas Cost Analysis:");
+        console2.log("Min gas per removal:", minGas);
+        console2.log("Max gas per removal:", maxGas);
+        console2.log("Average gas per removal:", totalGasCost / testIndices.length);
+        console2.log("");
+
+        // Calculate potential DOS analysis
+        uint256 avgGasPerRemoval = totalGasCost / testIndices.length;
+        uint256 baseBlockLimit = 150_000_000; // BASE has 150M gas limit
+        uint256 maxRemovalsPerBlock = baseBlockLimit / avgGasPerRemoval;
+        
+        console2.log("DOS Analysis (BASE network - 150M gas limit):");
+        console2.log("Max removals per block:", maxRemovalsPerBlock);
+        
+        // Economic analysis
+        uint256 playerCreationCost = 0.001 ether; // 0.001 ETH per player
+        uint256 ethPriceUSD = 3000; // Assume $3000 ETH
+        uint256 costPerPlayerUSD = (playerCreationCost * ethPriceUSD) / 1 ether;
+        uint256 costToFillBlockUSD = maxRemovalsPerBlock * costPerPlayerUSD;
+        
+        console2.log("Cost per player creation: $", costPerPlayerUSD);
+        console2.log("Cost to fill one block with removals: $", costToFillBlockUSD);
+        console2.log("");
+
+        // Time analysis - how many blocks to remove 10,000 players?
+        uint256 largeQueue = 10000;
+        uint256 blocksNeeded = (largeQueue + maxRemovalsPerBlock - 1) / maxRemovalsPerBlock; // Ceiling division
+        uint256 timeMinutes = blocksNeeded * 2; // BASE has 2-second blocks
+        
+        console2.log("Time to clear 10,000 player queue:");
+        console2.log("Blocks needed:", blocksNeeded);
+        console2.log("Time (minutes):", timeMinutes);
+        console2.log("Cost to create 10,000 level 10 players: $", largeQueue * costPerPlayerUSD);
+        console2.log("");
+
+        // Level 10 requirement analysis
+        console2.log("Additional Requirements for Tournament Queue:");
+        console2.log("- Players must reach level 10 before joining");
+        console2.log("- Requires significant time investment per player");
+        console2.log("- Makes mass player creation economically and time prohibitive");
+        console2.log("");
+
+        console2.log("CONCLUSION:");
+        if (costToFillBlockUSD > 10000) {
+            console2.log("DOS attack appears economically unfeasible");
+            console2.log("Cost per block exceeds reasonable attack threshold: $", costToFillBlockUSD);
+        } else {
+            console2.log("WARNING: DOS attack may be economically feasible");
+            console2.log("Consider additional rate limiting or costs");
+        }
+        
+        console2.log("=== END QUEUE REMOVAL GAS ANALYSIS ===");
+    }
+
+    /// @notice Measures gas cost for a specific player leaving the queue
+    function _measurePlayerRemovalGas(address playerAddr, uint32 playerId) internal returns (uint256) {
+        uint256 gasBefore = gasleft();
+        
+        vm.prank(playerAddr);
+        game.withdrawFromQueue(playerId);
+        
+        uint256 gasAfter = gasleft();
+        return gasBefore - gasAfter;
+    }
 }
