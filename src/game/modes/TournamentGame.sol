@@ -340,29 +340,28 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function queueForTournament(Fighter.PlayerLoadout calldata loadout) external whenGameEnabled {
         // Checks
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
-        
+
         // Get player stats first (this validates player exists)
         IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(loadout.playerId);
         if (playerStats.level < 10) revert PlayerLevelTooLow();
-        
+
         // Get owner and validate caller (single external call)
         address owner = playerContract.getPlayerOwner(loadout.playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
-        
+
         // Check retirement status (single external call)
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
 
         // Cache equipment requirements to avoid repeated external calls
         IEquipmentRequirements equipmentReqs = playerContract.equipmentRequirements();
-        
+
         // Validate skin and equipment requirements via Player contract registries
         try playerContract.skinRegistry().validateSkinOwnership(loadout.skin, owner) {}
         catch {
             revert InvalidSkin();
         }
-        try playerContract.skinRegistry().validateSkinRequirements(
-            loadout.skin, playerStats.attributes, equipmentReqs
-        ) {} catch {
+        try playerContract.skinRegistry().validateSkinRequirements(loadout.skin, playerStats.attributes, equipmentReqs)
+        {} catch {
             revert InvalidLoadout();
         }
 
@@ -414,7 +413,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         if (currentPhase != TournamentPhase.NONE) {
             uint256 selectionBlock = pendingTournament.selectionBlock;
             uint256 tournamentBlock = pendingTournament.tournamentBlock;
-            
+
             // Check if we're past the 256-block limit from initial commit for auto-recovery
             uint256 commitBlock = (currentPhase == TournamentPhase.QUEUE_COMMIT)
                 ? selectionBlock - futureBlocksForSelection
@@ -424,6 +423,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 // Auto-recovery if we missed the window
                 emit TournamentAutoRecovered(commitBlock, block.number, currentPhase);
                 _recoverPendingTournament();
+                return;
             }
 
             if (currentPhase == TournamentPhase.QUEUE_COMMIT) {
@@ -1070,7 +1070,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         // Get owner once and handle both reward types
         address owner = playerContract.getPlayerOwner(playerId);
-        
+
         if (rewardType == RewardType.ATTRIBUTE_SWAP) {
             // Award attribute swap charge directly to player
             playerContract.awardAttributeSwap(owner);
@@ -1091,14 +1091,8 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function _getEnhancedRandomness(uint256 futureBlock) private view returns (uint256) {
         uint256 baseHash = uint256(blockhash(futureBlock));
         if (baseHash == 0) revert InvalidBlockhash();
-        
-        return uint256(keccak256(abi.encodePacked(
-            baseHash,
-            block.timestamp,
-            block.number,
-            gasleft(),
-            tx.origin
-        )));
+
+        return uint256(keccak256(abi.encodePacked(baseHash, block.timestamp, block.number, gasleft(), tx.origin)));
     }
 
     /// @notice Internal helper to remove a player from queue using swap-and-pop.
