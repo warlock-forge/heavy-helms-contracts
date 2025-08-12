@@ -65,7 +65,18 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     //==============================================================//
     //                          ENUMS                               //
     //==============================================================//
+    /// @notice Represents level brackets for different gauntlet tiers.
+    enum LevelBracket {
+        LEVELS_1_TO_4, // Players level 1-4
+        LEVELS_5_TO_9, // Players level 5-9
+        LEVEL_10 // Players level 10 only
+
+    }
+
+    /// @notice Custom error for bracket validation.
+    error PlayerNotInBracket(uint8 playerLevel, LevelBracket requiredBracket);
     /// @notice Represents the state of a Gauntlet run.
+
     enum GauntletState {
         PENDING, // Gauntlet started, awaiting completion.
         COMPLETED // Gauntlet finished.
@@ -145,6 +156,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     //==============================================================//
 
     // --- Configuration & Roles ---
+    /// @notice Level bracket this gauntlet instance serves.
+    LevelBracket public immutable levelBracket;
     /// @notice Contract managing default player data.
     IDefaultPlayer public defaultPlayerContract;
     /// @notice Number of blocks in the future for participant selection.
@@ -159,7 +172,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     // --- Dynamic Settings ---
     /// @notice Current number of participants required to start a Gauntlet (4, 8, 16, or 32).
-    uint8 public currentGauntletSize = 4;
+    uint8 public currentGauntletSize = 8;
 
     // --- Gauntlet State ---
     /// @notice Counter for assigning unique Gauntlet IDs.
@@ -195,11 +208,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Emitted when phase 2 is completed (participants selected).
     event ParticipantsSelected(uint256 indexed gauntletId, uint256 tournamentBlock, uint32[] selectedIds);
     /// @notice Emitted when a Gauntlet is started (phase 3).
-    event GauntletStarted(uint256 indexed gauntletId, uint8 size, RegisteredPlayer[] participants);
+    event GauntletStarted(
+        uint256 indexed gauntletId, uint8 size, LevelBracket levelBracket, RegisteredPlayer[] participants
+    );
     /// @notice Emitted when a Gauntlet is successfully completed.
     event GauntletCompleted(
         uint256 indexed gauntletId,
         uint8 size,
+        LevelBracket levelBracket,
         uint32 indexed championId,
         uint32[] participantIds,
         uint32[] roundWinners
@@ -246,7 +262,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @param _gameEngine Address of the `GameEngine` contract.
     /// @param _playerContract Address of the `Player` contract.
     /// @param _defaultPlayerAddress Address of the `DefaultPlayer` contract.
-    constructor(address _gameEngine, address _playerContract, address _defaultPlayerAddress)
+    /// @param _levelBracket Level bracket this gauntlet instance will serve.
+    constructor(address _gameEngine, address _playerContract, address _defaultPlayerAddress, LevelBracket _levelBracket)
         BaseGame(_gameEngine, _playerContract)
     {
         // Input validation
@@ -254,8 +271,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         // Validation will happen when trying to use defaults
 
         // Set initial state
+        levelBracket = _levelBracket;
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
         lastGauntletStartTime = block.timestamp; // Initialize to deployment time
+
+        // TODO: UPDATE PLAYER CONTRACT PERMISSIONS FOR XP REWARDS
+        // When implementing XP rewards, ensure this contract has `experience: true` permission
+        // in playerContract.setGameContractPermission() to call awardExperience()
 
         // Emit initial settings
         emit DefaultPlayerContractSet(_defaultPlayerAddress);
@@ -280,6 +302,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         address owner = playerContract.getPlayerOwner(loadout.playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
+
+        // Validate player is in correct level bracket
+        _validatePlayerLevel(loadout.playerId);
 
         // Cache external contract references to save gas
         IPlayerSkinRegistry skinRegistry = playerContract.skinRegistry();
@@ -462,7 +487,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         }
 
         // Emit start event NOW in TX2
-        emit GauntletStarted(gauntletId, gauntlet.size, gauntlet.participants);
+        emit GauntletStarted(gauntletId, gauntlet.size, levelBracket, gauntlet.participants);
 
         // Set up tournament phase
         pendingGauntlet.phase = GauntletPhase.PARTICIPANT_SELECT;
@@ -692,6 +717,38 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         gauntlet.completionTimestamp = block.timestamp;
         gauntlet.state = GauntletState.COMPLETED;
 
+        // TODO: IMPLEMENT BRACKET-SPECIFIC REWARDS
+        // - LEVELS_1_TO_4: Award XP to champion and participants (e.g., 75 champion, 25 participants)
+        // - LEVELS_5_TO_9: Award XP to champion and participants (e.g., 100 champion, 35 participants)
+        // - LEVEL_10: Award player tickets instead of XP (e.g., tournament tickets, specialization tickets)
+        //
+        // XP Implementation: Call playerContract.awardExperience() for levels 1-9
+        // Ticket Implementation: Call playerTickets.mint() for level 10 bracket
+        //
+        // Example implementation:
+        // if (levelBracket == LevelBracket.LEVEL_10) {
+        //     // Award tickets for level 10 bracket
+        //     for (uint256 i = 0; i < participantCount; i++) {
+        //         uint32 pId = participants[i].playerId;
+        //         if (!_isDefaultPlayerId(pId)) {
+        //             address owner = playerContract.getPlayerOwner(pId);
+        //             // Award different ticket types based on placement
+        //             // Champion: tournament tickets, Participants: specialization tickets
+        //         }
+        //     }
+        // } else {
+        //     // Award XP for levels 1-9 brackets
+        //     for (uint256 i = 0; i < participantCount; i++) {
+        //         uint32 pId = participants[i].playerId;
+        //         if (!_isDefaultPlayerId(pId)) {
+        //             uint16 xpAmount = (levelBracket == LevelBracket.LEVELS_1_TO_4)
+        //                 ? ((pId == finalWinnerId) ? 75 : 25)
+        //                 : ((pId == finalWinnerId) ? 100 : 35);
+        //             playerContract.awardExperience(pId, xpAmount);
+        //         }
+        //     }
+        // }
+
         // Clean up player statuses
         for (uint256 i = 0; i < size; i++) {
             uint32 pId = gauntlet.participants[i].playerId;
@@ -710,7 +767,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         }
 
         // Emit completion event with memory arrays (for subgraph)
-        emit GauntletCompleted(gauntletId, size, finalWinnerId, participantIds, roundWinners);
+        emit GauntletCompleted(gauntletId, size, levelBracket, finalWinnerId, participantIds, roundWinners);
     }
 
     //==============================================================//
@@ -992,6 +1049,31 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     //==============================================================//
     //                     INTERNAL FUNCTIONS                       //
     //==============================================================//
+
+    // --- Level Bracket Validation ---
+
+    /// @notice Validates that a player's level matches this gauntlet's bracket.
+    /// @param playerId The ID of the player to validate.
+    /// @dev Reverts with PlayerNotInBracket if the player's level doesn't match the bracket.
+    function _validatePlayerLevel(uint32 playerId) internal view {
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+        uint8 playerLevel = stats.level;
+
+        if (levelBracket == LevelBracket.LEVELS_1_TO_4) {
+            if (playerLevel < 1 || playerLevel > 4) {
+                revert PlayerNotInBracket(playerLevel, levelBracket);
+            }
+        } else if (levelBracket == LevelBracket.LEVELS_5_TO_9) {
+            if (playerLevel < 5 || playerLevel > 9) {
+                revert PlayerNotInBracket(playerLevel, levelBracket);
+            }
+        } else {
+            // LevelBracket.LEVEL_10
+            if (playerLevel != 10) {
+                revert PlayerNotInBracket(playerLevel, levelBracket);
+            }
+        }
+    }
 
     // --- Enhanced Randomness ---
 

@@ -18,8 +18,13 @@ contract GauntletGasAnalysisTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        // Deploy gauntlet game
-        game = new GauntletGame(address(gameEngine), address(playerContract), address(defaultPlayerContract));
+        // Deploy gauntlet game for levels 1-4 bracket
+        game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
 
         // Set permissions
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({

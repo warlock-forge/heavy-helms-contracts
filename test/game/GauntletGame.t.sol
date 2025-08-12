@@ -29,8 +29,13 @@ contract GauntletGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        // Deploy new gauntlet game
-        game = new GauntletGame(address(gameEngine), address(playerContract), address(defaultPlayerContract));
+        // Deploy new gauntlet game for levels 1-4 bracket
+        game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
 
         // Transfer ownership of defaultPlayerContract
         defaultPlayerContract.transferOwnership(address(game));
@@ -65,6 +70,11 @@ contract GauntletGameTest is TestBase {
 
         // Set minimum time between gauntlets to 0 for testing
         game.setMinTimeBetweenGauntlets(0);
+
+        // Set gauntlet size to 4 for most tests
+        game.setGameEnabled(false);
+        game.setGauntletSize(4);
+        game.setGameEnabled(true);
     }
 
     function testCommitRevealFlow() public {
@@ -775,6 +785,42 @@ contract GauntletGameTest is TestBase {
         GauntletGame.Gauntlet memory gauntlet = game.getGauntletData(0);
         assertEq(uint8(gauntlet.state), uint8(GauntletGame.GauntletState.COMPLETED), "Gauntlet should be completed");
         assertTrue(gauntlet.championId > 0, "Should have a champion");
+    }
+
+    //==============================================================//
+    //                 BRACKET VALIDATION TESTS                    //
+    //==============================================================//
+
+    function testBracketValidation_LEVELS_1_TO_4() public {
+        // Create a levels 1-4 bracket game
+        GauntletGame levels1To4Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
+
+        // Set permissions
+        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
+            record: true,
+            retire: false,
+            attributes: false,
+            immortal: false,
+            experience: false
+        });
+        playerContract.setGameContractPermission(address(levels1To4Game), perms);
+
+        // Player level 1-4 should work (players start at level 1)
+        vm.startPrank(PLAYER_ONE);
+        levels1To4Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.stopPrank();
+
+        // Verify player was queued
+        assertEq(
+            uint8(levels1To4Game.playerStatus(PLAYER_ONE_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "Player should be queued"
+        );
     }
 
     //==============================================================//

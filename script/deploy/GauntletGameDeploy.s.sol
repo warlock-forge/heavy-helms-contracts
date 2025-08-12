@@ -17,6 +17,18 @@ contract GauntletGameDeployScript is Script {
     function setUp() public {}
 
     function run(address gameEngineAddr, address playerAddr, address defaultPlayerAddr) public {
+        // Deploy all 3 bracket contracts
+        deployGauntletBracket(gameEngineAddr, playerAddr, defaultPlayerAddr, GauntletGame.LevelBracket.LEVELS_1_TO_4);
+        deployGauntletBracket(gameEngineAddr, playerAddr, defaultPlayerAddr, GauntletGame.LevelBracket.LEVELS_5_TO_9);
+        deployGauntletBracket(gameEngineAddr, playerAddr, defaultPlayerAddr, GauntletGame.LevelBracket.LEVEL_10);
+    }
+
+    function deployGauntletBracket(
+        address gameEngineAddr,
+        address playerAddr,
+        address defaultPlayerAddr,
+        GauntletGame.LevelBracket bracket
+    ) public {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");
@@ -30,8 +42,8 @@ contract GauntletGameDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy GauntletGame
-        GauntletGame gauntletGame = new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr);
+        // Deploy GauntletGame with specified bracket
+        GauntletGame gauntletGame = new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr, bracket);
 
         // Whitelist GauntletGame in Player contract
         Player playerContract = Player(playerAddr);
@@ -46,6 +58,7 @@ contract GauntletGameDeployScript is Script {
 
         console2.log("\n=== Deployed Addresses ===");
         console2.log("GauntletGame:", address(gauntletGame));
+        console2.log("Level Bracket:", uint8(bracket));
         console2.log("GauntletGame whitelisted in Player contract");
 
         vm.stopBroadcast();
