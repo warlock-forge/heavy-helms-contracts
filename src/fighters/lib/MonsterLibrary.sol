@@ -31,8 +31,12 @@ library MonsterLibrary {
         (uint8 weapon, uint8 armor, IMonster.MonsterStats memory stats, string memory ipfsCid) =
             _getMonsterData(monsterType, skinIndex, tokenId);
 
-        // Create the monster first
-        uint32 monsterId = monster.createMonster(stats);
+        // Create the monster with same stats for all levels (temporary fix)
+        IMonster.MonsterStats[10] memory allLevelStats;
+        for (uint8 i = 0; i < 10; i++) {
+            allLevelStats[i] = stats;
+        }
+        uint32 monsterId = monster.createMonster(allLevelStats);
         // Then mint the skin
         monsterSkin.mintMonsterSkin(weapon, armor, ipfsCid, tokenId);
 
@@ -78,7 +82,7 @@ library MonsterLibrary {
             stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            tier: 1
+            level: 1
         });
 
         return (
@@ -100,7 +104,7 @@ library MonsterLibrary {
             stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            tier: 1
+            level: 1
         });
 
         return (
@@ -122,7 +126,7 @@ library MonsterLibrary {
             stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            tier: 1
+            level: 1
         });
 
         return (
@@ -144,7 +148,7 @@ library MonsterLibrary {
             stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
             record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            tier: 1
+            level: 1
         });
 
         return (

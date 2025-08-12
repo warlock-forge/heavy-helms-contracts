@@ -406,8 +406,12 @@ library DefaultPlayerLibrary {
         (uint8 weapon, uint8 armor, IPlayer.PlayerStats memory stats, string memory ipfsCid) =
             _getCharacterData(characterType, skinIndex, tokenId);
 
-        // Create the default player first
-        defaultPlayer.createDefaultPlayer(tokenId, stats);
+        // Create the default player with same stats for all levels (temporary fix)
+        IPlayer.PlayerStats[10] memory allLevelStats;
+        for (uint8 i = 0; i < 10; i++) {
+            allLevelStats[i] = stats;
+        }
+        defaultPlayer.createDefaultPlayer(tokenId, allLevelStats);
         // Then mint the skin
         defaultSkin.mintDefaultPlayerSkin(weapon, armor, ipfsCid, tokenId);
 

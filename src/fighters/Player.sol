@@ -1359,4 +1359,31 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         else if (attr == Attribute.STAMINA) player.attributes.stamina = value;
         else player.attributes.luck = value;
     }
+
+    //==============================================================//
+    //                  LEVEL-AWARE IMPLEMENTATIONS                 //
+    //==============================================================//
+    /// @notice Get attributes for a player at a specific level
+    /// @dev Player level is intrinsic - use getCurrentAttributes instead
+    function getAttributesAtLevel(uint32 playerId, uint8 level) public view override returns (Attributes memory) {
+        revert("Player: Use getCurrentAttributes - level is intrinsic to player");
+    }
+
+    /// @notice Get stance for a player at a specific level
+    /// @dev Player level is intrinsic - use getCurrentStance instead
+    function getStanceAtLevel(uint32 playerId, uint8 level) public view override returns (uint8) {
+        revert("Player: Use getCurrentStance - level is intrinsic to player");
+    }
+
+    /// @notice Get skin for a player at a specific level
+    /// @dev Player level is intrinsic - use getCurrentSkin instead
+    function getSkinAtLevel(uint32 playerId, uint8 level) public view override returns (SkinInfo memory) {
+        revert("Player: Use getCurrentSkin - level is intrinsic to player");
+    }
+
+    /// @notice Get record for a player at a specific level
+    /// @dev Player level is intrinsic - use getCurrentRecord instead
+    function getRecordAtLevel(uint32 playerId, uint8 level) public view override returns (Record memory) {
+        revert("Player: Use getCurrentRecord - level is intrinsic to player");
+    }
 }

@@ -1091,7 +1091,18 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Loads combat data for a default player.
     function _loadDefaultPlayerData(uint32 playerId) private view returns (ActiveParticipant memory) {
-        IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(playerId);
+        // Get appropriate level based on bracket
+        uint8 targetLevel;
+        if (levelBracket == LevelBracket.LEVELS_1_TO_4) {
+            targetLevel = 4;
+        } else if (levelBracket == LevelBracket.LEVELS_5_TO_9) {
+            targetLevel = 9;
+        } else {
+            // LEVEL_10
+            targetLevel = 10;
+        }
+
+        IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(playerId, targetLevel);
         IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
             playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory skinAttrs =

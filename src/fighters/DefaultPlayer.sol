@@ -48,9 +48,9 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     /// @notice Reference to the name registry contract for player names
     IPlayerNameRegistry private immutable _nameRegistry;
 
-    /// @notice Maps default player ID to their stats
-    /// @dev Only IDs within DEFAULT_PLAYER_START and DEFAULT_PLAYER_END range are valid
-    mapping(uint32 => IPlayer.PlayerStats) private _defaultPlayers;
+    /// @notice Maps default player ID to their stats progression across all levels
+    /// @dev Each default player has complete stats for levels 1-10
+    mapping(uint32 => IPlayer.PlayerStats[10]) private _defaultPlayerProgressions;
 
     /// @notice Array of all valid default player IDs that have been created
     uint32[] private validDefaultPlayerIds;
@@ -74,7 +74,6 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     /// @notice ID range constants for default players
     /// @dev Default players occupy IDs 1-2000
     uint32 private constant DEFAULT_PLAYER_START = 1;
-    uint32 private constant DEFAULT_PLAYER_END = 2000;
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -86,7 +85,7 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         if (!isValidId(playerId)) {
             revert InvalidDefaultPlayerRange();
         }
-        if (_defaultPlayers[playerId].attributes.strength == 0) {
+        if (_defaultPlayerProgressions[playerId][0].attributes.strength == 0) {
             revert PlayerDoesNotExist(playerId);
         }
         _;
@@ -123,28 +122,21 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     /// @param playerId The ID to check
     /// @return bool True if the ID is within valid default player range
     function isValidId(uint32 playerId) public pure override(IDefaultPlayer, Fighter) returns (bool) {
-        return playerId >= DEFAULT_PLAYER_START && playerId <= DEFAULT_PLAYER_END;
+        return playerId >= DEFAULT_PLAYER_START && playerId <= Fighter.DEFAULT_PLAYER_END;
     }
 
     /// @notice Get the current skin information for a default player
     /// @param playerId The ID of the default player
     /// @return The default player's equipped skin information (index and token ID)
     function getCurrentSkin(uint32 playerId) public view override(IDefaultPlayer, Fighter) returns (SkinInfo memory) {
-        IPlayer.PlayerStats memory stats = _defaultPlayers[playerId];
-        return stats.skin;
+        revert("DefaultPlayer: Use getSkinAtLevel - level must be specified");
     }
 
     /// @notice Gets the current stance for a default player
     /// @param playerId The ID of the default player to query
     /// @return The default player's current stance
-    function getCurrentStance(uint32 playerId)
-        public
-        view
-        override(Fighter, IDefaultPlayer)
-        defaultPlayerExists(playerId)
-        returns (uint8)
-    {
-        return _defaultPlayers[playerId].stance;
+    function getCurrentStance(uint32 playerId) public view override(Fighter, IDefaultPlayer) returns (uint8) {
+        revert("DefaultPlayer: Use getStanceAtLevel - level must be specified");
     }
 
     /// @notice Get the current attributes for a default player
@@ -154,24 +146,16 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         public
         view
         override(Fighter, IDefaultPlayer)
-        defaultPlayerExists(playerId)
         returns (Attributes memory)
     {
-        return _defaultPlayers[playerId].attributes;
+        revert("DefaultPlayer: Use getAttributesAtLevel - level must be specified");
     }
 
     /// @notice Get the current combat record for a default player
     /// @param playerId The ID of the default player
     /// @return The default player's current win/loss/kill record
-    function getCurrentRecord(uint32 playerId)
-        public
-        view
-        override(Fighter, IDefaultPlayer)
-        defaultPlayerExists(playerId)
-        returns (Record memory)
-    {
-        // Default players don't track records, return empty record
-        return Record({wins: 0, losses: 0, kills: 0});
+    function getCurrentRecord(uint32 playerId) public view override(Fighter, IDefaultPlayer) returns (Record memory) {
+        revert("DefaultPlayer: Use getRecordAtLevel - level must be specified");
     }
 
     /// @notice Get the current name for a default player
@@ -184,20 +168,23 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         defaultPlayerExists(playerId)
         returns (IPlayer.PlayerName memory)
     {
-        return _defaultPlayers[playerId].name;
+        // Name is consistent across all levels, return from level 1
+        return _defaultPlayerProgressions[playerId][0].name;
     }
 
-    /// @notice Get the complete stats for a default player
+    /// @notice Get the complete stats for a default player at a specific level
     /// @param playerId The ID of the default player to query
-    /// @return PlayerStats struct containing all player data
-    /// @dev Reverts if the player doesn't exist
-    function getDefaultPlayer(uint32 playerId)
+    /// @param level The level to get stats for (1-10)
+    /// @return PlayerStats struct containing all player data at the specified level
+    /// @dev Reverts if the player doesn't exist or level is invalid
+    function getDefaultPlayer(uint32 playerId, uint8 level)
         external
         view
         defaultPlayerExists(playerId)
         returns (IPlayer.PlayerStats memory)
     {
-        return _defaultPlayers[playerId];
+        require(level >= 1 && level <= 10, "Invalid level");
+        return _defaultPlayerProgressions[playerId][level - 1];
     }
 
     /// @notice Gets the skin registry contract reference
@@ -215,67 +202,141 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     }
 
     // State-Changing Functions
-    /// @notice Creates a new default player with specified stats
+    /// @notice Creates a new default player with specified stats for all levels
     /// @param playerId The ID to assign to the new default player
-    /// @param stats The stats to assign to the player
+    /// @param allLevelStats Array of stats for levels 1-10
     /// @dev Only callable by the contract owner
-    function createDefaultPlayer(uint32 playerId, IPlayer.PlayerStats memory stats) external onlyOwner {
+    function createDefaultPlayer(uint32 playerId, IPlayer.PlayerStats[10] memory allLevelStats) external onlyOwner {
         if (!isValidId(playerId)) {
             revert InvalidDefaultPlayerRange();
         }
-        if (_defaultPlayers[playerId].attributes.strength != 0) {
+        if (_defaultPlayerProgressions[playerId][0].attributes.strength != 0) {
             revert DefaultPlayerExists(playerId);
         }
 
+        // Validate all level stats (using level 1 for skin/name validation)
+        IPlayer.PlayerStats memory level1Stats = allLevelStats[0];
+
         // Verify skin exists and is valid for default players
-        IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection = skinRegistry().getSkin(stats.skin.skinIndex);
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection =
+            skinRegistry().getSkin(level1Stats.skin.skinIndex);
         if (skinCollection.skinType != IPlayerSkinRegistry.SkinType.DefaultPlayer) {
-            revert InvalidDefaultPlayerSkinType(stats.skin.skinIndex);
+            revert InvalidDefaultPlayerSkinType(level1Stats.skin.skinIndex);
         }
 
         // Validate name indices
         if (
-            !nameRegistry().isValidFirstNameIndex(stats.name.firstNameIndex)
-                || stats.name.surnameIndex >= nameRegistry().getSurnamesLength()
+            !nameRegistry().isValidFirstNameIndex(level1Stats.name.firstNameIndex)
+                || level1Stats.name.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
             revert InvalidNameIndex();
         }
 
-        _defaultPlayers[playerId] = stats;
+        // Store all level progressions
+        _defaultPlayerProgressions[playerId] = allLevelStats;
 
         // Add to valid IDs list
         validDefaultPlayerIds.push(playerId);
         validDefaultPlayerCount++;
 
-        // Emit event for new player creation
-        emit DefaultPlayerCreated(playerId, stats);
+        // Emit event for new player creation (using level 1 stats for backwards compatibility)
+        emit DefaultPlayerCreated(playerId, level1Stats);
     }
 
-    /// @notice Updates the stats of an existing default player
+    /// @notice Updates the stats of an existing default player for all levels
     /// @param playerId The ID of the default player to update
-    /// @param newStats The new stats to assign to the player
+    /// @param newAllLevelStats The new stats to assign to the player for all levels 1-10
     /// @dev Only callable by the contract owner, requires player to exist
-    function updateDefaultPlayerStats(uint32 playerId, IPlayer.PlayerStats memory newStats)
+    function updateDefaultPlayerStats(uint32 playerId, IPlayer.PlayerStats[10] memory newAllLevelStats)
         external
         onlyOwner
         defaultPlayerExists(playerId)
     {
+        // Validate all level stats (using level 1 for skin/name validation)
+        IPlayer.PlayerStats memory level1Stats = newAllLevelStats[0];
+
         // Verify skin exists and is valid for default players
-        IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection = skinRegistry().getSkin(newStats.skin.skinIndex);
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection =
+            skinRegistry().getSkin(level1Stats.skin.skinIndex);
         if (skinCollection.skinType != IPlayerSkinRegistry.SkinType.DefaultPlayer) {
-            revert InvalidDefaultPlayerSkinType(newStats.skin.skinIndex);
+            revert InvalidDefaultPlayerSkinType(level1Stats.skin.skinIndex);
         }
 
         // Validate name indices
         if (
-            !nameRegistry().isValidFirstNameIndex(newStats.name.firstNameIndex)
-                || newStats.name.surnameIndex >= nameRegistry().getSurnamesLength()
+            !nameRegistry().isValidFirstNameIndex(level1Stats.name.firstNameIndex)
+                || level1Stats.name.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
             revert InvalidNameIndex();
         }
 
-        _defaultPlayers[playerId] = newStats;
+        // Update all level progressions
+        _defaultPlayerProgressions[playerId] = newAllLevelStats;
 
-        emit DefaultPlayerStatsUpdated(playerId, newStats);
+        emit DefaultPlayerStatsUpdated(playerId, level1Stats);
+    }
+
+    //==============================================================//
+    //                  LEVEL-AWARE IMPLEMENTATIONS                 //
+    //==============================================================//
+    /// @notice Get attributes for a default player at a specific level
+    /// @param playerId The ID of the default player
+    /// @param level The level to get attributes for (1-10)
+    /// @return attributes The default player's attributes at the specified level
+    function getAttributesAtLevel(uint32 playerId, uint8 level)
+        public
+        view
+        override
+        defaultPlayerExists(playerId)
+        returns (Attributes memory)
+    {
+        require(level >= 1 && level <= 10, "Invalid level");
+        return _defaultPlayerProgressions[playerId][level - 1].attributes;
+    }
+
+    /// @notice Get stance for a default player at a specific level
+    /// @param playerId The ID of the default player
+    /// @param level The level to get stance for (1-10)
+    /// @return The default player's stance at the specified level
+    function getStanceAtLevel(uint32 playerId, uint8 level)
+        public
+        view
+        override
+        defaultPlayerExists(playerId)
+        returns (uint8)
+    {
+        require(level >= 1 && level <= 10, "Invalid level");
+        return _defaultPlayerProgressions[playerId][level - 1].stance;
+    }
+
+    /// @notice Get skin for a default player at a specific level
+    /// @param playerId The ID of the default player
+    /// @param level The level to get skin for (1-10)
+    /// @return The default player's skin at the specified level
+    function getSkinAtLevel(uint32 playerId, uint8 level)
+        public
+        view
+        override
+        defaultPlayerExists(playerId)
+        returns (SkinInfo memory)
+    {
+        require(level >= 1 && level <= 10, "Invalid level");
+        return _defaultPlayerProgressions[playerId][level - 1].skin;
+    }
+
+    /// @notice Get record for a default player at a specific level
+    /// @param playerId The ID of the default player
+    /// @param level The level to get record for (1-10)
+    /// @return The default player's record at the specified level (always empty)
+    function getRecordAtLevel(uint32 playerId, uint8 level)
+        public
+        view
+        override
+        defaultPlayerExists(playerId)
+        returns (Record memory)
+    {
+        require(level >= 1 && level <= 10, "Invalid level");
+        // Default players don't track records, return empty record
+        return Record({wins: 0, losses: 0, kills: 0});
     }
 }

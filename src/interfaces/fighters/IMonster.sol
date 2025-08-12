@@ -29,14 +29,14 @@ interface IMonster {
     /// @param skin Skin information (index and token ID)
     /// @param name Monster name information
     /// @param record Game record stats (wins, losses, kills)
-    /// @param tier Tier/level of the monster (affects difficulty and rewards)
+    /// @param level Level of the monster (affects difficulty and rewards)
     struct MonsterStats {
         Fighter.Attributes attributes;
         MonsterName name;
         Fighter.SkinInfo skin;
         uint8 stance;
         Fighter.Record record;
-        uint8 tier;
+        uint8 level;
     }
 
     /// @notice Name details for a monster
@@ -77,10 +77,11 @@ interface IMonster {
     /// @return The PlayerSkinRegistry contract instance
     function skinRegistry() external view returns (IPlayerSkinRegistry);
 
-    /// @notice Gets the complete stats for a monster
+    /// @notice Gets the complete stats for a monster at a specific level
     /// @param monsterId The ID of the monster to query
-    /// @return The monster's complete stats and attributes
-    function getMonster(uint32 monsterId) external view returns (MonsterStats memory);
+    /// @param level The level to get stats for (1-10)
+    /// @return The monster's complete stats and attributes at the specified level
+    function getMonster(uint32 monsterId, uint8 level) external view returns (MonsterStats memory);
 
     /// @notice Checks if a monster is immortal
     /// @param monsterId The ID of the monster to check
@@ -122,10 +123,10 @@ interface IMonster {
     /// @return The monster's current name
     function getCurrentName(uint32 monsterId) external view returns (MonsterName memory);
 
-    /// @notice Get the current tier/level for a monster
+    /// @notice Get the current level for a monster
     /// @param monsterId The ID of the monster
-    /// @return The monster's current tier/level
-    function getCurrentTier(uint32 monsterId) external view returns (uint8);
+    /// @return The monster's current level
+    function getCurrentLevel(uint32 monsterId) external view returns (uint8);
 
     /// @notice Gets the permissions for a game contract
     /// @param gameContract Address of the game contract to query

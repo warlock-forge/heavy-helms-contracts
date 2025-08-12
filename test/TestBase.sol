@@ -335,9 +335,32 @@ abstract contract TestBase is Test {
     // Helper function to create a player loadout that supports both practice and duel game test cases
     function _createLoadout(uint32 fighterId) internal view returns (Fighter.PlayerLoadout memory) {
         Fighter fighter = _getFighterContract(fighterId);
-        Fighter.SkinInfo memory skin = fighter.getCurrentSkin(fighterId);
-        uint8 stance = fighter.getCurrentStance(fighterId);
+        Fighter.SkinInfo memory skin;
+        uint8 stance;
+        
+        // Handle fighter-type aware calls
+        Fighter.FighterType fighterType = _getFighterType(fighterId);
+        if (fighterType == Fighter.FighterType.PLAYER) {
+            skin = fighter.getCurrentSkin(fighterId);
+            stance = fighter.getCurrentStance(fighterId);
+        } else {
+            // For DefaultPlayer/Monster, use level 5 as default in tests
+            skin = fighter.getSkinAtLevel(fighterId, 5);
+            stance = fighter.getStanceAtLevel(fighterId, 5);
+        }
+        
         return Fighter.PlayerLoadout({playerId: fighterId, skin: skin, stance: stance});
+    }
+
+    // Helper function to determine fighter type based on ID range
+    function _getFighterType(uint32 playerId) internal pure returns (Fighter.FighterType) {
+        if (playerId <= 2000) {
+            return Fighter.FighterType.DEFAULT_PLAYER;
+        } else if (playerId <= 10000) {
+            return Fighter.FighterType.MONSTER;
+        } else {
+            return Fighter.FighterType.PLAYER;
+        }
     }
 
     // Helper function to validate combat results

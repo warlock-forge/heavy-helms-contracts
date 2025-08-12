@@ -78,6 +78,14 @@ abstract contract Fighter {
     }
 
     //==============================================================//
+    //                          CONSTANTS                           //
+    //==============================================================//
+    /// @notice End of default player ID range
+    uint32 internal constant DEFAULT_PLAYER_END = 2000;
+    /// @notice End of monster ID range
+    uint32 internal constant MONSTER_END = 10000;
+
+    //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
     /// @notice Reference to the skin registry contract
@@ -111,14 +119,34 @@ abstract contract Fighter {
     function getFighterStats(uint32 playerId) external view returns (IGameEngine.FighterStats memory) {
         require(isValidId(playerId), "Invalid player ID");
 
-        // Get base attributes
-        Attributes memory attributes = getCurrentAttributes(playerId);
+        // Get base attributes (fighter-type aware)
+        Attributes memory attributes;
+        FighterType fighterType = _getFighterType(playerId);
 
-        // Get current skin info
-        SkinInfo memory skinInfo = getCurrentSkin(playerId);
+        if (fighterType == FighterType.PLAYER) {
+            attributes = getCurrentAttributes(playerId);
+        } else {
+            // For DefaultPlayer/Monster, use level 5 as default
+            attributes = getAttributesAtLevel(playerId, 5);
+        }
 
-        // Get stance
-        uint8 stance = getCurrentStance(playerId);
+        // Get current skin info (fighter-type aware)
+        SkinInfo memory skinInfo;
+        if (fighterType == FighterType.PLAYER) {
+            skinInfo = getCurrentSkin(playerId);
+        } else {
+            // For DefaultPlayer/Monster, use level 5 as default
+            skinInfo = getSkinAtLevel(playerId, 5);
+        }
+
+        // Get stance (fighter-type aware)
+        uint8 stance;
+        if (fighterType == FighterType.PLAYER) {
+            stance = getCurrentStance(playerId);
+        } else {
+            // For DefaultPlayer/Monster, use level 5 as default
+            stance = getStanceAtLevel(playerId, 5);
+        }
 
         // Get skin attributes
         IPlayerSkinRegistry skinReg = skinRegistry(); // Get the registry instance first
@@ -145,8 +173,16 @@ abstract contract Fighter {
     {
         require(isValidId(loadout.playerId), "Invalid player ID");
 
-        // Get base attributes
-        Attributes memory attributes = getCurrentAttributes(loadout.playerId);
+        // Get base attributes (fighter-type aware)
+        Attributes memory attributes;
+        FighterType fighterType = _getFighterType(loadout.playerId);
+
+        if (fighterType == FighterType.PLAYER) {
+            attributes = getCurrentAttributes(loadout.playerId);
+        } else {
+            // For DefaultPlayer/Monster, use level 5 as default in practice
+            attributes = getAttributesAtLevel(loadout.playerId, 5);
+        }
 
         // Get skin data from loadout
         IPlayerSkinRegistry skinReg = skinRegistry();
@@ -160,6 +196,22 @@ abstract contract Fighter {
             stance: loadout.stance,
             attributes: attributes
         });
+    }
+
+    //==============================================================//
+    //                    INTERNAL FUNCTIONS                        //
+    //==============================================================//
+    /// @notice Determines the fighter type based on ID range
+    /// @param playerId The ID to check
+    /// @return The fighter type (DEFAULT_PLAYER, MONSTER, or PLAYER)
+    function _getFighterType(uint32 playerId) internal pure returns (FighterType) {
+        if (playerId <= DEFAULT_PLAYER_END) {
+            return FighterType.DEFAULT_PLAYER;
+        } else if (playerId <= MONSTER_END) {
+            return FighterType.MONSTER;
+        } else {
+            return FighterType.PLAYER;
+        }
     }
 
     //==============================================================//
@@ -194,4 +246,35 @@ abstract contract Fighter {
     /// @return The fighter's current win/loss/kill record
     /// @dev Must be implemented by child contracts
     function getCurrentRecord(uint32 playerId) public view virtual returns (Record memory);
+
+    //==============================================================//
+    //                  LEVEL-AWARE VIRTUAL FUNCTIONS               //
+    //==============================================================//
+    /// @notice Get attributes for a fighter at a specific level
+    /// @param playerId The ID of the fighter
+    /// @param level The level to get attributes for
+    /// @return attributes The fighter's attributes at the specified level
+    /// @dev Player type should revert, DefaultPlayer/Monster should implement
+    function getAttributesAtLevel(uint32 playerId, uint8 level) public view virtual returns (Attributes memory);
+
+    /// @notice Get stance for a fighter at a specific level
+    /// @param playerId The ID of the fighter
+    /// @param level The level to get stance for
+    /// @return The fighter's stance at the specified level
+    /// @dev Player type should revert, DefaultPlayer/Monster should implement
+    function getStanceAtLevel(uint32 playerId, uint8 level) public view virtual returns (uint8);
+
+    /// @notice Get skin for a fighter at a specific level
+    /// @param playerId The ID of the fighter
+    /// @param level The level to get skin for
+    /// @return The fighter's skin at the specified level
+    /// @dev Player type should revert, DefaultPlayer/Monster should implement
+    function getSkinAtLevel(uint32 playerId, uint8 level) public view virtual returns (SkinInfo memory);
+
+    /// @notice Get record for a fighter at a specific level
+    /// @param playerId The ID of the fighter
+    /// @param level The level to get record for
+    /// @return The fighter's record at the specified level
+    /// @dev Player type should revert, DefaultPlayer/Monster should implement
+    function getRecordAtLevel(uint32 playerId, uint8 level) public view virtual returns (Record memory);
 }

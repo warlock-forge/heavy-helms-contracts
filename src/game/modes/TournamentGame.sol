@@ -877,7 +877,8 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
     /// @notice Loads combat data for a default player.
     function _loadDefaultPlayerData(uint32 playerId) private view returns (ActiveParticipant memory) {
-        IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(playerId);
+        // Tournament always uses level 10 default players for maximum competition
+        IPlayer.PlayerStats memory defaultStats = defaultPlayerContract.getDefaultPlayer(playerId, 10);
         IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
             playerContract.skinRegistry().getSkin(defaultStats.skin.skinIndex);
         IPlayerSkinNFT.SkinAttributes memory skinAttrs =

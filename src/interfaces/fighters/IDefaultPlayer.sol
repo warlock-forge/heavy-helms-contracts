@@ -34,10 +34,11 @@ interface IDefaultPlayer {
     /// @return The PlayerSkinRegistry contract instance
     function skinRegistry() external view returns (IPlayerSkinRegistry);
 
-    /// @notice Get the complete stats for a default player
+    /// @notice Get the complete stats for a default player at a specific level
     /// @param playerId The ID of the default player to query
-    /// @return PlayerStats struct containing all player data
-    function getDefaultPlayer(uint32 playerId) external view returns (IPlayer.PlayerStats memory);
+    /// @param level The level to get stats for (1-10)
+    /// @return PlayerStats struct containing all player data at the specified level
+    function getDefaultPlayer(uint32 playerId, uint8 level) external view returns (IPlayer.PlayerStats memory);
 
     /// @notice Check if a default player ID is valid
     /// @param playerId The ID to check
@@ -81,15 +82,15 @@ interface IDefaultPlayer {
     //==============================================================//
     //                 STATE-CHANGING FUNCTIONS                     //
     //==============================================================//
-    /// @notice Create or update a default player with the provided stats
+    /// @notice Create or update a default player with the provided stats for all levels
     /// @param playerId The ID of the default player to create/update
-    /// @param stats The complete stats to assign to the player
+    /// @param allLevelStats The complete stats to assign to the player for all levels 1-10
     /// @dev Only callable by the contract owner
-    function createDefaultPlayer(uint32 playerId, IPlayer.PlayerStats memory stats) external;
+    function createDefaultPlayer(uint32 playerId, IPlayer.PlayerStats[10] memory allLevelStats) external;
 
-    /// @notice Update the stats of an existing default player
+    /// @notice Update the stats of an existing default player for all levels
     /// @param playerId The ID of the default player to update
-    /// @param newStats The new stats to assign to the player
+    /// @param newAllLevelStats The new stats to assign to the player for all levels 1-10
     /// @dev Only callable by the contract owner, requires player to exist
-    function updateDefaultPlayerStats(uint32 playerId, IPlayer.PlayerStats memory newStats) external;
+    function updateDefaultPlayerStats(uint32 playerId, IPlayer.PlayerStats[10] memory newAllLevelStats) external;
 }
