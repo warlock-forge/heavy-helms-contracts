@@ -337,7 +337,7 @@ abstract contract TestBase is Test {
         Fighter fighter = _getFighterContract(fighterId);
         Fighter.SkinInfo memory skin;
         uint8 stance;
-        
+
         // Handle fighter-type aware calls
         Fighter.FighterType fighterType = _getFighterType(fighterId);
         if (fighterType == Fighter.FighterType.PLAYER) {
@@ -348,7 +348,7 @@ abstract contract TestBase is Test {
             skin = fighter.getSkinAtLevel(fighterId, 5);
             stance = fighter.getStanceAtLevel(fighterId, 5);
         }
-        
+
         return Fighter.PlayerLoadout({playerId: fighterId, skin: skin, stance: stance});
     }
 
