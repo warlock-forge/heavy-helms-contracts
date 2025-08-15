@@ -890,7 +890,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 weapon: skinAttrs.weapon,
                 armor: skinAttrs.armor,
                 stance: defaultStats.stance,
-                attributes: defaultStats.attributes
+                attributes: defaultStats.attributes,
+                level: defaultStats.level,
+                weaponSpecialization: defaultStats.weaponSpecialization,
+                armorSpecialization: defaultStats.armorSpecialization
             }),
             encodedData: bytes32(uint256(playerId))
         });
@@ -1243,7 +1246,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             weapon: skinAttrs.weapon,
             armor: skinAttrs.armor,
             stance: pStats.stance,
-            attributes: pStats.attributes
+            attributes: pStats.attributes,
+            level: pStats.level,
+            weaponSpecialization: pStats.weaponSpecialization,
+            armorSpecialization: pStats.armorSpecialization
         });
 
         Fighter.Record memory seasonalRecord = playerContract.getCurrentSeasonRecord(playerId);

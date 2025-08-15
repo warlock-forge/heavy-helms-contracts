@@ -35,35 +35,16 @@ interface IMonster {
         MonsterName name;
         Fighter.SkinInfo skin;
         uint8 stance;
-        Fighter.Record record;
         uint8 level;
+        uint16 currentXP;
+        uint8 weaponSpecialization;
+        uint8 armorSpecialization;
     }
 
     /// @notice Name details for a monster
     /// @param nameIndex Index of the monster's name in the name registry
     struct MonsterName {
         uint16 nameIndex;
-    }
-
-    /// @notice Permission flags for game contracts
-    /// @param record Can modify game records (wins, losses, kills)
-    /// @param retire Can modify monster retirement status
-    /// @param immortal Can modify monster immortality status
-    struct GamePermissions {
-        bool record;
-        bool retire;
-        bool immortal;
-    }
-
-    //==============================================================//
-    //                          ENUMS                               //
-    //==============================================================//
-    /// @notice Types of permissions that can be granted to game contracts
-    enum GamePermission {
-        RECORD, // Can modify wins/losses/kills
-        RETIRE, // Can retire monsters
-        IMMORTAL // Can modify immortality status
-
     }
 
     //==============================================================//
@@ -83,83 +64,8 @@ interface IMonster {
     /// @return The monster's complete stats and attributes at the specified level
     function getMonster(uint32 monsterId, uint8 level) external view returns (MonsterStats memory);
 
-    /// @notice Checks if a monster is immortal
-    /// @param monsterId The ID of the monster to check
-    /// @return True if the monster is immortal
-    function isMonsterImmortal(uint32 monsterId) external view returns (bool);
-
-    /// @notice Checks if a monster is retired
-    /// @param monsterId The ID of the monster to check
-    /// @return True if the monster is retired
-    function isMonsterRetired(uint32 monsterId) external view returns (bool);
-
     /// @notice Check if a monster ID is valid
     /// @param monsterId The ID to check
     /// @return True if the ID is within valid monster range
     function isValidId(uint32 monsterId) external pure returns (bool);
-
-    /// @notice Get the current skin information for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's equipped skin information
-    function getCurrentSkin(uint32 monsterId) external view returns (Fighter.SkinInfo memory);
-
-    /// @notice Gets the current stance for a monster
-    /// @param monsterId The ID of the monster to query
-    /// @return The monster's current stance
-    function getCurrentStance(uint32 monsterId) external view returns (uint8);
-
-    /// @notice Get the current attributes for a monster
-    /// @param monsterId The ID of the monster
-    /// @return attributes The monster's current base attributes
-    function getCurrentAttributes(uint32 monsterId) external view returns (Fighter.Attributes memory);
-
-    /// @notice Get the current combat record for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's current win/loss/kill record
-    function getCurrentRecord(uint32 monsterId) external view returns (Fighter.Record memory);
-
-    /// @notice Get the current name for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's current name
-    function getCurrentName(uint32 monsterId) external view returns (MonsterName memory);
-
-    /// @notice Get the current level for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's current level
-    function getCurrentLevel(uint32 monsterId) external view returns (uint8);
-
-    /// @notice Gets the permissions for a game contract
-    /// @param gameContract Address of the game contract to query
-    /// @return The permissions granted to the game contract
-    function gameContractPermissions(address gameContract) external view returns (GamePermissions memory);
-
-    //==============================================================//
-    //                 STATE-CHANGING FUNCTIONS                     //
-    //==============================================================//
-    /// @notice Sets a monster's retirement status
-    /// @param monsterId The ID of the monster
-    /// @param retired The new retirement status
-    /// @dev Requires RETIRE permission
-    function setMonsterRetired(uint32 monsterId, bool retired) external;
-
-    /// @notice Sets a monster's immortality status
-    /// @param monsterId The ID of the monster
-    /// @param immortal The new immortality status
-    /// @dev Requires IMMORTAL permission
-    function setMonsterImmortal(uint32 monsterId, bool immortal) external;
-
-    /// @notice Increments a monster's win count
-    /// @param monsterId The ID of the monster
-    /// @dev Requires RECORD permission
-    function incrementWins(uint32 monsterId) external;
-
-    /// @notice Increments a monster's loss count
-    /// @param monsterId The ID of the monster
-    /// @dev Requires RECORD permission
-    function incrementLosses(uint32 monsterId) external;
-
-    /// @notice Increments a monster's kill count
-    /// @param monsterId The ID of the monster
-    /// @dev Requires RECORD permission
-    function incrementKills(uint32 monsterId) external;
 }

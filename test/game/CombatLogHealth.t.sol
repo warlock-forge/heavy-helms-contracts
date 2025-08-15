@@ -57,8 +57,8 @@ contract CombatLogHealthTest is TestBase {
         Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         // Convert to fighter stats
-        IGameEngine.FighterStats memory p1Stats = p1Fighter.convertToFighterStats(p1Loadout);
-        IGameEngine.FighterStats memory p2Stats = p2Fighter.convertToFighterStats(p2Loadout);
+        IGameEngine.FighterStats memory p1Stats = _convertToFighterStats(p1Loadout);
+        IGameEngine.FighterStats memory p2Stats = _convertToFighterStats(p2Loadout);
 
         // Get initial calculated stats to know starting health
         GameEngine.CalculatedStats memory p1CalcStats = gameEngine.calculateStats(p1Stats);
@@ -203,8 +203,8 @@ contract CombatLogHealthTest is TestBase {
         Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         // Convert to fighter stats
-        IGameEngine.FighterStats memory p1Stats = p1Fighter.convertToFighterStats(p1Loadout);
-        IGameEngine.FighterStats memory p2Stats = p2Fighter.convertToFighterStats(p2Loadout);
+        IGameEngine.FighterStats memory p1Stats = _convertToFighterStats(p1Loadout);
+        IGameEngine.FighterStats memory p2Stats = _convertToFighterStats(p2Loadout);
 
         // Process game and get combat log
         bytes memory results = gameEngine.processGame(p1Stats, p2Stats, _generateGameSeed(), 0);

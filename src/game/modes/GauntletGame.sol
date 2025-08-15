@@ -844,24 +844,23 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
             revert UnsupportedPlayerId();
         }
 
-        // Fetch base stats and apply loadout overrides
+        // Get player stats and apply loadout overrides
         IPlayer.PlayerStats memory pStats = playerContract.getPlayer(playerId);
         pStats.skin = loadout.skin;
         pStats.stance = loadout.stance;
 
-        // Fetch skin attributes from the NFT contract via the registry
-        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo =
-            playerContract.skinRegistry().getSkin(pStats.skin.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(pStats.skin.skinTokenId);
-
-        // Construct stats for the GameEngine
+        // Get skin attributes and construct FighterStats
+        IPlayerSkinNFT.SkinAttributes memory skinAttrs = Fighter(address(playerContract)).getSkinAttributes(pStats.skin);
         stats = IGameEngine.FighterStats({
             weapon: skinAttrs.weapon,
             armor: skinAttrs.armor,
             stance: pStats.stance,
-            attributes: pStats.attributes
+            attributes: pStats.attributes,
+            level: pStats.level,
+            weaponSpecialization: pStats.weaponSpecialization,
+            armorSpecialization: pStats.armorSpecialization
         });
+
         // Get seasonal record for encoding
         Fighter.Record memory seasonalRecord = playerContract.getCurrentSeasonRecord(playerId);
 
@@ -1114,7 +1113,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                 weapon: skinAttrs.weapon,
                 armor: skinAttrs.armor,
                 stance: defaultStats.stance,
-                attributes: defaultStats.attributes
+                attributes: defaultStats.attributes,
+                level: defaultStats.level,
+                weaponSpecialization: defaultStats.weaponSpecialization,
+                armorSpecialization: defaultStats.armorSpecialization
             }),
             encodedData: bytes32(uint256(playerId))
         });

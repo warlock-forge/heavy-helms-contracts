@@ -80,10 +80,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Assassin L10" : "Assassin L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 9, // WEAPON_DUAL_DAGGERS
-                stance: 2 // STANCE_OFFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 2, // STANCE_OFFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -127,10 +130,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Berserker L10" : "Berserker L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 4, // WEAPON_BATTLEAXE
-                stance: 2 // STANCE_OFFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 2, // STANCE_OFFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -174,10 +180,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Shield Tank L10" : "Shield Tank L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 3, // ARMOR_PLATE
                 weapon: 1, // WEAPON_MACE_TOWER
-                stance: 0 // STANCE_DEFENSIVE
+                armor: 3, // ARMOR_PLATE
+                stance: 0, // STANCE_DEFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -221,10 +230,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Monk L10" : "Monk L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 0, // ARMOR_CLOTH
                 weapon: 6, // WEAPON_SPEAR
-                stance: 1 // STANCE_BALANCED (not defensive - disciplined approach)
+                armor: 0, // ARMOR_CLOTH
+                stance: 1, // STANCE_BALANCED (not defensive - disciplined approach)
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -268,10 +280,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Parry Master L10" : "Parry Master L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 2, // WEAPON_RAPIER_BUCKLER
-                stance: 0 // STANCE_DEFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 0, // STANCE_DEFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -315,10 +330,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Vanguard L10" : "Vanguard L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 2, // ARMOR_CHAIN
                 weapon: 12, // WEAPON_AXE_KITE
-                stance: 1 // STANCE_BALANCED
+                armor: 2, // ARMOR_CHAIN
+                stance: 1, // STANCE_BALANCED
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -628,10 +646,13 @@ contract GameEngineProgressionTest is TestBase {
         return TestFighter({
             name: bonusPoints > 0 ? "Bruiser L10" : "Bruiser L1",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 18, // WEAPON_DUAL_CLUBS
-                stance: 2 // STANCE_OFFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 2, // STANCE_OFFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }

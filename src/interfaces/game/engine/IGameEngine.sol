@@ -48,6 +48,9 @@ interface IGameEngine {
         uint8 armor;
         uint8 stance;
         Fighter.Attributes attributes;
+        uint8 level;
+        uint8 weaponSpecialization;
+        uint8 armorSpecialization;
     }
 
     function decodeVersion(uint16 _version) external pure returns (uint8 major, uint8 minor);

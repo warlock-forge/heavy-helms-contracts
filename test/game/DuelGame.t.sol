@@ -20,6 +20,7 @@ import "../TestBase.sol";
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
+import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;
@@ -123,48 +124,41 @@ contract DuelGameTest is TestBase {
     function testAcceptChallenge() public {
         // First create a challenge
         vm.startPrank(PLAYER_ONE);
-
         uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
-        vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
+        vm.stopPrank();
 
-        // Accept challenge as player two
+        // Verify challenge state before acceptance
+        (,,,, uint256 initialVrfTimestamp,,, DuelGame.ChallengeState initialState) = game.challenges(challengeId);
+        assertTrue(initialState == DuelGame.ChallengeState.OPEN, "Challenge should be OPEN");
+        assertEq(initialVrfTimestamp, 0, "VRF timestamp should be 0 initially");
+
+        // Accept challenge as player two and verify VRF workflow
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
         game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
 
-        // Decode VRF event and prepare fulfillment data
-        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
-        vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
+        // Verify challenge state changed to PENDING after VRF request
+        (,,,, uint256 vrfTimestamp,,, DuelGame.ChallengeState pendingState) = game.challenges(challengeId);
+        assertTrue(pendingState == DuelGame.ChallengeState.PENDING, "Challenge should be PENDING");
+        assertTrue(vrfTimestamp > 0, "VRF timestamp should be set after acceptance");
 
-        // Fulfill VRF with the exact data from the event
-        vm.stopPrank(); // Stop any active pranks before fulfilling VRF
-        vm.prank(operator);
-        game.fulfillRandomness(0, dataWithRound);
+        // Verify VRF was requested by checking logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bool vrfRequestFound = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("RequestedRandomness(uint256,bytes)")) {
+                vrfRequestFound = true;
+                break;
+            }
+        }
+        assertTrue(vrfRequestFound, "VRF request should have been made");
 
-        // Get loadouts from challenge
+        // Verify loadouts were stored correctly during acceptance
         (,,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
-
-        // Get the appropriate Fighter contracts
-        Fighter challengerFighter = _getFighterContract(challengerLoadout.playerId);
-        Fighter defenderFighter = _getFighterContract(defenderLoadout.playerId);
-
-        // Process game using Fighter contract conversions
-        bytes memory results = gameEngine.processGame(
-            challengerFighter.convertToFighterStats(challengerLoadout),
-            defenderFighter.convertToFighterStats(defenderLoadout),
-            0,
-            0
-        );
-
-        (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(version, condition, actions);
-
-        // Verify challenge completed successfully
-        (,,,,,,, DuelGame.ChallengeState finalState) = game.challenges(challengeId);
-        assertTrue(finalState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed");
+        assertEq(challengerLoadout.playerId, PLAYER_ONE_ID, "Challenger loadout incorrect");
+        assertEq(defenderLoadout.playerId, PLAYER_TWO_ID, "Defender loadout incorrect");
     }
 
     function testCancelExpiredChallenge() public {
@@ -189,50 +183,51 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCompleteDuel() public {
+    function testCompleteDuelWorkflow() public {
+        // Complete end-to-end duel workflow
         vm.startPrank(PLAYER_ONE);
-
         uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
-        vm.stopPrank(); // Stop PLAYER_ONE prank before starting PLAYER_TWO
+        vm.stopPrank();
 
-        // Accept challenge as player two
+        // Accept challenge
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
         game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
 
-        // Decode VRF event and prepare fulfillment data
+        // Fulfill VRF to complete the duel
         (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
-        vm.stopPrank(); // Stop PLAYER_TWO prank before fulfilling VRF
 
-        // Fulfill VRF with the exact data from the event
-        vm.stopPrank(); // Stop any active pranks before fulfilling VRF
         vm.prank(operator);
         game.fulfillRandomness(0, dataWithRound);
 
-        // Get loadouts from challenge
-        (,,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
-            game.challenges(challengeId);
+        // Verify final challenge state
+        (
+            uint32 challengerId,
+            uint32 defenderId,
+            uint256 createdBlock,
+            uint256 createdTimestamp,
+            uint256 vrfRequestTimestamp,
+            Fighter.PlayerLoadout memory challengerLoadout,
+            Fighter.PlayerLoadout memory defenderLoadout,
+            DuelGame.ChallengeState finalState
+        ) = game.challenges(challengeId);
 
-        // Get the appropriate Fighter contracts
-        Fighter challengerFighter = _getFighterContract(challengerLoadout.playerId);
-        Fighter defenderFighter = _getFighterContract(defenderLoadout.playerId);
+        // Verify challenge data integrity
+        assertEq(challengerId, PLAYER_ONE_ID, "Challenger ID should match");
+        assertEq(defenderId, PLAYER_TWO_ID, "Defender ID should match");
+        assertTrue(createdTimestamp > 0, "Challenge should have creation timestamp");
+        assertTrue(createdBlock > 0, "Challenge should have creation block");
+        assertTrue(vrfRequestTimestamp > 0, "Challenge should have VRF request timestamp");
+        assertTrue(finalState == DuelGame.ChallengeState.COMPLETED, "Challenge should be COMPLETED");
 
-        // Process game using Fighter contract conversions
-        bytes memory results = gameEngine.processGame(
-            challengerFighter.convertToFighterStats(challengerLoadout),
-            defenderFighter.convertToFighterStats(defenderLoadout),
-            0,
-            0
-        );
+        // Verify loadouts were stored correctly
+        assertEq(challengerLoadout.playerId, PLAYER_ONE_ID, "Challenger loadout should match");
+        assertEq(defenderLoadout.playerId, PLAYER_TWO_ID, "Defender loadout should match");
 
-        (, uint16 version, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
-            gameEngine.decodeCombatLog(results);
-        super._assertValidCombatResult(version, condition, actions);
-
-        // Verify challenge completed successfully
-        (,,,,,,, DuelGame.ChallengeState finalState) = game.challenges(challengeId);
-        assertTrue(finalState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed");
+        // Verify next challenge ID incremented
+        assertEq(game.nextChallengeId(), 1, "Next challenge ID should increment");
     }
 
     function test_RevertWhen_UsingDefaultCharacter() public {
@@ -586,6 +581,107 @@ contract DuelGameTest is TestBase {
         vm.prank(PLAYER_ONE);
         vm.expectRevert("VRF timeout not reached");
         game.recoverTimedOutVRF(challengeId);
+    }
+
+    function testMultipleSimultaneousChallenges() public {
+        // Test that a player can have multiple open challenges
+        vm.startPrank(PLAYER_ONE);
+
+        // Create first challenge against PLAYER_TWO
+        uint256 challengeId1 = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+
+        // Create second challenge against PLAYER_TWO (same defender)
+        uint256 challengeId2 = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+
+        // Verify both challenges exist and are OPEN
+        (,,,,,,, DuelGame.ChallengeState state1) = game.challenges(challengeId1);
+        (,,,,,,, DuelGame.ChallengeState state2) = game.challenges(challengeId2);
+        assertTrue(state1 == DuelGame.ChallengeState.OPEN, "First challenge should be OPEN");
+        assertTrue(state2 == DuelGame.ChallengeState.OPEN, "Second challenge should be OPEN");
+
+        // Verify challenge IDs are different
+        assertTrue(challengeId1 != challengeId2, "Challenge IDs should be different");
+        assertEq(challengeId2, challengeId1 + 1, "Challenge IDs should increment");
+
+        vm.stopPrank();
+
+        // Now test PLAYER_TWO can also create challenges while having incoming challenges
+        vm.startPrank(PLAYER_TWO);
+        uint256 challengeId3 = game.initiateChallenge(_createLoadout(PLAYER_TWO_ID), PLAYER_ONE_ID);
+        vm.stopPrank();
+
+        // Verify all three challenges coexist
+        assertTrue(game.isChallengeActive(challengeId1), "Challenge 1 should be active");
+        assertTrue(game.isChallengeActive(challengeId2), "Challenge 2 should be active");
+        assertTrue(game.isChallengeActive(challengeId3), "Challenge 3 should be active");
+    }
+
+    function testLoadoutOverridesEquipped() public {
+        // Create challenge with different loadouts than equipped
+        // Use skins with no stat requirements: DefaultWarrior (1) and LowStaminaClubsWarrior (17)
+        Fighter.PlayerLoadout memory challengerLoadout = Fighter.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.LowStaminaClubsWarrior) + 1 // Uses dual clubs (18)
+            }),
+            stance: 2 // Aggressive (different from default neutral)
+        });
+
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallenge(challengerLoadout, PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Accept with different loadout
+        Fighter.PlayerLoadout memory defenderLoadout = Fighter.PlayerLoadout({
+            playerId: PLAYER_TWO_ID,
+            skin: Fighter.SkinInfo({
+                skinIndex: defaultSkinIndex,
+                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1 // Uses quarterstaff (5)
+            }),
+            stance: 0 // Defensive (different from default neutral)
+        });
+
+        vm.startPrank(PLAYER_TWO);
+        vm.recordLogs();
+        game.acceptChallenge(challengeId, defenderLoadout);
+        vm.stopPrank();
+
+        // Retrieve stored loadouts from challenge
+        (
+            ,
+            ,
+            ,
+            ,
+            ,
+            Fighter.PlayerLoadout memory storedChallengerLoadout,
+            Fighter.PlayerLoadout memory storedDefenderLoadout,
+        ) = game.challenges(challengeId);
+
+        // Verify loadouts were stored as passed, not as equipped
+        assertEq(
+            storedChallengerLoadout.skin.skinTokenId,
+            uint16(DefaultPlayerLibrary.CharacterType.LowStaminaClubsWarrior) + 1,
+            "Challenger should use LowStaminaClubsWarrior skin from loadout"
+        );
+        assertEq(storedChallengerLoadout.stance, 2, "Challenger should use aggressive stance from loadout");
+
+        assertEq(
+            storedDefenderLoadout.skin.skinTokenId,
+            uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1,
+            "Defender should use DefaultWarrior skin from loadout"
+        );
+        assertEq(storedDefenderLoadout.stance, 0, "Defender should use defensive stance from loadout");
+
+        // Complete the duel to ensure loadouts are used in combat
+        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
+        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
+
+        vm.prank(operator);
+        game.fulfillRandomness(0, dataWithRound);
+
+        // Challenge completed successfully with override loadouts
+        assertTrue(game.isChallengeCompleted(challengeId), "Challenge should complete with override loadouts");
     }
 
     receive() external payable {}

@@ -112,92 +112,6 @@ abstract contract Fighter {
         return _skinRegistry;
     }
 
-    /// @notice Get stats for a fighter with their currently equipped skin
-    /// @param playerId The ID of the fighter
-    /// @return Complete fighter stats including weapon, armor, stance and attributes
-    /// @dev Combines base attributes with skin/equipment modifiers
-    function getFighterStats(uint32 playerId) external view returns (IGameEngine.FighterStats memory) {
-        require(isValidId(playerId), "Invalid player ID");
-
-        // Get base attributes (fighter-type aware)
-        Attributes memory attributes;
-        FighterType fighterType = _getFighterType(playerId);
-
-        if (fighterType == FighterType.PLAYER) {
-            attributes = getCurrentAttributes(playerId);
-        } else {
-            // For DefaultPlayer/Monster, use level 5 as default
-            attributes = getAttributesAtLevel(playerId, 5);
-        }
-
-        // Get current skin info (fighter-type aware)
-        SkinInfo memory skinInfo;
-        if (fighterType == FighterType.PLAYER) {
-            skinInfo = getCurrentSkin(playerId);
-        } else {
-            // For DefaultPlayer/Monster, use level 5 as default
-            skinInfo = getSkinAtLevel(playerId, 5);
-        }
-
-        // Get stance (fighter-type aware)
-        uint8 stance;
-        if (fighterType == FighterType.PLAYER) {
-            stance = getCurrentStance(playerId);
-        } else {
-            // For DefaultPlayer/Monster, use level 5 as default
-            stance = getStanceAtLevel(playerId, 5);
-        }
-
-        // Get skin attributes
-        IPlayerSkinRegistry skinReg = skinRegistry(); // Get the registry instance first
-        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfoFromRegistry = skinReg.getSkin(skinInfo.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-            IPlayerSkinNFT(skinInfoFromRegistry.contractAddress).getSkinAttributes(skinInfo.skinTokenId);
-
-        return IGameEngine.FighterStats({
-            weapon: skinAttrs.weapon,
-            armor: skinAttrs.armor,
-            stance: stance,
-            attributes: attributes
-        });
-    }
-
-    /// @notice Convert a loadout configuration to complete fighter stats
-    /// @param loadout The loadout configuration (playerId and skin)
-    /// @return Complete fighter stats for the specified loadout
-    /// @dev Allows calculating stats for hypothetical loadouts
-    function convertToFighterStats(PlayerLoadout memory loadout)
-        public
-        view
-        returns (IGameEngine.FighterStats memory)
-    {
-        require(isValidId(loadout.playerId), "Invalid player ID");
-
-        // Get base attributes (fighter-type aware)
-        Attributes memory attributes;
-        FighterType fighterType = _getFighterType(loadout.playerId);
-
-        if (fighterType == FighterType.PLAYER) {
-            attributes = getCurrentAttributes(loadout.playerId);
-        } else {
-            // For DefaultPlayer/Monster, use level 5 as default in practice
-            attributes = getAttributesAtLevel(loadout.playerId, 5);
-        }
-
-        // Get skin data from loadout
-        IPlayerSkinRegistry skinReg = skinRegistry();
-        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo = skinReg.getSkin(loadout.skin.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory skinAttrs =
-            IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(loadout.skin.skinTokenId);
-
-        return IGameEngine.FighterStats({
-            weapon: skinAttrs.weapon,
-            armor: skinAttrs.armor,
-            stance: loadout.stance,
-            attributes: attributes
-        });
-    }
-
     //==============================================================//
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
@@ -214,6 +128,12 @@ abstract contract Fighter {
         }
     }
 
+    function getSkinAttributes(SkinInfo memory skin) public view returns (IPlayerSkinNFT.SkinAttributes memory) {
+        IPlayerSkinRegistry skinReg = skinRegistry();
+        IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo = skinReg.getSkin(skin.skinIndex);
+        return IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(skin.skinTokenId);
+    }
+
     //==============================================================//
     //                    VIRTUAL FUNCTIONS                         //
     //==============================================================//
@@ -222,59 +142,4 @@ abstract contract Fighter {
     /// @return True if the ID is valid for the specific fighter type
     /// @dev Must be implemented by child contracts to define valid ID ranges
     function isValidId(uint32 playerId) public pure virtual returns (bool);
-
-    /// @notice Get the current skin information for a fighter
-    /// @param playerId The ID of the fighter
-    /// @return The fighter's equipped skin information (index and token ID)
-    /// @dev Must be implemented by child contracts
-    function getCurrentSkin(uint32 playerId) public view virtual returns (SkinInfo memory);
-
-    /// @notice Get the current stance for a fighter
-    /// @param playerId The ID of the fighter
-    /// @return The fighter's current stance
-    /// @dev Must be implemented by child contracts
-    function getCurrentStance(uint32 playerId) public view virtual returns (uint8);
-
-    /// @notice Get the current attributes for a fighter
-    /// @param playerId The ID of the fighter
-    /// @return attributes The fighter's current base attributes
-    /// @dev Must be implemented by child contracts
-    function getCurrentAttributes(uint32 playerId) public view virtual returns (Attributes memory);
-
-    /// @notice Get the current combat record for a fighter
-    /// @param playerId The ID of the fighter
-    /// @return The fighter's current win/loss/kill record
-    /// @dev Must be implemented by child contracts
-    function getCurrentRecord(uint32 playerId) public view virtual returns (Record memory);
-
-    //==============================================================//
-    //                  LEVEL-AWARE VIRTUAL FUNCTIONS               //
-    //==============================================================//
-    /// @notice Get attributes for a fighter at a specific level
-    /// @param playerId The ID of the fighter
-    /// @param level The level to get attributes for
-    /// @return attributes The fighter's attributes at the specified level
-    /// @dev Player type should revert, DefaultPlayer/Monster should implement
-    function getAttributesAtLevel(uint32 playerId, uint8 level) public view virtual returns (Attributes memory);
-
-    /// @notice Get stance for a fighter at a specific level
-    /// @param playerId The ID of the fighter
-    /// @param level The level to get stance for
-    /// @return The fighter's stance at the specified level
-    /// @dev Player type should revert, DefaultPlayer/Monster should implement
-    function getStanceAtLevel(uint32 playerId, uint8 level) public view virtual returns (uint8);
-
-    /// @notice Get skin for a fighter at a specific level
-    /// @param playerId The ID of the fighter
-    /// @param level The level to get skin for
-    /// @return The fighter's skin at the specified level
-    /// @dev Player type should revert, DefaultPlayer/Monster should implement
-    function getSkinAtLevel(uint32 playerId, uint8 level) public view virtual returns (SkinInfo memory);
-
-    /// @notice Get record for a fighter at a specific level
-    /// @param playerId The ID of the fighter
-    /// @param level The level to get record for
-    /// @return The fighter's record at the specified level
-    /// @dev Player type should revert, DefaultPlayer/Monster should implement
-    function getRecordAtLevel(uint32 playerId, uint8 level) public view virtual returns (Record memory);
 }

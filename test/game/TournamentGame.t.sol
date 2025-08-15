@@ -637,6 +637,13 @@ contract TournamentGameTest is TestBase {
         }
     }
 
+    function _setTournamentTime() internal {
+        // Set proper daily time (20:00 UTC) at least 48 hours after deployment
+        uint256 futureTime = block.timestamp + 48 hours;
+        futureTime = futureTime - (futureTime % 1 days) + 20 hours; // Align to 20:00 UTC
+        vm.warp(futureTime);
+    }
+
     /// @notice Creates a level 10 player for tournament testing
     function _createLevel10Player(address owner, bool useSetB) internal returns (uint32) {
         uint32 playerId = _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
@@ -1064,6 +1071,320 @@ contract TournamentGameTest is TestBase {
         // Verify no tournament was created
         (bool exists,,,,,) = game.getPendingTournamentInfo();
         assertFalse(exists, "No tournament should exist with empty queue");
+    }
+
+    //==============================================================//
+    //                 PHASE TRANSITION ERROR TESTS                //
+    //==============================================================//
+
+    function testRevertWhen_PendingTournamentExists() public {
+        // Queue enough players for tournament
+        _queuePlayers(16);
+        _setTournamentTime();
+
+        // Start tournament (creates pending tournament)
+        game.tryStartTournament();
+
+        // Verify pending tournament exists
+        (bool exists,,,,,) = game.getPendingTournamentInfo();
+        assertTrue(exists, "Pending tournament should exist");
+
+        // Try to change tournament size while tournament is pending - should revert
+        vm.expectRevert(abi.encodeWithSignature("PendingTournamentExists()"));
+        game.setTournamentSize(32);
+    }
+
+    //==============================================================//
+    //                 BLOCKHASH VALIDATION TESTS                  //
+    //==============================================================//
+
+    function testRevertWhen_SelectionBlockNotReached() public {
+        // Queue players and start tournament
+        _queuePlayers(16);
+        _setTournamentTime();
+        game.tryStartTournament();
+
+        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        assertTrue(exists, "Tournament should be pending");
+
+        // Try to proceed before selection block is reached
+        vm.roll(selectionBlock - 1);
+        vm.expectRevert(
+            abi.encodeWithSignature("SelectionBlockNotReached(uint256,uint256)", selectionBlock, selectionBlock - 1)
+        );
+        game.tryStartTournament();
+    }
+
+    function testRevertWhen_InvalidBlockhash() public {
+        // Queue players and start tournament
+        _queuePlayers(16);
+        _setTournamentTime();
+        game.tryStartTournament();
+
+        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+
+        // Move to selection block but don't set prevrandao (blockhash will be 0)
+        vm.roll(selectionBlock);
+        // Don't call vm.prevrandao() - blockhash should be 0
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidBlockhash()"));
+        game.tryStartTournament();
+    }
+
+    //==============================================================//
+    //               TOURNAMENT EDGE CASES                         //
+    //==============================================================//
+
+    function testRevertWhen_MinTimeNotElapsed() public {
+        // Queue players and run a tournament
+        _queuePlayers(16);
+        _runFullTournament();
+
+        // Create ADDITIONAL players for the second tournament (some may have died in first)
+        for (uint256 i = 0; i < 16; i++) {
+            address newPlayer = address(uint160(0x9000 + i)); // Use different address range
+            vm.deal(newPlayer, 100 ether);
+            uint32 newPlayerId = _createLevel10Player(newPlayer, false);
+
+            vm.startPrank(newPlayer);
+            game.queueForTournament(
+                Fighter.PlayerLoadout({
+                    playerId: newPlayerId,
+                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                    stance: 1
+                })
+            );
+            vm.stopPrank();
+        }
+
+        // DON'T advance the day - try to run tournament on the SAME calendar day
+        // Just set the hour to tournament time without advancing the date
+        uint256 currentTime = block.timestamp;
+        uint256 todayTournamentTime = (currentTime / 1 days) * 1 days + 20 hours; // Same day, 20:00 UTC
+        vm.warp(todayTournamentTime);
+
+        vm.expectRevert(abi.encodeWithSignature("MinTimeNotElapsed()"));
+        game.tryStartTournament();
+    }
+
+    function testRevertWhen_TournamentTooLateEdgeCase() public {
+        // Queue players and set tournament time exactly at end of window
+        _queuePlayers(16);
+
+        // Set time to just past the tournament window (20:00 + 1 hour = 21:00)
+        uint256 futureTime = block.timestamp + 48 hours;
+        futureTime = futureTime - (futureTime % 1 days) + 21 hours + 1; // 21:01 UTC (1 minute past window)
+        vm.warp(futureTime);
+
+        vm.expectRevert(abi.encodeWithSignature("TournamentTooLate()"));
+        game.tryStartTournament();
+    }
+
+    function testPlayerLevelTooLow() public {
+        // Create a level 9 player (below required level 10)
+        address lowLevelPlayer = address(0x7777);
+        uint32 lowLevelPlayerId = _createPlayerAndFulfillVRF(lowLevelPlayer, playerContract, false);
+        _levelUpPlayer(lowLevelPlayerId, 8); // Level up from 1 to 9
+
+        vm.startPrank(lowLevelPlayer);
+        vm.expectRevert(abi.encodeWithSignature("PlayerLevelTooLow()"));
+        game.queueForTournament(
+            Fighter.PlayerLoadout({
+                playerId: lowLevelPlayerId,
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1
+            })
+        );
+        vm.stopPrank();
+    }
+
+    function testAutoRecoveryAt256Blocks() public {
+        // Queue players and start tournament
+        _queuePlayers(16);
+        _setTournamentTime();
+        uint256 startBlock = block.number;
+        game.tryStartTournament();
+
+        // Move exactly 256 blocks from initial commit block
+        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        uint256 commitBlock = selectionBlock - 20; // futureBlocksForSelection = 20
+
+        vm.roll(commitBlock + 256);
+        vm.prevrandao(bytes32(uint256(12345)));
+
+        // Should trigger auto-recovery
+        vm.expectEmit(true, false, false, true);
+        emit TournamentAutoRecovered(commitBlock, commitBlock + 256, TournamentGame.TournamentPhase.QUEUE_COMMIT);
+        game.tryStartTournament();
+
+        // Verify no pending tournament exists after recovery
+        (bool finalExists,,,,,) = game.getPendingTournamentInfo();
+        assertFalse(finalExists, "Pending tournament should be cleared after auto-recovery");
+    }
+
+    function testWithdrawDuringParticipantSelectPhase() public {
+        // Queue players and start tournament
+        _queuePlayers(16);
+        _setTournamentTime();
+        game.tryStartTournament();
+
+        // Progress to participant selection phase
+        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        vm.roll(selectionBlock + 1); // Move PAST the selection block
+        vm.prevrandao(bytes32(uint256(12345)));
+        game.tryStartTournament();
+
+        // Verify we're in PARTICIPANT_SELECT phase
+        (,, uint256 tournamentBlock, uint8 phase,,) = game.getPendingTournamentInfo();
+        assertEq(uint256(phase), 2, "Should be in PARTICIPANT_SELECT phase");
+
+        // Verify queue is empty (all players selected for 16-player tournament)
+        assertEq(game.getQueueSize(), 0, "Queue should be empty after participant selection");
+
+        // Try to withdraw a selected player (now IN_TOURNAMENT status)
+        // Find a player that's in the tournament
+        uint32 tournamentPlayerId = 0;
+        for (uint256 i = 0; i < playerIds.length; i++) {
+            if (uint256(game.playerStatus(playerIds[i])) == 2) {
+                // 2 = IN_TOURNAMENT
+                tournamentPlayerId = playerIds[i];
+                break;
+            }
+        }
+        require(tournamentPlayerId != 0, "Need at least one tournament player for test");
+
+        address playerOwner = playerContract.getPlayerOwner(tournamentPlayerId);
+        vm.startPrank(playerOwner);
+        vm.expectRevert(abi.encodeWithSignature("PlayerNotInQueue()"));
+        game.withdrawFromQueue(tournamentPlayerId);
+        vm.stopPrank();
+    }
+
+    function testRewardMintingVerification() public {
+        // Set reward config to guarantee specific ticket minting
+        TournamentGame.RewardConfig memory guaranteedConfig = TournamentGame.RewardConfig({
+            nonePercent: 0, // 0%
+            attributeSwapPercent: 0, // 0%
+            createPlayerPercent: 0, // 0%
+            playerSlotPercent: 0, // 0%
+            weaponSpecPercent: 5000, // 50%
+            armorSpecPercent: 5000, // 50%
+            duelTicketPercent: 0 // 0%
+        });
+
+        game.setWinnerRewards(guaranteedConfig);
+
+        // Queue players and run tournament
+        _queuePlayers(16);
+        _runFullTournament();
+        uint256 tournamentId = game.nextTournamentId() - 1;
+
+        TournamentGame.Tournament memory tournament = game.getTournamentData(tournamentId);
+        address championOwner = playerContract.getPlayerOwner(tournament.championId);
+
+        // Verify champion received weapon OR armor specialization tickets
+        uint256 weaponTickets = playerTickets.balanceOf(championOwner, playerTickets.WEAPON_SPECIALIZATION_TICKET());
+        uint256 armorTickets = playerTickets.balanceOf(championOwner, playerTickets.ARMOR_SPECIALIZATION_TICKET());
+
+        assertTrue(weaponTickets > 0 || armorTickets > 0, "Champion should have received specialization tickets");
+    }
+
+    //==============================================================//
+    //               REWARD DISTRIBUTION EDGE CASES                //
+    //==============================================================//
+
+    function testRevertWhen_InvalidRewardPercentages_NotSumTo10000() public {
+        // Test reward config that doesn't sum to 10000 (100%)
+        TournamentGame.RewardConfig memory invalidConfig = TournamentGame.RewardConfig({
+            nonePercent: 5000, // 50%
+            attributeSwapPercent: 2000, // 20%
+            createPlayerPercent: 1000, // 10%
+            playerSlotPercent: 1000, // 10%
+            weaponSpecPercent: 500, // 5%
+            armorSpecPercent: 500, // 5%
+            duelTicketPercent: 500 // 5% = 105% total (should be 100%)
+        });
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidRewardPercentages()"));
+        game.setWinnerRewards(invalidConfig);
+    }
+
+    function testComplexRewardDistribution() public {
+        // Test complex reward distribution with multiple types
+        TournamentGame.RewardConfig memory complexConfig = TournamentGame.RewardConfig({
+            nonePercent: 1000, // 10%
+            attributeSwapPercent: 2000, // 20%
+            createPlayerPercent: 1500, // 15%
+            playerSlotPercent: 1500, // 15%
+            weaponSpecPercent: 2000, // 20%
+            armorSpecPercent: 1500, // 15%
+            duelTicketPercent: 500 // 5% = 100% total
+        });
+
+        game.setWinnerRewards(complexConfig);
+        game.setRunnerUpRewards(complexConfig);
+        game.setThirdFourthRewards(complexConfig);
+
+        // Queue players and run tournament
+        _queuePlayers(16);
+        _runFullTournament();
+        uint256 tournamentId = game.nextTournamentId() - 1;
+
+        // Verify tournament completed and rewards were distributed
+        TournamentGame.Tournament memory tournament = game.getTournamentData(tournamentId);
+        assertEq(uint256(tournament.state), uint256(TournamentGame.TournamentState.COMPLETED));
+        assertTrue(tournament.championId > 0, "Should have champion");
+        assertTrue(tournament.runnerUpId > 0, "Should have runner-up");
+    }
+
+    //==============================================================//
+    //            PLAYER SELECTION ALGORITHM TESTS                 //
+    //==============================================================//
+
+    function testPlayerSelectionWithInsufficientHighLevelPlayers() public {
+        // Create mixed level players - mostly low level with few high level
+        uint32[] memory lowLevelPlayers = new uint32[](12);
+        uint32[] memory highLevelPlayers = new uint32[](4);
+
+        // Create 12 low-level players (level 10 - minimum required)
+        for (uint256 i = 0; i < 12; i++) {
+            address playerOwner = address(uint160(0x4000 + i));
+            lowLevelPlayers[i] = _createLevel10Player(playerOwner, false);
+
+            vm.startPrank(playerOwner);
+            game.queueForTournament(
+                Fighter.PlayerLoadout({
+                    playerId: lowLevelPlayers[i],
+                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                    stance: 1
+                })
+            );
+            vm.stopPrank();
+        }
+
+        // Create 4 high-level players (level 10)
+        for (uint256 i = 0; i < 4; i++) {
+            address playerOwner = address(uint160(0x5000 + i));
+            highLevelPlayers[i] = _createLevel10Player(playerOwner, false);
+
+            vm.startPrank(playerOwner);
+            game.queueForTournament(
+                Fighter.PlayerLoadout({
+                    playerId: highLevelPlayers[i],
+                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                    stance: 1
+                })
+            );
+            vm.stopPrank();
+        }
+
+        // Run tournament - should complete successfully with mixed levels
+        _runFullTournament();
+        uint256 tournamentId = game.nextTournamentId() - 1;
+        TournamentGame.Tournament memory tournament = game.getTournamentData(tournamentId);
+
+        assertEq(uint256(tournament.state), uint256(TournamentGame.TournamentState.COMPLETED));
+        assertEq(tournament.participants.length, 16, "Should have 16 participants");
     }
 
     // Helper function to simulate TournamentAutoRecovered event

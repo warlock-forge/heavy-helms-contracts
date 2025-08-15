@@ -53,15 +53,6 @@ contract Monster is IMonster, Owned, Fighter {
     /// @dev Each monster has complete stats for levels 1-10
     mapping(uint32 => MonsterStats[10]) private _monsterProgressions;
 
-    /// @notice Maps monster ID to their retirement status
-    mapping(uint32 => bool) private _isRetired;
-
-    /// @notice Maps monster ID to their immortality status
-    mapping(uint32 => bool) private _isImmortal;
-
-    /// @notice Maps game contract address to their granted permissions
-    mapping(address => GamePermissions) private _gameContractPermissions;
-
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
@@ -96,27 +87,9 @@ contract Monster is IMonster, Owned, Fighter {
     /// @param stats The new stats for the monster
     event MonsterStatsUpdated(uint32 indexed monsterId, MonsterStats stats);
 
-    /// @notice Emitted when a game contract's permissions are updated
-    /// @param gameContract Address of the game contract
-    /// @param permissions New permission settings
-    event GameContractPermissionsUpdated(address indexed gameContract, GamePermissions permissions);
-
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
-    /// @notice Ensures the caller has the specified permission
-    /// @param permission The permission required for the operation
-    /// @dev Owner always has all permissions. Reverts with UnauthorizedCaller if permission is missing
-    modifier hasPermission(GamePermission permission) {
-        GamePermissions memory permissions = _gameContractPermissions[msg.sender];
-        bool hasAccess = msg.sender == owner // Owner has all permissions
-            || (permission == GamePermission.RECORD && permissions.record)
-            || (permission == GamePermission.RETIRE && permissions.retire)
-            || (permission == GamePermission.IMMORTAL && permissions.immortal);
-        if (!hasAccess) revert UnauthorizedCaller();
-        _;
-    }
-
     /// @notice Ensures the monster ID is within valid range and exists
     /// @param monsterId The ID of the monster to check
     /// @dev Reverts with InvalidMonsterRange or MonsterDoesNotExist if validation fails
@@ -164,60 +137,6 @@ contract Monster is IMonster, Owned, Fighter {
         return monsterId >= MONSTER_ID_START && monsterId <= MONSTER_ID_END;
     }
 
-    /// @notice Get the current skin information for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 monsterId) public view override(Fighter, IMonster) returns (SkinInfo memory) {
-        revert("Monster: Use getSkinAtLevel - level must be specified");
-    }
-
-    /// @notice Gets the current stance for a monster
-    /// @param monsterId The ID of the monster to query
-    /// @return The monster's current stance
-    function getCurrentStance(uint32 monsterId) public view override(Fighter, IMonster) returns (uint8) {
-        revert("Monster: Use getStanceAtLevel - level must be specified");
-    }
-
-    /// @notice Get the current attributes for a monster
-    /// @param monsterId The ID of the monster
-    /// @return attributes The monster's current base attributes
-    function getCurrentAttributes(uint32 monsterId)
-        public
-        view
-        override(Fighter, IMonster)
-        returns (Attributes memory)
-    {
-        revert("Monster: Use getAttributesAtLevel - level must be specified");
-    }
-
-    /// @notice Get the current combat record for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's current win/loss/kill record
-    function getCurrentRecord(uint32 monsterId) public view override(Fighter, IMonster) returns (Record memory) {
-        revert("Monster: Use getRecordAtLevel - level must be specified");
-    }
-
-    /// @notice Get the current name for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's current name
-    function getCurrentName(uint32 monsterId)
-        public
-        view
-        override(IMonster)
-        monsterExists(monsterId)
-        returns (MonsterName memory)
-    {
-        // Name is consistent across all levels, return from level 1
-        return _monsterProgressions[monsterId][0].name;
-    }
-
-    /// @notice Get the current level for a monster
-    /// @param monsterId The ID of the monster
-    /// @return The monster's current level
-    function getCurrentLevel(uint32 monsterId) public view override(IMonster) returns (uint8) {
-        revert("Monster: Use getMonsterAtLevel - level must be specified");
-    }
-
     /// @notice Gets the complete stats for a monster at a specific level
     /// @param monsterId The ID of the monster to query
     /// @param level The level to get stats for (1-10)
@@ -230,27 +149,6 @@ contract Monster is IMonster, Owned, Fighter {
     {
         require(level >= 1 && level <= 10, "Invalid level");
         return _monsterProgressions[monsterId][level - 1];
-    }
-
-    /// @notice Checks if a monster is retired
-    /// @param monsterId The ID of the monster to check
-    /// @return True if the monster is retired
-    function isMonsterRetired(uint32 monsterId) external view monsterExists(monsterId) returns (bool) {
-        return _isRetired[monsterId];
-    }
-
-    /// @notice Checks if a monster is immortal
-    /// @param monsterId The ID of the monster to check
-    /// @return True if the monster is immortal
-    function isMonsterImmortal(uint32 monsterId) external view monsterExists(monsterId) returns (bool) {
-        return _isImmortal[monsterId];
-    }
-
-    /// @notice Gets the permissions for a game contract
-    /// @param gameContract Address of the game contract to query
-    /// @return The permissions granted to the game contract
-    function gameContractPermissions(address gameContract) external view returns (GamePermissions memory) {
-        return _gameContractPermissions[gameContract];
     }
 
     /// @notice Gets the skin registry contract reference
@@ -286,140 +184,5 @@ contract Monster is IMonster, Owned, Fighter {
         _monsterProgressions[monsterId] = newAllLevelStats;
 
         emit MonsterStatsUpdated(monsterId, newAllLevelStats[0]); // Emit level 1 stats for backwards compatibility
-    }
-
-    /// @notice Increments a monster's win count across all levels
-    /// @param monsterId The ID of the monster
-    /// @dev Requires RECORD permission
-    function incrementWins(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
-        // Update wins across all levels
-        for (uint8 i = 0; i < 10; i++) {
-            _monsterProgressions[monsterId][i].record.wins++;
-        }
-        emit MonsterWinLossUpdated(
-            monsterId, _monsterProgressions[monsterId][0].record.wins, _monsterProgressions[monsterId][0].record.losses
-        );
-    }
-
-    /// @notice Increments a monster's loss count across all levels
-    /// @param monsterId The ID of the monster
-    /// @dev Requires RECORD permission
-    function incrementLosses(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
-        // Update losses across all levels
-        for (uint8 i = 0; i < 10; i++) {
-            _monsterProgressions[monsterId][i].record.losses++;
-        }
-        emit MonsterWinLossUpdated(
-            monsterId, _monsterProgressions[monsterId][0].record.wins, _monsterProgressions[monsterId][0].record.losses
-        );
-    }
-
-    /// @notice Increments a monster's kill count across all levels
-    /// @param monsterId The ID of the monster
-    /// @dev Requires RECORD permission
-    function incrementKills(uint32 monsterId) external hasPermission(GamePermission.RECORD) monsterExists(monsterId) {
-        // Update kills across all levels
-        for (uint8 i = 0; i < 10; i++) {
-            _monsterProgressions[monsterId][i].record.kills++;
-        }
-        emit MonsterKillsUpdated(monsterId, _monsterProgressions[monsterId][0].record.kills);
-    }
-
-    /// @notice Sets a monster's retirement status
-    /// @param monsterId The ID of the monster
-    /// @param retired The new retirement status
-    /// @dev Requires RETIRE permission
-    function setMonsterRetired(uint32 monsterId, bool retired)
-        external
-        hasPermission(GamePermission.RETIRE)
-        monsterExists(monsterId)
-    {
-        _isRetired[monsterId] = retired;
-        emit MonsterRetired(monsterId, retired);
-    }
-
-    /// @notice Sets a monster's immortality status
-    /// @param monsterId The ID of the monster
-    /// @param immortal The new immortality status
-    /// @dev Requires IMMORTAL permission
-    function setMonsterImmortal(uint32 monsterId, bool immortal)
-        external
-        hasPermission(GamePermission.IMMORTAL)
-        monsterExists(monsterId)
-    {
-        _isImmortal[monsterId] = immortal;
-        emit MonsterImmortalStatusUpdated(monsterId, immortal);
-    }
-
-    /// @notice Sets permissions for a game contract
-    /// @param gameContract Address of the game contract
-    /// @param permissions Permission flags to set
-    /// @dev Only callable by the contract owner
-    function setGameContractPermissions(address gameContract, GamePermissions memory permissions) external onlyOwner {
-        _gameContractPermissions[gameContract] = permissions;
-        emit GameContractPermissionsUpdated(gameContract, permissions);
-    }
-
-    //==============================================================//
-    //                  LEVEL-AWARE IMPLEMENTATIONS                 //
-    //==============================================================//
-    /// @notice Get attributes for a monster at a specific level
-    /// @param monsterId The ID of the monster
-    /// @param level The level to get attributes for (1-10)
-    /// @return attributes The monster's attributes at the specified level
-    function getAttributesAtLevel(uint32 monsterId, uint8 level)
-        public
-        view
-        override
-        monsterExists(monsterId)
-        returns (Attributes memory)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _monsterProgressions[monsterId][level - 1].attributes;
-    }
-
-    /// @notice Get stance for a monster at a specific level
-    /// @param monsterId The ID of the monster
-    /// @param level The level to get stance for (1-10)
-    /// @return The monster's stance at the specified level
-    function getStanceAtLevel(uint32 monsterId, uint8 level)
-        public
-        view
-        override
-        monsterExists(monsterId)
-        returns (uint8)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _monsterProgressions[monsterId][level - 1].stance;
-    }
-
-    /// @notice Get skin for a monster at a specific level
-    /// @param monsterId The ID of the monster
-    /// @param level The level to get skin for (1-10)
-    /// @return The monster's skin at the specified level
-    function getSkinAtLevel(uint32 monsterId, uint8 level)
-        public
-        view
-        override
-        monsterExists(monsterId)
-        returns (SkinInfo memory)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _monsterProgressions[monsterId][level - 1].skin;
-    }
-
-    /// @notice Get record for a monster at a specific level
-    /// @param monsterId The ID of the monster
-    /// @param level The level to get record for (1-10)
-    /// @return The monster's record at the specified level
-    function getRecordAtLevel(uint32 monsterId, uint8 level)
-        public
-        view
-        override
-        monsterExists(monsterId)
-        returns (Record memory)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _monsterProgressions[monsterId][level - 1].record;
     }
 }

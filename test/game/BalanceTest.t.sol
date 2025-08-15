@@ -57,10 +57,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Shield Tank",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 3, // ARMOR_PLATE
                 weapon: 1, // WEAPON_MACE_TOWER
-                stance: 0 // STANCE_DEFENSIVE
+                armor: 3, // ARMOR_PLATE
+                stance: 0, // STANCE_DEFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -78,10 +81,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Parry Master",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 2, // WEAPON_RAPIER_BUCKLER
-                stance: 0 // STANCE_DEFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 0, // STANCE_DEFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -99,10 +105,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Berserker",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 4, // WEAPON_BATTLEAXE
-                stance: 2 // STANCE_OFFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 2, // STANCE_OFFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -120,10 +129,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Assassin",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 9, // WEAPON_DUAL_DAGGERS
-                stance: 2 // STANCE_OFFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 2, // STANCE_OFFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -141,10 +153,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Bruiser",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 1, // ARMOR_LEATHER
                 weapon: 18, // WEAPON_DUAL_CLUBS
-                stance: 2 // STANCE_OFFENSIVE
+                armor: 1, // ARMOR_LEATHER
+                stance: 2, // STANCE_OFFENSIVE
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -162,10 +177,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Vanguard",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 2, // ARMOR_CHAIN
                 weapon: 12, // WEAPON_AXE_KITE - better represents the archetype
-                stance: 1 // STANCE_BALANCED
+                armor: 2, // ARMOR_CHAIN
+                stance: 1, // STANCE_BALANCED
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -185,10 +203,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Balanced",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 2, // ARMOR_CHAIN
                 weapon: 0, // WEAPON_ARMING_SWORD_KITE
-                stance: 1 // STANCE_BALANCED
+                armor: 2, // ARMOR_CHAIN
+                stance: 1, // STANCE_BALANCED
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -206,10 +227,13 @@ contract BalanceTest is TestBase {
         return TestFighter({
             name: "Monk",
             stats: IGameEngine.FighterStats({
-                attributes: attrs,
-                armor: 0, // ARMOR_CLOTH - monastic robes
                 weapon: 5, // WEAPON_QUARTERSTAFF - traditional monk weapon
-                stance: 1 // STANCE_BALANCED - disciplined martial arts balance
+                armor: 0, // ARMOR_CLOTH - monastic robes
+                stance: 1, // STANCE_BALANCED - disciplined martial arts balance
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
             })
         });
     }
@@ -232,7 +256,15 @@ contract BalanceTest is TestBase {
 
         return TestFighter({
             name: name,
-            stats: IGameEngine.FighterStats({attributes: attrs, armor: armor, weapon: weapon, stance: stance})
+            stats: IGameEngine.FighterStats({
+                weapon: weapon,
+                armor: armor,
+                stance: stance,
+                attributes: attrs,
+                level: 1,
+                weaponSpecialization: 255, // No specialization
+                armorSpecialization: 255 // No specialization
+            })
         });
     }
 

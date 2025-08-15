@@ -97,18 +97,42 @@ contract PracticeGame is BaseGame {
         emit MonsterContractUpdated(oldContract, _newContract);
     }
 
-    /// @notice Simulates a combat between two fighters
-    /// @param player1 Loadout for the first fighter
+    /// @notice Simulates a combat between two fighters (Player2 mirrors Player1's level)
+    /// @param player1 Loadout for the first fighter (must be a Player)
     /// @param player2 Loadout for the second fighter
     /// @return bytes Encoded combat results
-    /// @dev Validates fighter eligibility and generates a pseudo-random seed for combat
     function play(Fighter.PlayerLoadout memory player1, Fighter.PlayerLoadout memory player2)
         public
         view
         returns (bytes memory)
     {
+        // Enforce that Player1 is a Player
+        require(_getFighterType(player1.playerId) == Fighter.FighterType.PLAYER, "Player1 must be a Player");
+
+        // Get Player1's level to mirror for Player2
+        uint8 player1Level = IPlayer(playerContract).getPlayer(player1.playerId).level;
+
+        // Call level-aware version with Player1's level for Player2
+        return play(player1, player2, player1Level);
+    }
+
+    /// @notice Simulates a combat between two fighters with level control for Player2
+    /// @param player1 Loadout for the first fighter (must be a Player)
+    /// @param player2 Loadout for the second fighter
+    /// @param player2Level Level to use for Player2 (ignored if Player2 is a Player)
+    /// @return bytes Encoded combat results
+    /// @dev Validates fighter eligibility and generates a pseudo-random seed for combat
+    function play(Fighter.PlayerLoadout memory player1, Fighter.PlayerLoadout memory player2, uint8 player2Level)
+        public
+        view
+        returns (bytes memory)
+    {
+        // Enforce that Player1 is a Player
+        require(_getFighterType(player1.playerId) == Fighter.FighterType.PLAYER, "Player1 must be a Player");
+
         // Fights with same playerId cause inconsistent results
         require(player1.playerId != player2.playerId, "Cannot fight yourself");
+
         // Get the appropriate Fighter contracts
         Fighter p1Fighter = _getFighterContract(player1.playerId);
         Fighter p2Fighter = _getFighterContract(player2.playerId);
@@ -117,9 +141,9 @@ contract PracticeGame is BaseGame {
         _validateFighter(player1, 1);
         _validateFighter(player2, 2);
 
-        // Convert loadouts using the appropriate Fighter implementations
-        IGameEngine.FighterStats memory p1Combat = p1Fighter.convertToFighterStats(player1);
-        IGameEngine.FighterStats memory p2Combat = p2Fighter.convertToFighterStats(player2);
+        // Get player stats and convert to FighterStats
+        IGameEngine.FighterStats memory p1Combat = _createFighterStats(p1Fighter, player1, 0); // Player1 uses intrinsic level
+        IGameEngine.FighterStats memory p2Combat = _createFighterStats(p2Fighter, player2, player2Level);
 
         // Generate a pseudo-random seed and process the game
         uint256 pseudoRandomSeed = _generatePseudoRandomSeed(player1.playerId, player2.playerId);
@@ -172,11 +196,79 @@ contract PracticeGame is BaseGame {
                 IPlayer(playerContract).getPlayer(fighter.playerId).attributes,
                 IPlayer(playerContract).equipmentRequirements()
             );
-        } else if (fighterType == Fighter.FighterType.MONSTER) {
-            require(
-                !monsterContract.isMonsterRetired(fighter.playerId),
-                string(abi.encodePacked("Player ", bytes1(playerNumber + 48), " is retired"))
-            );
+        }
+    }
+
+    /// @notice Creates FighterStats from a PlayerLoadout
+    /// @param fighter The Fighter contract instance
+    /// @param loadout The player loadout
+    /// @param levelOverride Level to use for DefaultPlayer/Monster (0 = use intrinsic for Players)
+    /// @return FighterStats struct ready for the game engine
+    function _createFighterStats(Fighter fighter, Fighter.PlayerLoadout memory loadout, uint8 levelOverride)
+        internal
+        view
+        returns (IGameEngine.FighterStats memory)
+    {
+        Fighter.FighterType fighterType = _getFighterType(loadout.playerId);
+
+        // Handle each fighter type separately since they return different struct types
+        if (fighterType == Fighter.FighterType.PLAYER) {
+            // Players always use their intrinsic level (ignore levelOverride)
+            IPlayer.PlayerStats memory playerStats = IPlayer(address(fighter)).getPlayer(loadout.playerId);
+            // Apply loadout overrides for configurable battle choices
+            playerStats.skin = loadout.skin;
+            playerStats.stance = loadout.stance;
+
+            // Get skin attributes and construct FighterStats
+            IPlayerSkinNFT.SkinAttributes memory skinAttrs = fighter.getSkinAttributes(playerStats.skin);
+            return IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: playerStats.stance,
+                attributes: playerStats.attributes,
+                level: playerStats.level,
+                weaponSpecialization: playerStats.weaponSpecialization,
+                armorSpecialization: playerStats.armorSpecialization
+            });
+        } else if (fighterType == Fighter.FighterType.DEFAULT_PLAYER) {
+            // Validate level range, fallback to reasonable default
+            uint8 level = (levelOverride >= 1 && levelOverride <= 10) ? levelOverride : 5;
+            IPlayer.PlayerStats memory defaultStats =
+                IDefaultPlayer(address(fighter)).getDefaultPlayer(loadout.playerId, level);
+            // Apply loadout overrides for configurable battle choices
+            defaultStats.skin = loadout.skin;
+            defaultStats.stance = loadout.stance;
+
+            // Get skin attributes and construct FighterStats
+            IPlayerSkinNFT.SkinAttributes memory skinAttrs = fighter.getSkinAttributes(defaultStats.skin);
+            return IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: defaultStats.stance,
+                attributes: defaultStats.attributes,
+                level: defaultStats.level,
+                weaponSpecialization: defaultStats.weaponSpecialization,
+                armorSpecialization: defaultStats.armorSpecialization
+            });
+        } else {
+            // Fighter.FighterType.MONSTER - validate level range
+            uint8 level = (levelOverride >= 1 && levelOverride <= 10) ? levelOverride : 5;
+            IMonster.MonsterStats memory monsterStats = IMonster(address(fighter)).getMonster(loadout.playerId, level);
+            // Apply loadout overrides for configurable battle choices
+            monsterStats.skin = loadout.skin;
+            monsterStats.stance = loadout.stance;
+
+            // Get skin attributes and construct FighterStats
+            IPlayerSkinNFT.SkinAttributes memory skinAttrs = fighter.getSkinAttributes(monsterStats.skin);
+            return IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: monsterStats.stance,
+                attributes: monsterStats.attributes,
+                level: monsterStats.level,
+                weaponSpecialization: monsterStats.weaponSpecialization,
+                armorSpecialization: monsterStats.armorSpecialization
+            });
         }
     }
 

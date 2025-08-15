@@ -55,8 +55,8 @@ contract LethalDamageTest is TestBase {
         Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         bytes memory results = gameEngine.processGame(
-            p1Fighter.convertToFighterStats(p1Loadout),
-            p2Fighter.convertToFighterStats(p2Loadout),
+            _convertToFighterStats(p1Loadout),
+            _convertToFighterStats(p2Loadout),
             _generateGameSeed(),
             0 // lethalityFactor = 0
         );
@@ -98,8 +98,8 @@ contract LethalDamageTest is TestBase {
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                p1Fighter.convertToFighterStats(p1Loadout),
-                p2Fighter.convertToFighterStats(p2Loadout),
+                _convertToFighterStats(p1Loadout),
+                _convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 50 // Base lethality (0.5x)
             );
@@ -149,8 +149,8 @@ contract LethalDamageTest is TestBase {
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                p1Fighter.convertToFighterStats(p1Loadout),
-                p2Fighter.convertToFighterStats(p2Loadout),
+                _convertToFighterStats(p1Loadout),
+                _convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 100 // Base lethality (1x)
             );
@@ -200,8 +200,8 @@ contract LethalDamageTest is TestBase {
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                p1Fighter.convertToFighterStats(p1Loadout),
-                p2Fighter.convertToFighterStats(p2Loadout),
+                _convertToFighterStats(p1Loadout),
+                _convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 100 // Base lethality (1x)
             );
@@ -252,8 +252,8 @@ contract LethalDamageTest is TestBase {
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(
-                p1Fighter.convertToFighterStats(p1Loadout),
-                p2Fighter.convertToFighterStats(p2Loadout),
+                _convertToFighterStats(p1Loadout),
+                _convertToFighterStats(p2Loadout),
                 _generateGameSeed() + i,
                 200 // Extra brutal lethality (2x brutal)
             );

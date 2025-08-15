@@ -823,9 +823,251 @@ contract GauntletGameTest is TestBase {
         );
     }
 
+    function testBracketValidation_LEVELS_1_TO_4_Boundaries() public {
+        // Create a levels 1-4 bracket game
+        GauntletGame levels1To4Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
+
+        // Set permissions
+        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
+            record: true,
+            retire: false,
+            attributes: false,
+            immortal: false,
+            experience: true // Need for leveling players
+        });
+        playerContract.setGameContractPermission(address(levels1To4Game), perms);
+        playerContract.setGameContractPermission(address(this), perms);
+
+        // Test level 1 (lower boundary) - should work
+        vm.startPrank(PLAYER_ONE);
+        levels1To4Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.stopPrank();
+        assertEq(uint8(levels1To4Game.playerStatus(PLAYER_ONE_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+
+        // Test level 4 (upper boundary) - should work
+        _levelUpPlayer(PLAYER_TWO_ID, 3); // Level up from 1 to 4
+        vm.startPrank(PLAYER_TWO);
+        levels1To4Game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+        assertEq(uint8(levels1To4Game.playerStatus(PLAYER_TWO_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+
+        // Test level 5 (just above boundary) - should fail with PlayerNotInBracket
+        _levelUpPlayer(PLAYER_THREE_ID, 4); // Level up from 1 to 5
+        vm.startPrank(PLAYER_THREE);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "PlayerNotInBracket(uint8,uint8)", 5, uint8(GauntletGame.LevelBracket.LEVELS_1_TO_4)
+            )
+        );
+        levels1To4Game.queueForGauntlet(_createSimpleLoadout(PLAYER_THREE_ID));
+        vm.stopPrank();
+    }
+
+    function testBracketValidation_LEVELS_5_TO_9_Boundaries() public {
+        // Create LEVELS_5_TO_9 bracket game
+        GauntletGame levels5To9Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_5_TO_9
+        );
+
+        // Set permissions
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+        playerContract.setGameContractPermission(address(levels5To9Game), perms);
+        playerContract.setGameContractPermission(address(this), perms);
+
+        // Test level 4 (just below) - should fail with PlayerNotInBracket
+        _levelUpPlayer(PLAYER_ONE_ID, 3); // Level up from 1 to 4
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "PlayerNotInBracket(uint8,uint8)", 4, uint8(GauntletGame.LevelBracket.LEVELS_5_TO_9)
+            )
+        );
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.stopPrank();
+
+        // Test level 5 (lower boundary) - should work
+        _levelUpPlayer(PLAYER_TWO_ID, 4); // Level up from 1 to 5
+        vm.startPrank(PLAYER_TWO);
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+        assertEq(uint8(levels5To9Game.playerStatus(PLAYER_TWO_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+
+        // Test level 9 (upper boundary) - should work
+        _levelUpPlayer(PLAYER_THREE_ID, 8); // Level up from 1 to 9
+        vm.startPrank(PLAYER_THREE);
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_THREE_ID));
+        vm.stopPrank();
+        assertEq(uint8(levels5To9Game.playerStatus(PLAYER_THREE_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+
+        // Test level 10 (just above) - should fail with PlayerNotInBracket
+        _levelUpPlayer(PLAYER_FOUR_ID, 9); // Level up from 1 to 10
+        vm.startPrank(PLAYER_FOUR);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "PlayerNotInBracket(uint8,uint8)", 10, uint8(GauntletGame.LevelBracket.LEVELS_5_TO_9)
+            )
+        );
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_FOUR_ID));
+        vm.stopPrank();
+    }
+
+    function testBracketValidation_LEVEL_10_Boundaries() public {
+        // Create LEVEL_10 bracket game
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10
+        );
+
+        // Set permissions
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+        playerContract.setGameContractPermission(address(level10Game), perms);
+        playerContract.setGameContractPermission(address(this), perms);
+
+        // Test level 9 (just below) - should fail with PlayerNotInBracket
+        _levelUpPlayer(PLAYER_ONE_ID, 8); // Level up from 1 to 9
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(
+            abi.encodeWithSignature("PlayerNotInBracket(uint8,uint8)", 9, uint8(GauntletGame.LevelBracket.LEVEL_10))
+        );
+        level10Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.stopPrank();
+
+        // Test level 10 (exact match) - should work
+        _levelUpPlayer(PLAYER_TWO_ID, 9); // Level up from 1 to 10
+        vm.startPrank(PLAYER_TWO);
+        level10Game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+        assertEq(uint8(level10Game.playerStatus(PLAYER_TWO_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+    }
+
+    function testAllThreeBracketTypes() public {
+        // Create one game instance for each bracket type
+        GauntletGame levels1To4Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
+
+        GauntletGame levels5To9Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_5_TO_9
+        );
+
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10
+        );
+
+        // Set permissions for all games
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+        playerContract.setGameContractPermission(address(levels1To4Game), perms);
+        playerContract.setGameContractPermission(address(levels5To9Game), perms);
+        playerContract.setGameContractPermission(address(level10Game), perms);
+        playerContract.setGameContractPermission(address(this), perms);
+
+        // Create players at different levels
+        // PLAYER_ONE: Level 1 (default)
+        // PLAYER_TWO: Level 5
+        _levelUpPlayer(PLAYER_TWO_ID, 4);
+        // PLAYER_THREE: Level 9
+        _levelUpPlayer(PLAYER_THREE_ID, 8);
+        // PLAYER_FOUR: Level 10
+        _levelUpPlayer(PLAYER_FOUR_ID, 9);
+
+        // Test cross-bracket rejection: level 1 player trying to join level 10 bracket
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(
+            abi.encodeWithSignature("PlayerNotInBracket(uint8,uint8)", 1, uint8(GauntletGame.LevelBracket.LEVEL_10))
+        );
+        level10Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.stopPrank();
+
+        // Test each player can only join their appropriate bracket
+        vm.startPrank(PLAYER_ONE);
+        levels1To4Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID)); // Level 1 -> LEVELS_1_TO_4: OK
+        vm.stopPrank();
+
+        vm.startPrank(PLAYER_TWO);
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID)); // Level 5 -> LEVELS_5_TO_9: OK
+        vm.stopPrank();
+
+        vm.startPrank(PLAYER_FOUR);
+        level10Game.queueForGauntlet(_createSimpleLoadout(PLAYER_FOUR_ID)); // Level 10 -> LEVEL_10: OK
+        vm.stopPrank();
+
+        // Verify all players were queued in their correct brackets
+        assertEq(uint8(levels1To4Game.playerStatus(PLAYER_ONE_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+        assertEq(uint8(levels5To9Game.playerStatus(PLAYER_TWO_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+        assertEq(uint8(level10Game.playerStatus(PLAYER_FOUR_ID)), uint8(GauntletGame.PlayerStatus.QUEUED));
+    }
+
+    function testPlayerNotInBracket_ErrorDetails() public {
+        // Create LEVELS_5_TO_9 bracket
+        GauntletGame levels5To9Game = new GauntletGame(
+            address(gameEngine),
+            address(playerContract),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVELS_5_TO_9
+        );
+
+        // Set permissions
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+        playerContract.setGameContractPermission(address(levels5To9Game), perms);
+        playerContract.setGameContractPermission(address(this), perms);
+
+        // Try to queue level 1 player - verify exact error: PlayerNotInBracket(1, LEVELS_5_TO_9)
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "PlayerNotInBracket(uint8,uint8)", 1, uint8(GauntletGame.LevelBracket.LEVELS_5_TO_9)
+            )
+        );
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.stopPrank();
+
+        // Try to queue level 10 player - verify exact error: PlayerNotInBracket(10, LEVELS_5_TO_9)
+        _levelUpPlayer(PLAYER_TWO_ID, 9); // Level up from 1 to 10
+        vm.startPrank(PLAYER_TWO);
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "PlayerNotInBracket(uint8,uint8)", 10, uint8(GauntletGame.LevelBracket.LEVELS_5_TO_9)
+            )
+        );
+        levels5To9Game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+    }
+
     //==============================================================//
     //                   HELPER FUNCTIONS                          //
     //==============================================================//
+
+    function _levelUpPlayer(uint32 playerId, uint256 levels) internal {
+        for (uint256 i = 0; i < levels; i++) {
+            // Award enough XP to level up (level 1->2 needs 100 XP, etc.)
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+            uint16 xpNeeded = playerContract.getXPRequiredForLevel(stats.level + 1) - stats.currentXP;
+            playerContract.awardExperience(playerId, xpNeeded);
+        }
+    }
 
     function _createSimpleLoadout(uint32 playerId) internal pure returns (Fighter.PlayerLoadout memory) {
         return Fighter.PlayerLoadout({

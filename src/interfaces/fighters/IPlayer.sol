@@ -168,31 +168,6 @@ interface IPlayer {
     /// @return bool True if the ID is within valid player range
     function isValidId(uint32 playerId) external pure returns (bool);
 
-    /// @notice Get the current skin information for a player
-    /// @param playerId The ID of the player
-    /// @return The player's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) external view returns (Fighter.SkinInfo memory);
-
-    /// @notice Gets the current stance for a player
-    /// @param playerId The ID of the player to query
-    /// @return The player's current stance
-    function getCurrentStance(uint32 playerId) external view returns (uint8);
-
-    /// @notice Get the current attributes for a player
-    /// @param playerId The ID of the player
-    /// @return attributes The player's current base attributes
-    function getCurrentAttributes(uint32 playerId) external view returns (Fighter.Attributes memory);
-
-    /// @notice Get the current combat record for a player
-    /// @param playerId The ID of the player
-    /// @return The player's current win/loss/kill record
-    function getCurrentRecord(uint32 playerId) external view returns (Fighter.Record memory);
-
-    /// @notice Get the current name for a player
-    /// @param playerId The ID of the player
-    /// @return The player's current name
-    function getCurrentName(uint32 playerId) external view returns (PlayerName memory);
-
     // State-Changing Functions
     /// @notice Requests creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation

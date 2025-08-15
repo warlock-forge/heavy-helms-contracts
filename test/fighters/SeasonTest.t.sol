@@ -229,13 +229,13 @@ contract SeasonTest is TestBase {
         playerContract.incrementWins(testPlayerId1);
         playerContract.incrementLosses(testPlayerId1);
 
-        // getCurrentRecord should return seasonal data (interface compatibility)
-        Fighter.Record memory currentRecord = playerContract.getCurrentRecord(testPlayerId1);
+        // In season 0, lifetime record should match seasonal record
+        Fighter.Record memory lifetimeRecord = playerContract.getLifetimeRecord(testPlayerId1);
         Fighter.Record memory seasonalRecord = playerContract.getCurrentSeasonRecord(testPlayerId1);
 
-        assertEq(currentRecord.wins, seasonalRecord.wins, "getCurrentRecord should match seasonal");
-        assertEq(currentRecord.losses, seasonalRecord.losses, "getCurrentRecord should match seasonal");
-        assertEq(currentRecord.kills, seasonalRecord.kills, "getCurrentRecord should match seasonal");
+        assertEq(lifetimeRecord.wins, seasonalRecord.wins, "Lifetime should match seasonal in season 0");
+        assertEq(lifetimeRecord.losses, seasonalRecord.losses, "Lifetime should match seasonal in season 0");
+        assertEq(lifetimeRecord.kills, seasonalRecord.kills, "Lifetime should match seasonal in season 0");
     }
 
     // ==================== HISTORICAL ENCODING TESTS ====================

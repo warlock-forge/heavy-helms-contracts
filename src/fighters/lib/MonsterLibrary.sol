@@ -81,8 +81,10 @@ library MonsterLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            level: 1
+            level: 1,
+            currentXP: 0,
+            armorSpecialization: 255,
+            weaponSpecialization: 255
         });
 
         return (
@@ -103,8 +105,10 @@ library MonsterLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            level: 1
+            level: 1,
+            currentXP: 0,
+            armorSpecialization: 255,
+            weaponSpecialization: 255
         });
 
         return (
@@ -125,8 +129,10 @@ library MonsterLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            level: 1
+            level: 1,
+            currentXP: 0,
+            armorSpecialization: 255,
+            weaponSpecialization: 255
         });
 
         return (
@@ -147,8 +153,10 @@ library MonsterLibrary {
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
-            record: Fighter.Record({wins: 0, losses: 0, kills: 0}),
-            level: 1
+            level: 1,
+            currentXP: 0,
+            armorSpecialization: 255,
+            weaponSpecialization: 255
         });
 
         return (

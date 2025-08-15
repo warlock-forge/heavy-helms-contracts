@@ -125,53 +125,6 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         return playerId >= DEFAULT_PLAYER_START && playerId <= Fighter.DEFAULT_PLAYER_END;
     }
 
-    /// @notice Get the current skin information for a default player
-    /// @param playerId The ID of the default player
-    /// @return The default player's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) public view override(IDefaultPlayer, Fighter) returns (SkinInfo memory) {
-        revert("DefaultPlayer: Use getSkinAtLevel - level must be specified");
-    }
-
-    /// @notice Gets the current stance for a default player
-    /// @param playerId The ID of the default player to query
-    /// @return The default player's current stance
-    function getCurrentStance(uint32 playerId) public view override(Fighter, IDefaultPlayer) returns (uint8) {
-        revert("DefaultPlayer: Use getStanceAtLevel - level must be specified");
-    }
-
-    /// @notice Get the current attributes for a default player
-    /// @param playerId The ID of the default player
-    /// @return attributes The default player's current base attributes
-    function getCurrentAttributes(uint32 playerId)
-        public
-        view
-        override(Fighter, IDefaultPlayer)
-        returns (Attributes memory)
-    {
-        revert("DefaultPlayer: Use getAttributesAtLevel - level must be specified");
-    }
-
-    /// @notice Get the current combat record for a default player
-    /// @param playerId The ID of the default player
-    /// @return The default player's current win/loss/kill record
-    function getCurrentRecord(uint32 playerId) public view override(Fighter, IDefaultPlayer) returns (Record memory) {
-        revert("DefaultPlayer: Use getRecordAtLevel - level must be specified");
-    }
-
-    /// @notice Get the current name for a default player
-    /// @param playerId The ID of the default player
-    /// @return The default player's current name
-    function getCurrentName(uint32 playerId)
-        public
-        view
-        override(IDefaultPlayer)
-        defaultPlayerExists(playerId)
-        returns (IPlayer.PlayerName memory)
-    {
-        // Name is consistent across all levels, return from level 1
-        return _defaultPlayerProgressions[playerId][0].name;
-    }
-
     /// @notice Get the complete stats for a default player at a specific level
     /// @param playerId The ID of the default player to query
     /// @param level The level to get stats for (1-10)
@@ -274,69 +227,5 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
         _defaultPlayerProgressions[playerId] = newAllLevelStats;
 
         emit DefaultPlayerStatsUpdated(playerId, level1Stats);
-    }
-
-    //==============================================================//
-    //                  LEVEL-AWARE IMPLEMENTATIONS                 //
-    //==============================================================//
-    /// @notice Get attributes for a default player at a specific level
-    /// @param playerId The ID of the default player
-    /// @param level The level to get attributes for (1-10)
-    /// @return attributes The default player's attributes at the specified level
-    function getAttributesAtLevel(uint32 playerId, uint8 level)
-        public
-        view
-        override
-        defaultPlayerExists(playerId)
-        returns (Attributes memory)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _defaultPlayerProgressions[playerId][level - 1].attributes;
-    }
-
-    /// @notice Get stance for a default player at a specific level
-    /// @param playerId The ID of the default player
-    /// @param level The level to get stance for (1-10)
-    /// @return The default player's stance at the specified level
-    function getStanceAtLevel(uint32 playerId, uint8 level)
-        public
-        view
-        override
-        defaultPlayerExists(playerId)
-        returns (uint8)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _defaultPlayerProgressions[playerId][level - 1].stance;
-    }
-
-    /// @notice Get skin for a default player at a specific level
-    /// @param playerId The ID of the default player
-    /// @param level The level to get skin for (1-10)
-    /// @return The default player's skin at the specified level
-    function getSkinAtLevel(uint32 playerId, uint8 level)
-        public
-        view
-        override
-        defaultPlayerExists(playerId)
-        returns (SkinInfo memory)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        return _defaultPlayerProgressions[playerId][level - 1].skin;
-    }
-
-    /// @notice Get record for a default player at a specific level
-    /// @param playerId The ID of the default player
-    /// @param level The level to get record for (1-10)
-    /// @return The default player's record at the specified level (always empty)
-    function getRecordAtLevel(uint32 playerId, uint8 level)
-        public
-        view
-        override
-        defaultPlayerExists(playerId)
-        returns (Record memory)
-    {
-        require(level >= 1 && level <= 10, "Invalid level");
-        // Default players don't track records, return empty record
-        return Record({wins: 0, losses: 0, kills: 0});
     }
 }

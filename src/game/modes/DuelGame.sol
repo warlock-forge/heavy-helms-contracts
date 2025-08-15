@@ -433,32 +433,30 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         });
         defenderStats.stance = challenge.defenderLoadout.stance;
 
-        // Get challenger skin attributes
-        IPlayerSkinRegistry.SkinCollectionInfo memory challengerSkinInfo =
-            playerContract.skinRegistry().getSkin(challengerStats.skin.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory challengerAttrs =
-            IPlayerSkinNFT(challengerSkinInfo.contractAddress).getSkinAttributes(challengerStats.skin.skinTokenId);
-
-        // Get defender skin attributes
-        IPlayerSkinRegistry.SkinCollectionInfo memory defenderSkinInfo =
-            playerContract.skinRegistry().getSkin(defenderStats.skin.skinIndex);
-        IPlayerSkinNFT.SkinAttributes memory defenderAttrs =
-            IPlayerSkinNFT(defenderSkinInfo.contractAddress).getSkinAttributes(defenderStats.skin.skinTokenId);
-
-        // Create FighterStats
+        // Get challenger skin attributes and construct FighterStats
+        IPlayerSkinNFT.SkinAttributes memory challengerSkinAttrs =
+            Fighter(address(playerContract)).getSkinAttributes(challengerStats.skin);
         IGameEngine.FighterStats memory challengerCombat = IGameEngine.FighterStats({
-            weapon: challengerAttrs.weapon,
-            armor: challengerAttrs.armor,
-            stance: challenge.challengerLoadout.stance,
-            attributes: challengerStats.attributes
+            weapon: challengerSkinAttrs.weapon,
+            armor: challengerSkinAttrs.armor,
+            stance: challengerStats.stance,
+            attributes: challengerStats.attributes,
+            level: challengerStats.level,
+            weaponSpecialization: challengerStats.weaponSpecialization,
+            armorSpecialization: challengerStats.armorSpecialization
         });
 
-        // Create FighterStats
+        // Get defender skin attributes and construct FighterStats
+        IPlayerSkinNFT.SkinAttributes memory defenderSkinAttrs =
+            Fighter(address(playerContract)).getSkinAttributes(defenderStats.skin);
         IGameEngine.FighterStats memory defenderCombat = IGameEngine.FighterStats({
-            weapon: defenderAttrs.weapon,
-            armor: defenderAttrs.armor,
-            stance: challenge.defenderLoadout.stance,
-            attributes: defenderStats.attributes
+            weapon: defenderSkinAttrs.weapon,
+            armor: defenderSkinAttrs.armor,
+            stance: defenderStats.stance,
+            attributes: defenderStats.attributes,
+            level: defenderStats.level,
+            weaponSpecialization: defenderStats.weaponSpecialization,
+            armorSpecialization: defenderStats.armorSpecialization
         });
 
         // Get seasonal records BEFORE the fight (for historical accuracy)

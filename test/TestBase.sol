@@ -13,8 +13,11 @@ import {GelatoVRFAutoMock} from "./mocks/GelatoVRFAutoMock.sol";
 
 // Interfaces
 import {IPlayer} from "../src/interfaces/fighters/IPlayer.sol";
+import {IDefaultPlayer} from "../src/interfaces/fighters/IDefaultPlayer.sol";
+import {IMonster} from "../src/interfaces/fighters/IMonster.sol";
 import {IGameEngine} from "../src/interfaces/game/engine/IGameEngine.sol";
 import {IPlayerSkinRegistry} from "../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerSkinNFT} from "../src/interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 // Concrete implementations (needed for deployment)
 import {Player} from "../src/fighters/Player.sol";
@@ -334,22 +337,73 @@ abstract contract TestBase is Test {
 
     // Helper function to create a player loadout that supports both practice and duel game test cases
     function _createLoadout(uint32 fighterId) internal view returns (Fighter.PlayerLoadout memory) {
-        Fighter fighter = _getFighterContract(fighterId);
-        Fighter.SkinInfo memory skin;
-        uint8 stance;
-
-        // Handle fighter-type aware calls
         Fighter.FighterType fighterType = _getFighterType(fighterId);
-        if (fighterType == Fighter.FighterType.PLAYER) {
-            skin = fighter.getCurrentSkin(fighterId);
-            stance = fighter.getCurrentStance(fighterId);
-        } else {
-            // For DefaultPlayer/Monster, use level 5 as default in tests
-            skin = fighter.getSkinAtLevel(fighterId, 5);
-            stance = fighter.getStanceAtLevel(fighterId, 5);
-        }
 
-        return Fighter.PlayerLoadout({playerId: fighterId, skin: skin, stance: stance});
+        if (fighterType == Fighter.FighterType.PLAYER) {
+            // For Players, get their stats and extract skin/stance
+            IPlayer.PlayerStats memory stats = IPlayer(address(playerContract)).getPlayer(fighterId);
+            return Fighter.PlayerLoadout({playerId: fighterId, skin: stats.skin, stance: stats.stance});
+        } else if (fighterType == Fighter.FighterType.DEFAULT_PLAYER) {
+            // For DefaultPlayers, get stats at any level (skin/stance don't change)
+            IPlayer.PlayerStats memory stats =
+                IDefaultPlayer(address(defaultPlayerContract)).getDefaultPlayer(fighterId, 1);
+            return Fighter.PlayerLoadout({playerId: fighterId, skin: stats.skin, stance: stats.stance});
+        } else {
+            // For Monsters, get stats at any level (skin/stance don't change)
+            IMonster.MonsterStats memory stats = IMonster(address(monsterContract)).getMonster(fighterId, 1);
+            return Fighter.PlayerLoadout({playerId: fighterId, skin: stats.skin, stance: stats.stance});
+        }
+    }
+
+    // Helper function to convert PlayerLoadout to FighterStats for direct GameEngine testing
+    function _convertToFighterStats(Fighter.PlayerLoadout memory loadout)
+        internal
+        view
+        returns (IGameEngine.FighterStats memory)
+    {
+        Fighter.FighterType fighterType = _getFighterType(loadout.playerId);
+
+        if (fighterType == Fighter.FighterType.PLAYER) {
+            IPlayer.PlayerStats memory stats = IPlayer(address(playerContract)).getPlayer(loadout.playerId);
+            IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+                Fighter(address(playerContract)).getSkinAttributes(loadout.skin);
+            return IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: loadout.stance,
+                attributes: stats.attributes,
+                level: stats.level,
+                weaponSpecialization: stats.weaponSpecialization,
+                armorSpecialization: stats.armorSpecialization
+            });
+        } else if (fighterType == Fighter.FighterType.DEFAULT_PLAYER) {
+            IPlayer.PlayerStats memory stats =
+                IDefaultPlayer(address(defaultPlayerContract)).getDefaultPlayer(loadout.playerId, 1);
+            IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+                Fighter(address(defaultPlayerContract)).getSkinAttributes(loadout.skin);
+            return IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: loadout.stance,
+                attributes: stats.attributes,
+                level: 1,
+                weaponSpecialization: 255,
+                armorSpecialization: 255
+            });
+        } else {
+            IMonster.MonsterStats memory stats = IMonster(address(monsterContract)).getMonster(loadout.playerId, 1);
+            IPlayerSkinNFT.SkinAttributes memory skinAttrs =
+                Fighter(address(monsterContract)).getSkinAttributes(loadout.skin);
+            return IGameEngine.FighterStats({
+                weapon: skinAttrs.weapon,
+                armor: skinAttrs.armor,
+                stance: loadout.stance,
+                attributes: stats.attributes,
+                level: 1,
+                weaponSpecialization: 255,
+                armorSpecialization: 255
+            });
+        }
     }
 
     // Helper function to determine fighter type based on ID range

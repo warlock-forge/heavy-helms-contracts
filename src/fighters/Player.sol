@@ -598,59 +598,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         return playerId >= USER_PLAYER_START && playerId <= USER_PLAYER_END;
     }
 
-    /// @notice Get the current skin information for a player
-    /// @param playerId The ID of the player
-    /// @return The player's equipped skin information (index and token ID)
-    function getCurrentSkin(uint32 playerId) public view override(Fighter, IPlayer) returns (SkinInfo memory) {
-        return _players[playerId].skin;
-    }
-
-    /// @notice Gets the current stance for a player
-    /// @param playerId The ID of the player to query
-    /// @return The player's current stance
-    function getCurrentStance(uint32 playerId)
-        public
-        view
-        override(Fighter, IPlayer)
-        playerExists(playerId)
-        returns (uint8)
-    {
-        return _players[playerId].stance;
-    }
-
-    /// @notice Get the current attributes for a player
-    /// @param playerId The ID of the player
-    /// @return attributes The player's current base attributes
-    function getCurrentAttributes(uint32 playerId)
-        public
-        view
-        override(Fighter, IPlayer)
-        playerExists(playerId)
-        returns (Attributes memory)
-    {
-        return _players[playerId].attributes;
-    }
-
-    /// @notice Get the current combat record for a player
-    /// @param playerId The ID of the player
-    /// @return The player's current win/loss/kill record
-    function getCurrentRecord(uint32 playerId)
-        public
-        view
-        override(Fighter, IPlayer)
-        playerExists(playerId)
-        returns (Record memory)
-    {
-        return seasonalRecords[playerId][currentSeason];
-    }
-
-    /// @notice Get the current name for a player
-    /// @param playerId The ID of the player
-    /// @return The player's current name
-    function getCurrentName(uint32 playerId) public view playerExists(playerId) returns (PlayerName memory) {
-        return _players[playerId].name;
-    }
-
     // State-Changing Functions
     /// @notice Initiates the creation of a new player with random stats
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
@@ -1358,32 +1305,5 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         else if (attr == Attribute.AGILITY) player.attributes.agility = value;
         else if (attr == Attribute.STAMINA) player.attributes.stamina = value;
         else player.attributes.luck = value;
-    }
-
-    //==============================================================//
-    //                  LEVEL-AWARE IMPLEMENTATIONS                 //
-    //==============================================================//
-    /// @notice Get attributes for a player at a specific level
-    /// @dev Player level is intrinsic - use getCurrentAttributes instead
-    function getAttributesAtLevel(uint32 playerId, uint8 level) public view override returns (Attributes memory) {
-        revert("Player: Use getCurrentAttributes - level is intrinsic to player");
-    }
-
-    /// @notice Get stance for a player at a specific level
-    /// @dev Player level is intrinsic - use getCurrentStance instead
-    function getStanceAtLevel(uint32 playerId, uint8 level) public view override returns (uint8) {
-        revert("Player: Use getCurrentStance - level is intrinsic to player");
-    }
-
-    /// @notice Get skin for a player at a specific level
-    /// @dev Player level is intrinsic - use getCurrentSkin instead
-    function getSkinAtLevel(uint32 playerId, uint8 level) public view override returns (SkinInfo memory) {
-        revert("Player: Use getCurrentSkin - level is intrinsic to player");
-    }
-
-    /// @notice Get record for a player at a specific level
-    /// @dev Player level is intrinsic - use getCurrentRecord instead
-    function getRecordAtLevel(uint32 playerId, uint8 level) public view override returns (Record memory) {
-        revert("Player: Use getCurrentRecord - level is intrinsic to player");
     }
 }

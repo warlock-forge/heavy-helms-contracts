@@ -39,10 +39,8 @@ contract ActionPointsTest is TestBase {
             stance: 1
         });
 
-        IGameEngine.FighterStats memory fastStats =
-            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout);
-        IGameEngine.FighterStats memory slowStats =
-            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout);
+        IGameEngine.FighterStats memory fastStats = _convertToFighterStats(fastLoadout);
+        IGameEngine.FighterStats memory slowStats = _convertToFighterStats(slowLoadout);
 
         // Use a fixed seed for deterministic behavior
         uint256 fixedSeed = 0x1111111111111111111111111111111111111111111111111111111111111111;
@@ -91,10 +89,7 @@ contract ActionPointsTest is TestBase {
         uint256 fixedSeed = 0x2222222222222222222222222222222222222222222222222222222222222222;
 
         bytes memory results = gameEngine.processGame(
-            _getFighterContract(slowLoadout.playerId).convertToFighterStats(slowLoadout),
-            _getFighterContract(fastLoadout.playerId).convertToFighterStats(fastLoadout),
-            fixedSeed,
-            0
+            _convertToFighterStats(slowLoadout), _convertToFighterStats(fastLoadout), fixedSeed, 0
         );
 
         (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
@@ -137,12 +132,8 @@ contract ActionPointsTest is TestBase {
         // Use a fixed seed to ensure deterministic behavior regardless of test order
         uint256 fixedSeed = 0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd;
 
-        bytes memory results = gameEngine.processGame(
-            _getFighterContract(p1Loadout.playerId).convertToFighterStats(p1Loadout),
-            _getFighterContract(p2Loadout.playerId).convertToFighterStats(p2Loadout),
-            fixedSeed,
-            0
-        );
+        bytes memory results =
+            gameEngine.processGame(_convertToFighterStats(p1Loadout), _convertToFighterStats(p2Loadout), fixedSeed, 0);
 
         (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
