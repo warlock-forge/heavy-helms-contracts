@@ -94,7 +94,7 @@ contract LethalDamageTest is TestBase {
         Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
-        uint256 totalFights = 50;
+        uint256 totalFights = 100;
 
         for (uint256 i = 0; i < totalFights; i++) {
             bytes memory results = gameEngine.processGame(

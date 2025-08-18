@@ -689,7 +689,6 @@ abstract contract TestBase is Test {
         if (weapon == gameEngine.WEAPON_SCIMITAR_BUCKLER()) return "ScimitarBuckler";
         if (weapon == gameEngine.WEAPON_AXE_KITE()) return "AxeKite";
         if (weapon == gameEngine.WEAPON_AXE_TOWER()) return "AxeTower";
-        if (weapon == gameEngine.WEAPON_FLAIL_BUCKLER()) return "FlailBuckler";
         if (weapon == gameEngine.WEAPON_MACE_KITE()) return "MaceKite";
         if (weapon == gameEngine.WEAPON_CLUB_TOWER()) return "ClubTower";
 
@@ -712,7 +711,6 @@ abstract contract TestBase is Test {
         if (weapon == gameEngine.WEAPON_SCIMITAR_DAGGER()) return "ScimitarDagger";
         if (weapon == gameEngine.WEAPON_ARMING_SWORD_CLUB()) return "ArmingSwordClub";
         if (weapon == gameEngine.WEAPON_AXE_MACE()) return "AxeMace";
-        if (weapon == gameEngine.WEAPON_FLAIL_DAGGER()) return "FlailDagger";
         if (weapon == gameEngine.WEAPON_MACE_SHORTSWORD()) return "MaceShortsword";
 
         return "Unknown";

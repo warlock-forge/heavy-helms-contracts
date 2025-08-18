@@ -64,6 +64,8 @@ error InvalidNameIndex();
 error InvalidPlayerRange();
 /// @notice Thrown when no pending request exists
 error NoPendingRequest();
+/// @notice Thrown when an invalid weapon class is provided
+error InvalidWeaponClass();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -349,8 +351,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
     /// @notice Emitted when a player's weapon specialization changes
     /// @param playerId The ID of the player
-    /// @param weaponType The new weapon specialization (255 = none)
-    event PlayerWeaponSpecializationChanged(uint32 indexed playerId, uint8 weaponType);
+    /// @param weaponClass The new weapon class specialization (0-6, 255 = none)
+    event PlayerWeaponSpecializationChanged(uint32 indexed playerId, uint8 weaponClass);
 
     /// @notice Emitted when a player's armor specialization changes
     /// @param playerId The ID of the player
@@ -784,18 +786,23 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
     /// @notice Sets weapon specialization for a player by burning a specialization ticket
     /// @param playerId The ID of the player
-    /// @param weaponType The weapon type to specialize in (255 = none)
-    function setWeaponSpecialization(uint32 playerId, uint8 weaponType)
+    /// @param weaponClass The weapon class to specialize in (0-6, 255 = none)
+    function setWeaponSpecialization(uint32 playerId, uint8 weaponClass)
         external
         playerExists(playerId)
         onlyPlayerOwner(playerId)
     {
+        // Validate weapon class (0-6 are valid classes, 255 = no specialization)
+        if (weaponClass != 255 && weaponClass > 6) {
+            revert InvalidWeaponClass();
+        }
+
         // Burn a weapon specialization ticket
         _playerTickets.burnFrom(msg.sender, _playerTickets.WEAPON_SPECIALIZATION_TICKET(), 1);
 
-        _players[playerId].weaponSpecialization = weaponType;
+        _players[playerId].weaponSpecialization = weaponClass;
 
-        emit PlayerWeaponSpecializationChanged(playerId, weaponType);
+        emit PlayerWeaponSpecializationChanged(playerId, weaponClass);
     }
 
     /// @notice Sets armor specialization for a player by burning a specialization ticket

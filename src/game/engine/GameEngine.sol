@@ -14,7 +14,7 @@ import "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 29;
+    uint16 public constant version = 256;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -131,16 +131,15 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 13; // Increased to ensure exhaustion mechanics work properly
-    uint8 private immutable STAMINA_BLOCK = 2; // Cut in half - encourage defensive play
-    uint8 private immutable STAMINA_DODGE = 2; // Cut in half - encourage defensive play
-    uint8 private immutable STAMINA_COUNTER = 3; // Cut in half - encourage defensive play
-    uint8 private immutable STAMINA_PARRY = 2; // Cut in half - encourage defensive play
-    uint8 private immutable STAMINA_RIPOSTE = 3; // Cut in half - encourage defensive play
+    uint8 private immutable STAMINA_ATTACK = 14;
+    uint8 private immutable STAMINA_BLOCK = 2;
+    uint8 private immutable STAMINA_DODGE = 2;
+    uint8 private immutable STAMINA_COUNTER = 3;
+    uint8 private immutable STAMINA_PARRY = 2;
+    uint8 private immutable STAMINA_RIPOSTE = 3;
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
-    uint16 private constant REACH_DODGE_BONUS = 5; // Reduced from 10 - better balance with shield weapons
-    // Add base survival constant
+    uint8 private constant REACH_DODGE_BONUS = 5;
     uint8 private constant BASE_SURVIVAL_CHANCE = 95;
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
     uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
@@ -162,7 +161,6 @@ contract GameEngine is IGameEngine {
     uint8 public constant WEAPON_AXE_KITE = 12;
     uint8 public constant WEAPON_AXE_TOWER = 13;
     uint8 public constant WEAPON_DUAL_SCIMITARS = 14;
-    uint8 public constant WEAPON_FLAIL_BUCKLER = 15;
     uint8 public constant WEAPON_MACE_KITE = 16;
     uint8 public constant WEAPON_CLUB_TOWER = 17;
     uint8 public constant WEAPON_DUAL_CLUBS = 18;
@@ -170,7 +168,6 @@ contract GameEngine is IGameEngine {
     uint8 public constant WEAPON_SCIMITAR_DAGGER = 20;
     uint8 public constant WEAPON_ARMING_SWORD_CLUB = 21;
     uint8 public constant WEAPON_AXE_MACE = 22;
-    uint8 public constant WEAPON_FLAIL_DAGGER = 23;
     uint8 public constant WEAPON_MACE_SHORTSWORD = 24;
     uint8 public constant WEAPON_MAUL = 25;
     uint8 public constant WEAPON_TRIDENT = 26;
@@ -381,6 +378,85 @@ contract GameEngine is IGameEngine {
         // Calculate base survival rate
         uint16 baseSurvivalRate =
             BASE_SURVIVAL_CHANCE + (uint16(player.attributes.luck) * 2) + uint16(player.attributes.constitution);
+
+        // Apply level scaling (v1.0)
+        // +5% health per level above 1 (max +45% at level 10)
+        if (player.level > 1) {
+            uint32 levelBonus = uint32(player.level - 1) * 5; // 5% per level
+            maxHealth = uint16((uint32(maxHealth) * (100 + levelBonus)) / 100);
+
+            // +5% damage per level above 1 (max +45% at level 10)
+            uint32 damageLevelBonus = uint32(player.level - 1) * 5; // 5% per level
+            physicalPowerMod = uint16((uint32(physicalPowerMod) * (100 + damageLevelBonus)) / 100);
+
+            // +2 initiative per level above 1 (max +18 at level 10)
+            uint32 initiativeLevelBonus = uint32(player.level - 1) * 2; // 2 per level
+            initiative = uint16(uint32(initiative) + initiativeLevelBonus);
+        }
+
+        // Apply weapon specialization bonuses (v1.0)
+        // Check if player's weapon specialization matches their equipped weapon's class
+        if (player.weaponSpecialization != 255) {
+            // 255 = no specialization
+            if (uint8(weaponStats.weaponClass) == player.weaponSpecialization) {
+                // Apply class-specific bonuses
+                if (weaponStats.weaponClass == WeaponClass.LIGHT_FINESSE) {
+                    // +10 initiative, +10% endurance (stamina efficiency)
+                    initiative += 10;
+                    maxEndurance = uint16((uint32(maxEndurance) * 110) / 100);
+                } else if (weaponStats.weaponClass == WeaponClass.CURVED_BLADE) {
+                    // +5% crit chance, +3% dodge
+                    critChance = uint16((uint32(critChance) * 105) / 100);
+                    dodgeChance = uint16((uint32(dodgeChance) * 103) / 100);
+                } else if (weaponStats.weaponClass == WeaponClass.BALANCED_SWORD) {
+                    // +3% hit chance, +5% damage
+                    hitChance = uint16((uint32(hitChance) * 103) / 100);
+                    physicalPowerMod = uint16((uint32(physicalPowerMod) * 105) / 100);
+                } else if (weaponStats.weaponClass == WeaponClass.PURE_BLUNT) {
+                    // +5% counter chance, +5% damage
+                    counterChance = uint16((uint32(counterChance) * 105) / 100);
+                    physicalPowerMod = uint16((uint32(physicalPowerMod) * 105) / 100);
+                } else if (weaponStats.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
+                    // +10% crit multiplier, +7% damage
+                    critMultiplier = uint16((uint32(critMultiplier) * 110) / 100);
+                    physicalPowerMod = uint16((uint32(physicalPowerMod) * 107) / 100);
+                } else if (weaponStats.weaponClass == WeaponClass.DUAL_WIELD_BRUTE) {
+                    // +10% endurance (stamina efficiency), +3% parry
+                    maxEndurance = uint16((uint32(maxEndurance) * 110) / 100);
+                    parryChance = uint16((uint32(parryChance) * 103) / 100);
+                } else if (weaponStats.weaponClass == WeaponClass.REACH_CONTROL) {
+                    // +5% dodge, +5% parry
+                    dodgeChance = uint16((uint32(dodgeChance) * 105) / 100);
+                    parryChance = uint16((uint32(parryChance) * 105) / 100);
+                }
+            }
+        }
+
+        // Apply armor specialization bonuses (v1.0)
+        // Check if player's armor specialization matches their equipped armor
+        if (player.armorSpecialization != 255) {
+            // 255 = no specialization
+            if (player.armor == player.armorSpecialization) {
+                // Apply armor-specific bonuses
+                if (player.armor == ARMOR_CLOTH) {
+                    // +10% dodge, +15% endurance (light & efficient)
+                    dodgeChance = uint16((uint32(dodgeChance) * 110) / 100);
+                    maxEndurance = uint16((uint32(maxEndurance) * 115) / 100);
+                } else if (player.armor == ARMOR_LEATHER) {
+                    // +5% dodge, +10% endurance (moderate mobility)
+                    dodgeChance = uint16((uint32(dodgeChance) * 105) / 100);
+                    maxEndurance = uint16((uint32(maxEndurance) * 110) / 100);
+                } else if (player.armor == ARMOR_CHAIN) {
+                    // +5% health, +3% block (balanced protection)
+                    maxHealth = uint16((uint32(maxHealth) * 105) / 100);
+                    blockChance = uint16((uint32(blockChance) * 103) / 100);
+                } else if (player.armor == ARMOR_PLATE) {
+                    // +10% health, +5% block (maximum protection)
+                    maxHealth = uint16((uint32(maxHealth) * 110) / 100);
+                    blockChance = uint16((uint32(blockChance) * 105) / 100);
+                }
+            }
+        }
 
         return CalculatedStats({
             maxHealth: maxHealth,
@@ -1012,8 +1088,14 @@ contract GameEngine is IGameEngine {
         // Calculate dodge bonus vs different weapon classes
         uint32 classDodgeBonus = 0;
         if (attacker.weapon.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
-            // HEAVY_DEMOLITION weapons are easier to dodge
-            classDodgeBonus = 10; // Reduced from 25% - more reasonable bonus vs heavy weapons
+            // HEAVY_DEMOLITION weapons are significantly easier to dodge (telegraphed swings)
+            classDodgeBonus = 15; // Major bonus vs heavy weapons
+        } else if (
+            attacker.weapon.weaponClass == WeaponClass.DUAL_WIELD_BRUTE
+                || attacker.weapon.weaponClass == WeaponClass.PURE_BLUNT
+        ) {
+            // DUAL_WIELD_BRUTE and PURE_BLUNT are moderately easier to dodge
+            classDodgeBonus = 5; // Moderate bonus vs these weapon types
         }
         // Other weapon classes get no dodge bonus
 
@@ -1648,22 +1730,6 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function FLAIL_BUCKLER() public pure returns (WeaponStats memory) {
-        return WeaponStats({
-            minDamage: 50, // Buffed to 38-40 DPR range
-            maxDamage: 63, // Buffed to 38-40 DPR range
-            attackSpeed: 70,
-            parryChance: 260,
-            riposteChance: 220,
-            critMultiplier: 225,
-            staminaMultiplier: 95,
-            survivalFactor: 120,
-            damageType: DamageType.Blunt,
-            shieldType: ShieldType.BUCKLER,
-            weaponClass: WeaponClass.PURE_BLUNT
-        });
-    }
-
     function MACE_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 43, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
@@ -1826,22 +1892,6 @@ contract GameEngine is IGameEngine {
         });
     }
 
-    function FLAIL_DAGGER() public pure returns (WeaponStats memory) {
-        return WeaponStats({
-            minDamage: 60, // v28: Buffed +5% to counter Shield Tanks
-            maxDamage: 84, // v28: Buffed +5% to counter Shield Tanks
-            attackSpeed: 70,
-            parryChance: 200,
-            riposteChance: 140,
-            critMultiplier: 200,
-            staminaMultiplier: 155, // v28: Better efficiency vs Shield Tanks
-            survivalFactor: 95,
-            damageType: DamageType.Hybrid_Pierce_Blunt,
-            shieldType: ShieldType.NONE,
-            weaponClass: WeaponClass.DUAL_WIELD_BRUTE
-        });
-    }
-
     function MACE_SHORTSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
             minDamage: 60, // v28: Buffed +5% to counter Shield Tanks
@@ -1907,7 +1957,6 @@ contract GameEngine is IGameEngine {
         if (weapon == WEAPON_AXE_KITE) return AXE_KITE();
         if (weapon == WEAPON_AXE_TOWER) return AXE_TOWER();
         if (weapon == WEAPON_DUAL_SCIMITARS) return DUAL_SCIMITARS();
-        if (weapon == WEAPON_FLAIL_BUCKLER) return FLAIL_BUCKLER();
         if (weapon == WEAPON_MACE_KITE) return MACE_KITE();
         if (weapon == WEAPON_CLUB_TOWER) return CLUB_TOWER();
         if (weapon == WEAPON_DUAL_CLUBS) return DUAL_CLUBS();
@@ -1915,7 +1964,6 @@ contract GameEngine is IGameEngine {
         if (weapon == WEAPON_SCIMITAR_DAGGER) return SCIMITAR_DAGGER();
         if (weapon == WEAPON_ARMING_SWORD_CLUB) return ARMING_SWORD_CLUB();
         if (weapon == WEAPON_AXE_MACE) return AXE_MACE();
-        if (weapon == WEAPON_FLAIL_DAGGER) return FLAIL_DAGGER();
         if (weapon == WEAPON_MACE_SHORTSWORD) return MACE_SHORTSWORD();
         if (weapon == WEAPON_MAUL) return MAUL();
         if (weapon == WEAPON_TRIDENT) return TRIDENT();
@@ -1935,11 +1983,11 @@ contract GameEngine is IGameEngine {
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 13, weight: 50, slashResist: 24, pierceResist: 12, bluntResist: 36});
+        return ArmorStats({defense: 13, weight: 50, slashResist: 25, pierceResist: 15, bluntResist: 40});
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 28, weight: 100, slashResist: 50, pierceResist: 50, bluntResist: 15});
+        return ArmorStats({defense: 28, weight: 100, slashResist: 50, pierceResist: 45, bluntResist: 20});
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
@@ -1960,13 +2008,13 @@ contract GameEngine is IGameEngine {
             hitChance: 85,
             critChance: 85,
             critMultiplier: 95,
-            blockChance: 140, // v28: Buffed +15% - defensive specialists should dominate
-            parryChance: 140, // v28: Buffed +15% - defensive specialists should dominate
-            dodgeChance: 125, // Keep dodge unchanged
-            counterChance: 130, // v28: Buffed +15% - defensive specialists should dominate
-            riposteChance: 130, // v28: Buffed +15% - defensive specialists should dominate
-            staminaCostModifier: 70, // v28: Improved from 80% - defensive builds more sustainable
-            survivalFactor: 125 // Buffed from 115
+            blockChance: 140,
+            parryChance: 140,
+            dodgeChance: 125,
+            counterChance: 130,
+            riposteChance: 130,
+            staminaCostModifier: 70,
+            survivalFactor: 125
         });
     }
 
@@ -2060,11 +2108,11 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (90, 120, 120, 80); // Buffed block chance from 80 to 90
+            return (90, 120, 120, 80);
         } else if (shieldType == ShieldType.KITE_SHIELD) {
-            return (120, 100, 75, 120);
+            return (140, 100, 75, 100);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (190, 55, 25, 120); // v28: Back up from 175% - need shield tank dominance
+            return (180, 50, 20, 120);
         }
         return (0, 0, 100, 100);
     }
