@@ -28,13 +28,13 @@ contract PurchasePlayerSlotsScript is Script {
         // Get fixed cost for slot batch
         uint256 cost = player.slotBatchCost();
 
-        // Purchase 5 slots
+        // Purchase 1 slot
         player.purchasePlayerSlots{value: cost}();
 
         // Log the results
         address owner = vm.addr(deployerPrivateKey);
         uint256 newSlotCount = player.getPlayerSlots(owner);
-        console2.log("Purchased 5 player slots for", cost, "wei");
+        console2.log("Purchased 1 player slot for", cost, "wei");
         console2.log("New total slot count:", newSlotCount);
 
         vm.stopBroadcast();

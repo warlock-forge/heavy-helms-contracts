@@ -23,27 +23,27 @@ contract PlayerSlotsTest is TestBase {
     }
 
     function testDefaultSlotCount() public view {
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
-        assertEq(playerContract.getPlayerSlots(USER_TWO), 5);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 3);
+        assertEq(playerContract.getPlayerSlots(USER_TWO), 3);
     }
 
     function testPurchaseSlotsWithETH() public {
         uint256 cost = playerContract.slotBatchCost();
-        assertEq(cost, 0.005 ether);
+        assertEq(cost, 0.001 ether);
 
         vm.startPrank(USER_ONE);
         vm.expectEmit(true, false, false, true);
-        emit PlayerSlotsPurchased(USER_ONE, 5, 10, cost);
+        emit PlayerSlotsPurchased(USER_ONE, 1, 4, cost);
 
         playerContract.purchasePlayerSlots{value: cost}();
         vm.stopPrank();
 
-        // Always adds exactly 5 slots
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
+        // Always adds exactly 1 slot
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 4);
 
         // Second purchase should cost the same (fixed cost)
         uint256 secondCost = playerContract.slotBatchCost();
-        assertEq(secondCost, 0.005 ether); // Same fixed cost
+        assertEq(secondCost, 0.001 ether); // Same fixed cost
     }
 
     function testPurchaseSlotsWithTickets() public {
@@ -68,13 +68,13 @@ contract PlayerSlotsTest is TestBase {
         tickets.setApprovalForAll(address(playerContract), true);
 
         vm.expectEmit(true, false, false, true);
-        emit PlayerSlotsPurchased(USER_ONE, 5, 10, 0); // 0 ETH paid
+        emit PlayerSlotsPurchased(USER_ONE, 1, 4, 0); // 0 ETH paid
 
         playerContract.purchasePlayerSlotsWithTickets();
         vm.stopPrank();
 
         // Verify slots were added and ticket burned
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 4);
         assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 0);
     }
 
@@ -99,17 +99,17 @@ contract PlayerSlotsTest is TestBase {
 
         // First purchase
         playerContract.purchasePlayerSlotsWithTickets();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 4);
         assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 2);
 
         // Second purchase
         playerContract.purchasePlayerSlotsWithTickets();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 15);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
         assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 1);
 
         // Third purchase
         playerContract.purchasePlayerSlotsWithTickets();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 20);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 6);
         assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 0);
 
         vm.stopPrank();
@@ -129,7 +129,7 @@ contract PlayerSlotsTest is TestBase {
         vm.startPrank(USER_ONE);
 
         vm.expectRevert(InsufficientFeeAmount.selector);
-        playerContract.purchasePlayerSlots{value: 0.001 ether}(); // Too little
+        playerContract.purchasePlayerSlots{value: 0.0009 ether}(); // Too little (need 0.001 ether)
 
         vm.stopPrank();
     }
@@ -142,15 +142,15 @@ contract PlayerSlotsTest is TestBase {
         playerContract.purchasePlayerSlots{value: cost}();
 
         // USER_TWO still has default slots
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
-        assertEq(playerContract.getPlayerSlots(USER_TWO), 5);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 4);
+        assertEq(playerContract.getPlayerSlots(USER_TWO), 3);
 
         // USER_TWO can also buy slots
         vm.prank(USER_TWO);
         playerContract.purchasePlayerSlots{value: cost}();
 
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
-        assertEq(playerContract.getPlayerSlots(USER_TWO), 10);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 4);
+        assertEq(playerContract.getPlayerSlots(USER_TWO), 4);
     }
 
     function testMixedPurchasingMethods() public {
@@ -173,22 +173,22 @@ contract PlayerSlotsTest is TestBase {
         tickets.setApprovalForAll(address(playerContract), true);
 
         // Mix ETH and ticket purchases
-        playerContract.purchasePlayerSlots{value: cost}(); // ETH: 5->10
-        playerContract.purchasePlayerSlotsWithTickets(); // Ticket: 10->15
-        playerContract.purchasePlayerSlots{value: cost}(); // ETH: 15->20
-        playerContract.purchasePlayerSlotsWithTickets(); // Ticket: 20->25
+        playerContract.purchasePlayerSlots{value: cost}(); // ETH: 3->4
+        playerContract.purchasePlayerSlotsWithTickets(); // Ticket: 4->5
+        playerContract.purchasePlayerSlots{value: cost}(); // ETH: 5->6
+        playerContract.purchasePlayerSlotsWithTickets(); // Ticket: 6->7
 
         vm.stopPrank();
 
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 25);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 7);
         assertEq(tickets.balanceOf(USER_ONE, tickets.PLAYER_SLOT_TICKET()), 0);
     }
 
     function testSlotCappingNearMax() public {
         // Get user close to max slots
-        uint256 maxSlots = 200; // MAX_TOTAL_SLOTS
-        uint256 currentSlots = playerContract.getPlayerSlots(USER_ONE); // 5
-        uint256 slotsNeeded = maxSlots - currentSlots - 5; // Leave room for exactly 1 more batch
+        uint256 maxSlots = 100; // MAX_TOTAL_SLOTS
+        uint256 currentSlots = playerContract.getPlayerSlots(USER_ONE); // 3
+        uint256 slotsNeeded = maxSlots - currentSlots - 1; // Leave room for exactly 1 more
 
         // Give them enough tickets to get close to max
         PlayerTickets tickets = playerContract.playerTickets();
@@ -202,8 +202,8 @@ contract PlayerSlotsTest is TestBase {
         });
         tickets.setGameContractPermission(address(this), ticketPerms);
 
-        // Calculate how many tickets needed (each ticket = 5 slots)
-        uint256 ticketsNeeded = slotsNeeded / 5;
+        // Calculate how many tickets needed (each ticket = 1 slot)
+        uint256 ticketsNeeded = slotsNeeded;
         tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), ticketsNeeded);
 
         vm.startPrank(USER_ONE);
@@ -214,15 +214,15 @@ contract PlayerSlotsTest is TestBase {
             playerContract.purchasePlayerSlotsWithTickets();
         }
 
-        // Should now have exactly 195 slots (5 slots away from max)
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 195);
+        // Should now have exactly 99 slots (1 slot away from max)
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 99);
 
-        // One more purchase should work (brings to exactly 200)
+        // One more purchase should work (brings to exactly 100)
         vm.stopPrank(); // Stop prank to mint more tickets
         tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 1);
         vm.startPrank(USER_ONE);
         playerContract.purchasePlayerSlotsWithTickets();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 200);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 100);
 
         // Now at max - next purchase should fail
         vm.stopPrank(); // Stop prank to mint more tickets
@@ -239,15 +239,15 @@ contract PlayerSlotsTest is TestBase {
 
         vm.startPrank(USER_ONE);
 
-        // Multiple rapid purchases - each should add exactly 5 slots
+        // Multiple rapid purchases - each should add exactly 1 slot
         playerContract.purchasePlayerSlots{value: cost}();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 10);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 4);
 
         playerContract.purchasePlayerSlots{value: cost}();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 15);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 5);
 
         playerContract.purchasePlayerSlots{value: cost}();
-        assertEq(playerContract.getPlayerSlots(USER_ONE), 20);
+        assertEq(playerContract.getPlayerSlots(USER_ONE), 6);
 
         vm.stopPrank();
     }

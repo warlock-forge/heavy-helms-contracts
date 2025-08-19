@@ -92,7 +92,7 @@ contract PlayerSecurityTests is TestBase {
         playerContract.purchasePlayerSlots{value: cost}();
 
         // Verify purchase succeeded
-        assertEq(playerContract.getPlayerSlots(USER), slotsBefore + 5);
+        assertEq(playerContract.getPlayerSlots(USER), slotsBefore + 1);
 
         // The key insight: purchasePlayerSlots() has no external calls that could be exploited
         // - No ETH transfers to user addresses
@@ -128,7 +128,7 @@ contract PlayerSecurityTests is TestBase {
         playerContract.purchasePlayerSlotsWithTickets();
 
         // Verify purchase succeeded without any callback exploitation
-        assertEq(playerContract.getPlayerSlots(address(tokenAttacker)), 10);
+        assertEq(playerContract.getPlayerSlots(address(tokenAttacker)), 4);
         assertEq(tickets.balanceOf(address(tokenAttacker), tickets.PLAYER_SLOT_TICKET()), 0);
     }
 
@@ -149,7 +149,7 @@ contract PlayerSecurityTests is TestBase {
         playerContract.purchasePlayerSlots{value: cost2}();
 
         // Verify state consistency
-        assertEq(playerContract.getPlayerSlots(USER), initialSlots + 10);
+        assertEq(playerContract.getPlayerSlots(USER), initialSlots + 2);
     }
 
     function testCannotExploitMixedPurchaseMethods() public {
@@ -184,7 +184,7 @@ contract PlayerSecurityTests is TestBase {
         vm.stopPrank();
 
         // Verify all purchases were processed correctly
-        assertEq(playerContract.getPlayerSlots(USER), 25); // 5 initial + 20 from purchases
+        assertEq(playerContract.getPlayerSlots(USER), 7); // 3 initial + 4 from purchases
         assertEq(tickets.balanceOf(USER, tickets.PLAYER_SLOT_TICKET()), 0);
     }
 

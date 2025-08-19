@@ -598,18 +598,18 @@ abstract contract TestBase is Test {
     /// @param desiredSlots Total number of slots needed
     /// @param contractInstance Player contract instance
     function _ensurePlayerSlots(address owner, uint256 desiredSlots, IPlayer contractInstance) internal {
-        require(desiredSlots <= 200, "Cannot exceed MAX_TOTAL_SLOTS");
+        require(desiredSlots <= 100, "Cannot exceed MAX_TOTAL_SLOTS");
 
         uint256 currentSlots = contractInstance.getPlayerSlots(owner);
         if (currentSlots >= desiredSlots) return; // Already have enough slots
 
-        // Calculate how many batches of 5 slots we need to purchase
+        // Calculate how many slots we need to purchase (1 per purchase)
         uint256 slotsNeeded = desiredSlots - currentSlots;
-        uint256 batchesNeeded = (slotsNeeded + 4) / 5; // Round up division
+        uint256 purchasesNeeded = slotsNeeded; // 1 slot per purchase
 
-        // Purchase required batches
+        // Purchase required slots
         uint256 batchCost = contractInstance.slotBatchCost();
-        for (uint256 i = 0; i < batchesNeeded; i++) {
+        for (uint256 i = 0; i < purchasesNeeded; i++) {
             vm.startPrank(owner);
             vm.deal(owner, batchCost);
             contractInstance.purchasePlayerSlots{value: batchCost}();

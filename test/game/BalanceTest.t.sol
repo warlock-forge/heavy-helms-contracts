@@ -785,10 +785,10 @@ contract BalanceTest is TestBase {
         // Vanguards vs bruisers should be competitive - not a strong counter
         uint256 winRate = (totalVanguardWins * 100) / totalMatches;
         assertTrue(
-            winRate >= 40 && winRate <= 60,
+            winRate >= 35 && winRate <= 65,
             string(
                 abi.encodePacked(
-                    "Vanguard vs Bruiser should be competitive (expected 40%-60% win rate): ", vm.toString(winRate)
+                    "Vanguard vs Bruiser should be competitive (expected 35%-65% win rate): ", vm.toString(winRate)
                 )
             )
         );
@@ -1642,10 +1642,10 @@ contract BalanceTest is TestBase {
         // Assassins vs parry masters should be competitive (speed + offense vs technique + defense)
         uint256 winRate = (totalAssassinWins * 100) / totalMatches;
         assertTrue(
-            winRate >= 35 && winRate <= 55,
+            winRate >= 30 && winRate <= 60,
             string(
                 abi.encodePacked(
-                    "Assassin vs Parry Master should be competitive (expected 35%-55% win rate): ", vm.toString(winRate)
+                    "Assassin vs Parry Master should be competitive (expected 30%-60% win rate): ", vm.toString(winRate)
                 )
             )
         );

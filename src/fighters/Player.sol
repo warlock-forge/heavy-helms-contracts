@@ -113,9 +113,9 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice Total points available for player stats (sum of all stats must equal this)
     uint16 private constant TOTAL_STATS = 72;
     /// @notice Base number of player slots per address
-    uint8 public constant BASE_PLAYER_SLOTS = 5;
+    uint8 public constant BASE_PLAYER_SLOTS = 3;
     /// @notice Maximum total player slots an address can have (base + purchased)
-    uint8 private constant MAX_TOTAL_SLOTS = 200;
+    uint8 private constant MAX_TOTAL_SLOTS = 100;
     /// @notice Starting ID for user-created players (1-2000 reserved for default characters)
     uint32 private constant USER_PLAYER_START = 10001;
     /// @notice End ID for user-created players (no upper limit for user players)
@@ -128,10 +128,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     // Configuration
     /// @notice Fee amount in ETH required to create a new player
     uint256 public createPlayerFeeAmount = 0.001 ether;
-    /// @notice Cost in ETH for each additional slot batch (5 slots) - fixed cost
-    uint256 public slotBatchCost = 0.005 ether;
+    /// @notice Cost in ETH for each additional slot batch (1 slot) - fixed cost
+    uint256 public slotBatchCost = 0.001 ether;
     /// @notice Number of slots added per batch purchase
-    uint8 public immutable SLOT_BATCH_SIZE = 5;
+    uint8 public immutable SLOT_BATCH_SIZE = 1;
     /// @notice Whether the contract is paused (prevents new player creation)
     bool public isPaused;
 

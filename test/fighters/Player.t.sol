@@ -113,9 +113,9 @@ contract PlayerTest is TestBase {
         }
 
         // Keep purchasing and filling slots until we hit max
-        while (playerContract.getPlayerSlots(PLAYER_ONE) < 200) {
+        while (playerContract.getPlayerSlots(PLAYER_ONE) < 100) {
             // Use actual constant value
-            // Purchase one additional slot batch (5 slots)
+            // Purchase one additional slot batch (1 slot)
             vm.startPrank(PLAYER_ONE);
             uint256 batchCost = playerContract.slotBatchCost();
             vm.deal(PLAYER_ONE, batchCost);
@@ -154,8 +154,8 @@ contract PlayerTest is TestBase {
     }
 
     function test_RevertWhen_AbsoluteMaxSlotsReached() public {
-        // Fill up to max slots (200)
-        while (playerContract.getPlayerSlots(PLAYER_ONE) < 200) {
+        // Fill up to max slots (100)
+        while (playerContract.getPlayerSlots(PLAYER_ONE) < 100) {
             // Purchase slots
             vm.startPrank(PLAYER_ONE);
             uint256 batchCostTmp = playerContract.slotBatchCost();

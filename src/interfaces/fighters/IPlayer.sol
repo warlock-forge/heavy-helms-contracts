@@ -119,7 +119,7 @@ interface IPlayer {
     function createPlayerFeeAmount() external view returns (uint256);
 
     /// @notice Gets the current cost for purchasing a slot batch
-    /// @return The cost in wei for 5 slots
+    /// @return The cost in wei for 1 slot
     function slotBatchCost() external view returns (uint256);
 
     /// @notice Gets pending VRF request ID for a user
@@ -244,11 +244,11 @@ interface IPlayer {
     function getXPRequiredForLevel(uint8 level) external pure returns (uint16);
 
     /// @notice Purchase additional player slots
-    /// @dev Each purchase adds exactly SLOT_BATCH_SIZE slots for a fixed cost
+    /// @dev Each purchase adds exactly 1 slot for a fixed cost
     function purchasePlayerSlots() external payable;
 
     /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
-    /// @dev Burns exactly 1 ticket to add SLOT_BATCH_SIZE slots
+    /// @dev Burns exactly 1 ticket to add 1 slot
     function purchasePlayerSlotsWithTickets() external;
 
     /// @notice Set a player's immortality status
