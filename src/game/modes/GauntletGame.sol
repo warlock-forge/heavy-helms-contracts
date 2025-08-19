@@ -51,6 +51,8 @@ error InvalidFutureBlocks(uint256 blocks);
 error CannotRecoverYet();
 error NoDefaultPlayersAvailable();
 error InvalidBlockhash();
+error DailyLimitExceeded(uint8 currentRuns, uint8 limit);
+error InsufficientResetFee();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -196,6 +198,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice If status is IN_GAUNTLET, maps player ID to the `gauntletId` they are participating in.
     mapping(uint32 => uint256) public playerCurrentGauntlet;
 
+    // --- Daily Limit System ---
+    /// @notice Maximum gauntlet entries per player per day
+    uint8 public dailyGauntletLimit = 10;
+    /// @notice Cost in ETH to reset daily limit for a player
+    uint256 public dailyResetCost = 0.001 ether;
+    /// @notice Maps player ID to day number to run count (playerId => dayNumber => runCount)
+    mapping(uint32 => mapping(uint256 => uint8)) private _playerDailyRuns;
+
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
@@ -244,6 +254,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     event QueuePartiallyCleared(uint256 cleared, uint256 remaining);
     /// @notice Emitted when the game enabled state is updated.
     event GameEnabledUpdated(bool enabled);
+    /// @notice Emitted when a player's daily gauntlet limit is reset via ETH payment
+    event DailyLimitReset(uint32 indexed playerId, address indexed payer, uint256 dayNumber, uint256 amountPaid);
+    /// @notice Emitted when the daily reset cost is updated
+    event DailyResetCostUpdated(uint256 oldCost, uint256 newCost);
+    /// @notice Emitted when the daily gauntlet limit is updated
+    event DailyGauntletLimitUpdated(uint8 oldLimit, uint8 newLimit);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
@@ -295,13 +311,20 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Allows a player owner to join the Gauntlet queue with a specific loadout.
     /// @param loadout The player's chosen skin and stance for the potential Gauntlet.
-    /// @dev Validates player status, ownership, retirement status, and skin requirements.
+    /// @dev Validates player status, ownership, retirement status, skin requirements, and daily limits.
     function queueForGauntlet(Fighter.PlayerLoadout calldata loadout) external whenGameEnabled nonReentrant {
         // Checks
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
         address owner = playerContract.getPlayerOwner(loadout.playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
+
+        // Check daily limit
+        uint256 today = _getDayNumber();
+        uint8 currentRuns = _playerDailyRuns[loadout.playerId][today];
+        if (currentRuns >= dailyGauntletLimit) {
+            revert DailyLimitExceeded(currentRuns, dailyGauntletLimit);
+        }
 
         // Validate player is in correct level bracket
         _validatePlayerLevel(loadout.playerId);
@@ -327,6 +350,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         queueIndex.push(playerId);
         playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
         playerStatus[playerId] = PlayerStatus.QUEUED;
+
+        // Increment daily run counter (user pays gas for state change)
+        _playerDailyRuns[playerId][today]++;
 
         // Interactions (Event Emission)
         emit PlayerQueued(playerId, queueIndex.length);
@@ -363,6 +389,31 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @return The loadout for the specified player.
     function getPlayerLoadoutFromQueue(uint32 playerId) external view returns (Fighter.PlayerLoadout memory) {
         return registrationQueue[playerId];
+    }
+
+    /// @notice Gets the current daily run count for a player
+    /// @param playerId The ID of the player to check
+    /// @return The number of gauntlet runs today for this player
+    function getDailyRunCount(uint32 playerId) external view returns (uint8) {
+        uint256 today = _getDayNumber();
+        return _playerDailyRuns[playerId][today];
+    }
+
+    /// @notice Resets the daily gauntlet limit for a player by paying ETH
+    /// @param playerId The ID of the player to reset limit for
+    /// @dev Player owner pays ETH to reset their daily gauntlet entry count to 0
+    function resetDailyLimit(uint32 playerId) external payable nonReentrant {
+        // Checks
+        address owner = playerContract.getPlayerOwner(playerId);
+        if (msg.sender != owner) revert CallerNotPlayerOwner();
+        if (msg.value < dailyResetCost) revert InsufficientResetFee();
+
+        // Effects
+        uint256 today = _getDayNumber();
+        _playerDailyRuns[playerId][today] = 0;
+
+        // Interactions
+        emit DailyLimitReset(playerId, msg.sender, today, msg.value);
     }
 
     //==============================================================//
@@ -1045,6 +1096,29 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         emit MinTimeBetweenGauntletsSet(newMinTime);
     }
 
+    /// @notice Sets the cost for resetting daily gauntlet limits
+    /// @param newCost The new cost in ETH for daily limit resets
+    function setDailyResetCost(uint256 newCost) external onlyOwner {
+        uint256 oldCost = dailyResetCost;
+        dailyResetCost = newCost;
+        emit DailyResetCostUpdated(oldCost, newCost);
+    }
+
+    /// @notice Withdraws accumulated daily reset fees to the owner
+    /// @dev Only callable by contract owner
+    function withdrawFees() external onlyOwner {
+        SafeTransferLib.safeTransferETH(owner, address(this).balance);
+    }
+
+    /// @notice Sets the daily gauntlet entry limit per player
+    /// @param newLimit The new daily entry limit
+    function setDailyGauntletLimit(uint8 newLimit) external onlyOwner {
+        if (newLimit == 0) revert InvalidGauntletSize(newLimit);
+        uint8 oldLimit = dailyGauntletLimit;
+        dailyGauntletLimit = newLimit;
+        emit DailyGauntletLimitUpdated(oldLimit, newLimit);
+    }
+
     //==============================================================//
     //                     INTERNAL FUNCTIONS                       //
     //==============================================================//
@@ -1084,6 +1158,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         if (baseHash == 0) revert InvalidBlockhash();
 
         return uint256(keccak256(abi.encodePacked(baseHash, block.timestamp, block.number, gasleft(), tx.origin)));
+    }
+
+    /// @notice Calculates the current day number since Unix epoch
+    /// @return Day number (resets at midnight UTC)
+    function _getDayNumber() private view returns (uint256) {
+        return block.timestamp / 1 days;
     }
 
     // --- Helper Functions ---

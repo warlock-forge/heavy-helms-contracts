@@ -8,10 +8,20 @@
 pragma solidity ^0.8.13;
 
 import "../TestBase.sol";
-import {GauntletGame, InvalidBlockhash} from "../../src/game/modes/GauntletGame.sol";
+import {
+    GauntletGame,
+    InvalidBlockhash,
+    DailyLimitExceeded,
+    InsufficientResetFee
+} from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
+
+// Helper contract to receive ETH
+contract EthReceiver {
+    receive() external payable {}
+}
 
 contract GauntletGameTest is TestBase {
     GauntletGame public game;
@@ -1075,5 +1085,275 @@ contract GauntletGameTest is TestBase {
             skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
             stance: 1 // BALANCED
         });
+    }
+
+    //==============================================================//
+    //                    DAILY LIMIT TESTS                         //
+    //==============================================================//
+
+    function testDailyLimitEnforcement() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Queue up to the daily limit (10 times)
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+
+            // Withdraw to be able to queue again
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+
+        // Check run count is at limit
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+        // 11th attempt should fail
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert(abi.encodeWithSelector(DailyLimitExceeded.selector, 10, 10));
+        game.queueForGauntlet(loadout);
+    }
+
+    function testGetDailyRunCount() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Initially should be 0
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+        // Queue once
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 1);
+
+        // Withdraw and queue again
+        vm.prank(PLAYER_ONE);
+        game.withdrawFromQueue(PLAYER_ONE_ID);
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 2);
+    }
+
+    function testResetDailyLimit() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Use up daily limit
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+
+        // Should be at limit
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+        // Reset with ETH payment
+        vm.prank(PLAYER_ONE);
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
+
+        // Should be reset to 0
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+        // Should be able to queue again
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 1);
+    }
+
+    function testResetDailyLimitInsufficientFee() public {
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert(InsufficientResetFee.selector);
+        game.resetDailyLimit{value: 0.0009 ether}(PLAYER_ONE_ID);
+    }
+
+    function testResetDailyLimitWrongOwner() public {
+        // Player TWO trying to reset Player ONE's limit
+        vm.prank(PLAYER_TWO);
+        vm.expectRevert(abi.encodeWithSignature("CallerNotPlayerOwner()"));
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
+    }
+
+    function testDailyLimitAutoReset() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Use up daily limit
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+        // Fast forward to next day (midnight UTC + 1 second)
+        vm.warp(block.timestamp + 1 days + 1);
+
+        // Should be reset to 0
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+        // Should be able to queue again
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 1);
+    }
+
+    function testSetDailyGauntletLimit() public {
+        // Check initial limit
+        assertEq(game.dailyGauntletLimit(), 10);
+
+        // Change limit as owner
+        game.setDailyGauntletLimit(5);
+        assertEq(game.dailyGauntletLimit(), 5);
+
+        // Test enforcement with new limit
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+        for (uint8 i = 0; i < 5; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+
+        // 6th attempt should fail with new limit
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert(abi.encodeWithSelector(DailyLimitExceeded.selector, 5, 5));
+        game.queueForGauntlet(loadout);
+    }
+
+    function testSetDailyGauntletLimitNotOwner() public {
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("UNAUTHORIZED");
+        game.setDailyGauntletLimit(20);
+    }
+
+    function testSetDailyGauntletLimitZero() public {
+        vm.expectRevert(abi.encodeWithSignature("InvalidGauntletSize(uint8)", 0));
+        game.setDailyGauntletLimit(0);
+    }
+
+    function testSetDailyResetCost() public {
+        // Check initial cost
+        assertEq(game.dailyResetCost(), 0.001 ether);
+
+        // Change cost as owner
+        game.setDailyResetCost(0.005 ether);
+        assertEq(game.dailyResetCost(), 0.005 ether);
+
+        // Test reset with new cost
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert(InsufficientResetFee.selector);
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
+
+        // Should work with new cost
+        vm.prank(PLAYER_ONE);
+        game.resetDailyLimit{value: 0.005 ether}(PLAYER_ONE_ID);
+    }
+
+    function testSetDailyResetCostNotOwner() public {
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("UNAUTHORIZED");
+        game.setDailyResetCost(0.01 ether);
+    }
+
+    function testWithdrawFees() public {
+        // Reset limits multiple times to accumulate fees
+        vm.prank(PLAYER_ONE);
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
+        vm.prank(PLAYER_TWO);
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_TWO_ID);
+
+        // Check contract balance
+        assertEq(address(game).balance, 0.002 ether);
+
+        // Deploy a contract that can receive ETH (since test contract may not have receive/fallback)
+        address payable recipient = payable(address(new EthReceiver()));
+
+        // Transfer ownership to recipient so it can withdraw
+        game.transferOwnership(recipient);
+
+        // Withdraw as new owner
+        uint256 recipientBalanceBefore = recipient.balance;
+        vm.prank(recipient);
+        game.withdrawFees();
+
+        // Check balances
+        assertEq(address(game).balance, 0);
+        assertEq(recipient.balance, recipientBalanceBefore + 0.002 ether);
+    }
+
+    function testWithdrawFeesNotOwner() public {
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("UNAUTHORIZED");
+        game.withdrawFees();
+    }
+
+    function testDailyLimitWithMultiplePlayers() public {
+        Fighter.PlayerLoadout memory loadout1 = _createSimpleLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadout2 = _createSimpleLoadout(PLAYER_TWO_ID);
+
+        // Each player has their own daily limit
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout1);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+
+            vm.prank(PLAYER_TWO);
+            game.queueForGauntlet(loadout2);
+            vm.prank(PLAYER_TWO);
+            game.withdrawFromQueue(PLAYER_TWO_ID);
+        }
+
+        // Both should be at limit
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+        assertEq(game.getDailyRunCount(PLAYER_TWO_ID), 10);
+
+        // Reset only player ONE
+        vm.prank(PLAYER_ONE);
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
+
+        // Player ONE should be reset, player TWO still at limit
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+        assertEq(game.getDailyRunCount(PLAYER_TWO_ID), 10);
+    }
+
+    function testDailyLimitPersistsAcrossGauntlets() public {
+        Fighter.PlayerLoadout memory loadout1 = _createSimpleLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory loadout2 = _createSimpleLoadout(PLAYER_TWO_ID);
+        Fighter.PlayerLoadout memory loadout3 = _createSimpleLoadout(PLAYER_THREE_ID);
+        Fighter.PlayerLoadout memory loadout4 = _createSimpleLoadout(PLAYER_FOUR_ID);
+
+        // Queue 4 players and run a gauntlet
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout1);
+        vm.prank(PLAYER_TWO);
+        game.queueForGauntlet(loadout2);
+        vm.prank(PLAYER_THREE);
+        game.queueForGauntlet(loadout3);
+        vm.prank(PLAYER_FOUR);
+        game.queueForGauntlet(loadout4);
+
+        // Start and complete gauntlet
+        game.tryStartGauntlet(); // TX1: Commit
+
+        // Get selection block and advance
+        (, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+        game.tryStartGauntlet(); // TX2: Select participants
+
+        // Get tournament block and advance
+        (,, uint256 tournamentBlock,,,) = game.getPendingGauntletInfo();
+        vm.roll(tournamentBlock + 1);
+        vm.prevrandao(bytes32(uint256(67890)));
+        game.tryStartGauntlet(); // TX3: Execute tournament
+
+        // Player ONE should still have their run count
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 1);
+
+        // Try to queue again - should increment
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout1);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 2);
     }
 }
