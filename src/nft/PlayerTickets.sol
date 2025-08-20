@@ -138,11 +138,11 @@ contract PlayerTickets is ERC1155, Owned {
     /// @param id The token ID to get URI for
     /// @return The URI string
     function uri(uint256 id) public view override returns (string memory) {
-        if (id == CREATE_PLAYER_TICKET) return "ipfs://create-player-ticket";
-        if (id == PLAYER_SLOT_TICKET) return "ipfs://player-slot-ticket";
-        if (id == WEAPON_SPECIALIZATION_TICKET) return "ipfs://weapon-specialization-ticket";
-        if (id == ARMOR_SPECIALIZATION_TICKET) return "ipfs://armor-specialization-ticket";
-        if (id == DUEL_TICKET) return "ipfs://duel-ticket";
+        if (id == CREATE_PLAYER_TICKET) return _generateCreatePlayerURI();
+        if (id == PLAYER_SLOT_TICKET) return _generatePlayerSlotURI();
+        if (id == WEAPON_SPECIALIZATION_TICKET) return _generateWeaponSpecURI();
+        if (id == ARMOR_SPECIALIZATION_TICKET) return _generateArmorSpecURI();
+        if (id == DUEL_TICKET) return _generateDuelTicketURI();
         if (id >= 100) return _generateNameChangeURI(id);
         return "";
     }
@@ -308,6 +308,209 @@ contract PlayerTickets is ERC1155, Owned {
             revert("Not authorized to burn");
         }
         _burn(from, tokenId, amount);
+    }
+
+    //==============================================================//
+    //                   INTERNAL FUNCTIONS                         //
+    //==============================================================//
+    /// @notice Generates SVG-based URI for Create Player ticket
+    function _generateCreatePlayerURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
+                '<text x="200" y="200" text-anchor="middle" fill="#4169E1" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">CREATE PLAYER</text>',
+                unicode'<text x="200" y="240" text-anchor="middle" fill="white" font-size="48">⚔️</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#4169E1" font-size="14" font-family="serif">RARE TICKET</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Player Creation Ticket",',
+                '"description":"Allows creation of a new warrior in Heavy Helms. Burn this ticket to bypass the ETH creation fee and mint your warrior.",',
+                '"image":"data:image/svg+xml;base64,',
+                Base64.encode(bytes(svg)),
+                '",',
+                '"attributes":[',
+                '{"trait_type":"Item Type","value":"Ticket"},',
+                '{"trait_type":"Rarity","value":"Rare"},',
+                '{"trait_type":"Effect","value":"Create Player"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+    }
+
+    /// @notice Generates SVG-based URI for Player Slot ticket
+    function _generatePlayerSlotURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
+                '<text x="200" y="200" text-anchor="middle" fill="#32CD32" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">PLAYER SLOT</text>',
+                unicode'<text x="200" y="240" text-anchor="middle" fill="white" font-size="48">📦</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#32CD32" font-size="14" font-family="serif">UNCOMMON TICKET</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Player Slot Ticket",',
+                '"description":"Grants an additional player slot in Heavy Helms. Burn this ticket to expand your warrior roster capacity.",',
+                '"image":"data:image/svg+xml;base64,',
+                Base64.encode(bytes(svg)),
+                '",',
+                '"attributes":[',
+                '{"trait_type":"Item Type","value":"Ticket"},',
+                '{"trait_type":"Rarity","value":"Uncommon"},',
+                '{"trait_type":"Effect","value":"Add Player Slot"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+    }
+
+    /// @notice Generates SVG-based URI for Weapon Specialization ticket
+    function _generateWeaponSpecURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
+                '<text x="200" y="190" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">WEAPON</text>',
+                '<text x="200" y="220" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">SPECIALIZATION</text>',
+                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">🗡️</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#C0C0C0" font-size="14" font-family="serif">COMMON TICKET</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Weapon Specialization Ticket",',
+                '"description":"Allows a warrior to respecialize their weapon mastery. Burn this ticket to change weapon specialization. Initial specialization is free.",',
+                '"image":"data:image/svg+xml;base64,',
+                Base64.encode(bytes(svg)),
+                '",',
+                '"attributes":[',
+                '{"trait_type":"Item Type","value":"Ticket"},',
+                '{"trait_type":"Rarity","value":"Common"},',
+                '{"trait_type":"Effect","value":"Respec Weapon"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+    }
+
+    /// @notice Generates SVG-based URI for Armor Specialization ticket
+    function _generateArmorSpecURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
+                '<text x="200" y="190" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">ARMOR</text>',
+                '<text x="200" y="220" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">SPECIALIZATION</text>',
+                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">🛡️</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#C0C0C0" font-size="14" font-family="serif">COMMON TICKET</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Armor Specialization Ticket",',
+                '"description":"Allows a warrior to respecialize their armor expertise. Burn this ticket to change armor specialization. Initial specialization is free.",',
+                '"image":"data:image/svg+xml;base64,',
+                Base64.encode(bytes(svg)),
+                '",',
+                '"attributes":[',
+                '{"trait_type":"Item Type","value":"Ticket"},',
+                '{"trait_type":"Rarity","value":"Common"},',
+                '{"trait_type":"Effect","value":"Respec Armor"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+    }
+
+    /// @notice Generates SVG-based URI for Duel ticket
+    function _generateDuelTicketURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
+                '<text x="200" y="200" text-anchor="middle" fill="#C0C0C0" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">DUEL TICKET</text>',
+                unicode'<text x="200" y="240" text-anchor="middle" fill="white" font-size="48">⚔️</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#C0C0C0" font-size="14" font-family="serif">COMMON TICKET</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Duel Ticket",',
+                '"description":"Grants entry to a duel match in Heavy Helms. Burn this ticket to challenge another warrior in single combat.",',
+                '"image":"data:image/svg+xml;base64,',
+                Base64.encode(bytes(svg)),
+                '",',
+                '"attributes":[',
+                '{"trait_type":"Item Type","value":"Ticket"},',
+                '{"trait_type":"Rarity","value":"Common"},',
+                '{"trait_type":"Effect","value":"Start Duel"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+    }
+
+    /// @notice Returns common SVG definitions used across all tickets
+    function _getCommonSVGDefs() internal pure returns (string memory) {
+        return string(
+            abi.encodePacked(
+                "<defs>",
+                '<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">',
+                '<stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />',
+                '<stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />',
+                "</linearGradient>",
+                '<filter id="glow">',
+                '<feGaussianBlur stdDeviation="3" result="coloredBlur"/>',
+                '<feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>',
+                "</filter>",
+                "</defs>"
+            )
+        );
     }
 
     //==============================================================//

@@ -107,11 +107,42 @@ contract PlayerTicketsTest is Test {
     }
 
     function testFungibleTicketURIs() public {
-        assertEq(tickets.uri(tickets.CREATE_PLAYER_TICKET()), "ipfs://create-player-ticket");
-        assertEq(tickets.uri(tickets.PLAYER_SLOT_TICKET()), "ipfs://player-slot-ticket");
-        assertEq(tickets.uri(tickets.WEAPON_SPECIALIZATION_TICKET()), "ipfs://weapon-specialization-ticket");
-        assertEq(tickets.uri(tickets.ARMOR_SPECIALIZATION_TICKET()), "ipfs://armor-specialization-ticket");
-        assertEq(tickets.uri(tickets.DUEL_TICKET()), "ipfs://duel-ticket");
+        // Test all 5 fungible ticket URIs are base64 encoded JSON
+        string memory uri1 = tickets.uri(tickets.CREATE_PLAYER_TICKET());
+        string memory uri2 = tickets.uri(tickets.PLAYER_SLOT_TICKET());
+        string memory uri3 = tickets.uri(tickets.WEAPON_SPECIALIZATION_TICKET());
+        string memory uri4 = tickets.uri(tickets.ARMOR_SPECIALIZATION_TICKET());
+        string memory uri5 = tickets.uri(tickets.DUEL_TICKET());
+
+        // All should start with data:application/json;base64,
+        assertTrue(bytes(uri1).length > 0);
+        assertTrue(bytes(uri2).length > 0);
+        assertTrue(bytes(uri3).length > 0);
+        assertTrue(bytes(uri4).length > 0);
+        assertTrue(bytes(uri5).length > 0);
+
+        // Verify they're data URIs (not IPFS)
+        assertTrue(_startsWith(uri1, "data:application/json;base64,"));
+        assertTrue(_startsWith(uri2, "data:application/json;base64,"));
+        assertTrue(_startsWith(uri3, "data:application/json;base64,"));
+        assertTrue(_startsWith(uri4, "data:application/json;base64,"));
+        assertTrue(_startsWith(uri5, "data:application/json;base64,"));
+
+        // Log one example to verify it looks good
+        console.log("Create Player Ticket URI:");
+        console.log(uri1);
+    }
+
+    function _startsWith(string memory str, string memory prefix) private pure returns (bool) {
+        bytes memory strBytes = bytes(str);
+        bytes memory prefixBytes = bytes(prefix);
+
+        if (strBytes.length < prefixBytes.length) return false;
+
+        for (uint256 i = 0; i < prefixBytes.length; i++) {
+            if (strBytes[i] != prefixBytes[i]) return false;
+        }
+        return true;
     }
 
     function testBurnNameChangeNFT() public {
