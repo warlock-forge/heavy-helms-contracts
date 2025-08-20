@@ -64,8 +64,10 @@ error InvalidNameIndex();
 error InvalidPlayerRange();
 /// @notice Thrown when no pending request exists
 error NoPendingRequest();
-/// @notice Thrown when an invalid weapon class is provided
-error InvalidWeaponClass();
+/// @notice Thrown when player level is too low for weapon specialization (requires level 10)
+error WeaponSpecializationLevelTooLow();
+/// @notice Thrown when player level is too low for armor specialization (requires level 5)
+error ArmorSpecializationLevelTooLow();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -784,39 +786,60 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit PlayerAttributePointUsed(playerId, attribute, currentValue + 1, _attributePoints[playerId]);
     }
 
-    /// @notice Sets weapon specialization for a player by burning a specialization ticket
+    /// @notice Sets weapon specialization for a player
     /// @param playerId The ID of the player
     /// @param weaponClass The weapon class to specialize in (0-6, 255 = none)
+    /// @dev Free if current specialization is 255 (none), otherwise requires burning a respec ticket
+    /// @dev Requires player to be level 10 or higher
     function setWeaponSpecialization(uint32 playerId, uint8 weaponClass)
         external
         playerExists(playerId)
         onlyPlayerOwner(playerId)
     {
-        // Validate weapon class (0-6 are valid classes, 255 = no specialization)
-        if (weaponClass != 255 && weaponClass > 6) {
-            revert InvalidWeaponClass();
+        // Check player level requirement (level 10 minimum)
+        if (_players[playerId].level < 10) {
+            revert WeaponSpecializationLevelTooLow();
         }
 
-        // Burn a weapon specialization ticket
-        _playerTickets.burnFrom(msg.sender, _playerTickets.WEAPON_SPECIALIZATION_TICKET(), 1);
+        // Get current specialization
+        uint8 currentSpecialization = _players[playerId].weaponSpecialization;
 
+        // Effects: Update state first
         _players[playerId].weaponSpecialization = weaponClass;
+
+        // Interactions: Burn ticket if this was a respec (not initial free change)
+        if (currentSpecialization != 255) {
+            _playerTickets.burnFrom(msg.sender, _playerTickets.WEAPON_SPECIALIZATION_TICKET(), 1);
+        }
 
         emit PlayerWeaponSpecializationChanged(playerId, weaponClass);
     }
 
-    /// @notice Sets armor specialization for a player by burning a specialization ticket
+    /// @notice Sets armor specialization for a player
     /// @param playerId The ID of the player
     /// @param armorType The armor type to specialize in (255 = none)
+    /// @dev Free if current specialization is 255 (none), otherwise requires burning a respec ticket
+    /// @dev Requires player to be level 5 or higher
     function setArmorSpecialization(uint32 playerId, uint8 armorType)
         external
         playerExists(playerId)
         onlyPlayerOwner(playerId)
     {
-        // Burn an armor specialization ticket
-        _playerTickets.burnFrom(msg.sender, _playerTickets.ARMOR_SPECIALIZATION_TICKET(), 1);
+        // Check player level requirement (level 5 minimum)
+        if (_players[playerId].level < 5) {
+            revert ArmorSpecializationLevelTooLow();
+        }
 
+        // Get current specialization
+        uint8 currentSpecialization = _players[playerId].armorSpecialization;
+
+        // Effects: Update state first
         _players[playerId].armorSpecialization = armorType;
+
+        // Interactions: Burn ticket if this was a respec (not initial free change)
+        if (currentSpecialization != 255) {
+            _playerTickets.burnFrom(msg.sender, _playerTickets.ARMOR_SPECIALIZATION_TICKET(), 1);
+        }
 
         emit PlayerArmorSpecializationChanged(playerId, armorType);
     }

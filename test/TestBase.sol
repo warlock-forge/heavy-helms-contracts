@@ -117,7 +117,7 @@ abstract contract TestBase is Test {
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Create the player contracts with all required dependencies
-        playerTickets = new PlayerTickets();
+        playerTickets = new PlayerTickets(address(nameRegistry));
         PlayerCreation playerCreation = new PlayerCreation(nameRegistry);
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
         playerContract = new Player(
