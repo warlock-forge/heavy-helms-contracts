@@ -23,7 +23,8 @@ contract GauntletGasAnalysisTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_1_TO_4
+            GauntletGame.LevelBracket.LEVELS_1_TO_4,
+            address(playerTickets)
         );
 
         // Set permissions

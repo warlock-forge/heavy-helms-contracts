@@ -5,6 +5,7 @@ import "../TestBase.sol";
 import {GauntletGame} from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract GauntletXPRewardsTest is TestBase {
@@ -32,7 +33,8 @@ contract GauntletXPRewardsTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_1_TO_4
+            GauntletGame.LevelBracket.LEVELS_1_TO_4,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -184,7 +186,8 @@ contract GauntletXPRewardsTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_5_TO_9
+            GauntletGame.LevelBracket.LEVELS_5_TO_9,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -244,13 +247,14 @@ contract GauntletXPRewardsTest is TestBase {
         assertEq(totalXPAwarded, 240, "Total XP for L5-9 bracket incorrect");
     }
 
-    function testLevel10Bracket_NoXPRewards() public {
+    function testLevel10Bracket_TicketRewardsInsteadOfXP() public {
         // Create L10 bracket game
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVEL_10
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -258,6 +262,17 @@ contract GauntletXPRewardsTest is TestBase {
             IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(level10Game), perms);
         playerContract.setGameContractPermission(address(this), perms);
+
+        // Set PlayerTickets permissions for Level 10 rewards
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true
+        });
+        playerTickets.setGameContractPermission(address(level10Game), ticketPerms);
 
         level10Game.setMinTimeBetweenGauntlets(0);
         level10Game.setGameEnabled(false);
@@ -293,14 +308,19 @@ contract GauntletXPRewardsTest is TestBase {
         uint16 xpBefore3 = playerContract.getPlayer(playerThreeId).currentXP;
         uint16 xpBefore4 = playerContract.getPlayer(playerFourId).currentXP;
 
-        // Run gauntlet - should NOT emit XP event for level 10
+        // Run gauntlet - should give ticket rewards, not XP
         _runComplete4PlayerGauntletFor(level10Game);
 
-        // Check XP after - should be unchanged
+        // Check XP after - should be unchanged (no XP for Level 10)
         assertEq(playerContract.getPlayer(playerOneId).currentXP, xpBefore1, "L10 should not award XP");
         assertEq(playerContract.getPlayer(playerTwoId).currentXP, xpBefore2, "L10 should not award XP");
         assertEq(playerContract.getPlayer(playerThreeId).currentXP, xpBefore3, "L10 should not award XP");
         assertEq(playerContract.getPlayer(playerFourId).currentXP, xpBefore4, "L10 should not award XP");
+
+        // Verify that Level 10 gauntlets can distribute ticket rewards (not testing specific rewards, just that the system works)
+        // The champion, runner-up, and 3rd-4th place may or may not get tickets based on RNG
+        // But the contract should execute without errors
+        assertTrue(level10Game.nextGauntletId() == 1, "Gauntlet should have completed successfully");
     }
 
     //==============================================================//

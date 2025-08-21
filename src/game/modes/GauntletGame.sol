@@ -22,6 +22,7 @@ import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 import "../../fighters/Fighter.sol";
 import "../../interfaces/fighters/IDefaultPlayer.sol";
 import "../../interfaces/game/engine/IEquipmentRequirements.sol";
+import "../../interfaces/nft/IPlayerTickets.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -53,6 +54,8 @@ error NoDefaultPlayersAvailable();
 error InvalidBlockhash();
 error DailyLimitExceeded(uint8 currentRuns, uint8 limit);
 error InsufficientResetFee();
+error InvalidRewardPercentages();
+error InvalidRewardConfiguration();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -163,6 +166,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     LevelBracket public immutable levelBracket;
     /// @notice Contract managing default player data.
     IDefaultPlayer public defaultPlayerContract;
+    /// @notice PlayerTickets contract for minting Level 10 rewards.
+    IPlayerTickets public immutable playerTickets;
     /// @notice Number of blocks in the future for participant selection.
     uint256 public futureBlocksForSelection = 20;
     /// @notice Number of blocks in the future for tournament execution.
@@ -207,6 +212,43 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Maps player ID to day number to run count (playerId => dayNumber => runCount)
     mapping(uint32 => mapping(uint256 => uint8)) private _playerDailyRuns;
 
+    // --- Level 10 Reward Configuration ---
+    /// @notice Reward percentages for champions (1st place) in Level 10 gauntlets.
+    IPlayerTickets.RewardConfig public championRewards = IPlayerTickets.RewardConfig({
+        nonePercent: 3000, // 30%
+        attributeSwapPercent: 0, // 0% - Gauntlets don't give attribute swaps
+        createPlayerPercent: 1500, // 15%
+        playerSlotPercent: 1500, // 15%
+        weaponSpecPercent: 1000, // 10%
+        armorSpecPercent: 1000, // 10%
+        duelTicketPercent: 1000, // 10%
+        nameChangePercent: 1000 // 10%
+    });
+
+    /// @notice Reward percentages for runner-ups (2nd place) in Level 10 gauntlets.
+    IPlayerTickets.RewardConfig public runnerUpRewards = IPlayerTickets.RewardConfig({
+        nonePercent: 7000, // 70%
+        attributeSwapPercent: 0, // 0% - Gauntlets don't give attribute swaps
+        createPlayerPercent: 800, // 8%
+        playerSlotPercent: 800, // 8%
+        weaponSpecPercent: 400, // 4%
+        armorSpecPercent: 400, // 4%
+        duelTicketPercent: 400, // 4%
+        nameChangePercent: 200 // 2%
+    });
+
+    /// @notice Reward percentages for 3rd-4th place in Level 10 gauntlets.
+    IPlayerTickets.RewardConfig public thirdFourthRewards = IPlayerTickets.RewardConfig({
+        nonePercent: 8500, // 85%
+        attributeSwapPercent: 0, // 0% - Gauntlets don't give attribute swaps
+        createPlayerPercent: 300, // 3%
+        playerSlotPercent: 300, // 3%
+        weaponSpecPercent: 300, // 3%
+        armorSpecPercent: 300, // 3%
+        duelTicketPercent: 200, // 2%
+        nameChangePercent: 100 // 1%
+    });
+
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
@@ -234,6 +276,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Emitted when XP is awarded to gauntlet participants.
     event GauntletXPAwarded(
         uint256 indexed gauntletId, LevelBracket levelBracket, uint32[] playerIds, uint16[] xpAmounts
+    );
+    /// @notice Emitted when rewards are distributed to Level 10 gauntlet participants.
+    event GauntletRewardDistributed(
+        uint256 indexed gauntletId, uint32 indexed playerId, IPlayerTickets.RewardType rewardType, uint256 ticketId
     );
     /// @notice Emitted when a pending Gauntlet is recovered after timeout.
     event GauntletRecovered(uint256 commitTimestamp);
@@ -265,6 +311,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     event DailyResetCostUpdated(uint256 oldCost, uint256 newCost);
     /// @notice Emitted when the daily gauntlet limit is updated
     event DailyGauntletLimitUpdated(uint8 oldLimit, uint8 newLimit);
+    /// @notice Emitted when reward configurations are updated for Level 10 gauntlets.
+    event RewardConfigUpdated(string placement, IPlayerTickets.RewardConfig config);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
@@ -284,16 +332,23 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @param _playerContract Address of the `Player` contract.
     /// @param _defaultPlayerAddress Address of the `DefaultPlayer` contract.
     /// @param _levelBracket Level bracket this gauntlet instance will serve.
-    constructor(address _gameEngine, address _playerContract, address _defaultPlayerAddress, LevelBracket _levelBracket)
-        BaseGame(_gameEngine, _playerContract)
-    {
+    /// @param _playerTicketsAddress Address of the `PlayerTickets` contract for rewards.
+    constructor(
+        address _gameEngine,
+        address _playerContract,
+        address _defaultPlayerAddress,
+        LevelBracket _levelBracket,
+        address _playerTicketsAddress
+    ) BaseGame(_gameEngine, _playerContract) {
         // Input validation
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
+        if (_playerTicketsAddress == address(0)) revert ZeroAddress();
         // Validation will happen when trying to use defaults
 
         // Set initial state
         levelBracket = _levelBracket;
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
+        playerTickets = IPlayerTickets(_playerTicketsAddress);
         lastGauntletStartTime = block.timestamp; // Initialize to deployment time
 
         // TODO: UPDATE PLAYER CONTRACT PERMISSIONS FOR XP REWARDS
@@ -602,6 +657,92 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
+    //                   LEVEL 10 REWARD FUNCTIONS                  //
+    //==============================================================//
+
+    /// @notice Distributes rewards to Level 10 gauntlet participants.
+    function _distributeGauntletRewards(
+        Gauntlet storage gauntlet,
+        uint32[] memory eliminatedByRound,
+        uint256 gauntletId
+    ) private {
+        // Reward champion
+        if (_getFighterType(gauntlet.championId) == Fighter.FighterType.PLAYER) {
+            _distributeReward(gauntletId, gauntlet.championId, championRewards);
+        }
+
+        // Reward runner-up
+        if (_getFighterType(gauntlet.runnerUpId) == Fighter.FighterType.PLAYER) {
+            _distributeReward(gauntletId, gauntlet.runnerUpId, runnerUpRewards);
+        }
+
+        // Reward 3rd-4th place (semi-final losers)
+        uint256 eliminatedLength = eliminatedByRound.length;
+        uint256 semiFinalistStart = eliminatedLength - 3; // Last 3 eliminated: 2nd, 3rd, 4th
+        uint256 semiFinalistEnd = eliminatedLength - 1;
+        for (uint256 i = semiFinalistStart; i < semiFinalistEnd; i++) {
+            uint32 playerId = eliminatedByRound[i];
+            if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
+                _distributeReward(gauntletId, playerId, thirdFourthRewards);
+            }
+        }
+    }
+
+    /// @notice Distributes a single reward based on configured percentages.
+    function _distributeReward(uint256 gauntletId, uint32 playerId, IPlayerTickets.RewardConfig memory config)
+        private
+    {
+        uint256 random = uint256(keccak256(abi.encodePacked(gauntletId, playerId, block.timestamp)));
+        uint256 roll = random % 10000; // 0-9999 for percentage precision
+
+        IPlayerTickets.RewardType rewardType;
+        uint256 ticketId;
+
+        if (roll < config.nonePercent) {
+            return; // No reward
+        }
+        roll -= config.nonePercent;
+
+        // Get owner once for all reward types
+        address owner = playerContract.getPlayerOwner(playerId);
+
+        if (roll < config.createPlayerPercent) {
+            rewardType = IPlayerTickets.RewardType.CREATE_PLAYER_TICKET;
+            ticketId = playerTickets.CREATE_PLAYER_TICKET();
+        } else if (roll < config.createPlayerPercent + config.playerSlotPercent) {
+            rewardType = IPlayerTickets.RewardType.PLAYER_SLOT_TICKET;
+            ticketId = playerTickets.PLAYER_SLOT_TICKET();
+        } else if (roll < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent) {
+            rewardType = IPlayerTickets.RewardType.WEAPON_SPECIALIZATION_TICKET;
+            ticketId = playerTickets.WEAPON_SPECIALIZATION_TICKET();
+        } else if (
+            roll
+                < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent
+        ) {
+            rewardType = IPlayerTickets.RewardType.ARMOR_SPECIALIZATION_TICKET;
+            ticketId = playerTickets.ARMOR_SPECIALIZATION_TICKET();
+        } else if (
+            roll
+                < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent
+                    + config.duelTicketPercent
+        ) {
+            rewardType = IPlayerTickets.RewardType.DUEL_TICKET;
+            ticketId = playerTickets.DUEL_TICKET();
+        } else {
+            rewardType = IPlayerTickets.RewardType.NAME_CHANGE_TICKET;
+            // Name change tickets are non-fungible, minted with randomness
+            ticketId = playerTickets.mintNameChangeNFT(owner, random);
+            emit GauntletRewardDistributed(gauntletId, playerId, rewardType, ticketId);
+            return;
+        }
+
+        // Mint fungible ticket for other reward types
+        playerTickets.mintFungibleTicket(owner, ticketId, 1);
+
+        emit GauntletRewardDistributed(gauntletId, playerId, rewardType, ticketId);
+    }
+
+    //==============================================================//
     //                    COMMIT-REVEAL FUNCTIONS                   //
     //==============================================================//
 
@@ -810,7 +951,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         if (levelBracket != LevelBracket.LEVEL_10) {
             _awardGauntletXP(gauntlet, eliminatedByRound, levelBracket);
         } else {
-            // TODO: Implement ticket rewards for level 10 bracket
+            _distributeGauntletRewards(gauntlet, eliminatedByRound, gauntletId);
         }
 
         // Clean up player statuses
@@ -1225,6 +1366,44 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint8 oldLimit = dailyGauntletLimit;
         dailyGauntletLimit = newLimit;
         emit DailyGauntletLimitUpdated(oldLimit, newLimit);
+    }
+
+    // --- Level 10 Reward Configuration ---
+
+    /// @notice Updates reward configuration for champions in Level 10 gauntlets.
+    /// @dev Only Level 10 bracket gauntlets use rewards.
+    function setChampionRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
+        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
+        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.nameChangePercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        championRewards = config;
+        emit RewardConfigUpdated("champion", config);
+    }
+
+    /// @notice Updates reward configuration for runner-ups in Level 10 gauntlets.
+    /// @dev Only Level 10 bracket gauntlets use rewards.
+    function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
+        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
+        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.nameChangePercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        runnerUpRewards = config;
+        emit RewardConfigUpdated("runnerUp", config);
+    }
+
+    /// @notice Updates reward configuration for 3rd-4th place in Level 10 gauntlets.
+    /// @dev Only Level 10 bracket gauntlets use rewards.
+    function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
+        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
+        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.nameChangePercent;
+        if (total != 10000) revert InvalidRewardPercentages();
+
+        thirdFourthRewards = config;
+        emit RewardConfigUpdated("thirdFourth", config);
     }
 
     //==============================================================//

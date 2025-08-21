@@ -16,22 +16,32 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 contract GauntletGameDeployScript is Script {
     function setUp() public {}
 
-    function run(address gameEngineAddr, address playerAddr, address defaultPlayerAddr) public {
+    function run(address gameEngineAddr, address playerAddr, address defaultPlayerAddr, address playerTicketsAddr)
+        public
+    {
         // Deploy all 3 bracket contracts
-        deployGauntletBracket(gameEngineAddr, playerAddr, defaultPlayerAddr, GauntletGame.LevelBracket.LEVELS_1_TO_4);
-        deployGauntletBracket(gameEngineAddr, playerAddr, defaultPlayerAddr, GauntletGame.LevelBracket.LEVELS_5_TO_9);
-        deployGauntletBracket(gameEngineAddr, playerAddr, defaultPlayerAddr, GauntletGame.LevelBracket.LEVEL_10);
+        deployGauntletBracket(
+            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
+        deployGauntletBracket(
+            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_5_TO_9
+        );
+        deployGauntletBracket(
+            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVEL_10
+        );
     }
 
     function deployGauntletBracket(
         address gameEngineAddr,
         address playerAddr,
         address defaultPlayerAddr,
+        address playerTicketsAddr,
         GauntletGame.LevelBracket bracket
     ) public {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");
+        require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
 
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
@@ -43,7 +53,8 @@ contract GauntletGameDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy GauntletGame with specified bracket
-        GauntletGame gauntletGame = new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr, bracket);
+        GauntletGame gauntletGame =
+            new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr, bracket, playerTicketsAddr);
 
         // Whitelist GauntletGame in Player contract
         Player playerContract = Player(playerAddr);

@@ -44,7 +44,8 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_1_TO_4
+            GauntletGame.LevelBracket.LEVELS_1_TO_4,
+            address(playerTickets)
         );
 
         // Transfer ownership of defaultPlayerContract
@@ -807,7 +808,8 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_1_TO_4
+            GauntletGame.LevelBracket.LEVELS_1_TO_4,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -839,7 +841,8 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_1_TO_4
+            GauntletGame.LevelBracket.LEVELS_1_TO_4,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -884,7 +887,8 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_5_TO_9
+            GauntletGame.LevelBracket.LEVELS_5_TO_9,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -936,7 +940,8 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVEL_10
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
         );
 
         // Set permissions
@@ -968,21 +973,24 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_1_TO_4
+            GauntletGame.LevelBracket.LEVELS_1_TO_4,
+            address(playerTickets)
         );
 
         GauntletGame levels5To9Game = new GauntletGame(
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_5_TO_9
+            GauntletGame.LevelBracket.LEVELS_5_TO_9,
+            address(playerTickets)
         );
 
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVEL_10
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
         );
 
         // Set permissions for all games
@@ -1035,7 +1043,8 @@ contract GauntletGameTest is TestBase {
             address(gameEngine),
             address(playerContract),
             address(defaultPlayerContract),
-            GauntletGame.LevelBracket.LEVELS_5_TO_9
+            GauntletGame.LevelBracket.LEVELS_5_TO_9,
+            address(playerTickets)
         );
 
         // Set permissions

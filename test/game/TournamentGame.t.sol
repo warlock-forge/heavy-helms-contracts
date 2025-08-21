@@ -23,6 +23,7 @@ import {
 import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerTickets} from "../../src/interfaces/nft/IPlayerTickets.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -363,14 +364,15 @@ contract TournamentGameTest is TestBase {
     }
 
     function testSetRewardConfigurations() public {
-        TournamentGame.RewardConfig memory newConfig = TournamentGame.RewardConfig({
+        IPlayerTickets.RewardConfig memory newConfig = IPlayerTickets.RewardConfig({
             nonePercent: 5000,
             attributeSwapPercent: 1000,
             createPlayerPercent: 1000,
             playerSlotPercent: 1000,
             weaponSpecPercent: 1000,
             armorSpecPercent: 500,
-            duelTicketPercent: 500
+            duelTicketPercent: 500,
+            nameChangePercent: 0
         }); // Total = 10000
 
         game.setWinnerRewards(newConfig);
@@ -378,14 +380,15 @@ contract TournamentGameTest is TestBase {
     }
 
     function testInvalidRewardPercentages() public {
-        TournamentGame.RewardConfig memory invalidConfig = TournamentGame.RewardConfig({
+        IPlayerTickets.RewardConfig memory invalidConfig = IPlayerTickets.RewardConfig({
             nonePercent: 5000,
             attributeSwapPercent: 2000,
             createPlayerPercent: 2000,
             playerSlotPercent: 2000,
             weaponSpecPercent: 2000,
             armorSpecPercent: 2000,
-            duelTicketPercent: 2000
+            duelTicketPercent: 2000,
+            nameChangePercent: 0
         }); // Total > 10000
 
         vm.expectRevert(InvalidRewardPercentages.selector);
@@ -1262,14 +1265,15 @@ contract TournamentGameTest is TestBase {
 
     function testRewardMintingVerification() public {
         // Set reward config to guarantee specific ticket minting
-        TournamentGame.RewardConfig memory guaranteedConfig = TournamentGame.RewardConfig({
+        IPlayerTickets.RewardConfig memory guaranteedConfig = IPlayerTickets.RewardConfig({
             nonePercent: 0, // 0%
             attributeSwapPercent: 0, // 0%
             createPlayerPercent: 0, // 0%
             playerSlotPercent: 0, // 0%
             weaponSpecPercent: 5000, // 50%
             armorSpecPercent: 5000, // 50%
-            duelTicketPercent: 0 // 0%
+            duelTicketPercent: 0, // 0%
+            nameChangePercent: 0 // 0%
         });
 
         game.setWinnerRewards(guaranteedConfig);
@@ -1295,14 +1299,15 @@ contract TournamentGameTest is TestBase {
 
     function testRevertWhen_InvalidRewardPercentages_NotSumTo10000() public {
         // Test reward config that doesn't sum to 10000 (100%)
-        TournamentGame.RewardConfig memory invalidConfig = TournamentGame.RewardConfig({
+        IPlayerTickets.RewardConfig memory invalidConfig = IPlayerTickets.RewardConfig({
             nonePercent: 5000, // 50%
             attributeSwapPercent: 2000, // 20%
             createPlayerPercent: 1000, // 10%
             playerSlotPercent: 1000, // 10%
             weaponSpecPercent: 500, // 5%
             armorSpecPercent: 500, // 5%
-            duelTicketPercent: 500 // 5% = 105% total (should be 100%)
+            duelTicketPercent: 500, // 5% = 105% total (should be 100%)
+            nameChangePercent: 0 // 0%
         });
 
         vm.expectRevert(abi.encodeWithSignature("InvalidRewardPercentages()"));
@@ -1311,14 +1316,15 @@ contract TournamentGameTest is TestBase {
 
     function testComplexRewardDistribution() public {
         // Test complex reward distribution with multiple types
-        TournamentGame.RewardConfig memory complexConfig = TournamentGame.RewardConfig({
+        IPlayerTickets.RewardConfig memory complexConfig = IPlayerTickets.RewardConfig({
             nonePercent: 1000, // 10%
             attributeSwapPercent: 2000, // 20%
             createPlayerPercent: 1500, // 15%
             playerSlotPercent: 1500, // 15%
             weaponSpecPercent: 2000, // 20%
             armorSpecPercent: 1500, // 15%
-            duelTicketPercent: 500 // 5% = 100% total
+            duelTicketPercent: 500, // 5% = 100% total
+            nameChangePercent: 0 // 0%
         });
 
         game.setWinnerRewards(complexConfig);
