@@ -56,7 +56,7 @@ contract GauntletGameTest is TestBase {
             retire: false,
             attributes: false,
             immortal: false,
-            experience: false
+            experience: true // Need for XP rewards
         });
         playerContract.setGameContractPermission(address(game), perms);
 

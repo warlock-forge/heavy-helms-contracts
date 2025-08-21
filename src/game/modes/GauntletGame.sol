@@ -122,6 +122,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint256 completionTimestamp;
         RegisteredPlayer[] participants; // Needed for commit-reveal pattern
         uint32 championId;
+        uint32 runnerUpId;
     }
 
     /// @notice Compact struct storing participant data within a Gauntlet.
@@ -229,6 +230,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint32 indexed championId,
         uint32[] participantIds,
         uint32[] roundWinners
+    );
+    /// @notice Emitted when XP is awarded to gauntlet participants.
+    event GauntletXPAwarded(
+        uint256 indexed gauntletId, LevelBracket levelBracket, uint32[] playerIds, uint16[] xpAmounts
     );
     /// @notice Emitted when a pending Gauntlet is recovered after timeout.
     event GauntletRecovered(uint256 commitTimestamp);
@@ -480,6 +485,123 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     }
 
     //==============================================================//
+    //                     XP REWARD FUNCTIONS                     //
+    //==============================================================//
+
+    /// @notice Awards XP to gauntlet participants based on placement and level bracket.
+    /// @param gauntlet The completed gauntlet storage reference
+    /// @param eliminatedByRound Array of player IDs eliminated in each round
+    /// @param bracket The level bracket of the gauntlet (LEVELS_1_TO_4 or LEVELS_5_TO_9)
+    function _awardGauntletXP(Gauntlet storage gauntlet, uint32[] memory eliminatedByRound, LevelBracket bracket)
+        private
+    {
+        uint8 size = gauntlet.size;
+
+        // Base XP amounts for each level bracket
+        uint16 championBaseXP = (bracket == LevelBracket.LEVELS_1_TO_4) ? 100 : 150;
+
+        // Track XP awards for event emission
+        uint32[] memory awardedPlayerIds = new uint32[](size);
+        uint16[] memory awardedXP = new uint16[](size);
+        uint256 awardCount = 0;
+
+        // Award champion (1st place - 100% of base XP)
+        if (_getFighterType(gauntlet.championId) == Fighter.FighterType.PLAYER) {
+            playerContract.awardExperience(gauntlet.championId, championBaseXP);
+            awardedPlayerIds[awardCount] = gauntlet.championId;
+            awardedXP[awardCount++] = championBaseXP;
+        }
+
+        // Award runner-up (2nd place - 60% of base XP)
+        if (_getFighterType(gauntlet.runnerUpId) == Fighter.FighterType.PLAYER) {
+            uint16 runnerUpXP = (championBaseXP * 60) / 100;
+            playerContract.awardExperience(gauntlet.runnerUpId, runnerUpXP);
+            awardedPlayerIds[awardCount] = gauntlet.runnerUpId;
+            awardedXP[awardCount++] = runnerUpXP;
+        }
+
+        // Calculate XP for each elimination round based on gauntlet size
+        uint16[] memory roundXP = _calculateRoundXP(size, championBaseXP);
+
+        // Process eliminated players but exclude final round
+        uint256 eliminatedPerRound = size / 2;
+        uint256 currentRound = 0;
+
+        // Don't process the final elimination (runner-up) - exclude last element
+        uint256 eliminationsToProcess = eliminatedByRound.length - 1;
+
+        for (uint256 i = 0; i < eliminationsToProcess; i++) {
+            uint32 playerId = eliminatedByRound[i];
+
+            // Move to next round when we've processed all eliminations for current round
+            if (i > 0 && i % eliminatedPerRound == 0) {
+                currentRound++;
+                eliminatedPerRound /= 2;
+            }
+
+            // Award XP if it's a player and they get XP for this round
+            if (
+                _getFighterType(playerId) == Fighter.FighterType.PLAYER && currentRound < roundXP.length
+                    && roundXP[currentRound] > 0
+            ) {
+                playerContract.awardExperience(playerId, roundXP[currentRound]);
+                awardedPlayerIds[awardCount] = playerId;
+                awardedXP[awardCount++] = roundXP[currentRound];
+            }
+        }
+
+        // Emit XP awards event with actual count
+        if (awardCount > 0) {
+            uint32[] memory finalPlayerIds = new uint32[](awardCount);
+            uint16[] memory finalXP = new uint16[](awardCount);
+            for (uint256 i = 0; i < awardCount; i++) {
+                finalPlayerIds[i] = awardedPlayerIds[i];
+                finalXP[i] = awardedXP[i];
+            }
+            emit GauntletXPAwarded(gauntlet.id, bracket, finalPlayerIds, finalXP);
+        }
+    }
+
+    /// @notice Calculates XP amounts for each elimination round based on gauntlet size.
+    /// @param size The size of the gauntlet (4, 8, 16, 32, or 64)
+    /// @param baseXP The base XP amount for the champion
+    /// @return roundXP Array of XP amounts for each elimination round
+    function _calculateRoundXP(uint8 size, uint16 baseXP) private pure returns (uint16[] memory roundXP) {
+        if (size == 4) {
+            roundXP = new uint16[](2);
+            roundXP[1] = 0; // Round 1 losers (3rd-4th) - 0% (top 50% rule: only top 2 get XP)
+            roundXP[0] = 0; // Round 2 loser (2nd) - handled separately as runner-up
+        } else if (size == 8) {
+            roundXP = new uint16[](3);
+            roundXP[0] = 0; // Round 1 losers (5th-8th) - 0% (only top 4 get XP)
+            roundXP[1] = (baseXP * 30) / 100; // Round 2 losers (3rd-4th) - 30%
+            roundXP[2] = 0; // Round 3 loser (2nd) - handled separately as runner-up
+        } else if (size == 16) {
+            roundXP = new uint16[](4);
+            roundXP[0] = 0; // Round 1 losers (9th-16th) - 0% (only top 8 get XP)
+            roundXP[1] = (baseXP * 20) / 100; // Round 2 losers (5th-8th) - 20%
+            roundXP[2] = (baseXP * 30) / 100; // Round 3 losers (3rd-4th) - 30%
+            roundXP[3] = 0; // Round 4 loser (2nd) - handled as runner-up
+        } else if (size == 32) {
+            roundXP = new uint16[](5);
+            roundXP[0] = 0; // Round 1 losers (17th-32nd) - 0% (only top 16 get XP)
+            roundXP[1] = (baseXP * 5) / 100; // Round 2 losers (9th-16th) - 5%
+            roundXP[2] = (baseXP * 20) / 100; // Round 3 losers (5th-8th) - 20%
+            roundXP[3] = (baseXP * 30) / 100; // Round 4 losers (3rd-4th) - 30%
+            roundXP[4] = 0; // Round 5 loser (2nd) - handled as runner-up
+        } else if (size == 64) {
+            roundXP = new uint16[](6);
+            roundXP[0] = 0; // Round 1 losers (33rd-64th) - 0% (only top 32 get XP)
+            roundXP[1] = (baseXP * 5) / 100; // Round 2 losers (17th-32nd) - 5%
+            roundXP[2] = (baseXP * 10) / 100; // Round 3 losers (9th-16th) - 10%
+            roundXP[3] = (baseXP * 20) / 100; // Round 4 losers (5th-8th) - 20%
+            roundXP[4] = (baseXP * 30) / 100; // Round 5 losers (3rd-4th) - 30%
+            roundXP[5] = 0; // Round 6 loser (2nd) - handled as runner-up
+        }
+        return roundXP;
+    }
+
+    //==============================================================//
     //                    COMMIT-REVEAL FUNCTIONS                   //
     //==============================================================//
 
@@ -682,23 +804,54 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         activeParticipants = _shuffleParticipants(activeParticipants, randomness);
 
         // Run gauntlet rounds with improved structure
-        _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness);
+        uint32[] memory eliminatedByRound = _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness);
+
+        // Award XP for levels 1-9 brackets, tickets for level 10
+        if (levelBracket != LevelBracket.LEVEL_10) {
+            _awardGauntletXP(gauntlet, eliminatedByRound, levelBracket);
+        } else {
+            // TODO: Implement ticket rewards for level 10 bracket
+        }
+
+        // Clean up player statuses
+        for (uint256 i = 0; i < size; i++) {
+            uint32 pId = gauntlet.participants[i].playerId;
+            // Check status and current gauntlet ID before clearing
+            if (playerStatus[pId] == PlayerStatus.IN_TOURNAMENT && playerCurrentGauntlet[pId] == gauntletId) {
+                playerStatus[pId] = PlayerStatus.NONE;
+                delete playerCurrentGauntlet[pId];
+            }
+        }
+
+        // Extract participant IDs for event emission
+        uint256 participantCount = activeParticipants.length;
+        uint32[] memory participantIds = new uint32[](participantCount);
+        uint32[] memory roundWinners = new uint32[](size - 1); // TODO: Get from _runGauntletRounds
+        for (uint256 i = 0; i < participantCount; i++) {
+            participantIds[i] = activeParticipants[i].playerId;
+        }
+
+        // Emit completion event with memory arrays (for subgraph)
+        emit GauntletCompleted(gauntletId, size, levelBracket, gauntlet.championId, participantIds, roundWinners);
     }
 
     /// @notice Runs all gauntlet rounds with clean memory management.
+    /// @return eliminatedByRound Array of player IDs eliminated in each round
     function _runGauntletRounds(
         Gauntlet storage gauntlet,
         uint256 gauntletId,
         ActiveParticipant[] memory participants,
         uint256 randomness
-    ) private {
+    ) private returns (uint32[] memory eliminatedByRound) {
         uint8 size = gauntlet.size;
 
         uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, gauntletId)));
 
-        // Initialize memory arrays to track round winners (not stored in contract)
+        // Initialize memory arrays to track round winners and eliminations (not stored in contract)
         uint32[] memory roundWinners = new uint32[](size - 1);
+        eliminatedByRound = new uint32[](size);
         uint256 winnerIndex = 0;
+        uint256 eliminatedIndex = 0;
 
         // Current round participants - clean struct array
         ActiveParticipant[] memory currentRound = participants;
@@ -746,6 +899,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     roundWinners[winnerIndex++] = winner.playerId;
                 }
 
+                // Track elimination for XP distribution
+                eliminatedByRound[eliminatedIndex++] = loserId;
+
                 // Emit combat result
                 emit CombatResult(fighter1.encodedData, fighter2.encodedData, winner.playerId, results);
 
@@ -765,60 +921,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         // Gauntlet complete - record final results
         uint32 finalWinnerId = currentRound[0].playerId;
         gauntlet.championId = finalWinnerId;
+        gauntlet.runnerUpId = eliminatedByRound[eliminatedIndex - 1]; // Last eliminated is runner-up
         gauntlet.completionTimestamp = block.timestamp;
         gauntlet.state = GauntletState.COMPLETED;
 
-        // TODO: IMPLEMENT BRACKET-SPECIFIC REWARDS
-        // - LEVELS_1_TO_4: Award XP to champion and participants (e.g., 75 champion, 25 participants)
-        // - LEVELS_5_TO_9: Award XP to champion and participants (e.g., 100 champion, 35 participants)
-        // - LEVEL_10: Award player tickets instead of XP (e.g., tournament tickets, specialization tickets)
-        //
-        // XP Implementation: Call playerContract.awardExperience() for levels 1-9
-        // Ticket Implementation: Call playerTickets.mint() for level 10 bracket
-        //
-        // Example implementation:
-        // if (levelBracket == LevelBracket.LEVEL_10) {
-        //     // Award tickets for level 10 bracket
-        //     for (uint256 i = 0; i < participantCount; i++) {
-        //         uint32 pId = participants[i].playerId;
-        //         if (!_isDefaultPlayerId(pId)) {
-        //             address owner = playerContract.getPlayerOwner(pId);
-        //             // Award different ticket types based on placement
-        //             // Champion: tournament tickets, Participants: specialization tickets
-        //         }
-        //     }
-        // } else {
-        //     // Award XP for levels 1-9 brackets
-        //     for (uint256 i = 0; i < participantCount; i++) {
-        //         uint32 pId = participants[i].playerId;
-        //         if (!_isDefaultPlayerId(pId)) {
-        //             uint16 xpAmount = (levelBracket == LevelBracket.LEVELS_1_TO_4)
-        //                 ? ((pId == finalWinnerId) ? 75 : 25)
-        //                 : ((pId == finalWinnerId) ? 100 : 35);
-        //             playerContract.awardExperience(pId, xpAmount);
-        //         }
-        //     }
-        // }
-
-        // Clean up player statuses
-        for (uint256 i = 0; i < size; i++) {
-            uint32 pId = gauntlet.participants[i].playerId;
-            // Check status and current gauntlet ID before clearing
-            if (playerStatus[pId] == PlayerStatus.IN_TOURNAMENT && playerCurrentGauntlet[pId] == gauntletId) {
-                playerStatus[pId] = PlayerStatus.NONE;
-                delete playerCurrentGauntlet[pId];
-            }
-        }
-
-        // Extract participant IDs for event emission
-        uint256 participantCount = participants.length;
-        uint32[] memory participantIds = new uint32[](participantCount);
-        for (uint256 i = 0; i < participantCount; i++) {
-            participantIds[i] = participants[i].playerId;
-        }
-
-        // Emit completion event with memory arrays (for subgraph)
-        emit GauntletCompleted(gauntletId, size, levelBracket, finalWinnerId, participantIds, roundWinners);
+        // Return elimination data for XP/reward processing
+        return eliminatedByRound;
     }
 
     //==============================================================//
