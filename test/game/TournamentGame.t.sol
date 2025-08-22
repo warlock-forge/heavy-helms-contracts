@@ -77,7 +77,7 @@ contract TournamentGameTest is TestBase {
         PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
             playerCreation: true,
             playerSlots: true,
-            nameChanges: false,
+            nameChanges: true, // Need for name change ticket rewards
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true
@@ -287,23 +287,98 @@ contract TournamentGameTest is TestBase {
         // Queue exactly 16 players
         _queuePlayers(16);
 
+        // Record logs to capture rating events
+        vm.recordLogs();
+
         // Run full tournament
         _runFullTournament();
 
-        // Check rating distribution
+        // Get the tournament data and logs
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        // Champion should get 100 points
-        if (tournament.championId <= 2000) {
-            // Not a default player
-            assertEq(game.getPlayerRating(tournament.championId), 100);
+        // Find the TournamentRatingsAwarded event (singular event with arrays)
+        bytes32 ratingEventTopic = keccak256("TournamentRatingsAwarded(uint256,uint256,uint32[],uint16[])");
+        uint32[] memory eventPlayerIds;
+        uint16[] memory eventRatings;
+        bool ratingsEventFound = false;
+
+        console2.log("Looking for TournamentRatingsAwarded event:");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == ratingEventTopic) {
+                // Decode: TournamentRatingsAwarded(uint256 indexed tournamentId, uint256 indexed seasonId, uint32[] playerIds, uint256[] ratings)
+                // tournamentId and seasonId are indexed, playerIds and ratings are in data
+                (eventPlayerIds, eventRatings) = abi.decode(logs[i].data, (uint32[], uint16[]));
+                ratingsEventFound = true;
+
+                console2.log("Found TournamentRatingsAwarded event with", eventPlayerIds.length, "ratings");
+                for (uint256 j = 0; j < eventPlayerIds.length; j++) {
+                    console2.log("Event: Player", eventPlayerIds[j], "awarded rating:", eventRatings[j]);
+                }
+                break;
+            }
         }
 
-        // Runner-up should get 75 points
-        if (tournament.runnerUpId <= 2000) {
-            // Not a default player
-            assertEq(game.getPlayerRating(tournament.runnerUpId), 75);
+        assertTrue(ratingsEventFound, "TournamentRatingsAwarded event should be emitted");
+        console2.log("Total ratings in event:", eventPlayerIds.length);
+
+        // Cross-reference events with actual player state
+        uint256 playersWithRating = 0;
+        uint256 totalTestPlayers = 0;
+
+        for (uint256 i = 0; i < playerIds.length && i < 16; i++) {
+            uint32 playerId = playerIds[i];
+            if (playerId >= 10001) {
+                // Real players only
+                totalTestPlayers++;
+                uint16 actualRating = game.getPlayerRating(playerId);
+
+                if (actualRating > 0) {
+                    playersWithRating++;
+                    console2.log("State: Player", playerId, "has rating:", actualRating);
+
+                    // Find this player in the events and verify rating matches
+                    bool foundInEvents = false;
+                    for (uint256 j = 0; j < eventPlayerIds.length; j++) {
+                        if (eventPlayerIds[j] == playerId) {
+                            foundInEvents = true;
+                            assertEq(eventRatings[j], actualRating, "Event rating should match actual rating");
+                            console2.log("VERIFIED: Event and state match for player", playerId);
+                            break;
+                        }
+                    }
+                    assertTrue(foundInEvents, "Player with rating should have corresponding event");
+
+                    // Verify rating is from expected set for 16-player tournament
+                    assertTrue(
+                        actualRating == 100 || actualRating == 60 || actualRating == 30 || actualRating == 20,
+                        "Rating should be 100, 60, 30, or 20 for 16-player tournament"
+                    );
+                }
+            }
         }
+
+        // Verify champion and runner-up ratings
+        if (tournament.championId >= 10001) {
+            assertEq(game.getPlayerRating(tournament.championId), 100, "Champion should get 100 rating");
+        }
+
+        if (tournament.runnerUpId >= 10001) {
+            assertEq(game.getPlayerRating(tournament.runnerUpId), 60, "Runner-up should get 60 rating");
+        }
+
+        console2.log("Total test players:", totalTestPlayers);
+        console2.log("Players with rating:", playersWithRating);
+        console2.log("Ratings in event:", eventPlayerIds.length);
+
+        // Verify events match state: exactly same number of ratings in event as players with ratings
+        assertEq(
+            eventPlayerIds.length, playersWithRating, "Number of ratings in event should match players with ratings"
+        );
+
+        // Verify top 50% rule: max 8 players for 16-player tournament
+        assertTrue(playersWithRating <= 8, "Should not exceed top 50% (8 players) getting ratings");
+        assertTrue(playersWithRating >= 2, "At least champion and runner-up should have ratings");
     }
 
     function testSeasonRatingReset() public {

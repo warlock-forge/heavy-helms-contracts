@@ -79,30 +79,6 @@ contract PlayerTest is TestBase {
         _assertStatRanges(newPlayer);
     }
 
-    // TODO: Properly mock VRF behavior to test pending request checks
-    // function test_RevertWhen_CreatePlayerBeforeVRFFulfillment() public {
-    //     uint256 feeAmount = playerContract.createPlayerFeeAmount();
-    //     // First player creation request
-    //     vm.deal(PLAYER_ONE, feeAmount * 2); // Enough for two attempts
-    //     vm.startPrank(PLAYER_ONE);
-    //     playerContract.requestCreatePlayer{value: feeAmount}(true);
-
-    //     // Try to create another player before VRF fulfillment (should fail)
-    //     vm.expectRevert(PendingRequestExists.selector);
-    //     playerContract.requestCreatePlayer{value: feeAmount}(true);
-    //     vm.stopPrank();
-
-    //     // Now fulfill the VRF and verify we can create another player
-    //     uint256 randomness = uint256(keccak256(abi.encodePacked("test randomness")));
-    //     vm.prank(operator);
-    //     bytes memory data = abi.encode(335, abi.encode(0, ""));
-    //     playerContract.fulfillRandomness(randomness, data);
-
-    //     // Should now be able to create another player
-    //     vm.prank(PLAYER_ONE);
-    //     playerContract.requestCreatePlayer{value: feeAmount}(true);
-    // }
-
     function testMaxPlayers() public {
         // Test default slots first
         uint256 defaultSlots = playerContract.getPlayerSlots(PLAYER_ONE);

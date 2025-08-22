@@ -1366,6 +1366,132 @@ contract GauntletGameTest is TestBase {
         assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 2);
     }
 
+    function test_GauntletXPDistribution() public {
+        // Set up 8-player gauntlet to test XP distribution clearly
+        game.setGameEnabled(false);
+        game.setGauntletSize(8);
+        game.setGameEnabled(true);
+
+        // Create 8 players for testing
+        address[] memory testPlayers = new address[](8);
+        uint32[] memory testPlayerIds = new uint32[](8);
+
+        for (uint256 i = 0; i < 8; i++) {
+            testPlayers[i] = address(uint160(0x2000 + i));
+            testPlayerIds[i] = _createPlayerAndFulfillVRF(testPlayers[i], playerContract, false);
+            vm.deal(testPlayers[i], 100 ether);
+        }
+
+        // Queue all 8 players
+        for (uint256 i = 0; i < 8; i++) {
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: testPlayerIds[i],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
+            vm.prank(testPlayers[i]);
+            game.queueForGauntlet(loadout);
+        }
+
+        // Record starting XP and levels for all players
+        uint16[] memory startingXP = new uint16[](8);
+        uint8[] memory startingLevels = new uint8[](8);
+        for (uint256 i = 0; i < 8; i++) {
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(testPlayerIds[i]);
+            startingXP[i] = stats.currentXP;
+            startingLevels[i] = stats.level;
+        }
+
+        // Execute full gauntlet flow
+        vm.roll(block.number + 1);
+        game.tryStartGauntlet();
+
+        (, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+        game.tryStartGauntlet();
+
+        (,, uint256 tournamentBlock,,,) = game.getPendingGauntletInfo();
+        vm.roll(tournamentBlock + 1);
+        vm.prevrandao(bytes32(uint256(67890)));
+
+        // Record logs to capture XP events
+        vm.recordLogs();
+        game.tryStartGauntlet();
+
+        // Check XP and level changes
+        uint16[] memory finalXP = new uint16[](8);
+        uint8[] memory finalLevels = new uint8[](8);
+        uint256 playersWithRewards = 0;
+
+        for (uint256 i = 0; i < 8; i++) {
+            IPlayer.PlayerStats memory stats = playerContract.getPlayer(testPlayerIds[i]);
+            finalXP[i] = stats.currentXP;
+            finalLevels[i] = stats.level;
+
+            // Check if player got rewards (either XP gain or level up)
+            bool gotReward = (finalXP[i] > startingXP[i]) || (finalLevels[i] > startingLevels[i]);
+            if (gotReward) {
+                playersWithRewards++;
+            }
+
+            console2.log("Player %d leveled up:", testPlayerIds[i], finalLevels[i] > startingLevels[i]);
+        }
+
+        // For 8-player gauntlet, top 50% = top 4 should get XP/rewards
+        // Expected: Champion (100%), Runner-up (60%), 3rd-4th place (30%), 5th-8th place (0%)
+        console2.log("Players with rewards:", playersWithRewards);
+        assertEq(playersWithRewards, 4, "Exactly 4 players (top 50%) should receive XP in 8-player gauntlet");
+
+        // Find the GauntletXPAwarded event to see actual distribution
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bool foundXPEvent = false;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("GauntletXPAwarded(uint256,uint8,uint32[],uint16[])")) {
+                foundXPEvent = true;
+
+                // Decode the XP event - gauntletId is indexed, others are in data
+                (uint8 levelBracket, uint32[] memory awardedPlayerIds, uint16[] memory awardedXP) =
+                    abi.decode(logs[i].data, (uint8, uint32[], uint16[]));
+
+                console2.log("XP Event - Level bracket:", levelBracket, "Number of awards:", awardedPlayerIds.length);
+
+                // Cross-reference event data with actual player state changes
+                for (uint256 j = 0; j < awardedPlayerIds.length; j++) {
+                    uint32 playerId = awardedPlayerIds[j];
+                    uint16 eventXP = awardedXP[j];
+
+                    // Find this player in our test data and verify event matches state
+                    bool foundPlayer = false;
+                    for (uint256 k = 0; k < 8; k++) {
+                        if (testPlayerIds[k] == playerId) {
+                            foundPlayer = true;
+
+                            // Check if the event XP matches the actual state change
+                            if (finalLevels[k] > startingLevels[k]) {
+                                // Player leveled up - should have gotten 100 XP (champion)
+                                assertEq(eventXP, 100, "Leveled up player should have gotten 100 XP");
+                            } else {
+                                // Player didn't level up - XP gain should match event
+                                uint16 actualXPGain = finalXP[k] - startingXP[k];
+                                assertEq(eventXP, actualXPGain, "Event XP should match actual XP gain");
+                            }
+                            break;
+                        }
+                    }
+                    assertTrue(foundPlayer, "Event player should be in our test set");
+                }
+
+                // Should have exactly 4 XP awards for 8-player gauntlet
+                assertEq(awardedPlayerIds.length, 4, "Should award XP to exactly 4 players");
+                break;
+            }
+        }
+
+        assertTrue(foundXPEvent, "Should emit GauntletXPAwarded event");
+    }
+
     function test_GauntletCompleted_roundWinners() public {
         // Queue 4 players for a gauntlet
         Fighter.PlayerLoadout memory loadout1 = Fighter.PlayerLoadout({

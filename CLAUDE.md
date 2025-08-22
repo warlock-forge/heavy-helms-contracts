@@ -182,9 +182,9 @@ forge snapshot    # Create gas snapshots for tests
    - Mock system available for testing (`GelatoVRFAutoMock.sol`)
 
 2. **Fighter ID Ranges**:
-   - Players: 1-2000
-   - Default Players: 1001-2000
-   - Monsters: 2001-10000
+   - Default Players: 1-2000 (game owned)
+   - Monsters: 2001-10000 (game owned)
+   - Players: 10001+ (user owned)
 
 3. **Combat System**:
    - Turn-based combat with stamina management
@@ -685,9 +685,9 @@ externalCall();
 ### Project-Specific Patterns
 
 **Fighter ID Ranges:**
-- Players: 1-2000
-- Default Players: 1001-2000
-- Monsters: 2001-10000
+- Default Players: 1-2000 (game owned)
+- Monsters: 2001-10000 (game owned)
+- Players: 10001+ (user owned)
 
 **VRF/Randomness Patterns:**
 - GauntletGame: Blockhash-based commit-reveal

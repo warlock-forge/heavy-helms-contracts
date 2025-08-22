@@ -194,43 +194,43 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
     // --- Tournament Rating State ---
     /// @notice Maps player ID to season ID to their tournament rating.
-    mapping(uint32 => mapping(uint256 => uint256)) public seasonalRatings;
+    mapping(uint32 => mapping(uint256 => uint16)) public seasonalRatings;
 
     // --- Reward Configuration ---
     /// @notice Reward percentages for winners (1st place).
     IPlayerTickets.RewardConfig public winnerRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 4000, // 40%
-        attributeSwapPercent: 1000, // 10%
-        createPlayerPercent: 1000, // 10% TODO: Adjust these placeholder values
-        playerSlotPercent: 1000, // 10% TODO: Adjust these placeholder values
-        weaponSpecPercent: 1000, // 10% TODO: Adjust these placeholder values
-        armorSpecPercent: 1000, // 10% TODO: Adjust these placeholder values
-        duelTicketPercent: 1000, // 10% TODO: Adjust these placeholder values
-        nameChangePercent: 0 // 0% - Tournament doesn't give name change tickets
+        nonePercent: 0,
+        attributeSwapPercent: 500,
+        createPlayerPercent: 2500,
+        playerSlotPercent: 2500,
+        weaponSpecPercent: 500,
+        armorSpecPercent: 500,
+        duelTicketPercent: 500,
+        nameChangePercent: 3000
     });
 
     /// @notice Reward percentages for runner-up (2nd place).
     IPlayerTickets.RewardConfig public runnerUpRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 8400, // 84%
-        attributeSwapPercent: 100, // 1%
-        createPlayerPercent: 300, // 3% TODO: Adjust these placeholder values
-        playerSlotPercent: 300, // 3% TODO: Adjust these placeholder values
-        weaponSpecPercent: 300, // 3% TODO: Adjust these placeholder values
-        armorSpecPercent: 300, // 3% TODO: Adjust these placeholder values
-        duelTicketPercent: 300, // 3% TODO: Adjust these placeholder values
-        nameChangePercent: 0 // 0% - Tournament doesn't give name change tickets
+        nonePercent: 0,
+        attributeSwapPercent: 100,
+        createPlayerPercent: 1000,
+        playerSlotPercent: 1000,
+        weaponSpecPercent: 2000,
+        armorSpecPercent: 2000,
+        duelTicketPercent: 2000,
+        nameChangePercent: 1900
     });
 
     /// @notice Reward percentages for 3rd-4th place.
     IPlayerTickets.RewardConfig public thirdFourthRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 7000, // 70%
-        attributeSwapPercent: 0, // 0%
-        createPlayerPercent: 0, // 0%
-        playerSlotPercent: 0, // 0%
-        weaponSpecPercent: 0, // 0%
-        armorSpecPercent: 0, // 0%
-        duelTicketPercent: 3000, // 30% TODO: Adjust these placeholder values
-        nameChangePercent: 0 // 0% - Tournament doesn't give name change tickets
+        nonePercent: 4000,
+        attributeSwapPercent: 0,
+        createPlayerPercent: 250,
+        playerSlotPercent: 250,
+        weaponSpecPercent: 1000,
+        armorSpecPercent: 1000,
+        duelTicketPercent: 3000,
+        nameChangePercent: 500
     });
 
     //==============================================================//
@@ -257,7 +257,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     );
     /// @notice Emitted when tournament ratings are awarded.
     event TournamentRatingsAwarded(
-        uint256 indexed tournamentId, uint256 indexed seasonId, uint32[] playerIds, uint256[] ratings
+        uint256 indexed tournamentId, uint256 indexed seasonId, uint32[] playerIds, uint16[] ratings
     );
     /// @notice Emitted when a player is retired due to death in tournament.
     event PlayerRetiredInTournament(uint256 indexed tournamentId, uint32 indexed playerId);
@@ -473,13 +473,13 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     /// @notice Returns a player's current season tournament rating.
-    function getPlayerRating(uint32 playerId) external view returns (uint256) {
+    function getPlayerRating(uint32 playerId) external view returns (uint16) {
         // Always get from seasonal mapping using current season from Player contract
         return seasonalRatings[playerId][_getCurrentSeason()];
     }
 
     /// @notice Returns a player's tournament rating for a specific season.
-    function getPlayerSeasonRating(uint32 playerId, uint256 seasonId) external view returns (uint256) {
+    function getPlayerSeasonRating(uint32 playerId, uint256 seasonId) external view returns (uint16) {
         return seasonalRatings[playerId][seasonId];
     }
 
@@ -1033,52 +1033,52 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function _awardTournamentRatings(Tournament storage tournament, uint32[] memory eliminatedByRound) private {
         uint8 size = tournament.size;
         uint32[] memory playerIds = new uint32[](size);
-        uint256[] memory ratings = new uint256[](size);
+        uint16[] memory ratings = new uint16[](size);
         uint256 playerCount = 0;
 
         // Cache current season to avoid multiple cross-contract calls
         uint256 currentSeason = _getCurrentSeason();
 
-        // Award champion
+        // Award champion (1st place - 100 rating)
         if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
-            uint256 championRating = 100;
+            uint16 championRating = 100;
             seasonalRatings[tournament.championId][currentSeason] += championRating;
             playerIds[playerCount] = tournament.championId;
             ratings[playerCount++] = championRating;
         }
 
-        // Award runner-up
+        // Award runner-up (2nd place - 60 rating, matches gauntlet pattern)
         if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
-            uint256 runnerUpRating = 75;
+            uint16 runnerUpRating = 60;
             seasonalRatings[tournament.runnerUpId][currentSeason] += runnerUpRating;
             playerIds[playerCount] = tournament.runnerUpId;
             ratings[playerCount++] = runnerUpRating;
         }
 
-        // Award other placements based on elimination round
-        uint256[] memory roundRatings;
+        // Award other placements based on elimination round (matches gauntlet XP pattern)
+        uint16[] memory roundRatings;
         if (size == 16) {
-            roundRatings = new uint256[](4);
-            roundRatings[3] = 0; // Round 1 losers (9th-16th)
-            roundRatings[2] = 10; // Round 2 losers (5th-8th)
-            roundRatings[1] = 40; // Round 3 losers (3rd-4th)
-            roundRatings[0] = 75; // Round 4 loser (2nd) - already handled
+            roundRatings = new uint16[](4);
+            roundRatings[0] = 0; // Round 1 losers (9th-16th) - 0 rating (only top 8 get rating)
+            roundRatings[1] = 20; // Round 2 losers (5th-8th) - 20 rating
+            roundRatings[2] = 30; // Round 3 losers (3rd-4th) - 30 rating
+            roundRatings[3] = 0; // Round 4 loser (2nd) - already handled as runner-up
         } else if (size == 32) {
-            roundRatings = new uint256[](5);
-            roundRatings[4] = 0; // Round 1 losers (17th-32nd)
-            roundRatings[3] = 10; // Round 2 losers (9th-16th)
-            roundRatings[2] = 25; // Round 3 losers (5th-8th)
-            roundRatings[1] = 50; // Round 4 losers (3rd-4th)
-            roundRatings[0] = 75; // Round 5 loser (2nd) - already handled
+            roundRatings = new uint16[](5);
+            roundRatings[0] = 0; // Round 1 losers (17th-32nd) - 0 rating (only top 16 get rating)
+            roundRatings[1] = 10; // Round 2 losers (9th-16th) - 10 rating
+            roundRatings[2] = 20; // Round 3 losers (5th-8th) - 20 rating
+            roundRatings[3] = 30; // Round 4 losers (3rd-4th) - 30 rating
+            roundRatings[4] = 0; // Round 5 loser (2nd) - already handled as runner-up
         } else {
             // size == 64
-            roundRatings = new uint256[](6);
-            roundRatings[5] = 0; // Round 1 losers (33rd-64th)
-            roundRatings[4] = 5; // Round 2 losers (17th-32nd)
-            roundRatings[3] = 20; // Round 3 losers (9th-16th)
-            roundRatings[2] = 40; // Round 4 losers (5th-8th)
-            roundRatings[1] = 60; // Round 5 losers (3rd-4th)
-            roundRatings[0] = 75; // Round 6 loser (2nd) - already handled
+            roundRatings = new uint16[](6);
+            roundRatings[0] = 0; // Round 1 losers (33rd-64th) - 0 rating (only top 32 get rating)
+            roundRatings[1] = 5; // Round 2 losers (17th-32nd) - 5 rating
+            roundRatings[2] = 10; // Round 3 losers (9th-16th) - 10 rating
+            roundRatings[3] = 20; // Round 4 losers (5th-8th) - 20 rating
+            roundRatings[4] = 30; // Round 5 losers (3rd-4th) - 30 rating
+            roundRatings[5] = 0; // Round 6 loser (2nd) - already handled as runner-up
         }
 
         // Process eliminated players (skip the last one as it's the runner-up)
@@ -1105,7 +1105,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Emit rating event with actual player count
         if (playerCount > 0) {
             uint32[] memory actualPlayerIds = new uint32[](playerCount);
-            uint256[] memory actualRatings = new uint256[](playerCount);
+            uint16[] memory actualRatings = new uint16[](playerCount);
             for (uint256 i = 0; i < playerCount; i++) {
                 actualPlayerIds[i] = playerIds[i];
                 actualRatings[i] = ratings[i];

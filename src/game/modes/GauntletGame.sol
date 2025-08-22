@@ -221,38 +221,38 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     // --- Level 10 Reward Configuration ---
     /// @notice Reward percentages for champions (1st place) in Level 10 gauntlets.
     IPlayerTickets.RewardConfig public championRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 3000, // 30%
-        attributeSwapPercent: 0, // 0% - Gauntlets don't give attribute swaps
-        createPlayerPercent: 1500, // 15%
-        playerSlotPercent: 1500, // 15%
-        weaponSpecPercent: 1000, // 10%
-        armorSpecPercent: 1000, // 10%
-        duelTicketPercent: 1000, // 10%
-        nameChangePercent: 1000 // 10%
+        nonePercent: 2000,
+        attributeSwapPercent: 0,
+        createPlayerPercent: 500,
+        playerSlotPercent: 500,
+        weaponSpecPercent: 2500,
+        armorSpecPercent: 2500,
+        duelTicketPercent: 1500,
+        nameChangePercent: 500
     });
 
     /// @notice Reward percentages for runner-ups (2nd place) in Level 10 gauntlets.
     IPlayerTickets.RewardConfig public runnerUpRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 7000, // 70%
-        attributeSwapPercent: 0, // 0% - Gauntlets don't give attribute swaps
-        createPlayerPercent: 800, // 8%
-        playerSlotPercent: 800, // 8%
-        weaponSpecPercent: 400, // 4%
-        armorSpecPercent: 400, // 4%
-        duelTicketPercent: 400, // 4%
-        nameChangePercent: 200 // 2%
+        nonePercent: 5000,
+        attributeSwapPercent: 0,
+        createPlayerPercent: 200,
+        playerSlotPercent: 200,
+        weaponSpecPercent: 1500,
+        armorSpecPercent: 1500,
+        duelTicketPercent: 1400,
+        nameChangePercent: 200
     });
 
     /// @notice Reward percentages for 3rd-4th place in Level 10 gauntlets.
     IPlayerTickets.RewardConfig public thirdFourthRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 8500, // 85%
-        attributeSwapPercent: 0, // 0% - Gauntlets don't give attribute swaps
-        createPlayerPercent: 300, // 3%
-        playerSlotPercent: 300, // 3%
-        weaponSpecPercent: 300, // 3%
-        armorSpecPercent: 300, // 3%
-        duelTicketPercent: 200, // 2%
-        nameChangePercent: 100 // 1%
+        nonePercent: 7500,
+        attributeSwapPercent: 0,
+        createPlayerPercent: 0,
+        playerSlotPercent: 0,
+        weaponSpecPercent: 500,
+        armorSpecPercent: 500,
+        duelTicketPercent: 1500,
+        nameChangePercent: 0
     });
 
     //==============================================================//
@@ -359,10 +359,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
         playerTickets = IPlayerTickets(_playerTicketsAddress);
         lastGauntletStartTime = block.timestamp; // Initialize to deployment time
-
-        // TODO: UPDATE PLAYER CONTRACT PERMISSIONS FOR XP REWARDS
-        // When implementing XP rewards, ensure this contract has `experience: true` permission
-        // in playerContract.setGameContractPermission() to call awardExperience()
 
         // Emit initial settings
         emit DefaultPlayerContractSet(_defaultPlayerAddress);

@@ -51,7 +51,7 @@ contract TournamentGasAnalysisTest is TestBase {
         PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
             playerCreation: true,
             playerSlots: true,
-            nameChanges: false,
+            nameChanges: true, // Need for name change ticket rewards
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true

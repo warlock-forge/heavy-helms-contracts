@@ -901,7 +901,7 @@ contract GameEngine is IGameEngine {
                 baseDamage,
                 modifiedDefender.armor,
                 modifiedAttacker.weapon.damageType,
-                modifiedAttacker.weapon.attackSpeed
+                modifiedAttacker.weapon.weaponClass
             );
 
             if (isCritical) {
@@ -1152,7 +1152,7 @@ contract GameEngine is IGameEngine {
 
         // Apply armor reduction FIRST (before crit multiplier)
         uint16 armorReducedDamage = applyDefensiveStats(
-            counterDamage, modifiedTarget.armor, modifiedDefender.weapon.damageType, modifiedDefender.weapon.attackSpeed
+            counterDamage, modifiedTarget.armor, modifiedDefender.weapon.damageType, modifiedDefender.weapon.weaponClass
         );
 
         if (isCritical) {
@@ -1209,7 +1209,7 @@ contract GameEngine is IGameEngine {
         uint16 incomingDamage,
         ArmorStats memory armor,
         DamageType damageType,
-        uint16 attackSpeed
+        WeaponClass weaponClass
     ) private pure returns (uint16) {
         // Get resistance percentage (0-100)
         uint16 resistance = getResistanceForDamageType(armor, damageType);
@@ -1219,9 +1219,7 @@ contract GameEngine is IGameEngine {
 
         // Calculate armor penetration for HEAVY_DEMOLITION weapons vs heavy armor
         uint32 armorPen = 0;
-        // Need to determine weapon class from the calling context - for now use speed as fallback
-        // TODO: Pass weapon class to this function
-        if (attackSpeed <= 60 && armor.weight >= 50) {
+        if (weaponClass == WeaponClass.HEAVY_DEMOLITION && armor.weight >= 50) {
             // HEAVY_DEMOLITION weapons vs heavy armors get fixed penetration
             armorPen = 30; // Fixed 30% armor penetration for heavy weapons
         }
