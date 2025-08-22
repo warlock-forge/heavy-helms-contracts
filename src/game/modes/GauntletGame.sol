@@ -105,6 +105,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     }
 
+    /// @notice Reasons why a player might be replaced in a gauntlet.
+    enum ReplacementReason {
+        PLAYER_RETIRED,
+        SKIN_OWNERSHIP_LOST
+    }
+
     //==============================================================//
     //                         STRUCTS                              //
     //==============================================================//
@@ -287,7 +293,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     event GauntletAutoRecovered(uint256 commitBlock, uint256 currentBlock, GauntletPhase phase);
     /// @notice Emitted when a player is replaced during gauntlet execution.
     event PlayerReplaced(
-        uint256 indexed gauntletId, uint32 indexed originalPlayerId, uint32 indexed replacementPlayerId, string reason
+        uint256 indexed gauntletId,
+        uint32 indexed originalPlayerId,
+        uint32 indexed replacementPlayerId,
+        ReplacementReason reason
     );
     /// @notice Emitted when the default player contract address is updated.
     event DefaultPlayerContractSet(address indexed newContract);
@@ -664,16 +673,17 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function _distributeGauntletRewards(
         Gauntlet storage gauntlet,
         uint32[] memory eliminatedByRound,
-        uint256 gauntletId
+        uint256 gauntletId,
+        uint256 randomness
     ) private {
         // Reward champion
         if (_getFighterType(gauntlet.championId) == Fighter.FighterType.PLAYER) {
-            _distributeReward(gauntletId, gauntlet.championId, championRewards);
+            _distributeReward(gauntletId, gauntlet.championId, championRewards, randomness);
         }
 
         // Reward runner-up
         if (_getFighterType(gauntlet.runnerUpId) == Fighter.FighterType.PLAYER) {
-            _distributeReward(gauntletId, gauntlet.runnerUpId, runnerUpRewards);
+            _distributeReward(gauntletId, gauntlet.runnerUpId, runnerUpRewards, randomness);
         }
 
         // Reward 3rd-4th place (semi-final losers)
@@ -683,16 +693,19 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         for (uint256 i = semiFinalistStart; i < semiFinalistEnd; i++) {
             uint32 playerId = eliminatedByRound[i];
             if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
-                _distributeReward(gauntletId, playerId, thirdFourthRewards);
+                _distributeReward(gauntletId, playerId, thirdFourthRewards, randomness);
             }
         }
     }
 
     /// @notice Distributes a single reward based on configured percentages.
-    function _distributeReward(uint256 gauntletId, uint32 playerId, IPlayerTickets.RewardConfig memory config)
-        private
-    {
-        uint256 random = uint256(keccak256(abi.encodePacked(gauntletId, playerId, block.timestamp)));
+    function _distributeReward(
+        uint256 gauntletId,
+        uint32 playerId,
+        IPlayerTickets.RewardConfig memory config,
+        uint256 randomness
+    ) private {
+        uint256 random = uint256(keccak256(abi.encodePacked(randomness, gauntletId, playerId)));
         uint256 roll = random % 10000; // 0-9999 for percentage precision
 
         IPlayerTickets.RewardType rewardType;
@@ -901,23 +914,24 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
             // Check if player needs replacement
             bool shouldReplace = false;
-            string memory reason = "";
+            ReplacementReason reason;
 
             // Check if player is retired
             if (playerContract.isPlayerRetired(regPlayer.playerId)) {
                 shouldReplace = true;
-                reason = "PLAYER_RETIRED";
+                reason = ReplacementReason.PLAYER_RETIRED;
             }
 
             // Check if player still owns their skin
             if (!shouldReplace) {
-                address playerOwner = playerContract.getPlayerOwner(regPlayer.playerId);
-                try skinRegistry.validateSkinOwnership(regPlayer.loadout.skin, playerOwner) {
+                try skinRegistry.validateSkinOwnership(
+                    regPlayer.loadout.skin, playerContract.getPlayerOwner(regPlayer.playerId)
+                ) {
                     // Skin validation passed
                 } catch {
                     // Skin validation failed - player no longer owns the skin
                     shouldReplace = true;
-                    reason = "SKIN_OWNERSHIP_LOST";
+                    reason = ReplacementReason.SKIN_OWNERSHIP_LOST;
                 }
             }
 
@@ -945,13 +959,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         activeParticipants = _shuffleParticipants(activeParticipants, randomness);
 
         // Run gauntlet rounds with improved structure
-        uint32[] memory eliminatedByRound = _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness);
+        (uint32[] memory eliminatedByRound, uint32[] memory roundWinners) =
+            _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness);
 
         // Award XP for levels 1-9 brackets, tickets for level 10
         if (levelBracket != LevelBracket.LEVEL_10) {
             _awardGauntletXP(gauntlet, eliminatedByRound, levelBracket);
         } else {
-            _distributeGauntletRewards(gauntlet, eliminatedByRound, gauntletId);
+            _distributeGauntletRewards(gauntlet, eliminatedByRound, gauntletId, randomness);
         }
 
         // Clean up player statuses
@@ -967,7 +982,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         // Extract participant IDs for event emission
         uint256 participantCount = activeParticipants.length;
         uint32[] memory participantIds = new uint32[](participantCount);
-        uint32[] memory roundWinners = new uint32[](size - 1); // TODO: Get from _runGauntletRounds
         for (uint256 i = 0; i < participantCount; i++) {
             participantIds[i] = activeParticipants[i].playerId;
         }
@@ -978,18 +992,19 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Runs all gauntlet rounds with clean memory management.
     /// @return eliminatedByRound Array of player IDs eliminated in each round
+    /// @return roundWinners Array of winner IDs for each match
     function _runGauntletRounds(
         Gauntlet storage gauntlet,
         uint256 gauntletId,
         ActiveParticipant[] memory participants,
         uint256 randomness
-    ) private returns (uint32[] memory eliminatedByRound) {
+    ) private returns (uint32[] memory eliminatedByRound, uint32[] memory roundWinners) {
         uint8 size = gauntlet.size;
 
         uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, gauntletId)));
 
         // Initialize memory arrays to track round winners and eliminations (not stored in contract)
-        uint32[] memory roundWinners = new uint32[](size - 1);
+        roundWinners = new uint32[](size - 1);
         eliminatedByRound = new uint32[](size);
         uint256 winnerIndex = 0;
         uint256 eliminatedIndex = 0;
@@ -1066,8 +1081,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         gauntlet.completionTimestamp = block.timestamp;
         gauntlet.state = GauntletState.COMPLETED;
 
-        // Return elimination data for XP/reward processing
-        return eliminatedByRound;
+        // Return elimination data for XP/reward processing and round winners for event
+        return (eliminatedByRound, roundWinners);
     }
 
     //==============================================================//

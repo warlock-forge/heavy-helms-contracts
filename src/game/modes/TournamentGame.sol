@@ -97,6 +97,12 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
     }
 
+    /// @notice Reasons why a player might be replaced in a tournament.
+    enum ReplacementReason {
+        PLAYER_RETIRED,
+        SKIN_OWNERSHIP_LOST
+    }
+
     //==============================================================//
     //                           STRUCTS                            //
     //==============================================================//
@@ -261,7 +267,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     );
     /// @notice Emitted when a player is replaced during tournament execution.
     event PlayerReplaced(
-        uint256 indexed tournamentId, uint32 indexed originalPlayerId, uint32 indexed replacementPlayerId, string reason
+        uint256 indexed tournamentId,
+        uint32 indexed originalPlayerId,
+        uint32 indexed replacementPlayerId,
+        ReplacementReason reason
     );
     /// @notice Emitted when a tournament is auto-recovered due to blockhash expiration.
     event TournamentAutoRecovered(uint256 commitBlock, uint256 currentBlock, TournamentPhase phase);
@@ -335,16 +344,17 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Check retirement status (single external call)
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
 
-        // Cache equipment requirements to avoid repeated external calls
+        // Cache equipment requirements and skin registry to avoid repeated external calls
         IEquipmentRequirements equipmentReqs = playerContract.equipmentRequirements();
+        IPlayerSkinRegistry skinRegistry = playerContract.skinRegistry();
 
-        // Validate skin and equipment requirements via Player contract registries
-        try playerContract.skinRegistry().validateSkinOwnership(loadout.skin, owner) {}
+        // Validate skin and equipment requirements via cached registry reference
+        try skinRegistry.validateSkinOwnership(loadout.skin, owner) {}
         catch {
             revert InvalidSkin();
         }
-        try playerContract.skinRegistry().validateSkinRequirements(loadout.skin, playerStats.attributes, equipmentReqs)
-        {} catch {
+        try skinRegistry.validateSkinRequirements(loadout.skin, playerStats.attributes, equipmentReqs) {}
+        catch {
             revert InvalidLoadout();
         }
 
@@ -803,23 +813,24 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             // Check if real player needs replacement
             if (!_isDefaultPlayerId(regPlayer.playerId)) {
                 bool shouldReplace = false;
-                string memory reason = "";
+                ReplacementReason reason;
 
                 // Check if player is retired
                 if (playerContract.isPlayerRetired(regPlayer.playerId)) {
                     shouldReplace = true;
-                    reason = "PLAYER_RETIRED";
+                    reason = ReplacementReason.PLAYER_RETIRED;
                 }
 
                 // Check if player still owns their skin
                 if (!shouldReplace) {
-                    address playerOwner = playerContract.getPlayerOwner(regPlayer.playerId);
-                    try playerContract.skinRegistry().validateSkinOwnership(regPlayer.loadout.skin, playerOwner) {
+                    try playerContract.skinRegistry().validateSkinOwnership(
+                        regPlayer.loadout.skin, playerContract.getPlayerOwner(regPlayer.playerId)
+                    ) {
                         // Skin validation passed
                     } catch {
                         // Skin validation failed - player no longer owns the skin
                         shouldReplace = true;
-                        reason = "SKIN_OWNERSHIP_LOST";
+                        reason = ReplacementReason.SKIN_OWNERSHIP_LOST;
                     }
                 }
 
@@ -1003,7 +1014,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         // Award ratings and distribute rewards
         _awardTournamentRatings(tournament, eliminatedByRound);
-        _distributeRewards(tournament, eliminatedByRound);
+        _distributeRewards(tournament, eliminatedByRound, randomness);
 
         // Extract participant IDs for event emission
         uint256 participantCount = participants.length;
@@ -1104,15 +1115,17 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     }
 
     /// @notice Distributes rewards to tournament winners.
-    function _distributeRewards(Tournament storage tournament, uint32[] memory eliminatedByRound) private {
+    function _distributeRewards(Tournament storage tournament, uint32[] memory eliminatedByRound, uint256 randomness)
+        private
+    {
         // Reward champion
         if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
-            _distributeReward(tournament.id, tournament.championId, winnerRewards);
+            _distributeReward(tournament.id, tournament.championId, winnerRewards, randomness);
         }
 
         // Reward runner-up
         if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
-            _distributeReward(tournament.id, tournament.runnerUpId, runnerUpRewards);
+            _distributeReward(tournament.id, tournament.runnerUpId, runnerUpRewards, randomness);
         }
 
         // Reward 3rd-4th place (semi-final losers)
@@ -1122,16 +1135,19 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         for (uint256 i = semiFinalistStart; i < semiFinalistEnd; i++) {
             uint32 playerId = eliminatedByRound[i];
             if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
-                _distributeReward(tournament.id, playerId, thirdFourthRewards);
+                _distributeReward(tournament.id, playerId, thirdFourthRewards, randomness);
             }
         }
     }
 
     /// @notice Distributes a single reward based on configured percentages.
-    function _distributeReward(uint256 tournamentId, uint32 playerId, IPlayerTickets.RewardConfig memory config)
-        private
-    {
-        uint256 random = uint256(keccak256(abi.encodePacked(tournamentId, playerId, block.timestamp)));
+    function _distributeReward(
+        uint256 tournamentId,
+        uint32 playerId,
+        IPlayerTickets.RewardConfig memory config,
+        uint256 randomness
+    ) private {
+        uint256 random = uint256(keccak256(abi.encodePacked(randomness, tournamentId, playerId)));
         uint256 roll = random % 10000; // 0-9999 for percentage precision
 
         IPlayerTickets.RewardType rewardType;
@@ -1164,20 +1180,30 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         ) {
             rewardType = IPlayerTickets.RewardType.ARMOR_SPECIALIZATION_TICKET;
             ticketId = playerTickets.ARMOR_SPECIALIZATION_TICKET();
-        } else {
+        } else if (
+            roll
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
+        ) {
             rewardType = IPlayerTickets.RewardType.DUEL_TICKET;
             ticketId = playerTickets.DUEL_TICKET();
+        } else {
+            // Must be name change ticket (nameChangePercent is the remainder)
+            rewardType = IPlayerTickets.RewardType.NAME_CHANGE_TICKET;
         }
 
-        // Get owner once and handle both reward types
-        address owner = playerContract.getPlayerOwner(playerId);
-
+        // Handle all reward types - no separate owner variable
         if (rewardType == IPlayerTickets.RewardType.ATTRIBUTE_SWAP) {
             // Award attribute swap charge directly to player
-            playerContract.awardAttributeSwap(owner);
+            playerContract.awardAttributeSwap(playerContract.getPlayerOwner(playerId));
+        } else if (rewardType == IPlayerTickets.RewardType.NAME_CHANGE_TICKET) {
+            // Mint name change NFT with VRF randomness
+            ticketId = playerTickets.mintNameChangeNFT(playerContract.getPlayerOwner(playerId), random);
+            emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
+            return; // Early return for name change tickets
         } else if (ticketId > 0) {
-            // Mint ticket for other reward types
-            playerTickets.mintFungibleTicket(owner, ticketId, 1);
+            // Mint fungible ticket for other reward types
+            playerTickets.mintFungibleTicket(playerContract.getPlayerOwner(playerId), ticketId, 1);
         }
 
         emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
@@ -1255,7 +1281,8 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         returns (ActiveParticipant[] memory)
     {
         // True Fisher-Yates shuffle - clean and simple!
-        for (uint256 i = participants.length - 1; i > 0; i--) {
+        uint256 participantCount = participants.length;
+        for (uint256 i = participantCount - 1; i > 0; i--) {
             seed = uint256(keccak256(abi.encodePacked(seed, i)));
             uint256 j = seed % (i + 1);
 

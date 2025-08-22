@@ -1365,4 +1365,95 @@ contract GauntletGameTest is TestBase {
         game.queueForGauntlet(loadout1);
         assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 2);
     }
+
+    function test_GauntletCompleted_roundWinners() public {
+        // Queue 4 players for a gauntlet
+        Fighter.PlayerLoadout memory loadout1 = Fighter.PlayerLoadout({
+            playerId: PLAYER_ONE_ID,
+            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+            stance: 2 // OFFENSIVE
+        });
+        Fighter.PlayerLoadout memory loadout2 = Fighter.PlayerLoadout({
+            playerId: PLAYER_TWO_ID,
+            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+            stance: 0 // DEFENSIVE
+        });
+        Fighter.PlayerLoadout memory loadout3 = Fighter.PlayerLoadout({
+            playerId: PLAYER_THREE_ID,
+            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+            stance: 1 // BALANCED
+        });
+        Fighter.PlayerLoadout memory loadout4 = Fighter.PlayerLoadout({
+            playerId: PLAYER_FOUR_ID,
+            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+            stance: 2 // OFFENSIVE
+        });
+
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout1);
+        vm.prank(PLAYER_TWO);
+        game.queueForGauntlet(loadout2);
+        vm.prank(PLAYER_THREE);
+        game.queueForGauntlet(loadout3);
+        vm.prank(PLAYER_FOUR);
+        game.queueForGauntlet(loadout4);
+
+        // TX1: Commit queue
+        vm.roll(block.number + 1);
+        game.tryStartGauntlet();
+
+        // Get selection block and advance
+        (, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+
+        // TX2: Select participants
+        game.tryStartGauntlet();
+
+        // Get tournament block and advance
+        (,, uint256 tournamentBlock,,,) = game.getPendingGauntletInfo();
+        vm.roll(tournamentBlock + 1);
+        vm.prevrandao(bytes32(uint256(67890)));
+
+        // Record logs to capture the event data
+        vm.recordLogs();
+
+        // TX3: Execute tournament
+        game.tryStartGauntlet();
+
+        // Get the logs and decode the GauntletCompleted event
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Find the GauntletCompleted event
+        bool foundEvent = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("GauntletCompleted(uint256,uint8,uint8,uint32,uint32[],uint32[])")) {
+                foundEvent = true;
+
+                // Decode the event data
+                (uint8 size, uint8 levelBracket, uint32[] memory participantIds, uint32[] memory roundWinners) =
+                    abi.decode(logs[i].data, (uint8, uint8, uint32[], uint32[]));
+
+                // CRITICAL ASSERTION: roundWinners should NOT be empty for a 4-player gauntlet
+                // 4 players = 2 matches in round 1, 1 match in finals = 3 total round winners
+                assertEq(roundWinners.length, 3, "roundWinners array should contain 3 winners for 4-player gauntlet");
+
+                // Verify each round winner is a valid participant ID
+                for (uint256 j = 0; j < roundWinners.length; j++) {
+                    bool isValidParticipant = false;
+                    for (uint256 k = 0; k < participantIds.length; k++) {
+                        if (roundWinners[j] == participantIds[k]) {
+                            isValidParticipant = true;
+                            break;
+                        }
+                    }
+                    assertTrue(isValidParticipant, "Round winner must be a gauntlet participant");
+                }
+
+                break;
+            }
+        }
+
+        assertTrue(foundEvent, "GauntletCompleted event should be emitted");
+    }
 }

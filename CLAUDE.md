@@ -698,10 +698,3 @@ externalCall();
 - External registries for skins, names, etc.
 - Validation through registry interfaces
 
-## TODO: Gas Optimization Issues to Fix Later
-
-### GauntletGame Storage Waste
-- `gauntlet.winners[]` array is stored in expensive contract storage (~300k gas for 16 players)
-- Only used for emitting `GauntletCompleted` event at end
-- Should use memory array instead, emit event, never store in contract storage
-- Same pattern exists in both Gauntlet and Tournament - treating contract like database instead of using memory + events
