@@ -16,9 +16,12 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 contract GauntletGameDeployScript is Script {
     function setUp() public {}
 
-    function run(address gameEngineAddr, address playerAddr, address defaultPlayerAddr, address playerTicketsAddr)
-        public
-    {
+    function run(
+        address gameEngineAddr,
+        address payable playerAddr,
+        address defaultPlayerAddr,
+        address playerTicketsAddr
+    ) public {
         // Deploy all 3 bracket contracts
         deployGauntletBracket(
             gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_1_TO_4
@@ -33,7 +36,7 @@ contract GauntletGameDeployScript is Script {
 
     function deployGauntletBracket(
         address gameEngineAddr,
-        address playerAddr,
+        address payable playerAddr,
         address defaultPlayerAddr,
         address playerTicketsAddr,
         GauntletGame.LevelBracket bracket

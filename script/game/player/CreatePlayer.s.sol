@@ -15,7 +15,7 @@ import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 contract CreatePlayerScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr, bool isFemale) public {
+    function run(address payable playerContractAddr, bool isFemale) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");

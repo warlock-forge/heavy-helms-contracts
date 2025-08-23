@@ -55,7 +55,8 @@ contract DuelGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        game = new DuelGame(address(gameEngine), address(playerContract), operator, address(playerTickets));
+        game =
+            new DuelGame(address(gameEngine), payable(address(playerContract)), vrfCoordinator, address(playerTickets));
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
@@ -199,7 +200,7 @@ contract DuelGameTest is TestBase {
         (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
 
-        vm.prank(operator);
+        vm.prank(vrfCoordinator);
         game.fulfillRandomness(0, dataWithRound);
 
         // Verify final challenge state
@@ -330,7 +331,7 @@ contract DuelGameTest is TestBase {
         (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
 
-        vm.prank(operator);
+        vm.prank(vrfCoordinator);
         game.fulfillRandomness(0, dataWithRound);
 
         // Test completed state
@@ -356,7 +357,7 @@ contract DuelGameTest is TestBase {
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
         vm.stopPrank();
 
-        vm.prank(operator);
+        vm.prank(vrfCoordinator);
         game.fulfillRandomness(0, dataWithRound);
 
         // Verify win/loss records are unchanged
@@ -487,7 +488,7 @@ contract DuelGameTest is TestBase {
         playerContract.setPlayerRetired(PLAYER_ONE_ID, true);
 
         // Fulfillment should revert
-        vm.prank(operator);
+        vm.prank(vrfCoordinator);
         vm.expectRevert(bytes("Challenger is retired"));
         game.fulfillRandomness(0, dataWithRound);
     }
@@ -677,7 +678,7 @@ contract DuelGameTest is TestBase {
         (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
         bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
 
-        vm.prank(operator);
+        vm.prank(vrfCoordinator);
         game.fulfillRandomness(0, dataWithRound);
 
         // Challenge completed successfully with override loadouts

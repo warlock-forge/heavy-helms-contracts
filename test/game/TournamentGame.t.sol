@@ -47,7 +47,10 @@ contract TournamentGameTest is TestBase {
 
         // Deploy tournament game
         game = new TournamentGame(
-            address(gameEngine), address(playerContract), address(defaultPlayerContract), address(playerTickets)
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            address(playerTickets)
         );
 
         // Transfer ownership of defaultPlayerContract to the game

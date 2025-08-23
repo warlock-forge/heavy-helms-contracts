@@ -66,7 +66,7 @@ abstract contract BaseGame is Owned {
     /// @param _gameEngine Address of the game engine contract
     /// @param _playerContract Address of the player contract
     /// @dev Reverts if either address is zero
-    constructor(address _gameEngine, address _playerContract) Owned(msg.sender) {
+    constructor(address _gameEngine, address payable _playerContract) Owned(msg.sender) {
         if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);

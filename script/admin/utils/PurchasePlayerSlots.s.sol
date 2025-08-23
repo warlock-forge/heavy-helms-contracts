@@ -13,7 +13,7 @@ import {Player} from "../../../src/fighters/Player.sol";
 contract PurchasePlayerSlotsScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr) public {
+    function run(address payable playerContractAddr) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");

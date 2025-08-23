@@ -194,43 +194,11 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
     }
 
-    function testFulfillRandomnessNonOperator() public {
-        // Create player request
-        uint256 requestId = _createPlayerRequest(PLAYER_ONE, playerContract, true);
+    // DEPRECATED: testFulfillRandomnessNonOperator - Gelato VRF specific, not applicable to Chainlink VRF
+    // function testFulfillRandomnessNonOperator() public { ... }
 
-        bytes32 requestHash = playerContract.requestedHash(requestId);
-        assertTrue(requestHash != bytes32(0), "Request hash should be set");
-        assertTrue(playerContract.requestPending(requestId), "Request should be pending");
-
-        // Try to fulfill as non-operator
-        address nonOperator = address(0xBEEF);
-        vm.prank(nonOperator);
-        vm.expectRevert("only operator");
-        bytes memory data = abi.encode(0, abi.encode(requestId, ""));
-        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), data);
-    }
-
-    function testFulfillRandomnessNotValidRoundId() public {
-        // Create player request
-        uint256 requestId = _createPlayerRequest(PLAYER_ONE, playerContract, true);
-
-        // Store the original request hash
-        bytes32 originalHash = playerContract.requestedHash(requestId);
-        assertTrue(originalHash != bytes32(0), "Request hash should be set");
-
-        // Try to fulfill with invalid round ID
-        vm.prank(operator);
-        bytes memory extraData = "";
-        bytes memory innerData = abi.encode(requestId, extraData);
-        bytes memory dataWithRound = abi.encode(335 + 1, innerData);
-
-        // This should NOT revert, but should not fulfill the request
-        playerContract.fulfillRandomness(uint256(keccak256(abi.encodePacked("test randomness"))), dataWithRound);
-
-        // Verify the request hash is deleted but request is still pending
-        assertTrue(playerContract.requestPending(requestId), "Request should still be pending");
-        assertEq(playerContract.requestedHash(requestId), bytes32(0), "Request hash should be deleted");
-    }
+    // DEPRECATED: testFulfillRandomnessNotValidRoundId - Gelato VRF specific, not applicable to Chainlink VRF
+    // function testFulfillRandomnessNotValidRoundId() public { ... }
 
     function testEquipSkin() public {
         // Use equipment with low but meaningful requirements that we can guarantee
@@ -346,11 +314,10 @@ contract PlayerTest is TestBase {
             // Record logs BEFORE fulfilling VRF
             vm.recordLogs();
 
-            vm.prank(operator);
-            playerContract.fulfillRandomness(
-                uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, i))),
-                abi.encode(335, abi.encode(requestId, ""))
-            );
+            vm.prank(vrfCoordinator);
+            uint256[] memory randomWords = new uint256[](1);
+            randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, i)));
+            playerContract.rawFulfillRandomWords(requestId, randomWords);
 
             // Now extract the player ID right after the transaction that emitted the event
             uint32 playerId = _getPlayerIdFromLogs(player, requestId);
@@ -403,16 +370,15 @@ contract PlayerTest is TestBase {
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
         vm.stopPrank();
 
-        playerContract.requestedHash(requestId);
+        // VRF request created
 
         // Record logs before fulfilling VRF
         vm.recordLogs();
 
-        vm.prank(operator);
-        playerContract.fulfillRandomness(
-            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, player))),
-            abi.encode(335, abi.encode(requestId, ""))
-        );
+        vm.prank(vrfCoordinator);
+        uint256[] memory randomWords = new uint256[](1);
+        randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, player)));
+        playerContract.rawFulfillRandomWords(requestId, randomWords);
 
         // Get player ID from logs using our helper
         uint32 playerId = _getPlayerIdFromLogs(player, requestId);
@@ -1129,9 +1095,10 @@ contract PlayerTest is TestBase {
 
         if (useVRFMock) {
             // Capture VRF requests from the logs
-            _captureVRFRequestsFromLogs();
             // Fulfill the VRF request with our deterministic seed
-            vrfMock.fulfillVRFRequest(requestId, deterministicSeed);
+            uint256[] memory randomWords = new uint256[](1);
+            randomWords[0] = deterministicSeed;
+            vrfMock.fulfillRandomWordsWithOverride(requestId, address(playerContract), randomWords);
         } else {
             // Legacy VRF fulfillment
             _fulfillVRFLegacy(requestId, deterministicSeed, address(playerContract));
@@ -1140,6 +1107,4 @@ contract PlayerTest is TestBase {
         // Extract player ID from logs
         return _getPlayerIdFromLogs(owner, requestId);
     }
-
-    receive() external payable {}
 }

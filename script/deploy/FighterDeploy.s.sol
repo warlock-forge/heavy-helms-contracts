@@ -30,12 +30,13 @@ contract FighterDeployScript is Script {
         address skinRegistryAddr,
         address nameRegistryAddr,
         address monsterNameRegistryAddr,
-        address equipmentRequirementsAddr
+        address equipmentRequirementsAddr,
+        address vrfCoordinator,
+        uint256 subscriptionId
     ) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
@@ -48,13 +49,14 @@ contract FighterDeployScript is Script {
         // 2. Deploy PlayerDataCodec helper contract
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
 
-        // 3. Deploy Player contract with Gelato VRF operator and equipment requirements
+        // 3. Deploy Player contract with Chainlink VRF coordinator and equipment requirements
         // Note: This will need to be updated to include playerTicketsAddr once PlayerTickets is deployed
         Player playerContract = new Player(
             skinRegistryAddr,
             nameRegistryAddr,
             equipmentRequirementsAddr,
-            operator,
+            vrfCoordinator,
+            subscriptionId,
             address(0),
             address(playerCreation),
             address(playerDataCodec)

@@ -26,7 +26,8 @@ contract GasAnalysisTest is TestBase {
         super.setUp();
 
         // Deploy contracts
-        game = new DuelGame(address(gameEngine), address(playerContract), operator, address(playerTickets));
+        game =
+            new DuelGame(address(gameEngine), payable(address(playerContract)), vrfCoordinator, address(playerTickets));
 
         // Set permissions
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
@@ -78,7 +79,7 @@ contract GasAnalysisTest is TestBase {
 
             // Measure gas for VRF fulfillment (actual duel execution)
             uint256 gasBefore = gasleft();
-            vm.prank(operator);
+            vm.prank(vrfCoordinator);
             game.fulfillRandomness(i, dataWithRound);
             gasCosts[i] = gasBefore - gasleft();
 

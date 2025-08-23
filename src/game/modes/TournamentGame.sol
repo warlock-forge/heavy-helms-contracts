@@ -304,7 +304,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @param _playerTicketsAddress Address of the `PlayerTickets` contract.
     constructor(
         address _gameEngine,
-        address _playerContract,
+        address payable _playerContract,
         address _defaultPlayerAddress,
         address _playerTicketsAddress
     ) BaseGame(_gameEngine, _playerContract) {
@@ -1271,7 +1271,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Gets the current season from the Player contract.
     function _getCurrentSeason() private view returns (uint256) {
         // Cast to Player contract to access public currentSeason variable
-        return Player(address(playerContract)).currentSeason();
+        return Player(payable(address(playerContract))).currentSeason();
     }
 
     /// @notice Shuffles participants using proper Fisher-Yates algorithm.

@@ -13,7 +13,7 @@ import {Player} from "../../../src/fighters/Player.sol";
 contract UpdateCreatePlayerFeeAmountScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr, uint256 newCreatePlayerFeeAmount) public {
+    function run(address payable playerContractAddr, uint256 newCreatePlayerFeeAmount) public {
         require(playerContractAddr != address(0), "Player contract address cannot be zero");
         require(newCreatePlayerFeeAmount > 0, "Create player fee amount must be greater than zero");
         // Get values from .env

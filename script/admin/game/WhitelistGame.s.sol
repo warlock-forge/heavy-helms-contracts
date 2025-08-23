@@ -14,7 +14,7 @@ import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 contract WhitelistGameScript is Script {
     function setUp() public {}
 
-    function run(address gameAddr, address playerAddr) public {
+    function run(address gameAddr, address payable playerAddr) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");

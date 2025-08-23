@@ -11,9 +11,9 @@ pragma solidity ^0.8.13;
 //                          IMPORTS                             //
 //==============================================================//
 // External imports
-import "solmate/src/auth/Owned.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
-import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 // Internal imports
 import "../interfaces/fighters/IPlayer.sol";
 import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
@@ -76,7 +76,7 @@ error ArmorSpecializationLevelTooLow();
 /// @title Player Contract for Heavy Helms
 /// @notice Manages player creation, attributes, skins, and persistent player data
 /// @dev Integrates with VRF for random stat generation and interfaces with skin/name registries
-contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
+contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     //==============================================================//
     //                     TYPE DECLARATIONS                        //
     //==============================================================//
@@ -123,7 +123,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @notice End ID for user-created players (no upper limit for user players)
     uint32 private constant USER_PLAYER_END = type(uint32).max;
     /// @notice Timeout period in seconds after which a player creation request can be recovered
-    uint256 public vrfRequestTimeout = 4 hours;
+    uint256 public vrfRequestTimeout = 24 hours;
     /// @notice Base experience points for first level up
     uint16 private constant BASE_XP = 100;
 
@@ -172,13 +172,21 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     mapping(uint32 => uint256) private _attributePoints;
 
     // VRF Request tracking
-    /// @notice Address of the Gelato VRF operator
-    address private _operatorAddress;
     /// @notice Maps VRF request IDs to their pending player creation details
     mapping(uint256 => PendingPlayer) private _pendingPlayers;
     /// @notice Maps user address to their current pending request ID
     /// @dev 0 indicates no pending request, >0 is the active request ID
     mapping(address => uint256) private _userPendingRequest;
+
+    // Chainlink VRF Configuration
+    /// @notice Chainlink VRF subscription ID for funding requests
+    uint256 public subscriptionId;
+    /// @notice Gas lane key hash for VRF requests (Base 2 gwei lane)
+    bytes32 public keyHash = 0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab;
+    /// @notice Gas limit for the VRF callback function
+    uint32 public callbackGasLimit = 2000000;
+    /// @notice Number of block confirmations to wait before fulfillment
+    uint16 public requestConfirmations = 3;
 
     // Season tracking
     /// @notice Current season number (starts at 0)
@@ -366,6 +374,17 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param totalCharges Total number of attribute point charges available
     event AttributePointAwarded(address indexed to, uint256 totalCharges);
 
+    /// @notice Emitted when VRF configuration is updated
+    /// @param keyHash New gas lane key hash
+    /// @param callbackGasLimit New callback gas limit
+    /// @param requestConfirmations New request confirmations
+    event VRFConfigUpdated(bytes32 keyHash, uint32 callbackGasLimit, uint16 requestConfirmations);
+
+    /// @notice Emitted when subscription ID is updated
+    /// @param oldSubscriptionId Previous subscription ID
+    /// @param newSubscriptionId New subscription ID
+    event SubscriptionIdUpdated(uint256 oldSubscriptionId, uint256 newSubscriptionId);
+
     /// @notice Emitted when a new season starts
     /// @param seasonId The ID of the new season
     /// @param startTimestamp The timestamp when the season started
@@ -434,7 +453,8 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     /// @param skinRegistryAddress Address of the PlayerSkinRegistry contract
     /// @param nameRegistryAddress Address of the PlayerNameRegistry contract
     /// @param equipmentRequirementsAddress Address of the EquipmentRequirements contract
-    /// @param operator Address of the Gelato VRF operator
+    /// @param vrfCoordinator Address of the Chainlink VRF v2.5 coordinator contract
+    /// @param subscriptionId_ Chainlink VRF subscription ID for funding
     /// @param playerTicketsAddress Address of the PlayerTickets contract
     /// @param playerCreationAddress Address of the PlayerCreation contract
     /// @param playerDataCodecAddress Address of the PlayerDataCodec contract
@@ -443,14 +463,17 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         address skinRegistryAddress,
         address nameRegistryAddress,
         address equipmentRequirementsAddress,
-        address operator,
+        address vrfCoordinator,
+        uint256 subscriptionId_,
         address playerTicketsAddress,
         address playerCreationAddress,
         address playerDataCodecAddress
-    ) Owned(msg.sender) Fighter(skinRegistryAddress) {
+    ) VRFConsumerBaseV2Plus(vrfCoordinator) Fighter(skinRegistryAddress) {
+        // Set subscription ID for VRF funding
+        subscriptionId = subscriptionId_;
+
         _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
         _equipmentRequirements = IEquipmentRequirements(equipmentRequirementsAddress);
-        _operatorAddress = operator;
         _playerTickets = PlayerTickets(playerTicketsAddress);
         _playerCreation = IPlayerCreation(playerCreationAddress);
         _playerDataCodec = IPlayerDataCodec(playerDataCodecAddress);
@@ -1025,13 +1048,6 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     }
 
     // Admin Functions
-    /// @notice Updates the Gelato VRF operator address
-    /// @param newOperator The new operator address
-    /// @dev Reverts if zero address provided
-    function setOperator(address newOperator) external onlyOwner {
-        if (newOperator == address(0)) revert BadZeroAddress();
-        _operatorAddress = newOperator;
-    }
 
     /// @notice Updates the fee required to create a new player
     /// @param newFeeAmount The new fee amount in ETH
@@ -1043,14 +1059,14 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
     /// @notice Withdraws all accumulated fees to the owner address
     function withdrawFees() external onlyOwner {
-        SafeTransferLib.safeTransferETH(owner, address(this).balance);
+        SafeTransferLib.safeTransferETH(owner(), address(this).balance);
     }
 
     /// @notice Recovers any ERC20 tokens accidentally sent to the contract
     /// @param token The address of the ERC20 token to recover
     /// @param amount The amount of tokens to recover
     function recoverERC20(address token, uint256 amount) external onlyOwner {
-        SafeTransferLib.safeTransfer(ERC20(token), owner, amount);
+        SafeTransferLib.safeTransfer(ERC20(token), owner(), amount);
     }
 
     /// @notice Emergency function to clear pending VRF requests for an address
@@ -1132,6 +1148,38 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         emit SeasonLengthUpdated(oldLength, months);
     }
 
+    /// @notice Updates VRF configuration
+    /// @param newKeyHash Gas lane key hash (use Base 2 gwei or 30 gwei lane)
+    /// @param newCallbackGasLimit Gas limit for callback function (max 2,500,000)
+    /// @param newRequestConfirmations Number of confirmations to wait
+    /// @dev Only owner can update configuration
+    function setVRFConfig(bytes32 newKeyHash, uint32 newCallbackGasLimit, uint16 newRequestConfirmations)
+        external
+        onlyOwner
+    {
+        if (newKeyHash == bytes32(0)) revert BadZeroAddress();
+        if (newCallbackGasLimit == 0 || newCallbackGasLimit > 2500000) revert ValueMustBePositive();
+        if (newRequestConfirmations > 200) revert ValueMustBePositive();
+
+        keyHash = newKeyHash;
+        callbackGasLimit = newCallbackGasLimit;
+        requestConfirmations = newRequestConfirmations;
+
+        emit VRFConfigUpdated(newKeyHash, newCallbackGasLimit, newRequestConfirmations);
+    }
+
+    /// @notice Updates the Chainlink VRF subscription ID
+    /// @param newSubscriptionId New subscription ID to use for funding VRF requests
+    /// @dev Only owner can update subscription ID
+    function setSubscriptionId(uint256 newSubscriptionId) external onlyOwner {
+        if (newSubscriptionId == 0) revert ValueMustBePositive();
+
+        uint256 oldSubscriptionId = subscriptionId;
+        subscriptionId = newSubscriptionId;
+
+        emit SubscriptionIdUpdated(oldSubscriptionId, newSubscriptionId);
+    }
+
     //==============================================================//
     //                    SEASON FUNCTIONS                          //
     //==============================================================//
@@ -1198,21 +1246,34 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
     // VRF Implementation
-    /// @notice Returns the address of the Gelato VRF operator
-    /// @return Address of the operator
-    /// @dev Required override from GelatoVRFConsumerBase
-    function _operator() internal view override returns (address) {
-        return _operatorAddress;
+    /// @notice Requests randomness from Chainlink VRF using subscription
+    /// @return requestId The VRF request ID
+    /// @dev Uses subscription-based funding - charges actual gas used after fulfillment
+    function _requestRandomness() internal returns (uint256 requestId) {
+        // Request randomness using subscription funding
+        requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: keyHash,
+                subId: subscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: 1,
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({
+                        nativePayment: true // Use native ETH from subscription
+                    })
+                )
+            })
+        );
+
+        return requestId;
     }
 
     /// @notice Handles the fulfillment of VRF requests for player creation
-    /// @param randomness The random value provided by VRF
     /// @param requestId The ID of the request being fulfilled
-    /// @dev Required override from GelatoVRFConsumerBase. Reverts if request is invalid or already fulfilled
-    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory /* extraData */ )
-        internal
-        override
-    {
+    /// @param randomWords Array of random values (we only use the first one)
+    /// @dev Required override from ChainlinkVRFConsumerBase. Reverts if request is invalid or already fulfilled
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         // Checks
         PendingPlayer memory pending = _pendingPlayers[requestId];
         if (pending.owner == address(0)) revert InvalidRequestID();
@@ -1220,6 +1281,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
 
         // Effects
         _pendingPlayers[requestId].fulfilled = true;
+        uint256 randomness = randomWords[0];
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId, pending.owner)));
 
         // Check player slot limit
@@ -1271,7 +1333,7 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
 
         // Effects - Get requestId first since it's deterministic and can't fail
-        requestId = _requestRandomness("");
+        requestId = _requestRandomness();
         _pendingPlayers[requestId] = PendingPlayer({
             owner: msg.sender,
             useNameSetB: useNameSetB,
@@ -1336,4 +1398,10 @@ contract Player is IPlayer, Owned, GelatoVRFConsumerBase, Fighter {
         else if (attr == Attribute.STAMINA) player.attributes.stamina = value;
         else player.attributes.luck = value;
     }
+
+    //==============================================================//
+    //                    FALLBACK FUNCTIONS                        //
+    //==============================================================//
+    /// @notice Allows contract to receive ETH for VRF funding
+    receive() external payable {}
 }

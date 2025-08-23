@@ -15,5 +15,7 @@ remappings = [
       "solmate/=lib/solmate/",
       "vrf-contracts/=lib/vrf-contracts/",
       "BokkyPooBahsDateTimeLibrary/=lib/BokkyPooBahsDateTimeLibrary/contracts/",
-      "solady/=lib/solady/src/"
+      "solady/=lib/solady/src/",
+      "@chainlink/contracts/=lib/chainlink-evm/contracts/",
+      "@openzeppelin/contracts@4.9.6/=lib/openzeppelin-contracts/contracts/"
 ]

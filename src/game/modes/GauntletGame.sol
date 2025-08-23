@@ -344,7 +344,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @param _playerTicketsAddress Address of the `PlayerTickets` contract for rewards.
     constructor(
         address _gameEngine,
-        address _playerContract,
+        address payable _playerContract,
         address _defaultPlayerAddress,
         LevelBracket _levelBracket,
         address _playerTicketsAddress

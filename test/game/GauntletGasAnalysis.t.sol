@@ -21,7 +21,7 @@ contract GauntletGasAnalysisTest is TestBase {
         // Deploy gauntlet game for levels 1-4 bracket
         game = new GauntletGame(
             address(gameEngine),
-            address(playerContract),
+            payable(address(playerContract)),
             address(defaultPlayerContract),
             GauntletGame.LevelBracket.LEVELS_1_TO_4,
             address(playerTickets)

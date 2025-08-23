@@ -15,7 +15,9 @@ import {Player} from "../../src/fighters/Player.sol";
 contract PracticeGameDeployScript is Script {
     function setUp() public {}
 
-    function run(address gameEngineAddr, address playerAddr, address defaultPlayerAddr, address monsterAddr) public {
+    function run(address gameEngineAddr, address payable playerAddr, address defaultPlayerAddr, address monsterAddr)
+        public
+    {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");

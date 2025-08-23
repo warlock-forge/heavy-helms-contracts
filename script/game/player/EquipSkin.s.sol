@@ -15,7 +15,9 @@ import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 contract EquipSkinScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr, uint32 playerId, uint32 skinIndex, uint16 tokenId, uint8 stance) public {
+    function run(address payable playerContractAddr, uint32 playerId, uint32 skinIndex, uint16 tokenId, uint8 stance)
+        public
+    {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");

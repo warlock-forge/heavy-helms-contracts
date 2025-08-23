@@ -13,7 +13,7 @@ import {Player} from "../../../src/fighters/Player.sol";
 contract RetireOwnPlayerScript is Script {
     function setUp() public {}
 
-    function run(address playerContractAddr, uint32 playerId) public {
+    function run(address payable playerContractAddr, uint32 playerId) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");

@@ -41,7 +41,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     // Constants
     /// @notice Timeout period in seconds after which a VRF request can be considered failed
-    uint256 public vrfRequestTimeout = 4 hours;
+    uint256 public vrfRequestTimeout = 24 hours;
     /// @notice Time (in seconds) after which a challenge expires
     uint256 public timeUntilExpire = 7 days; // 7 days
     /// @notice Address of the Gelato VRF operator
@@ -142,7 +142,7 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @param _playerContract Address of the player contract
     /// @param operator Address of the Gelato VRF operator
     /// @param _playerTickets Address of the player tickets contract
-    constructor(address _gameEngine, address _playerContract, address operator, address _playerTickets)
+    constructor(address _gameEngine, address payable _playerContract, address operator, address _playerTickets)
         BaseGame(_gameEngine, _playerContract)
     {
         require(operator != address(0), "Invalid operator address");
@@ -393,6 +393,11 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         vrfRequestTimeout = newValue;
     }
 
+    /// @notice Withdraws all accumulated ETH to the owner address
+    function withdrawFees() external onlyOwner {
+        SafeTransferLib.safeTransferETH(owner, address(this).balance);
+    }
+
     //==============================================================//
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
@@ -505,4 +510,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                    FALLBACK FUNCTIONS                        //
     //==============================================================//
+    /// @notice Allows contract to receive ETH for VRF funding
+    receive() external payable {}
 }

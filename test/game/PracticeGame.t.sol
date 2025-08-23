@@ -30,7 +30,10 @@ contract PracticeGameTest is TestBase {
     function setUp() public override {
         super.setUp();
         practiceGame = new PracticeGame(
-            address(gameEngine), address(playerContract), address(defaultPlayerContract), address(monsterContract)
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            address(monsterContract)
         );
 
         // Create actual players for testing

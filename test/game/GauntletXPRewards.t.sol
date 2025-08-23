@@ -31,7 +31,7 @@ contract GauntletXPRewardsTest is TestBase {
         // Create gauntlet game
         game = new GauntletGame(
             address(gameEngine),
-            address(playerContract),
+            payable(address(playerContract)),
             address(defaultPlayerContract),
             GauntletGame.LevelBracket.LEVELS_1_TO_4,
             address(playerTickets)
@@ -184,7 +184,7 @@ contract GauntletXPRewardsTest is TestBase {
         // Create L5-9 bracket game
         GauntletGame levels5To9Game = new GauntletGame(
             address(gameEngine),
-            address(playerContract),
+            payable(address(playerContract)),
             address(defaultPlayerContract),
             GauntletGame.LevelBracket.LEVELS_5_TO_9,
             address(playerTickets)
@@ -251,7 +251,7 @@ contract GauntletXPRewardsTest is TestBase {
         // Create L10 bracket game
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
-            address(playerContract),
+            payable(address(playerContract)),
             address(defaultPlayerContract),
             GauntletGame.LevelBracket.LEVEL_10,
             address(playerTickets)

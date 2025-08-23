@@ -16,9 +16,12 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 contract TournamentGameDeployScript is Script {
     function setUp() public {}
 
-    function run(address gameEngineAddr, address playerAddr, address defaultPlayerAddr, address playerTicketsAddr)
-        public
-    {
+    function run(
+        address gameEngineAddr,
+        address payable playerAddr,
+        address defaultPlayerAddr,
+        address playerTicketsAddr
+    ) public {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");

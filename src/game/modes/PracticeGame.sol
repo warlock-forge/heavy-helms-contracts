@@ -54,9 +54,12 @@ contract PracticeGame is BaseGame {
     /// @param _defaultPlayerContract Address of the default player contract
     /// @param _monsterContract Address of the monster contract
     /// @dev Validates that ID ranges match between contracts and base game constants
-    constructor(address _gameEngine, address _playerContract, address _defaultPlayerContract, address _monsterContract)
-        BaseGame(_gameEngine, _playerContract)
-    {
+    constructor(
+        address _gameEngine,
+        address payable _playerContract,
+        address _defaultPlayerContract,
+        address _monsterContract
+    ) BaseGame(_gameEngine, _playerContract) {
         if (_defaultPlayerContract == address(0) || _monsterContract == address(0)) revert ZeroAddress();
 
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerContract);

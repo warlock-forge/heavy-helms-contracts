@@ -13,7 +13,7 @@ import {Player} from "../../../src/fighters/Player.sol";
 contract UpdateEquipmentRequirementsScript is Script {
     function setUp() public {}
 
-    function run(address newEquipmentRequirementsAddr, address playerContractAddr) public {
+    function run(address newEquipmentRequirementsAddr, address payable playerContractAddr) public {
         require(newEquipmentRequirementsAddr != address(0), "EquipmentRequirements address cannot be zero");
         require(playerContractAddr != address(0), "Player contract address cannot be zero");
 
