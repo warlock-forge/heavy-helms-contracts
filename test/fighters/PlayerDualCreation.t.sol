@@ -25,10 +25,10 @@ contract PlayerDualCreationTest is TestBase {
 
         // Create player with ETH
         vm.expectEmit(true, true, false, true);
-        emit PlayerCreationRequested(0, USER);
+        emit PlayerCreationRequested(1, USER);
 
         uint256 requestId = playerContract.requestCreatePlayer{value: fee}(false);
-        assertEq(requestId, 0);
+        assertEq(requestId, 1);
 
         // Verify pending request exists
         assertEq(playerContract.getPendingRequest(USER), requestId);
@@ -60,10 +60,10 @@ contract PlayerDualCreationTest is TestBase {
 
         // Create player with ticket
         vm.expectEmit(true, true, false, true);
-        emit PlayerCreationRequested(0, USER);
+        emit PlayerCreationRequested(1, USER);
 
         uint256 requestId = playerContract.requestCreatePlayerWithTicket(false);
-        assertEq(requestId, 0);
+        assertEq(requestId, 1);
 
         // Verify pending request exists
         assertEq(playerContract.getPendingRequest(USER), requestId);

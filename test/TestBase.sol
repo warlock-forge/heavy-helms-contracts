@@ -77,6 +77,9 @@ abstract contract TestBase is Test {
     }
 
     function setUp() public virtual {
+        // Give this contract some ETH to fund VRF subscriptions
+        vm.deal(address(this), 1000 ether);
+        
         // Initialize VRF mock system first
         // VRFCoordinatorV2_5Mock(uint96 _baseFee, uint96 _gasPrice, int256 _weiPerUnitLink)
         vrfMock = new VRFCoordinatorV2_5Mock(
@@ -88,7 +91,10 @@ abstract contract TestBase is Test {
 
         // Create and fund a subscription
         subscriptionId = vrfMock.createSubscription();
-        vrfMock.fundSubscription(subscriptionId, 100 ether); // Fund with 100 ETH
+        vrfMock.fundSubscriptionWithNative{value: 100 ether}(subscriptionId); // Fund with 100 ETH for native payments
+        
+        // Use a test keyHash (doesn't matter for mock, but needs to be set)
+        bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
 
         setupRandomness();
         skinRegistry = new PlayerSkinRegistry();
@@ -135,6 +141,7 @@ abstract contract TestBase is Test {
             address(equipmentRequirements),
             vrfCoordinator,
             subscriptionId, // Use the subscription ID from the mock
+            testKeyHash,
             address(playerTickets),
             address(playerCreation),
             address(playerDataCodec)

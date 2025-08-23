@@ -36,6 +36,9 @@ contract PlayerTest is TestBase {
     // Test addresses
     address public PLAYER_ONE;
     address public PLAYER_TWO;
+    
+    // Allow test contract to receive ETH
+    receive() external payable {}
 
     event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
     event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
@@ -550,7 +553,7 @@ contract PlayerTest is TestBase {
 
         vm.startPrank(PLAYER_ONE);
         vm.expectEmit(true, true, false, false);
-        emit PlayerCreationRequested(0, PLAYER_ONE);
+        emit PlayerCreationRequested(1, PLAYER_ONE);
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
         vm.stopPrank();
 

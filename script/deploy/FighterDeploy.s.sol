@@ -32,7 +32,8 @@ contract FighterDeployScript is Script {
         address monsterNameRegistryAddr,
         address equipmentRequirementsAddr,
         address vrfCoordinator,
-        uint256 subscriptionId
+        uint256 subscriptionId,
+        bytes32 keyHash
     ) public {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
@@ -57,6 +58,7 @@ contract FighterDeployScript is Script {
             equipmentRequirementsAddr,
             vrfCoordinator,
             subscriptionId,
+            keyHash,
             address(0),
             address(playerCreation),
             address(playerDataCodec)

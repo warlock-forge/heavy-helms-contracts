@@ -26,8 +26,16 @@ contract GasAnalysisTest is TestBase {
         super.setUp();
 
         // Deploy contracts
-        game =
-            new DuelGame(address(gameEngine), payable(address(playerContract)), vrfCoordinator, address(playerTickets));
+        bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        
+        game = new DuelGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            vrfCoordinator,
+            subscriptionId,
+            testKeyHash,
+            address(playerTickets)
+        );
 
         // Set permissions
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({

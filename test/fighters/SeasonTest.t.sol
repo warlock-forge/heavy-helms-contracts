@@ -81,7 +81,7 @@ contract SeasonTest is TestBase {
 
         // Test non-owner cannot set
         vm.prank(USER_ONE);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         playerContract.setSeasonLength(2);
     }
 

@@ -55,8 +55,17 @@ contract DuelGameTest is TestBase {
     function setUp() public override {
         super.setUp();
 
-        game =
-            new DuelGame(address(gameEngine), payable(address(playerContract)), vrfCoordinator, address(playerTickets));
+        // Use the same test keyHash from TestBase
+        bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        
+        game = new DuelGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            vrfCoordinator,
+            subscriptionId,
+            testKeyHash,
+            address(playerTickets)
+        );
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({

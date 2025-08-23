@@ -16,7 +16,14 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 contract DuelGameDeployScript is Script {
     function setUp() public {}
 
-    function run(address gameEngineAddr, address payable playerAddr, address playerTicketsAddr) public {
+    function run(
+        address gameEngineAddr,
+        address payable playerAddr,
+        address playerTicketsAddr,
+        address vrfCoordinator,
+        uint256 subscriptionId,
+        bytes32 keyHash
+    ) public {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
         require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
@@ -24,7 +31,6 @@ contract DuelGameDeployScript is Script {
         // Get values from .env
         uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
-        address operator = vm.envAddress("GELATO_VRF_OPERATOR");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
@@ -32,7 +38,14 @@ contract DuelGameDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy DuelGame
-        DuelGame duelGame = new DuelGame(gameEngineAddr, playerAddr, operator, playerTicketsAddr);
+        DuelGame duelGame = new DuelGame(
+            gameEngineAddr,
+            playerAddr,
+            vrfCoordinator,
+            subscriptionId,
+            keyHash,
+            playerTicketsAddr
+        );
 
         // Whitelist DuelGame in Player contract
         Player playerContract = Player(playerAddr);

@@ -13,7 +13,8 @@ pragma solidity ^0.8.13;
 import "./BaseGame.sol";
 import "solmate/src/utils/ReentrancyGuard.sol";
 import "solmate/src/utils/SafeTransferLib.sol";
-import "vrf-contracts/contracts/GelatoVRFConsumerBase.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
 
@@ -33,7 +34,7 @@ interface IPlayerTickets {
 /// @title Duel Game Mode for Heavy Helms
 /// @notice Allows players to challenge each other to 1v1 combat
 /// @dev Integrates with VRF for fair, random combat resolution
-contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
+contract DuelGame is BaseGame, ReentrancyGuard, VRFConsumerBaseV2Plus {
     using UniformRandomNumber for uint256;
 
     //==============================================================//
@@ -44,8 +45,11 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     uint256 public vrfRequestTimeout = 24 hours;
     /// @notice Time (in seconds) after which a challenge expires
     uint256 public timeUntilExpire = 7 days; // 7 days
-    /// @notice Address of the Gelato VRF operator
-    address private _operatorAddress;
+    /// @notice Chainlink VRF configuration
+    uint256 public subscriptionId;
+    bytes32 public keyHash;
+    uint32 public callbackGasLimit = 2_000_000;
+    uint16 public requestConfirmations = 3;
     /// @notice Player tickets contract for burning duel tickets
     IPlayerTickets public playerTickets;
 
@@ -140,25 +144,27 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     /// @notice Initializes the DuelGame contract
     /// @param _gameEngine Address of the game engine contract
     /// @param _playerContract Address of the player contract
-    /// @param operator Address of the Gelato VRF operator
+    /// @param vrfCoordinator Address of the Chainlink VRF coordinator
+    /// @param _subscriptionId Chainlink VRF subscription ID
+    /// @param _keyHash Chainlink VRF key hash for the gas lane
     /// @param _playerTickets Address of the player tickets contract
-    constructor(address _gameEngine, address payable _playerContract, address operator, address _playerTickets)
-        BaseGame(_gameEngine, _playerContract)
-    {
-        require(operator != address(0), "Invalid operator address");
+    constructor(
+        address _gameEngine,
+        address payable _playerContract,
+        address vrfCoordinator,
+        uint256 _subscriptionId,
+        bytes32 _keyHash,
+        address _playerTickets
+    ) BaseGame(_gameEngine, _playerContract) VRFConsumerBaseV2Plus(vrfCoordinator) {
         require(_playerTickets != address(0), "Invalid player tickets address");
-        _operatorAddress = operator;
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
         playerTickets = IPlayerTickets(_playerTickets);
     }
 
     //==============================================================//
     //                    EXTERNAL FUNCTIONS                        //
     //==============================================================//
-    /// @notice Returns the operator address for VRF
-    /// @return operator address
-    function _operator() internal view override returns (address) {
-        return _operatorAddress;
-    }
 
     /// @notice Checks if a challenge exists and is in OPEN state (not expired)
     /// @param challengeId ID of the challenge to check
@@ -293,7 +299,16 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         challenge.vrfRequestTimestamp = block.timestamp;
 
         // Request VRF for true randomness
-        uint256 requestId = _requestRandomness("");
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(
+            VRFV2PlusClient.RandomWordsRequest({
+                keyHash: keyHash,
+                subId: subscriptionId,
+                requestConfirmations: requestConfirmations,
+                callbackGasLimit: callbackGasLimit,
+                numWords: 1,
+                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+            })
+        );
         requestToChallengeId[requestId] = challengeId;
 
         // Validate ownership and requirements
@@ -363,12 +378,6 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
     //==============================================================//
-    /// @notice Sets the VRF operator address
-    /// @param newOperator The new operator address
-    function setOperator(address newOperator) external onlyOwner {
-        require(newOperator != address(0), "Invalid operator address");
-        _operatorAddress = newOperator;
-    }
 
     /// @notice Sets whether the game is enabled
     /// @param enabled The new enabled state
@@ -402,12 +411,9 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
     /// @notice Processes VRF randomness fulfillment
-    /// @param randomness The random value from VRF
     /// @param requestId ID of the VRF request
-    function _fulfillRandomness(uint256 randomness, uint256 requestId, bytes memory /* extraData */ )
-        internal
-        override
-    {
+    /// @param randomWords Array of random values from VRF (we only use the first one)
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         uint256 challengeId = requestToChallengeId[requestId];
         DuelChallenge storage challenge = challenges[challengeId];
         require(isChallengePending(challengeId), "Challenge not pending");
@@ -419,6 +425,8 @@ contract DuelGame is BaseGame, ReentrancyGuard, GelatoVRFConsumerBase {
         // THEN do external calls
         require(!playerContract.isPlayerRetired(challenge.challengerId), "Challenger is retired");
         require(!playerContract.isPlayerRetired(challenge.defenderId), "Defender is retired");
+        
+        uint256 randomness = randomWords[0];
 
         // Create a new random seed by combining VRF randomness with request data
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId)));

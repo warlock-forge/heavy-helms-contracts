@@ -181,8 +181,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     // Chainlink VRF Configuration
     /// @notice Chainlink VRF subscription ID for funding requests
     uint256 public subscriptionId;
-    /// @notice Gas lane key hash for VRF requests (Base 2 gwei lane)
-    bytes32 public keyHash = 0x00b81b5a830cb0a4009fbd8904de511e28631e62ce5ad231373d3cdad373ccab;
+    /// @notice Gas lane key hash for VRF requests
+    bytes32 public keyHash;
     /// @notice Gas limit for the VRF callback function
     uint32 public callbackGasLimit = 2000000;
     /// @notice Number of block confirmations to wait before fulfillment
@@ -454,7 +454,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param nameRegistryAddress Address of the PlayerNameRegistry contract
     /// @param equipmentRequirementsAddress Address of the EquipmentRequirements contract
     /// @param vrfCoordinator Address of the Chainlink VRF v2.5 coordinator contract
-    /// @param subscriptionId_ Chainlink VRF subscription ID for funding
+    /// @param _subscriptionId Chainlink VRF subscription ID for funding
+    /// @param _keyHash Chainlink VRF gas lane key hash
     /// @param playerTicketsAddress Address of the PlayerTickets contract
     /// @param playerCreationAddress Address of the PlayerCreation contract
     /// @param playerDataCodecAddress Address of the PlayerDataCodec contract
@@ -464,13 +465,15 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         address nameRegistryAddress,
         address equipmentRequirementsAddress,
         address vrfCoordinator,
-        uint256 subscriptionId_,
+        uint256 _subscriptionId,
+        bytes32 _keyHash,
         address playerTicketsAddress,
         address playerCreationAddress,
         address playerDataCodecAddress
     ) VRFConsumerBaseV2Plus(vrfCoordinator) Fighter(skinRegistryAddress) {
-        // Set subscription ID for VRF funding
-        subscriptionId = subscriptionId_;
+        // Set VRF configuration
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
 
         _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
         _equipmentRequirements = IEquipmentRequirements(equipmentRequirementsAddress);
