@@ -12,7 +12,7 @@ pragma solidity ^0.8.13;
 //==============================================================//
 import "../interfaces/fighters/IMonster.sol";
 import "../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
-import "solmate/src/auth/Owned.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "./Fighter.sol";
 
 //==============================================================//
@@ -34,7 +34,7 @@ error BadZeroAddress();
 /// @title Monster Contract for Heavy Helms
 /// @notice Manages monster characters for the game
 /// @dev Monsters are system-controlled characters (IDs 2001-10000)
-contract Monster is IMonster, Owned, Fighter {
+contract Monster is IMonster, ConfirmedOwner, Fighter {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -111,7 +111,7 @@ contract Monster is IMonster, Owned, Fighter {
     /// @param nameRegistryAddress Address of the name registry contract
     /// @dev Reverts with BadZeroAddress if name registry address is zero
     constructor(address skinRegistryAddress, address nameRegistryAddress)
-        Owned(msg.sender)
+        ConfirmedOwner(msg.sender)
         Fighter(skinRegistryAddress)
     {
         if (nameRegistryAddress == address(0)) {

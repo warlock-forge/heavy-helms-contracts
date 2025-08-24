@@ -11,7 +11,8 @@ pragma solidity ^0.8.13;
 //                          IMPORTS                             //
 //==============================================================//
 // External imports
-import "solmate/src/utils/SafeTransferLib.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {ERC20} from "solady/tokens/ERC20.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 // Internal imports
@@ -1069,7 +1070,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param token The address of the ERC20 token to recover
     /// @param amount The amount of tokens to recover
     function recoverERC20(address token, uint256 amount) external onlyOwner {
-        SafeTransferLib.safeTransfer(ERC20(token), owner(), amount);
+        SafeTransferLib.safeTransfer(token, owner(), amount);
     }
 
     /// @notice Emergency function to clear pending VRF requests for an address

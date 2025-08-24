@@ -10,7 +10,7 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "solmate/src/auth/Owned.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "../../../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 
 //==============================================================//
@@ -42,7 +42,7 @@ error InvalidNameLength();
 /// @title Player Name Registry for Heavy Helms
 /// @notice Manages player name collections for the game
 /// @dev Stores first names (in two sets) and surnames
-contract PlayerNameRegistry is IPlayerNameRegistry, Owned {
+contract PlayerNameRegistry is IPlayerNameRegistry, ConfirmedOwner {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -100,7 +100,7 @@ contract PlayerNameRegistry is IPlayerNameRegistry, Owned {
     //                       CONSTRUCTOR                            //
     //==============================================================//
     /// @notice Initializes the Player Name Registry
-    constructor() Owned(msg.sender) {}
+    constructor() ConfirmedOwner(msg.sender) {}
 
     //==============================================================//
     //                    EXTERNAL FUNCTIONS                        //

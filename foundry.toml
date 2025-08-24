@@ -12,8 +12,6 @@ libs = ["lib"]
 # Remappings
 remappings = [
       "forge-std/=lib/forge-std/src/",
-      "solmate/=lib/solmate/",
-      "vrf-contracts/=lib/vrf-contracts/",
       "BokkyPooBahsDateTimeLibrary/=lib/BokkyPooBahsDateTimeLibrary/contracts/",
       "solady/=lib/solady/src/",
       "@chainlink/contracts/=lib/chainlink-evm/contracts/",

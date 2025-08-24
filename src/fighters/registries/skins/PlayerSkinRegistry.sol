@@ -10,10 +10,10 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "solmate/src/auth/Owned.sol";
-import "solmate/src/tokens/ERC20.sol";
-import "solmate/src/utils/SafeTransferLib.sol";
-import "solmate/src/tokens/ERC721.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {ERC20} from "solady/tokens/ERC20.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {ERC721} from "solady/tokens/ERC721.sol";
 import "../../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import "../../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 import "../../Fighter.sol";
@@ -48,7 +48,7 @@ error EquipmentRequirementsNotMet();
 //==============================================================//
 /// @title Player Skin Registry for Heavy Helms
 /// @notice Manages registration and verification of player skin collections
-contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
+contract PlayerSkinRegistry is IPlayerSkinRegistry, ConfirmedOwner {
     using SafeTransferLib for ERC20;
 
     //==============================================================//
@@ -78,7 +78,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
     //==============================================================//
     //                       CONSTRUCTOR                            //
     //==============================================================//
-    constructor() Owned(msg.sender) {}
+    constructor() ConfirmedOwner(msg.sender) {}
 
     //==============================================================//
     //                    EXTERNAL FUNCTIONS                        //
@@ -90,7 +90,7 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
         if (contractAddress == address(0)) revert ZeroAddressNotAllowed();
 
         // Check registration fee unless owner
-        if (msg.sender != owner) {
+        if (msg.sender != owner()) {
             if (msg.value < registrationFee) revert InsufficientRegistrationFee();
         }
 
@@ -185,13 +185,13 @@ contract PlayerSkinRegistry is IPlayerSkinRegistry, Owned {
         if (tokenAddress == address(0)) {
             uint256 balance = address(this).balance;
             if (balance == 0) revert NoTokensToCollect();
-            SafeTransferLib.safeTransferETH(owner, balance);
+            SafeTransferLib.safeTransferETH(owner(), balance);
             emit TokensCollected(address(0), balance);
         } else {
             ERC20 token = ERC20(tokenAddress);
             uint256 balance = token.balanceOf(address(this));
             if (balance == 0) revert NoTokensToCollect();
-            token.safeTransfer(owner, balance);
+            SafeTransferLib.safeTransfer(tokenAddress, owner(), balance);
             emit TokensCollected(tokenAddress, balance);
         }
     }

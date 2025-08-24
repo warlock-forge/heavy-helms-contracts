@@ -4,8 +4,8 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "solmate/src/tokens/ERC1155.sol";
-import "solmate/src/auth/Owned.sol";
+import {ERC1155} from "solady/tokens/ERC1155.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import {LibString} from "solady/utils/LibString.sol";
 import {Base64} from "solady/utils/Base64.sol";
@@ -26,7 +26,7 @@ error TokenDoesNotExist();
 /// @title PlayerTickets - Game utility tokens for Heavy Helms
 /// @notice Manages both fungible utility tickets and non-fungible name change NFTs
 /// @dev All tickets are tradeable on OpenSea
-contract PlayerTickets is ERC1155, Owned {
+contract PlayerTickets is ERC1155, ConfirmedOwner {
     //==============================================================//
     //                     TOKEN ID CONSTANTS                       //
     //==============================================================//
@@ -100,7 +100,7 @@ contract PlayerTickets is ERC1155, Owned {
     /// @notice Modifier to check if the calling contract has a specific permission
     /// @param permission The permission type to check
     modifier hasPermission(TicketPermission permission) {
-        if (msg.sender != owner) {
+        if (msg.sender != owner()) {
             GamePermissions memory permissions = _gameContractPermissions[msg.sender];
             bool hasRequiredPermission;
 
@@ -126,7 +126,7 @@ contract PlayerTickets is ERC1155, Owned {
     //==============================================================//
     //                       CONSTRUCTOR                            //
     //==============================================================//
-    constructor(address nameRegistryAddress) Owned(msg.sender) {
+    constructor(address nameRegistryAddress) ConfirmedOwner(msg.sender) {
         if (nameRegistryAddress == address(0)) revert ZeroAddress();
         _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
     }
@@ -304,7 +304,7 @@ contract PlayerTickets is ERC1155, Owned {
     /// @param tokenId The token ID to burn
     /// @param amount Number of tokens to burn
     function burnFrom(address from, uint256 tokenId, uint256 amount) external {
-        if (from != msg.sender && !isApprovedForAll[from][msg.sender]) {
+        if (from != msg.sender && !isApprovedForAll(from, msg.sender)) {
             revert("Not authorized to burn");
         }
         _burn(from, tokenId, amount);

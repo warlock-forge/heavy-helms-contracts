@@ -7,8 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "solmate/src/tokens/ERC721.sol";
-import "solmate/src/auth/Owned.sol";
+import {ERC721} from "solady/tokens/ERC721.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 error TokenDoesNotExist();
@@ -18,7 +18,7 @@ error InvalidTokenId();
 error InvalidMintPrice();
 error MintingDisabled();
 
-contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
+contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, ConfirmedOwner {
     uint16 private constant _MAX_SUPPLY = 10000;
     uint16 private _currentTokenId = 1;
 
@@ -28,12 +28,24 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
     mapping(uint256 => SkinAttributes) private _skinAttributes;
     string public baseURI;
 
-    constructor(string memory _name, string memory _symbol, uint256 _mintPrice)
-        ERC721(_name, _symbol)
-        Owned(msg.sender)
-    {
+    string private _name;
+    string private _symbol;
+
+    constructor(string memory name_, string memory symbol_, uint256 _mintPrice) ConfirmedOwner(msg.sender) {
+        _name = name_;
+        _symbol = symbol_;
         mintPrice = _mintPrice;
         mintingEnabled = false; // Start with minting disabled
+    }
+
+    /// @notice Returns the token collection name
+    function name() public view override returns (string memory) {
+        return _name;
+    }
+
+    /// @notice Returns the token collection symbol
+    function symbol() public view override returns (string memory) {
+        return _symbol;
     }
 
     function MAX_SUPPLY() external pure override returns (uint16) {
@@ -54,7 +66,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
 
     function mintSkin(address to, uint8 weapon, uint8 armor) external payable returns (uint16) {
         // Owner can mint for free, others must pay
-        if (msg.sender != owner) {
+        if (msg.sender != owner()) {
             if (!mintingEnabled) revert MintingDisabled();
             if (msg.value != mintPrice) revert InvalidMintPrice();
         }
@@ -72,7 +84,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
 
     function getSkinAttributes(uint256 tokenId) external view override returns (SkinAttributes memory) {
         if (tokenId >= type(uint16).max) revert InvalidTokenId();
-        if (_ownerOf[tokenId] == address(0)) revert TokenDoesNotExist();
+        if (_ownerOf(tokenId) == address(0)) revert TokenDoesNotExist();
         return _skinAttributes[tokenId];
     }
 
@@ -83,12 +95,12 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, Owned {
 
     function tokenURI(uint256 id) public view virtual override returns (string memory) {
         if (id >= type(uint16).max) revert InvalidTokenId();
-        if (_ownerOf[id] == address(0)) revert TokenDoesNotExist();
+        if (_ownerOf(id) == address(0)) revert TokenDoesNotExist();
         return string(abi.encodePacked(baseURI, toString(id), ".json"));
     }
 
     function withdraw() external onlyOwner {
-        payable(owner).transfer(address(this).balance);
+        payable(owner()).transfer(address(this).balance);
     }
 
     // Helper function to convert uint to string

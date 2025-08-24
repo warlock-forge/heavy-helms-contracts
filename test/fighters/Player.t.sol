@@ -36,7 +36,7 @@ contract PlayerTest is TestBase {
     // Test addresses
     address public PLAYER_ONE;
     address public PLAYER_TWO;
-    
+
     // Allow test contract to receive ETH
     receive() external payable {}
 
@@ -196,12 +196,6 @@ contract PlayerTest is TestBase {
         playerContract.requestCreatePlayer{value: feeAmount / 2}(true);
         vm.stopPrank();
     }
-
-    // DEPRECATED: testFulfillRandomnessNonOperator - Gelato VRF specific, not applicable to Chainlink VRF
-    // function testFulfillRandomnessNonOperator() public { ... }
-
-    // DEPRECATED: testFulfillRandomnessNotValidRoundId - Gelato VRF specific, not applicable to Chainlink VRF
-    // function testFulfillRandomnessNotValidRoundId() public { ... }
 
     function testEquipSkin() public {
         // Use equipment with low but meaningful requirements that we can guarantee
@@ -554,12 +548,13 @@ contract PlayerTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         vm.expectEmit(true, true, false, false);
         emit PlayerCreationRequested(1, PLAYER_ONE);
+        vm.recordLogs();
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, false); // Only check first three indexed params
         emit PlayerCreationComplete(requestId, 10001, PLAYER_ONE, 0, 0, 0, 0, 0, 0, 0, 0, 0); // Added placeholders for all params
-        _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
+        _fulfillVRFRequest(address(playerContract));
     }
 
     function testWithdrawFees() public {
@@ -804,14 +799,12 @@ contract PlayerTest is TestBase {
 
         // Create player request
         vm.startPrank(PLAYER_ONE);
+        vm.recordLogs();
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(false);
         vm.stopPrank();
 
-        // Record logs for event verification
-        vm.recordLogs();
-
         // Fulfill VRF request using helper
-        _fulfillVRF(requestId, _generateGameSeed(), address(playerContract));
+        _fulfillVRFRequest(address(playerContract));
 
         // Get the logs and find our PlayerCreationComplete event
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -1091,21 +1084,8 @@ contract PlayerTest is TestBase {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
         uint256 requestId = _createPlayerRequest(owner, playerContract, useSetB);
 
-        // Use a specific seed that generates high stats suitable for equipment requirements
-        // This seed generates stats that meet arming sword (str: 12, size: 5, stamina: 5) + leather armor (str: 5)
-        // We need to find a seed that produces: strength >= 12, size >= 5, stamina >= 5
-        uint256 deterministicSeed = 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;
-
-        if (useVRFMock) {
-            // Capture VRF requests from the logs
-            // Fulfill the VRF request with our deterministic seed
-            uint256[] memory randomWords = new uint256[](1);
-            randomWords[0] = deterministicSeed;
-            vrfMock.fulfillRandomWordsWithOverride(requestId, address(playerContract), randomWords);
-        } else {
-            // Legacy VRF fulfillment
-            _fulfillVRFLegacy(requestId, deterministicSeed, address(playerContract));
-        }
+        // Use the standard VRF fulfillment pattern
+        _fulfillVRFRequest(address(playerContract));
 
         // Extract player ID from logs
         return _getPlayerIdFromLogs(owner, requestId);

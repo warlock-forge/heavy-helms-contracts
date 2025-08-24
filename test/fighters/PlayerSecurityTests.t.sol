@@ -220,8 +220,6 @@ contract PlayerSecurityTests is TestBase {
 
     function testVRFRequestProperlyPreventsMultipleRequests() public {
         // This test demonstrates that the VRF protection logic works correctly
-        // The apparent "bug" is actually a mock issue where GelatoVRFConsumerBase returns 0 as first request ID
-        // which conflicts with the sentinel value 0 used for "no pending request"
 
         uint256 fee = playerContract.createPlayerFeeAmount();
 

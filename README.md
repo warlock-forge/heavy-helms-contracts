@@ -29,7 +29,6 @@
 ```
 RPC_URL=<YOUR RPC URL> // Optional - will use forked chain for entropy during testing
 PK=<YOUR PRIVATE KEY> // Only needed for deployment + scripts
-GELATO_VRF_OPERATOR=<YOUR GELATO VRF OPERATOR> // Only needed for deployment
 ```
 
 ## Usage Scripts
@@ -64,7 +63,7 @@ cd auto_battler_game_contracts
 2. Install dependencies:
 
 ```bash
-forge install --no-git foundry-rs/forge-std@1eea5ba transmissions11/solmate@c93f771 gelatodigital/vrf-contracts@fdb85db bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.0.123
+forge install --no-git foundry-rs/forge-std@1eea5ba bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.0.123 smartcontractkit/chainlink@v2.17.0 OpenZeppelin/openzeppelin-contracts@v4.9.6
 ```
 
 3. Deploy GameEngine contract _(add --broadcast to send tx)_
@@ -145,7 +144,7 @@ forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address,a
 13. Deploy DuelGame _(add --broadcast to send tx)_
 
 ```bash
-forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS>
+forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address,address,address,uint256,bytes32)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS> <VRF_COORDINATOR> <SUBSCRIPTION_ID> <KEY_HASH>
 ```
 
 14. Deploy GauntletGame _(add --broadcast to send tx)_
@@ -154,10 +153,13 @@ forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address)" <GA
 forge script script/deploy/GauntletGameDeploy.s.sol --sig "run(address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS>
 ```
 
-15. Setup VRF
+15. Setup Chainlink VRF
 
 ```bash
-Use Gelato dashboard to add VRF tasks for Player + Duel Game + Gauntlet Game contracts
+# 1. Create a Chainlink VRF subscription on your target network
+# 2. Fund the subscription with LINK tokens or native currency
+# 3. Add the deployed Player contract as a consumer to your subscription
+# 4. Note the VRF Coordinator address, subscription ID, and key hash for deployments
 ```
 
 ## Architecture Changes - Contract Size Optimization

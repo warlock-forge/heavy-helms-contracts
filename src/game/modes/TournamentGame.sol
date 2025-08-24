@@ -11,8 +11,8 @@ pragma solidity ^0.8.13;
 //                            IMPORTS                           //
 //==============================================================//
 import "./BaseGame.sol";
-import "solmate/src/utils/ReentrancyGuard.sol";
-import "solmate/src/utils/SafeTransferLib.sol";
+import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import "../../lib/UniformRandomNumber.sol";
 import "../../interfaces/game/engine/IGameEngine.sol";
 import "../../interfaces/fighters/IPlayer.sol";

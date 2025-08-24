@@ -586,19 +586,19 @@ contract GauntletGameTest is TestBase {
         // Test all admin functions fail for non-owner
         vm.startPrank(PLAYER_ONE);
 
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setGameEnabled(false);
 
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setGauntletSize(8);
 
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.emergencyClearQueue();
 
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setFutureBlocksForSelection(10);
 
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setFutureBlocksForTournament(10);
 
         vm.stopPrank();
@@ -1231,7 +1231,7 @@ contract GauntletGameTest is TestBase {
 
     function testSetDailyGauntletLimitNotOwner() public {
         vm.prank(PLAYER_ONE);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setDailyGauntletLimit(20);
     }
 
@@ -1260,7 +1260,7 @@ contract GauntletGameTest is TestBase {
 
     function testSetDailyResetCostNotOwner() public {
         vm.prank(PLAYER_ONE);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setDailyResetCost(0.01 ether);
     }
 
@@ -1277,8 +1277,10 @@ contract GauntletGameTest is TestBase {
         // Deploy a contract that can receive ETH (since test contract may not have receive/fallback)
         address payable recipient = payable(address(new EthReceiver()));
 
-        // Transfer ownership to recipient so it can withdraw
+        // Transfer ownership to recipient so it can withdraw (ConfirmedOwner pattern)
         game.transferOwnership(recipient);
+        vm.prank(recipient);
+        game.acceptOwnership(); // Must accept ownership with ConfirmedOwner
 
         // Withdraw as new owner
         uint256 recipientBalanceBefore = recipient.balance;
@@ -1292,7 +1294,7 @@ contract GauntletGameTest is TestBase {
 
     function testWithdrawFeesNotOwner() public {
         vm.prank(PLAYER_ONE);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.withdrawFees();
     }
 

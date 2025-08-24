@@ -7,12 +7,20 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "solmate/src/tokens/ERC721.sol";
+import {ERC721} from "solady/tokens/ERC721.sol";
 
 contract UnlockNFT is ERC721 {
     uint256 private _currentTokenId;
 
-    constructor() ERC721("Unlock NFT", "UNLOCK") {}
+    constructor() {}
+
+    function name() public pure override returns (string memory) {
+        return "Unlock NFT";
+    }
+
+    function symbol() public pure override returns (string memory) {
+        return "UNLOCK";
+    }
 
     function mint(address to) external returns (uint256) {
         uint256 tokenId = _currentTokenId++;

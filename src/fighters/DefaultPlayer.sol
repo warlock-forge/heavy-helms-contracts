@@ -10,7 +10,7 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "solmate/src/auth/Owned.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 import "./Fighter.sol";
 import "../interfaces/fighters/IPlayer.sol";
 import "../interfaces/fighters/IDefaultPlayer.sol";
@@ -41,7 +41,7 @@ error InvalidDefaultPlayerSkinType(uint32 skinIndex);
 /// @title Default Player Contract for Heavy Helms
 /// @notice Manages default player characters for the game
 /// @dev Default players are pre-created game characters (IDs 1-2000)
-contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
+contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -99,7 +99,7 @@ contract DefaultPlayer is IDefaultPlayer, Owned, Fighter {
     /// @param nameRegistryAddress Address of the name registry contract
     /// @dev Reverts with BadZeroAddress if any address is zero
     constructor(address skinRegistryAddress, address nameRegistryAddress)
-        Owned(msg.sender)
+        ConfirmedOwner(msg.sender)
         Fighter(skinRegistryAddress)
     {
         if (nameRegistryAddress == address(0)) {

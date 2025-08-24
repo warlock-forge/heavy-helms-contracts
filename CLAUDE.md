@@ -40,7 +40,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Implement role-based access control patterns for fine-grained permissions.
 - Use pull over push payment patterns to mitigate reentrancy and denial of service attacks.
 - Implement rate limiting for sensitive functions to prevent abuse.
-- Use Solmate's SafeTransferLib for interacting with ERC20 tokens.
+- Use Solady's SafeTransferLib for interacting with ERC20 tokens.
 - Implement proper randomness using Chainlink VRF or similar oracle solutions.
 - Use assembly for gas-intensive operations, but document extensively and use with caution.
   - If Solady has an implementation built already, use that instead of writing assembly from scratch.
@@ -80,7 +80,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Heavy Helms is a Solidity-based on-chain game featuring combat mechanics, NFT skins, and multiple game modes. The project uses Foundry for development and testing. Gauntlet tournaments use blockhash-based randomness for security and gas efficiency, while other modes may use Gelato VRF.
+Heavy Helms is a Solidity-based on-chain game featuring combat mechanics, NFT skins, and multiple game modes. The project uses Foundry for development and testing. Gauntlet tournaments use blockhash-based randomness for security and gas efficiency, while other modes use Chainlink VRF.
 
 ## Key Commands
 
@@ -178,8 +178,8 @@ forge snapshot    # Create gas snapshots for tests
 
 1. **Randomness Systems**: 
    - **GauntletGame**: Uses blockhash-based commit-reveal for security and gas efficiency
-   - **Other Games**: Use Gelato VRF for on-chain randomness  
-   - Mock system available for testing (`GelatoVRFAutoMock.sol`)
+   - **Other Games**: Use Chainlink VRF for on-chain randomness  
+   - Mock system available for testing (Chainlink VRF v2.5 mocks)
 
 2. **Fighter ID Ranges**:
    - Default Players: 1-2000 (game owned)
@@ -392,14 +392,13 @@ All tests inherit from `TestBase.sol` which provides:
 
 1. **Environment Setup**:
    ```bash
-   forge install --no-git foundry-rs/forge-std@1eea5ba transmissions11/solmate@c93f771 gelatodigital/vrf-contracts@fdb85db
+   forge install --no-git foundry-rs/forge-std@1eea5ba bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.0.123 smartcontractkit/chainlink@v2.17.0 OpenZeppelin/openzeppelin-contracts@v4.9.6
    ```
 
 2. **Configuration** (`.env` file):
    ```
    RPC_URL=<YOUR RPC URL>
    PK=<YOUR PRIVATE KEY>
-   GELATO_VRF_OPERATOR=<VRF OPERATOR>
    ```
 
 3. **Deployment Order**:
@@ -422,7 +421,7 @@ All tests inherit from `TestBase.sol` which provides:
 ## Important Notes
 
 - **Via IR**: Enabled in foundry.toml for optimization
-- **Solmate**: Primary dependency for gas-optimized contracts
+- **Solady**: Primary dependency for gas-optimized contracts
 - **Testing**: Extensive test coverage expected, use `-vv` for debugging
 - **Gas Optimization**: Critical due to on-chain game nature
 
@@ -505,7 +504,7 @@ All tests inherit from `TestBase.sol` which provides:
 
 ## Dependencies Management
 
-- Use Solmate (transmissions11/solmate) as a primary source of gas-optimized dependencies.
+- Use Solady (vectorized/solady) as a primary source of gas-optimized dependencies.
 - Use Solady (vectorized/solady) for even more aggressive gas optimization when needed.
 - Ensure that any libraries used are installed with forge, and remappings are set.
 - Place remappings in `foundry.toml` instead of a `remappings.txt` file.
@@ -691,7 +690,7 @@ externalCall();
 
 **VRF/Randomness Patterns:**
 - GauntletGame: Blockhash-based commit-reveal
-- Other Games: Gelato VRF
+- Other Games: Chainlink VRF
 - Clear phase management for multi-step processes
 
 **Registry Pattern:**

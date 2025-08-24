@@ -11,7 +11,7 @@ pragma solidity ^0.8.13;
 //                          IMPORTS                             //
 //==============================================================//
 import "../../../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
-import "solmate/src/auth/Owned.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -32,7 +32,7 @@ error InvalidNameLength();
 /// @title Monster Name Registry for Heavy Helms
 /// @notice Manages monster name collections for the game
 /// @dev Stores names for monsters with index 0 reserved for nameless monsters
-contract MonsterNameRegistry is IMonsterNameRegistry, Owned {
+contract MonsterNameRegistry is IMonsterNameRegistry, ConfirmedOwner {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -78,7 +78,7 @@ contract MonsterNameRegistry is IMonsterNameRegistry, Owned {
     //==============================================================//
     /// @notice Initializes the Monster Name Registry
     /// @dev Creates an empty name at index 0 for nameless monsters
-    constructor() Owned(msg.sender) {
+    constructor() ConfirmedOwner(msg.sender) {
         // Add empty name at index 0 for "nameless" monsters
         monsterNames.push("");
     }

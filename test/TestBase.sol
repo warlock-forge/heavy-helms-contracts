@@ -48,7 +48,6 @@ abstract contract TestBase is Test {
 
     // VRF Mock System
     VRFCoordinatorV2_5Mock public vrfMock;
-    bool public useVRFMock = true;
     uint256 public subscriptionId;
 
     Player public playerContract;
@@ -65,9 +64,6 @@ abstract contract TestBase is Test {
     MonsterNameRegistry public monsterNameRegistry;
     PlayerTickets public playerTickets;
 
-    /// @notice Event signatures for VRF event detection
-    bytes32 constant VRF_REQUESTED_EVENT_SIG = keccak256("VRFRequestCaptured(uint256,address)");
-
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
     modifier skipInCI() {
@@ -79,7 +75,7 @@ abstract contract TestBase is Test {
     function setUp() public virtual {
         // Give this contract some ETH to fund VRF subscriptions
         vm.deal(address(this), 1000 ether);
-        
+
         // Initialize VRF mock system first
         // VRFCoordinatorV2_5Mock(uint96 _baseFee, uint96 _gasPrice, int256 _weiPerUnitLink)
         vrfMock = new VRFCoordinatorV2_5Mock(
@@ -92,7 +88,7 @@ abstract contract TestBase is Test {
         // Create and fund a subscription
         subscriptionId = vrfMock.createSubscription();
         vrfMock.fundSubscriptionWithNative{value: 100 ether}(subscriptionId); // Fund with 100 ETH for native payments
-        
+
         // Use a test keyHash (doesn't matter for mock, but needs to be set)
         bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
 
@@ -215,83 +211,6 @@ abstract contract TestBase is Test {
         }(useSetB);
         vm.stopPrank();
         return requestId;
-    }
-
-    /**
-     * @notice Enhanced VRF fulfillment using the new mock system
-     * @dev Automatically captures VRF requests and fulfills them
-     */
-    function _fulfillVRFWithMock(uint256 requestId, uint256 randomSeed, address vrfConsumer) internal {
-        if (useVRFMock) {
-            // Use custom random words with the official Chainlink mock
-            uint256[] memory randomWords = new uint256[](1);
-            randomWords[0] = randomSeed;
-            vrfMock.fulfillRandomWordsWithOverride(requestId, vrfConsumer, randomWords);
-        } else {
-            // Fallback to old method
-            _fulfillVRFLegacy(requestId, randomSeed, vrfConsumer);
-        }
-    }
-
-    /**
-     * @notice Enhanced player creation with automatic VRF handling
-     */
-    function _createPlayerAndFulfillVRFWithMock(address owner, Player contractInstance, bool useSetB)
-        internal
-        returns (uint32)
-    {
-        // Start recording logs BEFORE creating the request to capture VRF events
-        vm.recordLogs();
-
-        // Create the player request
-        vm.deal(owner, contractInstance.createPlayerFeeAmount());
-        uint256 requestId = _createPlayerRequest(owner, contractInstance, useSetB);
-
-        if (useVRFMock) {
-            // Generate deterministic randomness
-            uint256 randomness =
-                uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, requestId)));
-
-            // Fulfill the VRF request with custom randomness
-            uint256[] memory randomWords = new uint256[](1);
-            randomWords[0] = randomness;
-            vrfMock.fulfillRandomWordsWithOverride(requestId, address(contractInstance), randomWords);
-
-            // Extract player ID from logs
-            return _getPlayerIdFromLogs(owner, requestId);
-        } else {
-            // Legacy VRF fulfillment
-            _fulfillVRFLegacy(
-                requestId, uint256(keccak256(abi.encodePacked("test randomness"))), address(contractInstance)
-            );
-            return _getPlayerIdFromLogs(owner, requestId);
-        }
-    }
-
-    /**
-     * @notice Legacy VRF fulfillment method (kept for compatibility)
-     */
-    function _fulfillVRFLegacy(uint256 requestId, uint256 randomSeed, address /* vrfConsumer */ ) internal {
-        uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = randomSeed;
-
-        // Call rawFulfillRandomWords as VRF wrapper
-        vm.prank(vrfCoordinator);
-        playerContract.rawFulfillRandomWords(requestId, randomWords);
-    }
-
-    /**
-     * @notice Toggle between VRF mock and legacy mode
-     */
-    function _setVRFMockMode(bool enabled) internal {
-        useVRFMock = enabled;
-    }
-
-    /**
-     * @notice Get VRF mock for advanced testing scenarios
-     */
-    function _getVRFMock() internal view returns (VRFCoordinatorV2_5Mock) {
-        return vrfMock;
     }
 
     // Helper function to assert stat ranges
@@ -503,29 +422,6 @@ abstract contract TestBase is Test {
         );
     }
 
-    // Helper function to simulate VRF fulfillment with standard test data
-    function _simulateVRFFulfillment(uint256 requestId, uint256 roundId) internal pure returns (bytes memory) {
-        bytes memory extraData = "";
-        bytes memory innerData = abi.encode(requestId, extraData);
-        bytes memory dataWithRound = abi.encode(roundId, innerData);
-        return dataWithRound;
-    }
-
-    // Helper function to decode VRF event logs
-    function _decodeVRFRequestEvent(Vm.Log[] memory entries)
-        internal
-        pure
-        returns (uint256 roundId, bytes memory eventData)
-    {
-        for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == keccak256("RequestedRandomness(uint256,bytes)")) {
-                (roundId, eventData) = abi.decode(entries[i].data, (uint256, bytes));
-                break;
-            }
-        }
-        return (roundId, eventData);
-    }
-
     // Helper function to assert player ownership and basic state
     function _assertPlayerState(Player contractInstance, uint32 playerId, address expectedOwner, bool shouldExist)
         internal
@@ -544,25 +440,6 @@ abstract contract TestBase is Test {
     // Helper function to assert ETH balances after transactions
     function _assertBalances(address account, uint256 expectedBalance, string memory message) internal view {
         assertEq(account.balance, expectedBalance, message);
-    }
-
-    // Helper function to assert VRF request
-    function _assertVRFRequest(uint256, /* requestId */ uint256 roundId) internal {
-        // Get recorded logs
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-
-        // Look for the VRF request event
-        bool foundEvent = false;
-        for (uint256 i = entries.length; i > 0; i--) {
-            if (entries[i - 1].topics[0] == keccak256("RequestedRandomness(uint256,bytes)")) {
-                // Found event, verify round ID matches
-                assertEq(uint256(entries[i - 1].topics[1]), roundId, "VRF round ID mismatch");
-                foundEvent = true;
-                break;
-            }
-        }
-
-        assertTrue(foundEvent, "VRF request event not found");
     }
 
     /// @notice Helper to ensure an address has enough slots for desired player count
@@ -611,18 +488,30 @@ abstract contract TestBase is Test {
         internal
         returns (uint32)
     {
-        return _createPlayerAndFulfillVRFWithMock(owner, contractInstance, useSetB);
+        // Start recording logs BEFORE creating the request to capture VRF events
+        vm.recordLogs();
+
+        // Create the player request
+        vm.deal(owner, contractInstance.createPlayerFeeAmount());
+        uint256 requestId = _createPlayerRequest(owner, contractInstance, useSetB);
+
+        // Fulfill the VRF request using the proper Chainlink pattern
+        _fulfillVRFRequest(address(contractInstance));
+
+        // Extract player ID from logs
+        return _getPlayerIdFromLogs(owner, requestId);
     }
 
     function _createPlayerAndExpectVRFFail(address owner, bool useSetB, string memory expectedError) internal {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
+        vm.recordLogs();
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
         vm.expectRevert(bytes(expectedError));
-        _fulfillVRF(requestId, uint256(keccak256(abi.encodePacked("test randomness"))));
+        _fulfillVRFRequest(address(playerContract));
     }
 
     function _createPlayerAndExpectVRFFail(
@@ -634,23 +523,40 @@ abstract contract TestBase is Test {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
+        vm.recordLogs();
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
-        bytes memory extraData = "";
-        bytes memory innerData = abi.encode(requestId, extraData);
-        bytes memory dataWithRound = abi.encode(customRoundId, innerData);
-
         vm.expectRevert(bytes(expectedError));
-        vm.prank(vrfCoordinator);
-        uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = uint256(keccak256(abi.encodePacked("test randomness")));
-        playerContract.rawFulfillRandomWords(requestId, randomWords);
+        _fulfillVRFRequest(address(playerContract));
     }
 
-    // Helper function for VRF fulfillment
-    function _fulfillVRF(uint256 requestId, uint256 randomSeed) internal {
-        _fulfillVRF(requestId, randomSeed, address(playerContract));
+    /// @notice Helper to properly fulfill VRF requests using the mock system
+    /// @param gameContract The contract that made the VRF request
+    /// @dev Call vm.recordLogs() before the VRF request, then call this method
+    /// @dev Based on Chainlink's documented VRF testing patterns
+    function _fulfillVRFRequest(address gameContract) internal {
+        // Extract the actual requestId from the VRF request logs (Chainlink pattern)
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        // Find the RandomWordsRequested event from the VRF coordinator
+        uint256 requestId;
+        bool foundRequest = false;
+        for (uint256 i = 0; i < entries.length; i++) {
+            // Look for RandomWordsRequested event (sig: 0xeb0e3652e0f44f417695e6e90f2f42c99b65cd7169074c5a654b16b9748c3a4e)
+            if (entries[i].topics[0] == 0xeb0e3652e0f44f417695e6e90f2f42c99b65cd7169074c5a654b16b9748c3a4e) {
+                // requestId is the second parameter but NOT indexed, so decode from data
+                // Event parameters: keyHash (indexed), requestId, preSeed, subId (indexed), minimumRequestConfirmations, callbackGasLimit, numWords, sender (indexed)
+                (requestId,) = abi.decode(entries[i].data, (uint256, uint256));
+                foundRequest = true;
+                break;
+            }
+        }
+
+        require(foundRequest, "No VRF request found in logs");
+
+        // Use VRF mock to fulfill the request (documented Chainlink pattern)
+        VRFCoordinatorV2_5Mock(vrfCoordinator).fulfillRandomWords(requestId, gameContract);
     }
 
     function getWeaponName(uint8 weapon) internal view returns (string memory) {

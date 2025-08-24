@@ -38,14 +38,8 @@ contract DuelGameDeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy DuelGame
-        DuelGame duelGame = new DuelGame(
-            gameEngineAddr,
-            playerAddr,
-            vrfCoordinator,
-            subscriptionId,
-            keyHash,
-            playerTicketsAddr
-        );
+        DuelGame duelGame =
+            new DuelGame(gameEngineAddr, playerAddr, vrfCoordinator, subscriptionId, keyHash, playerTicketsAddr);
 
         // Whitelist DuelGame in Player contract
         Player playerContract = Player(playerAddr);

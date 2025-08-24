@@ -27,7 +27,7 @@ contract GasAnalysisTest is TestBase {
 
         // Deploy contracts
         bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        
+
         game = new DuelGame(
             address(gameEngine),
             payable(address(playerContract)),
@@ -36,6 +36,9 @@ contract GasAnalysisTest is TestBase {
             testKeyHash,
             address(playerTickets)
         );
+
+        // Add DuelGame as a consumer to the VRF subscription
+        vrfMock.addConsumer(subscriptionId, address(game));
 
         // Set permissions
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
@@ -81,14 +84,11 @@ contract GasAnalysisTest is TestBase {
             game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
 
             // Get VRF data
-            (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-            bytes memory dataWithRound = _simulateVRFFulfillment(i, roundId); // Use i as different seed
             vm.stopPrank();
 
             // Measure gas for VRF fulfillment (actual duel execution)
             uint256 gasBefore = gasleft();
-            vm.prank(vrfCoordinator);
-            game.fulfillRandomness(i, dataWithRound);
+            _fulfillVRFRequest(address(game));
             gasCosts[i] = gasBefore - gasleft();
 
             console2.log("Fight", i + 1, "gas used:", gasCosts[i]);

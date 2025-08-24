@@ -30,7 +30,7 @@ contract CreatePlayerScript is Script {
         // Request player creation with 0.001 ETH fee
         uint256 requestId = player.requestCreatePlayer{value: 0.001 ether}(isFemale);
         console2.log("Player creation requested with ID:", requestId);
-        console2.log("Waiting for VRF fulfillment by Gelato operator...");
+        console2.log("Waiting for VRF fulfillment by Chainlink oracle...");
         vm.stopBroadcast();
     }
 }

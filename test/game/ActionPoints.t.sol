@@ -18,9 +18,8 @@ import {Fighter} from "../../src/fighters/Fighter.sol";
 contract ActionPointsTest is TestBase {
     function setUp() public override {
         super.setUp();
-        // Disable VRF mock for these tests since they don't use VRF
-        // and we want deterministic seeds based purely on block state
-        _setVRFMockMode(false);
+        // These tests don't use VRF - they test the game engine directly
+        // with deterministic seeds based purely on block state
     }
 
     function test_DoubleAttack() public view {

@@ -193,14 +193,8 @@ contract PlayerDualCreationTest is TestBase {
         vm.prank(owner);
         uint256 requestId = playerContract.requestCreatePlayerWithTicket(useSetB);
 
-        // Generate deterministic randomness
-        uint256 randomness =
-            uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, requestId)));
-
-        // Fulfill the VRF request
-        uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = randomness;
-        vrfMock.fulfillRandomWordsWithOverride(requestId, address(playerContract), randomWords);
+        // Fulfill the VRF request using the standard helper pattern
+        _fulfillVRFRequest(address(playerContract));
 
         // Extract player ID from logs
         return _getPlayerIdFromLogs(owner, requestId);

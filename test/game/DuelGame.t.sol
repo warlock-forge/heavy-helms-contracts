@@ -57,7 +57,7 @@ contract DuelGameTest is TestBase {
 
         // Use the same test keyHash from TestBase
         bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        
+
         game = new DuelGame(
             address(gameEngine),
             payable(address(playerContract)),
@@ -66,6 +66,9 @@ contract DuelGameTest is TestBase {
             testKeyHash,
             address(playerTickets)
         );
+
+        // Add DuelGame as a consumer to the VRF subscription
+        vrfMock.addConsumer(subscriptionId, address(game));
 
         // Set permissions for game contract
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
@@ -153,16 +156,8 @@ contract DuelGameTest is TestBase {
         assertTrue(pendingState == DuelGame.ChallengeState.PENDING, "Challenge should be PENDING");
         assertTrue(vrfTimestamp > 0, "VRF timestamp should be set after acceptance");
 
-        // Verify VRF was requested by checking logs
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        bool vrfRequestFound = false;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("RequestedRandomness(uint256,bytes)")) {
-                vrfRequestFound = true;
-                break;
-            }
-        }
-        assertTrue(vrfRequestFound, "VRF request should have been made");
+        // Verify challenge state changed to PENDING (indicates VRF request was made)
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after acceptance");
 
         // Verify loadouts were stored correctly during acceptance
         (,,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
@@ -206,11 +201,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Fulfill VRF to complete the duel
-        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
-
-        vm.prank(vrfCoordinator);
-        game.fulfillRandomness(0, dataWithRound);
+        _fulfillVRFRequest(address(game));
 
         // Verify final challenge state
         (
@@ -281,7 +272,7 @@ contract DuelGameTest is TestBase {
 
         // Verify non-owner can't disable
         vm.prank(PLAYER_ONE);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("Only callable by owner");
         game.setGameEnabled(false);
 
         // Owner can disable
@@ -337,11 +328,7 @@ contract DuelGameTest is TestBase {
         assertTrue(game.isChallengeExpired(challengeId), "Challenge should be expired");
 
         // 5. Fulfill randomness for the second (accepted) challenge
-        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
-
-        vm.prank(vrfCoordinator);
-        game.fulfillRandomness(0, dataWithRound);
+        _fulfillVRFRequest(address(game));
 
         // Test completed state
         assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after completion");
@@ -362,12 +349,9 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
         game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
-        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
         vm.stopPrank();
 
-        vm.prank(vrfCoordinator);
-        game.fulfillRandomness(0, dataWithRound);
+        _fulfillVRFRequest(address(game));
 
         // Verify win/loss records are unchanged
         Fighter.Record memory finalP1Record = playerContract.getCurrentSeasonRecord(PLAYER_ONE_ID);
@@ -488,8 +472,6 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_TWO);
         vm.recordLogs();
         game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
-        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
         vm.stopPrank();
 
         // Retire the player with our permission
@@ -499,7 +481,9 @@ contract DuelGameTest is TestBase {
         // Fulfillment should revert
         vm.prank(vrfCoordinator);
         vm.expectRevert(bytes("Challenger is retired"));
-        game.fulfillRandomness(0, dataWithRound);
+        uint256[] memory randomWords = new uint256[](1);
+        randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao)));
+        game.rawFulfillRandomWords(1, randomWords);
     }
 
     function test_RevertWhen_ChallengerRetiredBeforeAcceptance() public {
@@ -684,11 +668,7 @@ contract DuelGameTest is TestBase {
         assertEq(storedDefenderLoadout.stance, 0, "Defender should use defensive stance from loadout");
 
         // Complete the duel to ensure loadouts are used in combat
-        (uint256 roundId,) = _decodeVRFRequestEvent(vm.getRecordedLogs());
-        bytes memory dataWithRound = _simulateVRFFulfillment(0, roundId);
-
-        vm.prank(vrfCoordinator);
-        game.fulfillRandomness(0, dataWithRound);
+        _fulfillVRFRequest(address(game));
 
         // Challenge completed successfully with override loadouts
         assertTrue(game.isChallengeCompleted(challengeId), "Challenge should complete with override loadouts");

@@ -13,7 +13,7 @@ pragma solidity ^0.8.13;
 import "../../interfaces/game/engine/IGameEngine.sol";
 import "../../interfaces/fighters/IPlayer.sol";
 import "../../fighters/Fighter.sol";
-import "solmate/src/auth/Owned.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -28,7 +28,7 @@ error ZeroAddress();
 /// @title BaseGame
 /// @notice Base contract for game implementations
 /// @dev Inherit from this contract to implement specific game types
-abstract contract BaseGame is Owned {
+abstract contract BaseGame is ConfirmedOwner {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -66,7 +66,7 @@ abstract contract BaseGame is Owned {
     /// @param _gameEngine Address of the game engine contract
     /// @param _playerContract Address of the player contract
     /// @dev Reverts if either address is zero
-    constructor(address _gameEngine, address payable _playerContract) Owned(msg.sender) {
+    constructor(address _gameEngine, address payable _playerContract) ConfirmedOwner(msg.sender) {
         if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);
