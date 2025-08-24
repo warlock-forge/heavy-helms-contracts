@@ -63,7 +63,7 @@ cd auto_battler_game_contracts
 2. Install dependencies:
 
 ```bash
-forge install --no-git foundry-rs/forge-std@1eea5ba bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.0.123 smartcontractkit/chainlink@v2.17.0 OpenZeppelin/openzeppelin-contracts@v4.9.6
+forge install --no-git foundry-rs/forge-std@1eea5ba bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.0.123 smartcontractkit/chainlink-evm@v2.17.0 OpenZeppelin/openzeppelin-contracts@v4.9.6
 ```
 
 3. Deploy GameEngine contract _(add --broadcast to send tx)_
