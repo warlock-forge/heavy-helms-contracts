@@ -12,6 +12,7 @@ import {GauntletGame} from "../../src/game/modes/GauntletGame.sol";
 import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 import {Player} from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 
 contract GauntletGameDeployScript is Script {
     function setUp() public {}
@@ -21,25 +22,6 @@ contract GauntletGameDeployScript is Script {
         address payable playerAddr,
         address defaultPlayerAddr,
         address playerTicketsAddr
-    ) public {
-        // Deploy all 3 bracket contracts
-        deployGauntletBracket(
-            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_1_TO_4
-        );
-        deployGauntletBracket(
-            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_5_TO_9
-        );
-        deployGauntletBracket(
-            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVEL_10
-        );
-    }
-
-    function deployGauntletBracket(
-        address gameEngineAddr,
-        address payable playerAddr,
-        address defaultPlayerAddr,
-        address playerTicketsAddr,
-        GauntletGame.LevelBracket bracket
     ) public {
         require(gameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(playerAddr != address(0), "Player address cannot be zero");
@@ -55,6 +37,27 @@ contract GauntletGameDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        // Deploy all 3 bracket contracts
+        deployGauntletBracket(
+            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_1_TO_4
+        );
+        deployGauntletBracket(
+            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVELS_5_TO_9
+        );
+        deployGauntletBracket(
+            gameEngineAddr, playerAddr, defaultPlayerAddr, playerTicketsAddr, GauntletGame.LevelBracket.LEVEL_10
+        );
+
+        vm.stopBroadcast();
+    }
+
+    function deployGauntletBracket(
+        address gameEngineAddr,
+        address payable playerAddr,
+        address defaultPlayerAddr,
+        address playerTicketsAddr,
+        GauntletGame.LevelBracket bracket
+    ) internal {
         // Deploy GauntletGame with specified bracket
         GauntletGame gauntletGame =
             new GauntletGame(gameEngineAddr, playerAddr, defaultPlayerAddr, bracket, playerTicketsAddr);
@@ -65,11 +68,22 @@ contract GauntletGameDeployScript is Script {
             IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(gauntletGame), perms);
 
-        console2.log("\n=== Deployed Addresses ===");
+        // Whitelist GauntletGame in PlayerTickets contract for reward minting
+        PlayerTickets playerTicketsContract = PlayerTickets(playerTicketsAddr);
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true
+        });
+        playerTicketsContract.setGameContractPermission(address(gauntletGame), ticketPerms);
+
+        console2.log("\n=== Deployed GauntletGame ===");
         console2.log("GauntletGame:", address(gauntletGame));
         console2.log("Level Bracket:", uint8(bracket));
         console2.log("GauntletGame whitelisted in Player contract");
-
-        vm.stopBroadcast();
+        console2.log("GauntletGame whitelisted in PlayerTickets contract");
     }
 }

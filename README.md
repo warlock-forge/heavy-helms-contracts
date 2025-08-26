@@ -1,24 +1,24 @@
-# Heavy Helms
+# Heavy Helms v2 - Progression
 
-## Deployed Contract Addresses - Shape Mainnet
+## Deployed Contract Addresses - Base Sepolia
 
-- GameEngine: 0x60567795F7a60986204A5507538600b53adeE42a
-- EquipmentRequirements: 0xEE4A523BB2762D0556e20F857FE95f9384f7b578
-- PlayerSkinRegistry: 0x70FA59BA4FbD253850c76B6d1A12a7DFaC744072
-- PlayerNameRegistry: 0x9e0183eD52B3A3c934879f6Ff13dC8811ED20f1c
-- MonsterNameRegistry: 0xcEE41C17c8797EAc2DD8aB1425F0e3c73f97EF0a
-- **PlayerCreation: [DEPLOY_NEW]** _(New helper contract for player stat generation)_
-- **PlayerDataCodec: [DEPLOY_NEW]** _(New helper contract for data encoding/decoding)_
-- **PlayerTickets: [DEPLOY_NEW]** _(New ERC1155 burnable ticket system)_
-- Player: 0x75B4750D41A9a04e989FAD58544C37930AEf2e5B _(NEEDS REDEPLOYMENT - new constructor params)_
-- DefaultPlayer: 0x4745bfCD3B6e785C44B47FD871CdbA8283fe94BC
-- Monster: 0x9f742615fA8ae9Caa001C658Aa8000aC7506F24c
-- DefaultPlayerSkinNFT: 0x5540De99D291f9C149430aB22071332c383A0711
-- MonsterSkinNFT: 0xb48Abb150834EBA4912BF2D5f6544Dc24b8C2d87
-- UnlockablePlayerSkinNFT: 0xf32764F7C5205662221e008c2099C1d81F7AA846
-- PracticeGame: 0xee5Ccf602AA0E5ff1C6F78CAB3AaC0dA317aF0b3
-- DuelGame: 0x805b44fadbCBA7a65b37875551820593a45a8716 _(May need redeployment if using codec directly)_
-- GauntletGame: 0x684055392575eF42A6f04490dB50FFdC34309681 _(May need redeployment if using codec directly)_
+- GameEngine: 0xC128bCd9b18782c69dFA7b4Bdce61D6B6E3A1A96 v1.0
+- EquipmentRequirements: 0x3b448807536b95B97fEFE0EBc15489ADaE7da2aA
+- PlayerSkinRegistry: 0xaA8c214bA0efFd88CdE442946B518b91a437b4e3
+- PlayerNameRegistry: 0x7224Ff906a60E96725D019E84f3B23540442A898
+- MonsterNameRegistry: 0xacD57159a8A02b59E923FCE01Ca8A21f16C2042A
+- PlayerTickets: 0xc0e8973f7AF2e7Ab5F5749419934A04e1A90c6cB
+- Player: 0x2d248A737e3eCB013e2a62fD8959a0A3D7eCf9F3
+- DefaultPlayer: 0xcE8129957D8B64813D9E936921819741a54649Fc
+- Monster: 0x3feae9A9788c3d48C06F15d9115fA47b536EA66F
+- DefaultPlayerSkinNFT: 0x4a8b436456f12559EAb0A5Ba68E09181cEb91593
+- MonsterSkinNFT: 0x31fE904307a15a24D02E711Db0cA4fbB9869BAD6
+- PracticeGame: 0xa1Ff9Cf87Ec73F30d6AD5A5a963809D0806C9852
+- DuelGame: 0x86f776A0d39F5640a276696A868814f99a58b4D2
+- GauntletGame: 0xDF4Dca458939d95C64B5d610B6867d794C3FeC3f (levels 1-4)
+- GauntletGame: 0x7AC1E825dB7501b7F886704f85d9E62B3E19DD41 (levels 5-9)
+- GauntletGame: 0x6E8266C2264c84e7552DA3f4eE9DC4634a90fA7c (level 10)
+- TournamentGame: 0x742af1F015920cF7eAd4ca68697c77e631489336
 
 ## Prerequisites
 
@@ -90,75 +90,59 @@ forge script script/deploy/PlayerSkinRegistryDeploy.s.sol
 forge script script/deploy/NameRegistryDeploy.s.sol
 ```
 
-7. Deploy PlayerTickets: _(add --broadcast to send tx)_
+7. Deploy Fighters (includes PlayerTickets and helper contracts): _(add --broadcast to send tx)_
 
 ```bash
-forge script script/deploy/PlayerTicketsDeploy.s.sol
+forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,address,address,address,uint256,bytes32)" <SKIN_REGISTRY_ADDRESS> <PLAYER_NAME_REGISTRY_ADDRESS> <MONSTER_NAME_REGISTRY_ADDRESS> <EQUIPMENT_REQUIREMENTS_ADDRESS> <VRF_COORDINATOR> <SUBSCRIPTION_ID> <KEY_HASH>
 ```
 
-8. Deploy PlayerCreation Helper: _(add --broadcast to send tx)_
-
-```bash
-forge script script/deploy/PlayerCreationDeploy.s.sol --sig "run(address)" <PLAYER_NAME_REGISTRY_ADDRESS>
-```
-
-9. Deploy PlayerDataCodec Helper: _(add --broadcast to send tx)_
-
-```bash
-forge script script/deploy/PlayerDataCodecDeploy.s.sol
-```
-
-10. Deploy Fighter: _(add --broadcast to send tx)_
-
-```bash
-forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,address,address)" <SKIN_REGISTRY_ADDRESS> <PLAYER_NAME_REGISTRY_ADDRESS> <MONSTER_NAME_REGISTRY_ADDRESS> <EQUIPMENT_REQUIREMENTS_ADDRESS>
-```
-
-**Note:** The FighterDeploy script now requires additional dependencies and will deploy in this order:
+**Note:** The FighterDeploy script now deploys multiple contracts in this order:
 
 1. PlayerCreation helper contract
 2. PlayerDataCodec helper contract
-3. Player contract (with references to PlayerTickets, PlayerCreation, and PlayerDataCodec)
-4. DefaultPlayer and Monster contracts
-5. Default skin NFTs and registry setup
+3. PlayerTickets contract (requires nameRegistry)
+4. Player contract (with references to PlayerTickets, PlayerCreation, and PlayerDataCodec)
+5. DefaultPlayer and Monster contracts
+6. Default skin NFTs and registry setup
 
-**Updated FighterDeploy Parameters:**
-The script internally handles the new helper contract deployments, but the Player contract now requires:
+All contracts are deployed automatically within the FighterDeploy script - no separate deployment needed.
 
-- PlayerTickets address (for burnable ticket system)
-- PlayerCreation address (for stat generation)
-- PlayerDataCodec address (for data encoding/decoding)
-
-11. Deploy Unlockable Skin Collection (Optional): _(add --broadcast to send tx)_
+8. Deploy Unlockable Skin Collection (Optional): _(add --broadcast to send tx)_
 
 ```bash
 forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS>
 ```
 
-12. Deploy PracticeGame _(add --broadcast to send tx)_
+9. Deploy PracticeGame _(add --broadcast to send tx)_
 
 ```bash
 forge script script/deploy/PracticeGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS>
 ```
 
-13. Deploy DuelGame _(add --broadcast to send tx)_
+10. Deploy DuelGame _(add --broadcast to send tx)_
 
 ```bash
 forge script script/deploy/DuelGameDeploy.s.sol --sig "run(address,address,address,address,uint256,bytes32)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS> <VRF_COORDINATOR> <SUBSCRIPTION_ID> <KEY_HASH>
 ```
 
-14. Deploy GauntletGame _(add --broadcast to send tx)_
+11. Deploy GauntletGame _(add --broadcast to send tx)_
 
 ```bash
-forge script script/deploy/GauntletGameDeploy.s.sol --sig "run(address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS>
+forge script script/deploy/GauntletGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS>
 ```
 
-15. Setup Chainlink VRF
+12. Deploy TournamentGame _(add --broadcast to send tx)_
+
+```bash
+forge script script/deploy/TournamentGameDeploy.s.sol --sig "run(address,address,address,address)" <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS>
+```
+
+13. Setup Chainlink VRF
 
 ```bash
 # 1. Create a Chainlink VRF subscription on your target network
 # 2. Fund the subscription with LINK tokens or native currency
-# 3. Add the deployed Player contract as a consumer to your subscription
+# 3. Add the deployed Player + Duel contract as consumers to your subscription
 # 4. Note the VRF Coordinator address, subscription ID, and key hash for deployments
 ```
 
@@ -171,19 +155,6 @@ forge script script/deploy/GauntletGameDeploy.s.sol --sig "run(address,address,a
 - **PlayerCreation**: Handles player stat generation and name assignment (pure functions extracted from Player)
 - **PlayerDataCodec**: Handles encoding/decoding of player data for game modes (pure functions extracted from Player)
 - **PlayerTickets**: ERC1155 burnable ticket system replacing charge mappings
-
-### Contract Size Impact
-
-- **Player contract**: Reduced from 27,559 bytes to 20,500 bytes (4,076 bytes under EIP-170 limit)
-- **Total helper contracts**: 7,463 bytes across 3 deployable contracts
-- **Net architecture cost**: 3,115 bytes spread across multiple contracts vs monolithic approach
-
-### Key Changes
-
-1. **Player Creation**: Now uses external PlayerCreation contract for stat generation
-2. **Data Encoding**: Game modes access codec via `player.codec().encodePlayerData()`
-3. **Ticket System**: NFT-based burnable tickets replace charge mappings for name changes, attribute swaps, etc.
-4. **Trustless Design**: All helper contracts use immutable addresses - no admin control
 
 ### Test
 

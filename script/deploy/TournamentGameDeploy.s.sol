@@ -12,6 +12,7 @@ import {TournamentGame} from "../../src/game/modes/TournamentGame.sol";
 import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 import {Player} from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 
 contract TournamentGameDeployScript is Script {
     function setUp() public {}
@@ -42,18 +43,26 @@ contract TournamentGameDeployScript is Script {
 
         // Whitelist TournamentGame in Player contract with RETIRE permission for death mechanics
         Player playerContract = Player(playerAddr);
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: true,
-            retire: true, // CRITICAL: Need this for death mechanics
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: true, attributes: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(tournamentGame), perms);
+
+        // Whitelist TournamentGame in PlayerTickets contract for reward minting
+        PlayerTickets playerTicketsContract = PlayerTickets(playerTicketsAddr);
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true
+        });
+        playerTicketsContract.setGameContractPermission(address(tournamentGame), ticketPerms);
 
         console2.log("\n=== Deployed Addresses ===");
         console2.log("TournamentGame:", address(tournamentGame));
         console2.log("TournamentGame whitelisted in Player contract with RETIRE permission");
+        console2.log("TournamentGame whitelisted in PlayerTickets contract for all rewards");
         console2.log("Initial tournament size:", tournamentGame.currentTournamentSize());
         console2.log("Initial lethality factor:", tournamentGame.lethalityFactor());
 
