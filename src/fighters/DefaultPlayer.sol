@@ -68,8 +68,8 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
 
     /// @notice Emitted when a new default player is created
     /// @param playerId The ID of the newly created player
-    /// @param stats The stats for the new player
-    event DefaultPlayerCreated(uint32 indexed playerId, IPlayer.PlayerStats stats);
+    /// @param allLevelStats Array of stats for all 10 levels
+    event DefaultPlayerCreated(uint32 indexed playerId, IPlayer.PlayerStats[10] allLevelStats);
 
     /// @notice ID range constants for default players
     /// @dev Default players occupy IDs 1-2000
@@ -192,8 +192,8 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
         validDefaultPlayerIds.push(playerId);
         validDefaultPlayerCount++;
 
-        // Emit event for new player creation (using level 1 stats for backwards compatibility)
-        emit DefaultPlayerCreated(playerId, level1Stats);
+        // Emit event for new player creation
+        emit DefaultPlayerCreated(playerId, allLevelStats);
     }
 
     /// @notice Updates the stats of an existing default player for all levels
