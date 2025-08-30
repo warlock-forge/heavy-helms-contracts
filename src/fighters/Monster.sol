@@ -56,31 +56,10 @@ contract Monster is IMonster, ConfirmedOwner, Fighter {
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
-    /// @notice Emitted when a monster's win/loss record is updated
-    /// @param monsterId The ID of the monster
-    /// @param wins Current number of wins
-    /// @param losses Current number of losses
-    event MonsterWinLossUpdated(uint32 indexed monsterId, uint16 wins, uint16 losses);
-
-    /// @notice Emitted when a monster's kill count is updated
-    /// @param monsterId The ID of the monster
-    /// @param kills Current number of kills
-    event MonsterKillsUpdated(uint32 indexed monsterId, uint16 kills);
-
-    /// @notice Emitted when a monster's immortality status is changed
-    /// @param monsterId The ID of the monster
-    /// @param immortal New immortality status
-    event MonsterImmortalStatusUpdated(uint32 indexed monsterId, bool immortal);
-
-    /// @notice Emitted when a monster's retirement status is changed
-    /// @param monsterId The ID of the monster
-    /// @param retired New retirement status
-    event MonsterRetired(uint32 indexed monsterId, bool retired);
-
     /// @notice Emitted when a new monster is created
     /// @param monsterId The ID of the newly created monster
-    /// @param stats The stats for the new monster
-    event MonsterCreated(uint32 indexed monsterId, MonsterStats stats);
+    /// @param allLevelStats Array of stats for all 10 levels
+    event MonsterCreated(uint32 indexed monsterId, MonsterStats[10] allLevelStats);
 
     /// @notice Emitted when a monster's stats are updated
     /// @param monsterId The ID of the monster
@@ -168,7 +147,7 @@ contract Monster is IMonster, ConfirmedOwner, Fighter {
         uint32 monsterId = _nextMonsterId++;
         _monsterProgressions[monsterId] = allLevelStats;
 
-        emit MonsterCreated(monsterId, allLevelStats[0]); // Emit level 1 stats for backwards compatibility
+        emit MonsterCreated(monsterId, allLevelStats);
         return monsterId;
     }
 

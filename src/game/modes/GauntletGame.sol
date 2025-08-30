@@ -288,7 +288,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint256 indexed gauntletId, uint32 indexed playerId, IPlayerTickets.RewardType rewardType, uint256 ticketId
     );
     /// @notice Emitted when a pending Gauntlet is recovered after timeout.
-    event GauntletRecovered(uint256 commitTimestamp);
+    event GauntletRecovered(uint256 indexed gauntletId, uint256 commitTimestamp);
     /// @notice Emitted when a gauntlet is auto-recovered due to blockhash expiration.
     event GauntletAutoRecovered(uint256 commitBlock, uint256 currentBlock, GauntletPhase phase);
     /// @notice Emitted when a player is replaced during gauntlet execution.
@@ -1242,14 +1242,15 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function recoverPendingGauntlet() external nonReentrant {
         if (!canRecoverPendingGauntlet()) revert CannotRecoverYet();
 
-        // Store timestamp for event
+        // Store values for event before deletion
+        uint256 gauntletId = pendingGauntlet.gauntletId;
         uint256 timestamp = pendingGauntlet.commitTimestamp;
 
         // Clear pending gauntlet
         delete pendingGauntlet;
 
         // No need to process participants - they're still in queue
-        emit GauntletRecovered(timestamp);
+        emit GauntletRecovered(gauntletId, timestamp);
     }
 
     //==============================================================//
