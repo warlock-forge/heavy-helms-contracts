@@ -890,7 +890,7 @@ contract PlayerTest is TestBase {
 
         // Test win event
         vm.recordLogs();
-        playerContract.incrementWins(playerId);
+        playerContract.incrementWins(playerId, playerContract.currentSeason());
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bool foundWinLossEvent = false;
 
@@ -909,7 +909,7 @@ contract PlayerTest is TestBase {
 
         // Test loss event
         vm.recordLogs();
-        playerContract.incrementLosses(playerId);
+        playerContract.incrementLosses(playerId, playerContract.currentSeason());
         entries = vm.getRecordedLogs();
         foundWinLossEvent = false;
 
@@ -928,7 +928,7 @@ contract PlayerTest is TestBase {
 
         // Test kill event
         vm.recordLogs();
-        playerContract.incrementKills(playerId);
+        playerContract.incrementKills(playerId, playerContract.currentSeason());
         entries = vm.getRecordedLogs();
         bool foundKillEvent = false;
 

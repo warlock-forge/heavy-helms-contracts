@@ -1555,12 +1555,20 @@ contract GauntletGameTest is TestBase {
         // Find the GauntletCompleted event
         bool foundEvent = false;
         for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("GauntletCompleted(uint256,uint8,uint8,uint32,uint32[],uint32[])")) {
+            if (
+                logs[i].topics[0]
+                    == keccak256("GauntletCompleted(uint256,uint8,uint8,uint32,uint256,uint32[],uint32[])")
+            ) {
                 foundEvent = true;
 
                 // Decode the event data
-                (uint8 size, uint8 levelBracket, uint32[] memory participantIds, uint32[] memory roundWinners) =
-                    abi.decode(logs[i].data, (uint8, uint8, uint32[], uint32[]));
+                (
+                    uint8 size,
+                    uint8 levelBracket,
+                    uint256 seasonId,
+                    uint32[] memory participantIds,
+                    uint32[] memory roundWinners
+                ) = abi.decode(logs[i].data, (uint8, uint8, uint256, uint32[], uint32[]));
 
                 // CRITICAL ASSERTION: roundWinners should NOT be empty for a 4-player gauntlet
                 // 4 players = 2 matches in round 1, 1 match in finals = 3 total round winners

@@ -58,6 +58,10 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
     /// @notice Count of valid default players (gas-efficient alternative to array.length)
     uint256 public validDefaultPlayerCount;
 
+    /// @notice ID range constants for default players
+    /// @dev Default players occupy IDs 1-2000
+    uint32 private constant DEFAULT_PLAYER_START = 1;
+
     //==============================================================//
     //                          EVENTS                              //
     //==============================================================//
@@ -70,10 +74,6 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
     /// @param playerId The ID of the newly created player
     /// @param allLevelStats Array of stats for all 10 levels
     event DefaultPlayerCreated(uint32 indexed playerId, IPlayer.PlayerStats[10] allLevelStats);
-
-    /// @notice ID range constants for default players
-    /// @dev Default players occupy IDs 1-2000
-    uint32 private constant DEFAULT_PLAYER_START = 1;
 
     //==============================================================//
     //                        MODIFIERS                             //

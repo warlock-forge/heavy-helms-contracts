@@ -33,8 +33,9 @@ contract PlayerPermissionsTest is TestBase {
         // Try operations without permissions (should fail)
         vm.startPrank(gameContract);
 
+        uint256 currentSeason = playerContract.currentSeason();
         vm.expectRevert(NoPermission.selector);
-        Player(playerContract).incrementWins(playerId);
+        Player(playerContract).incrementWins(playerId, currentSeason);
 
         vm.expectRevert(NoPermission.selector);
         Player(playerContract).setPlayerRetired(playerId, true);
@@ -62,9 +63,10 @@ contract PlayerPermissionsTest is TestBase {
         vm.startPrank(gameContract);
 
         // These should succeed
-        Player(playerContract).incrementWins(playerId);
-        Player(playerContract).incrementLosses(playerId);
-        Player(playerContract).incrementKills(playerId);
+        uint256 currentSeason = playerContract.currentSeason();
+        Player(playerContract).incrementWins(playerId, currentSeason);
+        Player(playerContract).incrementLosses(playerId, currentSeason);
+        Player(playerContract).incrementKills(playerId, currentSeason);
 
         // Other operations should still fail
         vm.expectRevert(NoPermission.selector);
@@ -90,8 +92,9 @@ contract PlayerPermissionsTest is TestBase {
         Player(playerContract).awardAttributeSwap(address(1));
 
         // Other operations should fail
+        uint256 currentSeason = playerContract.currentSeason();
         vm.expectRevert(NoPermission.selector);
-        Player(playerContract).incrementWins(playerId);
+        Player(playerContract).incrementWins(playerId, currentSeason);
 
         vm.stopPrank();
 
@@ -120,8 +123,9 @@ contract PlayerPermissionsTest is TestBase {
         // Names are now handled through PlayerTickets contract
 
         // Other operations should fail
+        uint256 currentSeason = playerContract.currentSeason();
         vm.expectRevert(NoPermission.selector);
-        Player(playerContract).incrementWins(playerId);
+        Player(playerContract).incrementWins(playerId, currentSeason);
 
         vm.stopPrank();
 
@@ -151,8 +155,9 @@ contract PlayerPermissionsTest is TestBase {
         assertFalse(Player(playerContract).isPlayerRetired(playerId));
 
         // Other operations should fail
+        uint256 currentSeason = playerContract.currentSeason();
         vm.expectRevert(NoPermission.selector);
-        Player(playerContract).incrementWins(playerId);
+        Player(playerContract).incrementWins(playerId, currentSeason);
 
         vm.stopPrank();
     }

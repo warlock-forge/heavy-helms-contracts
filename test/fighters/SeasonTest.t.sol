@@ -110,7 +110,7 @@ contract SeasonTest is TestBase {
         // Trigger season check
         vm.expectEmit(true, false, false, true);
         emit SeasonStarted(initialSeason + 1, futureTime, block.number);
-        playerContract.checkAndUpdateSeason();
+        playerContract.forceCurrentSeason();
 
         // Verify season updated
         assertEq(playerContract.currentSeason(), initialSeason + 1, "Season should increment");
@@ -130,21 +130,24 @@ contract SeasonTest is TestBase {
 
         uint256 initialSeason = playerContract.currentSeason();
 
-        // Season transition should happen automatically on record update
+        // Force season update explicitly
         vm.expectEmit(true, false, false, true);
         emit SeasonStarted(initialSeason + 1, futureTime, block.number);
 
-        // This should trigger season transition internally
-        playerContract.incrementWins(testPlayerId1);
+        uint256 newSeason = playerContract.forceCurrentSeason();
+        assertEq(newSeason, initialSeason + 1, "forceCurrentSeason should return new season");
 
-        assertEq(playerContract.currentSeason(), initialSeason + 1, "Season should auto-increment");
+        // Now increment wins - no automatic season transition
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+
+        assertEq(playerContract.currentSeason(), initialSeason + 1, "Season should be updated");
     }
 
     function testNoTransitionBeforeTime() public {
         uint256 initialSeason = playerContract.currentSeason();
 
         // Should not transition before time
-        playerContract.checkAndUpdateSeason();
+        playerContract.forceCurrentSeason();
         assertEq(playerContract.currentSeason(), initialSeason, "Season should not change early");
     }
 
@@ -159,10 +162,10 @@ contract SeasonTest is TestBase {
         assertEq(lifetimeRecord.wins, 0, "Initial lifetime wins should be 0");
 
         // Add some wins/losses/kills
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementLosses(testPlayerId1);
-        playerContract.incrementKills(testPlayerId1);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementLosses(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementKills(testPlayerId1, playerContract.currentSeason());
 
         // Check both records updated
         seasonalRecord = playerContract.getCurrentSeasonRecord(testPlayerId1);
@@ -179,9 +182,9 @@ contract SeasonTest is TestBase {
 
     function testRecordResetAcrossSeasons() public {
         // Add records in season 0
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementLosses(testPlayerId1);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementLosses(testPlayerId1, playerContract.currentSeason());
 
         Fighter.Record memory season0Record = playerContract.getCurrentSeasonRecord(testPlayerId1);
         assertEq(season0Record.wins, 2, "Season 0 should have 2 wins");
@@ -190,7 +193,7 @@ contract SeasonTest is TestBase {
         // Transition to season 1
         uint256 futureTime = playerContract.nextSeasonStart();
         vm.warp(futureTime);
-        playerContract.checkAndUpdateSeason();
+        playerContract.forceCurrentSeason();
 
         // Current season record should be reset
         Fighter.Record memory season1Record = playerContract.getCurrentSeasonRecord(testPlayerId1);
@@ -209,8 +212,8 @@ contract SeasonTest is TestBase {
         assertEq(lifetimeRecord.losses, 1, "Lifetime losses should be preserved");
 
         // Add more records in season 1
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementKills(testPlayerId1);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementKills(testPlayerId1, playerContract.currentSeason());
 
         // Check seasonal vs lifetime
         season1Record = playerContract.getCurrentSeasonRecord(testPlayerId1);
@@ -226,8 +229,8 @@ contract SeasonTest is TestBase {
 
     function testGetCurrentRecordReturnsSeasonalData() public {
         // Add records
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementLosses(testPlayerId1);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementLosses(testPlayerId1, playerContract.currentSeason());
 
         // In season 0, lifetime record should match seasonal record
         Fighter.Record memory lifetimeRecord = playerContract.getLifetimeRecord(testPlayerId1);
@@ -242,8 +245,8 @@ contract SeasonTest is TestBase {
 
     function testFightEncodingUsesSeasonalRecord() public {
         // Add some records to players
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementLosses(testPlayerId2);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementLosses(testPlayerId2, playerContract.currentSeason());
 
         // Get player stats and seasonal records
         IPlayer.PlayerStats memory stats1 = playerContract.getPlayer(testPlayerId1);
@@ -273,8 +276,8 @@ contract SeasonTest is TestBase {
 
     function testHistoricalSeasonalRecordPreservation() public {
         // Season 0: Add records
-        playerContract.incrementWins(testPlayerId1);
-        playerContract.incrementWins(testPlayerId1);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
 
         // Get encoding BEFORE season transition
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(testPlayerId1);
@@ -284,11 +287,12 @@ contract SeasonTest is TestBase {
         // Transition to season 1
         uint256 futureTime = playerContract.nextSeasonStart();
         vm.warp(futureTime);
-        playerContract.checkAndUpdateSeason();
+        playerContract.forceCurrentSeason();
 
         // Add different records in season 1
-        playerContract.incrementLosses(testPlayerId1);
-        playerContract.incrementKills(testPlayerId1);
+        uint256 season1 = playerContract.currentSeason();
+        playerContract.incrementLosses(testPlayerId1, season1);
+        playerContract.incrementKills(testPlayerId1, season1);
 
         // The season 0 encoded data should still decode to season 0 records
         (,, Fighter.Record memory decodedSeason0Record) = playerContract.codec().decodePlayerData(season0Encoded);
@@ -307,14 +311,15 @@ contract SeasonTest is TestBase {
 
     function testSeasonRecordGetters() public {
         // Add records across seasons
-        playerContract.incrementWins(testPlayerId1);
+        playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
 
         uint256 futureTime = playerContract.nextSeasonStart();
         vm.warp(futureTime);
-        playerContract.checkAndUpdateSeason(); // Now in season 1
+        playerContract.forceCurrentSeason(); // Now in season 1
 
-        playerContract.incrementLosses(testPlayerId1);
-        playerContract.incrementKills(testPlayerId1);
+        uint256 season1Id = playerContract.currentSeason();
+        playerContract.incrementLosses(testPlayerId1, season1Id);
+        playerContract.incrementKills(testPlayerId1, season1Id);
 
         // Test getters
         Fighter.Record memory season0 = playerContract.getSeasonRecord(testPlayerId1, 0);
@@ -351,12 +356,12 @@ contract SeasonTest is TestBase {
         // Go through 3 season transitions
         for (uint256 i = 0; i < 3; i++) {
             // Add records in current season
-            playerContract.incrementWins(testPlayerId1);
+            playerContract.incrementWins(testPlayerId1, playerContract.currentSeason());
 
             // Transition to next season
             uint256 futureTime = playerContract.nextSeasonStart();
             vm.warp(futureTime);
-            playerContract.checkAndUpdateSeason();
+            playerContract.forceCurrentSeason();
 
             // Verify season incremented
             assertEq(playerContract.currentSeason(), startingSeason + i + 1, "Season should increment correctly");
@@ -398,16 +403,16 @@ contract SeasonTest is TestBase {
     function testPlayerCreationInDifferentSeasons() public {
         // Create player in season 0
         uint32 season0Player = _createPlayerAndFulfillVRF(USER_THREE, false);
-        playerContract.incrementWins(season0Player);
+        playerContract.incrementWins(season0Player, playerContract.currentSeason());
 
         // Transition to season 1
         uint256 futureTime = playerContract.nextSeasonStart();
         vm.warp(futureTime);
-        playerContract.checkAndUpdateSeason();
+        playerContract.forceCurrentSeason();
 
         // Create player in season 1
         uint32 season1Player = _createPlayerAndFulfillVRF(USER_FOUR, false);
-        playerContract.incrementWins(season1Player);
+        playerContract.incrementWins(season1Player, playerContract.currentSeason());
 
         // Both players should have different seasonal records
         Fighter.Record memory s0PlayerSeason0 = playerContract.getSeasonRecord(season0Player, 0);

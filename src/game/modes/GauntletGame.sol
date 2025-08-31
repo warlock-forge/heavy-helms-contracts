@@ -276,6 +276,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint8 size,
         LevelBracket levelBracket,
         uint32 indexed championId,
+        uint256 seasonId,
         uint32[] participantIds,
         uint32[] roundWinners
     );
@@ -887,6 +888,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @param gauntletId The ID of the gauntlet to execute.
     /// @param randomness The random value from blockhash.
     function _executeGauntletWithRandomness(uint256 gauntletId, uint256 randomness) private {
+        // Force season update before gauntlet execution to ensure correct season for all records
+        uint256 season = playerContract.forceCurrentSeason();
+
         Gauntlet storage gauntlet = gauntlets[gauntletId];
         // If state is not PENDING (shouldn't happen in blockhash version), return early
         if (gauntlet.state != GauntletState.PENDING) {
@@ -956,7 +960,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
         // Run gauntlet rounds with improved structure
         (uint32[] memory eliminatedByRound, uint32[] memory roundWinners) =
-            _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness);
+            _runGauntletRounds(gauntlet, gauntletId, activeParticipants, randomness, season);
 
         // Award XP for levels 1-9 brackets, tickets for level 10
         if (levelBracket != LevelBracket.LEVEL_10) {
@@ -983,7 +987,9 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         }
 
         // Emit completion event with memory arrays (for subgraph)
-        emit GauntletCompleted(gauntletId, size, levelBracket, gauntlet.championId, participantIds, roundWinners);
+        emit GauntletCompleted(
+            gauntletId, size, levelBracket, gauntlet.championId, season, participantIds, roundWinners
+        );
     }
 
     /// @notice Runs all gauntlet rounds with clean memory management.
@@ -993,25 +999,29 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         Gauntlet storage gauntlet,
         uint256 gauntletId,
         ActiveParticipant[] memory participants,
-        uint256 randomness
+        uint256 randomness,
+        uint256 season
     ) private returns (uint32[] memory eliminatedByRound, uint32[] memory roundWinners) {
-        uint8 size = gauntlet.size;
-
-        uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, gauntletId)));
-
         // Initialize memory arrays to track round winners and eliminations (not stored in contract)
-        roundWinners = new uint32[](size - 1);
-        eliminatedByRound = new uint32[](size);
+        roundWinners = new uint32[](gauntlet.size - 1);
+        eliminatedByRound = new uint32[](gauntlet.size);
         uint256 winnerIndex = 0;
         uint256 eliminatedIndex = 0;
 
         // Current round participants - clean struct array
         ActiveParticipant[] memory currentRound = participants;
 
-        // Determine number of rounds
-        uint8 rounds = size == 4 ? 2 : (size == 8 ? 3 : (size == 16 ? 4 : (size == 32 ? 5 : 6)));
-
-        for (uint256 roundIndex = 0; roundIndex < rounds; roundIndex++) {
+        // Determine number of rounds and loop directly
+        for (
+            uint256 roundIndex = 0;
+            roundIndex
+                < (
+                    gauntlet.size == 4
+                        ? 2
+                        : (gauntlet.size == 8 ? 3 : (gauntlet.size == 16 ? 4 : (gauntlet.size == 32 ? 5 : 6)))
+                );
+            roundIndex++
+        ) {
             uint256 currentRoundSize = currentRound.length;
             uint256 nextRoundSize = currentRoundSize / 2;
 
@@ -1023,8 +1033,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                 ActiveParticipant memory fighter1 = currentRound[fightIndex];
                 ActiveParticipant memory fighter2 = currentRound[fightIndex + 1];
 
-                // Generate fight seed
-                uint256 fightSeed = uint256(keccak256(abi.encodePacked(fightSeedBase, roundIndex, fightIndex)));
+                // Generate fight seed (inline fightSeedBase calculation)
+                uint256 fightSeed = uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            uint256(keccak256(abi.encodePacked(randomness, gauntletId))), roundIndex, fightIndex
+                        )
+                    )
+                );
 
                 // Process fight (no lethality for gauntlets)
                 bytes memory results = gameEngine.processGame(fighter1.stats, fighter2.stats, fightSeed, 0);
@@ -1047,7 +1063,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                 nextRound[nextRoundArrayIndex] = winner;
 
                 // Store round winner in memory
-                if (winnerIndex < size - 1) {
+                if (winnerIndex < gauntlet.size - 1) {
                     roundWinners[winnerIndex++] = winner.playerId;
                 }
 
@@ -1059,10 +1075,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
                 // Update records
                 if (_getFighterType(winner.playerId) == Fighter.FighterType.PLAYER) {
-                    playerContract.incrementWins(winner.playerId);
+                    playerContract.incrementWins(winner.playerId, season);
                 }
                 if (_getFighterType(loserId) == Fighter.FighterType.PLAYER) {
-                    playerContract.incrementLosses(loserId);
+                    playerContract.incrementLosses(loserId, season);
                 }
             }
 

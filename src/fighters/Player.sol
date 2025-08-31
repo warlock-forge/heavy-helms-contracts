@@ -891,61 +891,55 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     // Game Contract Functions (hasPermission)
     /// @notice Increments the win count for a player
     /// @param playerId The ID of the player to update
+    /// @param season The season to record the win in
     /// @dev Requires RECORD permission. Reverts if player doesn't exist
-    function incrementWins(uint32 playerId)
+    function incrementWins(uint32 playerId, uint256 season)
         external
         hasPermission(IPlayer.GamePermission.RECORD)
         playerExists(playerId)
     {
-        // Check for season transition
-        checkAndUpdateSeason();
-
         // Update both seasonal and lifetime records
         lifetimeRecords[playerId].wins++;
-        seasonalRecords[playerId][currentSeason].wins++;
+        seasonalRecords[playerId][season].wins++;
 
         // Get current seasonal record for event
-        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][currentSeason];
+        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][season];
         emit PlayerWinLossUpdated(playerId, seasonalRecord.wins, seasonalRecord.losses);
     }
 
     /// @notice Increments the loss count for a player
     /// @param playerId The ID of the player to update
+    /// @param season The season to record the loss in
     /// @dev Requires RECORD permission. Reverts if player doesn't exist
-    function incrementLosses(uint32 playerId)
+    function incrementLosses(uint32 playerId, uint256 season)
         external
         hasPermission(IPlayer.GamePermission.RECORD)
         playerExists(playerId)
     {
-        // Check for season transition
-        checkAndUpdateSeason();
-
         // Update both seasonal and lifetime records
         lifetimeRecords[playerId].losses++;
-        seasonalRecords[playerId][currentSeason].losses++;
+        seasonalRecords[playerId][season].losses++;
 
         // Get current seasonal record for event
-        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][currentSeason];
+        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][season];
         emit PlayerWinLossUpdated(playerId, seasonalRecord.wins, seasonalRecord.losses);
     }
 
     /// @notice Increments the kill count for a player
     /// @param playerId The ID of the player to update
+    /// @param season The season to record the kill in
     /// @dev Requires RECORD permission. Reverts if player doesn't exist
-    function incrementKills(uint32 playerId)
+    function incrementKills(uint32 playerId, uint256 season)
         external
         hasPermission(IPlayer.GamePermission.RECORD)
         playerExists(playerId)
     {
-        // Check for season transition
-        checkAndUpdateSeason();
-
         // Update both seasonal and lifetime records
         lifetimeRecords[playerId].kills++;
-        seasonalRecords[playerId][currentSeason].kills++;
+        seasonalRecords[playerId][season].kills++;
 
         // Get current seasonal record for event
-        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][currentSeason];
+        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][season];
         emit PlayerKillUpdated(playerId, seasonalRecord.kills);
     }
 
@@ -1187,9 +1181,10 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     //==============================================================//
     //                    SEASON FUNCTIONS                          //
     //==============================================================//
-    /// @notice Checks if a new season should start and updates accordingly
-    /// @dev Can be called by anyone when timestamp condition is met
-    function checkAndUpdateSeason() public {
+    /// @notice Forces season update check and returns current season
+    /// @return The current season ID (auto-updates if season transition is due)
+    /// @dev Game contracts should call this at tournament start for consistent season tracking
+    function forceCurrentSeason() external returns (uint256) {
         if (block.timestamp >= nextSeasonStart) {
             currentSeason++;
             seasons[currentSeason] = Season({startTimestamp: block.timestamp, startBlock: block.number});
@@ -1199,6 +1194,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
 
             emit SeasonStarted(currentSeason, block.timestamp, block.number);
         }
+        return currentSeason;
     }
 
     /// @notice Calculates the timestamp for the first day of next season at midnight PST

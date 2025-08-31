@@ -193,15 +193,18 @@ interface IPlayer {
     // Game Contract Functions
     /// @notice Increments a player's win count
     /// @param playerId The ID of the player
-    function incrementWins(uint32 playerId) external;
+    /// @param season The season to record the win in
+    function incrementWins(uint32 playerId, uint256 season) external;
 
     /// @notice Increments a player's loss count
     /// @param playerId The ID of the player
-    function incrementLosses(uint32 playerId) external;
+    /// @param season The season to record the loss in
+    function incrementLosses(uint32 playerId, uint256 season) external;
 
     /// @notice Increments a player's kill count
     /// @param playerId The ID of the player
-    function incrementKills(uint32 playerId) external;
+    /// @param season The season to record the kill in
+    function incrementKills(uint32 playerId, uint256 season) external;
 
     /// @notice Sets a player's retirement status
     /// @param playerId The ID of the player
@@ -270,6 +273,14 @@ interface IPlayer {
     /// @param playerId The ID of the player
     /// @param armorType The armor type to specialize in (255 = none)
     function setArmorSpecialization(uint32 playerId, uint8 armorType) external;
+
+    /// @notice Gets the current season number (view-only)
+    /// @return The current season ID
+    function currentSeason() external view returns (uint256);
+
+    /// @notice Forces season update check and returns current season
+    /// @return The current season ID (auto-updates if season transition is due)
+    function forceCurrentSeason() external returns (uint256);
 
     /// @notice Gets the current season record for a player
     /// @param playerId The ID of the player

@@ -394,7 +394,7 @@ contract TournamentGameTest is TestBase {
 
         // Advance to next season
         vm.warp(block.timestamp + 32 days); // Advance beyond season length
-        playerContract.checkAndUpdateSeason();
+        playerContract.forceCurrentSeason();
 
         // Current season rating should reset to 0
         assertEq(game.getPlayerRating(testPlayerId), 0);
@@ -895,9 +895,9 @@ contract TournamentGameTest is TestBase {
         }
 
         // Find and decode the TournamentCompleted event
-        // The event signature is: TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])
+        // The event signature is: TournamentCompleted(uint256,uint8,uint32,uint32,uint256,uint32[],uint32[])
         bytes32 tournamentCompletedTopic =
-            keccak256("TournamentCompleted(uint256,uint8,uint32,uint32,uint32[],uint32[])");
+            keccak256("TournamentCompleted(uint256,uint8,uint32,uint32,uint256,uint32[],uint32[])");
         console2.log("Looking for topic:", vm.toString(tournamentCompletedTopic));
 
         uint32[] memory emittedParticipants;
@@ -910,8 +910,8 @@ contract TournamentGameTest is TestBase {
                 if (logs[i].topics[0] == tournamentCompletedTopic) {
                     console2.log("Found matching TournamentCompleted event at log index", i);
                     // Decode the event data - only non-indexed parameters are in data
-                    // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint32[] participantIds, uint32[] roundWinners)
-                    // In data: size, runnerUpId, participantIds, roundWinners
+                    // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint256 seasonId, uint32[] participantIds, uint32[] roundWinners)
+                    // In data: size, runnerUpId, seasonId, participantIds, roundWinners
                     try this.decodeTournamentEvent(logs[i].data) returns (uint32[] memory participantIds) {
                         emittedParticipants = participantIds;
                         eventFound = true;
@@ -984,8 +984,8 @@ contract TournamentGameTest is TestBase {
     // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint32[] participantIds, uint32[] roundWinners)
     // Only non-indexed parameters are in data: size, runnerUpId, participantIds, roundWinners
     function decodeTournamentEvent(bytes memory data) external pure returns (uint32[] memory participantIds) {
-        (uint8 size, uint32 runnerUpId, uint32[] memory participants, uint32[] memory winners) =
-            abi.decode(data, (uint8, uint32, uint32[], uint32[]));
+        (uint8 size, uint32 runnerUpId, uint256 seasonId, uint32[] memory participants, uint32[] memory winners) =
+            abi.decode(data, (uint8, uint32, uint256, uint32[], uint32[]));
         return participants;
     }
 

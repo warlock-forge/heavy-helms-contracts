@@ -252,6 +252,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         uint8 size,
         uint32 indexed championId,
         uint32 runnerUpId,
+        uint256 seasonId,
         uint32[] participantIds,
         uint32[] roundWinners
     );
@@ -475,7 +476,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Returns a player's current season tournament rating.
     function getPlayerRating(uint32 playerId) external view returns (uint16) {
         // Always get from seasonal mapping using current season from Player contract
-        return seasonalRatings[playerId][_getCurrentSeason()];
+        return seasonalRatings[playerId][playerContract.currentSeason()];
     }
 
     /// @notice Returns a player's tournament rating for a specific season.
@@ -486,7 +487,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Helper function to get a player's current season rating.
     /// @dev This is a convenience method that's equivalent to getPlayerRating.
     function currentSeasonRating(uint32 playerId) external view returns (uint256) {
-        return seasonalRatings[playerId][_getCurrentSeason()];
+        return seasonalRatings[playerId][playerContract.currentSeason()];
     }
 
     /// @notice Returns information about the pending tournament.
@@ -782,13 +783,15 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
     /// @notice Executes a tournament with death mechanics and rating distribution.
     function _executeTournamentWithRandomness(uint256 tournamentId, uint256 randomness) private {
+        // Force season update before tournament execution to ensure correct season for all records
+        uint256 season = playerContract.forceCurrentSeason();
+
         Tournament storage tournament = tournaments[tournamentId];
         if (tournament.state != TournamentState.PENDING) {
             return;
         }
 
         uint8 size = tournament.size;
-        RegisteredPlayer[] storage initialParticipants = tournament.participants;
 
         // Create active participants array with proper struct
         ActiveParticipant[] memory activeParticipants = new ActiveParticipant[](size);
@@ -799,24 +802,22 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         // First collect existing defaults for exclusion
         for (uint256 i = 0; i < size; i++) {
-            RegisteredPlayer storage regPlayer = initialParticipants[i];
-            if (_isDefaultPlayerId(regPlayer.playerId)) {
-                existingDefaults[existingDefaultCount++] = regPlayer.playerId;
+            if (_isDefaultPlayerId(tournament.participants[i].playerId)) {
+                existingDefaults[existingDefaultCount++] = tournament.participants[i].playerId;
             }
         }
 
         // Build active participants with immediate replacement logic
         for (uint256 i = 0; i < size; i++) {
-            RegisteredPlayer storage regPlayer = initialParticipants[i];
-            uint32 activePlayerId = regPlayer.playerId;
+            uint32 activePlayerId = tournament.participants[i].playerId;
 
             // Check if real player needs replacement
-            if (!_isDefaultPlayerId(regPlayer.playerId)) {
+            if (!_isDefaultPlayerId(tournament.participants[i].playerId)) {
                 bool shouldReplace = false;
                 ReplacementReason reason;
 
                 // Check if player is retired
-                if (playerContract.isPlayerRetired(regPlayer.playerId)) {
+                if (playerContract.isPlayerRetired(tournament.participants[i].playerId)) {
                     shouldReplace = true;
                     reason = ReplacementReason.PLAYER_RETIRED;
                 }
@@ -824,7 +825,8 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 // Check if player still owns their skin
                 if (!shouldReplace) {
                     try playerContract.skinRegistry().validateSkinOwnership(
-                        regPlayer.loadout.skin, playerContract.getPlayerOwner(regPlayer.playerId)
+                        tournament.participants[i].loadout.skin,
+                        playerContract.getPlayerOwner(tournament.participants[i].playerId)
                     ) {
                         // Skin validation passed
                     } catch {
@@ -859,7 +861,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 activeParticipants[i] = _loadDefaultPlayerData(activePlayerId);
             } else {
                 // Use original player's loadout since they passed validation
-                activeParticipants[i] = _loadPlayerData(activePlayerId, regPlayer.loadout);
+                activeParticipants[i] = _loadPlayerData(activePlayerId, tournament.participants[i].loadout);
             }
         }
 
@@ -867,7 +869,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         activeParticipants = _shuffleParticipants(activeParticipants, randomness);
 
         // Run tournament rounds
-        _runTournamentRounds(tournament, tournamentId, activeParticipants, randomness);
+        _runTournamentRounds(tournament, tournamentId, activeParticipants, randomness, season);
     }
 
     /// @notice Loads combat data for a default player.
@@ -909,7 +911,8 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         Tournament storage tournament,
         uint256 tournamentId,
         ActiveParticipant[] memory participants,
-        uint256 randomness
+        uint256 randomness,
+        uint256 season
     ) private {
         uint8 size = tournament.size;
         uint256 fightSeedBase = uint256(keccak256(abi.encodePacked(randomness, tournamentId)));
@@ -975,10 +978,14 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
                 // Update records and handle death
                 if (_getFighterType(winner.playerId) == Fighter.FighterType.PLAYER) {
-                    playerContract.incrementWins(winner.playerId);
+                    playerContract.incrementWins(winner.playerId, season);
+                    // If opponent died, increment kills for the winner
+                    if (condition == IGameEngine.WinCondition.DEATH) {
+                        playerContract.incrementKills(winner.playerId, season);
+                    }
                 }
                 if (_getFighterType(loserId) == Fighter.FighterType.PLAYER) {
-                    playerContract.incrementLosses(loserId);
+                    playerContract.incrementLosses(loserId, season);
 
                     // Check if player died
                     if (condition == IGameEngine.WinCondition.DEATH) {
@@ -1013,7 +1020,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         }
 
         // Award ratings and distribute rewards
-        _awardTournamentRatings(tournament, eliminatedByRound);
+        _awardTournamentRatings(tournament, eliminatedByRound, season);
         _distributeRewards(tournament, eliminatedByRound, randomness);
 
         // Extract participant IDs for event emission
@@ -1024,25 +1031,26 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         }
 
         // Emit completion event with memory arrays (for subgraph)
-        emit TournamentCompleted(tournamentId, size, finalWinnerId, tournament.runnerUpId, participantIds, roundWinners);
+        emit TournamentCompleted(
+            tournamentId, size, finalWinnerId, tournament.runnerUpId, season, participantIds, roundWinners
+        );
     }
 
     // --- Rating & Rewards ---
 
     /// @notice Awards tournament rating points based on placement.
-    function _awardTournamentRatings(Tournament storage tournament, uint32[] memory eliminatedByRound) private {
+    function _awardTournamentRatings(Tournament storage tournament, uint32[] memory eliminatedByRound, uint256 season)
+        private
+    {
         uint8 size = tournament.size;
         uint32[] memory playerIds = new uint32[](size);
         uint16[] memory ratings = new uint16[](size);
         uint256 playerCount = 0;
 
-        // Cache current season to avoid multiple cross-contract calls
-        uint256 currentSeason = _getCurrentSeason();
-
         // Award champion (1st place - 100 rating)
         if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
             uint16 championRating = 100;
-            seasonalRatings[tournament.championId][currentSeason] += championRating;
+            seasonalRatings[tournament.championId][season] += championRating;
             playerIds[playerCount] = tournament.championId;
             ratings[playerCount++] = championRating;
         }
@@ -1050,7 +1058,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         // Award runner-up (2nd place - 60 rating, matches gauntlet pattern)
         if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
             uint16 runnerUpRating = 60;
-            seasonalRatings[tournament.runnerUpId][currentSeason] += runnerUpRating;
+            seasonalRatings[tournament.runnerUpId][season] += runnerUpRating;
             playerIds[playerCount] = tournament.runnerUpId;
             ratings[playerCount++] = runnerUpRating;
         }
@@ -1096,7 +1104,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             }
 
             if (_getFighterType(playerId) == Fighter.FighterType.PLAYER && roundRatings[currentRound] > 0) {
-                seasonalRatings[playerId][currentSeason] += roundRatings[currentRound];
+                seasonalRatings[playerId][season] += roundRatings[currentRound];
                 playerIds[playerCount] = playerId;
                 ratings[playerCount++] = roundRatings[currentRound];
             }
@@ -1110,7 +1118,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
                 actualPlayerIds[i] = playerIds[i];
                 actualRatings[i] = ratings[i];
             }
-            emit TournamentRatingsAwarded(tournament.id, currentSeason, actualPlayerIds, actualRatings);
+            emit TournamentRatingsAwarded(tournament.id, season, actualPlayerIds, actualRatings);
         }
     }
 
@@ -1266,12 +1274,6 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         Fighter.Record memory seasonalRecord = playerContract.getCurrentSeasonRecord(playerId);
         encodedData = playerContract.codec().encodePlayerData(playerId, pStats, seasonalRecord);
-    }
-
-    /// @notice Gets the current season from the Player contract.
-    function _getCurrentSeason() private view returns (uint256) {
-        // Cast to Player contract to access public currentSeason variable
-        return Player(payable(address(playerContract))).currentSeason();
     }
 
     /// @notice Shuffles participants using proper Fisher-Yates algorithm.
