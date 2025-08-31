@@ -890,59 +890,58 @@ contract PlayerTest is TestBase {
 
         // Test win event
         vm.recordLogs();
-        playerContract.incrementWins(playerId, playerContract.currentSeason());
+        uint256 currentSeason = playerContract.currentSeason();
+        playerContract.incrementWins(playerId, currentSeason);
         Vm.Log[] memory entries = vm.getRecordedLogs();
-        bool foundWinLossEvent = false;
+        bool foundWinEvent = false;
 
         for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == keccak256("PlayerWinLossUpdated(uint32,uint16,uint16)")) {
-                foundWinLossEvent = true;
+            if (entries[i].topics[0] == keccak256("PlayerWinRecorded(uint32,uint256)")) {
+                foundWinEvent = true;
                 uint32 eventPlayerId = uint32(uint256(entries[i].topics[1]));
-                (uint16 wins, uint16 losses) = abi.decode(entries[i].data, (uint16, uint16));
+                uint256 eventSeason = uint256(entries[i].topics[2]);
 
                 assertEq(eventPlayerId, playerId, "Player ID mismatch");
-                assertEq(wins, 1, "Wins should be 1");
-                assertEq(losses, 0, "Losses should be 0");
+                assertEq(eventSeason, currentSeason, "Season mismatch");
             }
         }
-        assertTrue(foundWinLossEvent, "PlayerWinLossUpdated event not emitted for win");
+        assertTrue(foundWinEvent, "PlayerWinRecorded event not emitted for win");
 
         // Test loss event
         vm.recordLogs();
-        playerContract.incrementLosses(playerId, playerContract.currentSeason());
+        playerContract.incrementLosses(playerId, currentSeason);
         entries = vm.getRecordedLogs();
-        foundWinLossEvent = false;
+        bool foundLossEvent = false;
 
         for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == keccak256("PlayerWinLossUpdated(uint32,uint16,uint16)")) {
-                foundWinLossEvent = true;
+            if (entries[i].topics[0] == keccak256("PlayerLossRecorded(uint32,uint256)")) {
+                foundLossEvent = true;
                 uint32 eventPlayerId = uint32(uint256(entries[i].topics[1]));
-                (uint16 wins, uint16 losses) = abi.decode(entries[i].data, (uint16, uint16));
+                uint256 eventSeason = uint256(entries[i].topics[2]);
 
                 assertEq(eventPlayerId, playerId, "Player ID mismatch");
-                assertEq(wins, 1, "Wins should still be 1");
-                assertEq(losses, 1, "Losses should be 1");
+                assertEq(eventSeason, currentSeason, "Season mismatch");
             }
         }
-        assertTrue(foundWinLossEvent, "PlayerWinLossUpdated event not emitted for loss");
+        assertTrue(foundLossEvent, "PlayerLossRecorded event not emitted for loss");
 
         // Test kill event
         vm.recordLogs();
-        playerContract.incrementKills(playerId, playerContract.currentSeason());
+        playerContract.incrementKills(playerId, currentSeason);
         entries = vm.getRecordedLogs();
         bool foundKillEvent = false;
 
         for (uint256 i = 0; i < entries.length; i++) {
-            if (entries[i].topics[0] == keccak256("PlayerKillUpdated(uint32,uint16)")) {
+            if (entries[i].topics[0] == keccak256("PlayerKillRecorded(uint32,uint256)")) {
                 foundKillEvent = true;
                 uint32 eventPlayerId = uint32(uint256(entries[i].topics[1]));
-                uint16 kills = abi.decode(entries[i].data, (uint16));
+                uint256 eventSeason = uint256(entries[i].topics[2]);
 
                 assertEq(eventPlayerId, playerId, "Player ID mismatch");
-                assertEq(kills, 1, "Kills should be 1");
+                assertEq(eventSeason, currentSeason, "Season mismatch");
             }
         }
-        assertTrue(foundKillEvent, "PlayerKillUpdated event not emitted");
+        assertTrue(foundKillEvent, "PlayerKillRecorded event not emitted");
     }
 
     function testCannotEquipSkinWithoutMeetingRequirements() public {

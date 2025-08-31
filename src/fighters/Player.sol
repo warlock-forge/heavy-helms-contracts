@@ -284,16 +284,20 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param permissions New permissions struct
     event GameContractPermissionsUpdated(address indexed gameContract, GamePermissions permissions);
 
-    /// @notice Emitted when a player's win/loss record is updated
+    /// @notice Emitted when a player wins a match
     /// @param playerId The ID of the player
-    /// @param wins Current win count
-    /// @param losses Current loss count
-    event PlayerWinLossUpdated(uint32 indexed playerId, uint16 wins, uint16 losses);
+    /// @param seasonId The season this win occurred in
+    event PlayerWinRecorded(uint32 indexed playerId, uint256 indexed seasonId);
 
-    /// @notice Emitted when a player's kill count is updated
+    /// @notice Emitted when a player loses a match
     /// @param playerId The ID of the player
-    /// @param kills Current kill count
-    event PlayerKillUpdated(uint32 indexed playerId, uint16 kills);
+    /// @param seasonId The season this loss occurred in
+    event PlayerLossRecorded(uint32 indexed playerId, uint256 indexed seasonId);
+
+    /// @notice Emitted when a player kills an opponent
+    /// @param playerId The ID of the player
+    /// @param seasonId The season this kill occurred in
+    event PlayerKillRecorded(uint32 indexed playerId, uint256 indexed seasonId);
 
     /// @notice Emitted when a player's name is changed
     /// @param playerId The ID of the player
@@ -902,9 +906,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         lifetimeRecords[playerId].wins++;
         seasonalRecords[playerId][season].wins++;
 
-        // Get current seasonal record for event
-        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][season];
-        emit PlayerWinLossUpdated(playerId, seasonalRecord.wins, seasonalRecord.losses);
+        // Emit atomic event for this specific win
+        emit PlayerWinRecorded(playerId, season);
     }
 
     /// @notice Increments the loss count for a player
@@ -920,9 +923,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         lifetimeRecords[playerId].losses++;
         seasonalRecords[playerId][season].losses++;
 
-        // Get current seasonal record for event
-        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][season];
-        emit PlayerWinLossUpdated(playerId, seasonalRecord.wins, seasonalRecord.losses);
+        // Emit atomic event for this specific loss
+        emit PlayerLossRecorded(playerId, season);
     }
 
     /// @notice Increments the kill count for a player
@@ -938,9 +940,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         lifetimeRecords[playerId].kills++;
         seasonalRecords[playerId][season].kills++;
 
-        // Get current seasonal record for event
-        Fighter.Record memory seasonalRecord = seasonalRecords[playerId][season];
-        emit PlayerKillUpdated(playerId, seasonalRecord.kills);
+        // Emit atomic event for this specific kill
+        emit PlayerKillRecorded(playerId, season);
     }
 
     /// @notice Sets the retirement status of a player
