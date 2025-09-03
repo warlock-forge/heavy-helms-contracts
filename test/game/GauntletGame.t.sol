@@ -1155,8 +1155,11 @@ contract GauntletGameTest is TestBase {
         // Should be at limit
         assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
 
-        // Reset with ETH payment
+        // Reset with ETH payment and check event
+        uint256 expectedDayNumber = block.timestamp / 86400; // Same calculation as _getDayNumber()
         vm.prank(PLAYER_ONE);
+        vm.expectEmit(true, false, false, true);
+        emit DailyLimitReset(PLAYER_ONE_ID, expectedDayNumber, false);
         game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
 
         // Should be reset to 0
@@ -1366,6 +1369,191 @@ contract GauntletGameTest is TestBase {
         vm.prank(PLAYER_ONE);
         game.queueForGauntlet(loadout1);
         assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 2);
+    }
+
+    //==============================================================//
+    //                TICKET-BASED DAILY RESET TESTS               //
+    //==============================================================//
+
+    event DailyLimitReset(uint32 indexed playerId, uint256 dayNumber, bool paidWithTicket);
+
+    function testResetDailyLimitWithTicket() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Use up daily limit
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+
+        // Should be at limit
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+        // Give player a daily reset ticket
+        PlayerTickets tickets = playerContract.playerTickets();
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: true
+        });
+        tickets.setGameContractPermission(address(this), perms);
+        tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 1);
+
+        // Approve GauntletGame to burn tickets
+        vm.prank(PLAYER_ONE);
+        tickets.setApprovalForAll(address(game), true);
+
+        // Reset with ticket and check event
+        uint256 expectedDayNumber = block.timestamp / 86400; // Same calculation as _getDayNumber()
+        vm.prank(PLAYER_ONE);
+        vm.expectEmit(true, false, false, true);
+        emit DailyLimitReset(PLAYER_ONE_ID, expectedDayNumber, true);
+        game.resetDailyLimitWithTicket(PLAYER_ONE_ID);
+
+        // Should be reset to 0
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+        // Ticket should be burned
+        assertEq(tickets.balanceOf(PLAYER_ONE, tickets.DAILY_RESET_TICKET()), 0);
+
+        // Should be able to queue again
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(loadout);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 1);
+    }
+
+    function testResetDailyLimitWithTicketInsufficientBalance() public {
+        // Player has no tickets
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert(); // ERC1155 insufficient balance
+        game.resetDailyLimitWithTicket(PLAYER_ONE_ID);
+    }
+
+    function testResetDailyLimitWithTicketWrongOwner() public {
+        // Give PLAYER_ONE a ticket but have PLAYER_TWO try to use it
+        PlayerTickets tickets = playerContract.playerTickets();
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: true
+        });
+        tickets.setGameContractPermission(address(this), perms);
+        tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 1);
+
+        // PLAYER_TWO trying to reset PLAYER_ONE's limit
+        vm.prank(PLAYER_TWO);
+        vm.expectRevert(abi.encodeWithSignature("CallerNotPlayerOwner()"));
+        game.resetDailyLimitWithTicket(PLAYER_ONE_ID);
+    }
+
+    function testResetDailyLimitMixedETHAndTicket() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Use up daily limit twice to test both methods
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+        // First reset with ETH
+        uint256 expectedDayNumber = block.timestamp / 86400; // Same calculation as _getDayNumber()
+        vm.prank(PLAYER_ONE);
+        vm.expectEmit(true, false, false, true);
+        emit DailyLimitReset(PLAYER_ONE_ID, expectedDayNumber, false);
+        game.resetDailyLimit{value: 0.001 ether}(PLAYER_ONE_ID);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+        // Use up limit again
+        for (uint8 i = 0; i < 10; i++) {
+            vm.prank(PLAYER_ONE);
+            game.queueForGauntlet(loadout);
+            vm.prank(PLAYER_ONE);
+            game.withdrawFromQueue(PLAYER_ONE_ID);
+        }
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+        // Second reset with ticket
+        PlayerTickets tickets = playerContract.playerTickets();
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: true
+        });
+        tickets.setGameContractPermission(address(this), perms);
+        tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 1);
+
+        vm.prank(PLAYER_ONE);
+        tickets.setApprovalForAll(address(game), true);
+
+        vm.prank(PLAYER_ONE);
+        vm.expectEmit(true, false, false, true);
+        emit DailyLimitReset(PLAYER_ONE_ID, expectedDayNumber, true);
+        game.resetDailyLimitWithTicket(PLAYER_ONE_ID);
+        assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+        // Both methods work independently
+        assertEq(tickets.balanceOf(PLAYER_ONE, tickets.DAILY_RESET_TICKET()), 0);
+    }
+
+    function testResetDailyLimitWithTicketMultipleTickets() public {
+        Fighter.PlayerLoadout memory loadout = _createSimpleLoadout(PLAYER_ONE_ID);
+
+        // Give player 3 reset tickets
+        PlayerTickets tickets = playerContract.playerTickets();
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: true
+        });
+        tickets.setGameContractPermission(address(this), perms);
+        tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 3);
+
+        vm.prank(PLAYER_ONE);
+        tickets.setApprovalForAll(address(game), true);
+
+        // Use limit and reset 3 times
+        for (uint8 cycle = 0; cycle < 3; cycle++) {
+            // Use up daily limit
+            for (uint8 i = 0; i < 10; i++) {
+                vm.prank(PLAYER_ONE);
+                game.queueForGauntlet(loadout);
+                vm.prank(PLAYER_ONE);
+                game.withdrawFromQueue(PLAYER_ONE_ID);
+            }
+            assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 10);
+
+            // Reset with ticket
+            vm.prank(PLAYER_ONE);
+            game.resetDailyLimitWithTicket(PLAYER_ONE_ID);
+            assertEq(game.getDailyRunCount(PLAYER_ONE_ID), 0);
+
+            // Check remaining tickets
+            assertEq(tickets.balanceOf(PLAYER_ONE, tickets.DAILY_RESET_TICKET()), 3 - cycle - 1);
+        }
+
+        // All tickets should be consumed
+        assertEq(tickets.balanceOf(PLAYER_ONE, tickets.DAILY_RESET_TICKET()), 0);
     }
 
     function test_GauntletXPDistribution() public {

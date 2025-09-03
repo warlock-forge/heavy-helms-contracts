@@ -36,7 +36,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     uint256 public constant WEAPON_SPECIALIZATION_TICKET = 3;
     uint256 public constant ARMOR_SPECIALIZATION_TICKET = 4;
     uint256 public constant DUEL_TICKET = 5;
-    // Reserved for future fungible tickets: 6-99
+    uint256 public constant DAILY_RESET_TICKET = 6;
+    // Reserved for future fungible tickets: 7-99
 
     // Non-fungible name change NFTs start at 100
     uint256 public nextNameChangeTokenId = 100;
@@ -58,6 +59,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         bool weaponSpecialization;
         bool armorSpecialization;
         bool duels;
+        bool dailyResets;
     }
 
     //==============================================================//
@@ -70,7 +72,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         NAME_CHANGES,
         WEAPON_SPECIALIZATION,
         ARMOR_SPECIALIZATION,
-        DUELS
+        DUELS,
+        DAILY_RESETS
     }
 
     //==============================================================//
@@ -116,6 +119,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
                 hasRequiredPermission = permissions.armorSpecialization;
             } else if (permission == TicketPermission.DUELS) {
                 hasRequiredPermission = permissions.duels;
+            } else if (permission == TicketPermission.DAILY_RESETS) {
+                hasRequiredPermission = permissions.dailyResets;
             }
 
             if (!hasRequiredPermission) revert NotAuthorizedToMint();
@@ -143,6 +148,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         if (id == WEAPON_SPECIALIZATION_TICKET) return _generateWeaponSpecURI();
         if (id == ARMOR_SPECIALIZATION_TICKET) return _generateArmorSpecURI();
         if (id == DUEL_TICKET) return _generateDuelTicketURI();
+        if (id == DAILY_RESET_TICKET) return _generateDailyResetURI();
         if (id >= 100) return _generateNameChangeURI(id);
         return "";
     }
@@ -525,6 +531,41 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         emit GameContractPermissionsUpdated(gameContract, permissions);
     }
 
+    /// @notice Generates SVG-based URI for Daily Reset ticket
+    function _generateDailyResetURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
+                '<text x="200" y="180" text-anchor="middle" fill="#C0C0C0" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">DAILY RESET</text>',
+                '<text x="200" y="210" text-anchor="middle" fill="#C0C0C0" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">TICKET</text>',
+                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">🔄</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#888" font-size="12" font-family="sans-serif">Resets daily gauntlet cooldown</text>',
+                '<text x="200" y="340" text-anchor="middle" fill="#888" font-size="12" font-family="sans-serif">Single use - burns on consumption</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Daily Reset Ticket","description":"A utility ticket that allows immediate reset of daily gauntlet cooldown. Burns on use.","image":"',
+                "data:image/svg+xml;base64,",
+                Base64.encode(bytes(svg)),
+                '","attributes":[',
+                '{"trait_type":"Type","value":"Utility Ticket"},',
+                '{"trait_type":"Effect","value":"Daily Reset"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+    }
+
     /// @notice Gets the permissions for a game contract
     /// @param gameContract Address of the game contract
     /// @return The permissions granted to the contract
@@ -544,6 +585,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         if (ticketType == WEAPON_SPECIALIZATION_TICKET) return TicketPermission.WEAPON_SPECIALIZATION;
         if (ticketType == ARMOR_SPECIALIZATION_TICKET) return TicketPermission.ARMOR_SPECIALIZATION;
         if (ticketType == DUEL_TICKET) return TicketPermission.DUELS;
+        if (ticketType == DAILY_RESET_TICKET) return TicketPermission.DAILY_RESETS;
         revert TokenDoesNotExist();
     }
 }

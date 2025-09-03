@@ -57,7 +57,8 @@ contract TournamentGasAnalysisTest is TestBase {
             nameChanges: true, // Need for name change ticket rewards
             weaponSpecialization: true,
             armorSpecialization: true,
-            duels: true
+            duels: true,
+            dailyResets: true
         });
         playerTickets.setGameContractPermission(address(game), ticketPerms);
     }

@@ -201,11 +201,12 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     IPlayerTickets.RewardConfig public winnerRewards = IPlayerTickets.RewardConfig({
         nonePercent: 0,
         attributeSwapPercent: 500,
-        createPlayerPercent: 2500,
-        playerSlotPercent: 2500,
-        weaponSpecPercent: 500,
-        armorSpecPercent: 500,
-        duelTicketPercent: 500,
+        createPlayerPercent: 2250,
+        playerSlotPercent: 2250,
+        weaponSpecPercent: 0,
+        armorSpecPercent: 0,
+        duelTicketPercent: 0,
+        dailyResetPercent: 2000,
         nameChangePercent: 3000
     });
 
@@ -213,23 +214,25 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     IPlayerTickets.RewardConfig public runnerUpRewards = IPlayerTickets.RewardConfig({
         nonePercent: 0,
         attributeSwapPercent: 100,
-        createPlayerPercent: 1000,
-        playerSlotPercent: 1000,
-        weaponSpecPercent: 2000,
-        armorSpecPercent: 2000,
-        duelTicketPercent: 2000,
+        createPlayerPercent: 1500,
+        playerSlotPercent: 1500,
+        weaponSpecPercent: 500,
+        armorSpecPercent: 500,
+        duelTicketPercent: 1000,
+        dailyResetPercent: 3000,
         nameChangePercent: 1900
     });
 
     /// @notice Reward percentages for 3rd-4th place.
     IPlayerTickets.RewardConfig public thirdFourthRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 4000,
+        nonePercent: 1000,
         attributeSwapPercent: 0,
-        createPlayerPercent: 250,
-        playerSlotPercent: 250,
-        weaponSpecPercent: 1000,
-        armorSpecPercent: 1000,
+        createPlayerPercent: 500,
+        playerSlotPercent: 500,
+        weaponSpecPercent: 1500,
+        armorSpecPercent: 1500,
         duelTicketPercent: 3000,
+        dailyResetPercent: 1500,
         nameChangePercent: 500
     });
 
@@ -317,6 +320,11 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerAddress);
         playerTickets = IPlayerTickets(_playerTicketsAddress);
         lastTournamentStartTimestamp = block.timestamp;
+
+        // Emit initial reward configurations
+        emit RewardConfigUpdated("winner", winnerRewards);
+        emit RewardConfigUpdated("runnerUp", runnerUpRewards);
+        emit RewardConfigUpdated("thirdFourth", thirdFourthRewards);
 
         // No need to store season - always get from Player contract
     }
@@ -545,7 +553,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function setWinnerRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
             + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-            + config.nameChangePercent;
+            + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         winnerRewards = config;
@@ -556,7 +564,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
             + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-            + config.nameChangePercent;
+            + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         runnerUpRewards = config;
@@ -567,7 +575,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
             + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-            + config.nameChangePercent;
+            + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         thirdFourthRewards = config;
@@ -1195,6 +1203,13 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         ) {
             rewardType = IPlayerTickets.RewardType.DUEL_TICKET;
             ticketId = playerTickets.DUEL_TICKET();
+        } else if (
+            roll
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+        ) {
+            rewardType = IPlayerTickets.RewardType.DAILY_RESET_TICKET;
+            ticketId = playerTickets.DAILY_RESET_TICKET();
         } else {
             // Must be name change ticket (nameChangePercent is the remainder)
             rewardType = IPlayerTickets.RewardType.NAME_CHANGE_TICKET;

@@ -227,7 +227,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         playerSlotPercent: 500,
         weaponSpecPercent: 2500,
         armorSpecPercent: 2500,
-        duelTicketPercent: 1500,
+        duelTicketPercent: 1200,
+        dailyResetPercent: 300,
         nameChangePercent: 500
     });
 
@@ -239,7 +240,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         playerSlotPercent: 200,
         weaponSpecPercent: 1500,
         armorSpecPercent: 1500,
-        duelTicketPercent: 1400,
+        duelTicketPercent: 1200,
+        dailyResetPercent: 200,
         nameChangePercent: 200
     });
 
@@ -252,6 +254,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         weaponSpecPercent: 500,
         armorSpecPercent: 500,
         duelTicketPercent: 1500,
+        dailyResetPercent: 0,
         nameChangePercent: 0
     });
 
@@ -315,8 +318,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     event QueuePartiallyCleared(uint256 cleared, uint256 remaining);
     /// @notice Emitted when the game enabled state is updated.
     event GameEnabledUpdated(bool enabled);
-    /// @notice Emitted when a player's daily gauntlet limit is reset via ETH payment
-    event DailyLimitReset(uint32 indexed playerId, address indexed payer, uint256 dayNumber, uint256 amountPaid);
+    /// @notice Emitted when a player's daily gauntlet limit is reset via ETH or ticket payment
+    event DailyLimitReset(uint32 indexed playerId, uint256 dayNumber, bool paidWithTicket);
     /// @notice Emitted when the daily reset cost is updated
     event DailyResetCostUpdated(uint256 oldCost, uint256 newCost);
     /// @notice Emitted when the daily gauntlet limit is updated
@@ -331,6 +334,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Ensures the game is not disabled before proceeding. Reverts with `GameDisabled` otherwise.
     modifier whenGameEnabled() {
         if (!isGameEnabled) revert GameDisabled();
+        _;
+    }
+
+    /// @notice Ensures the caller is the owner of the specified player.
+    modifier onlyPlayerOwner(uint32 playerId) {
+        address owner = playerContract.getPlayerOwner(playerId);
+        if (msg.sender != owner) revert CallerNotPlayerOwner();
         _;
     }
 
@@ -368,6 +378,15 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         emit MinTimeBetweenGauntletsSet(minTimeBetweenGauntlets);
         emit FutureBlocksForSelectionSet(futureBlocksForSelection);
         emit FutureBlocksForTournamentSet(futureBlocksForTournament);
+        emit DailyGauntletLimitUpdated(0, dailyGauntletLimit);
+        emit DailyResetCostUpdated(0, dailyResetCost);
+
+        // Emit initial reward configurations for Level 10 gauntlets
+        if (_levelBracket == LevelBracket.LEVEL_10) {
+            emit RewardConfigUpdated("champion", championRewards);
+            emit RewardConfigUpdated("runnerUp", runnerUpRewards);
+            emit RewardConfigUpdated("thirdFourth", thirdFourthRewards);
+        }
         // No queue size limits - live free or die!
     }
 
@@ -378,11 +397,14 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Allows a player owner to join the Gauntlet queue with a specific loadout.
     /// @param loadout The player's chosen skin and stance for the potential Gauntlet.
     /// @dev Validates player status, ownership, retirement status, skin requirements, and daily limits.
-    function queueForGauntlet(Fighter.PlayerLoadout calldata loadout) external whenGameEnabled nonReentrant {
+    function queueForGauntlet(Fighter.PlayerLoadout calldata loadout)
+        external
+        whenGameEnabled
+        onlyPlayerOwner(loadout.playerId)
+        nonReentrant
+    {
         // Checks
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
-        address owner = playerContract.getPlayerOwner(loadout.playerId);
-        if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
 
         // Check daily limit
@@ -400,7 +422,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         IEquipmentRequirements equipmentReqs = playerContract.equipmentRequirements();
 
         // Validate skin and equipment requirements via Player contract registries
-        try skinRegistry.validateSkinOwnership(loadout.skin, owner) {}
+        try skinRegistry.validateSkinOwnership(loadout.skin, msg.sender) {}
         catch {
             revert InvalidSkin();
         }
@@ -427,10 +449,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Allows a player owner to withdraw their player from the queue before a Gauntlet starts.
     /// @param playerId The ID of the player to withdraw.
     /// @dev Uses swap-and-pop to maintain queue integrity. Cannot withdraw after selection.
-    function withdrawFromQueue(uint32 playerId) external nonReentrant {
+    function withdrawFromQueue(uint32 playerId) external onlyPlayerOwner(playerId) nonReentrant {
         // Checks
-        address owner = playerContract.getPlayerOwner(playerId);
-        if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerStatus[playerId] != PlayerStatus.QUEUED) {
             revert PlayerNotInQueue();
         }
@@ -468,10 +488,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Resets the daily gauntlet limit for a player by paying ETH
     /// @param playerId The ID of the player to reset limit for
     /// @dev Player owner pays ETH to reset their daily gauntlet entry count to 0
-    function resetDailyLimit(uint32 playerId) external payable nonReentrant {
+    function resetDailyLimit(uint32 playerId) external payable onlyPlayerOwner(playerId) nonReentrant {
         // Checks
-        address owner = playerContract.getPlayerOwner(playerId);
-        if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (msg.value < dailyResetCost) revert InsufficientResetFee();
 
         // Effects
@@ -479,7 +497,22 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         _playerDailyRuns[playerId][today] = 0;
 
         // Interactions
-        emit DailyLimitReset(playerId, msg.sender, today, msg.value);
+        emit DailyLimitReset(playerId, today, false);
+    }
+
+    /// @notice Resets the daily gauntlet limit for a player by burning a DAILY_RESET_TICKET
+    /// @param playerId The ID of the player to reset limit for
+    /// @dev Player owner burns a DAILY_RESET_TICKET to reset their daily gauntlet entry count to 0
+    function resetDailyLimitWithTicket(uint32 playerId) external onlyPlayerOwner(playerId) nonReentrant {
+        // Checks & Effects - burn ticket first (will revert if insufficient balance)
+        playerTickets.burnFrom(msg.sender, playerTickets.DAILY_RESET_TICKET(), 1);
+
+        // Effects
+        uint256 today = _getDayNumber();
+        _playerDailyRuns[playerId][today] = 0;
+
+        // Interactions
+        emit DailyLimitReset(playerId, today, true);
     }
 
     //==============================================================//
@@ -738,6 +771,13 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         ) {
             rewardType = IPlayerTickets.RewardType.DUEL_TICKET;
             ticketId = playerTickets.DUEL_TICKET();
+        } else if (
+            roll
+                < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent
+                    + config.duelTicketPercent + config.dailyResetPercent
+        ) {
+            rewardType = IPlayerTickets.RewardType.DAILY_RESET_TICKET;
+            ticketId = playerTickets.DAILY_RESET_TICKET();
         } else {
             rewardType = IPlayerTickets.RewardType.NAME_CHANGE_TICKET;
             // Name change tickets are non-fungible, minted with randomness
@@ -1403,7 +1443,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function setChampionRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
         uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.nameChangePercent;
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         championRewards = config;
@@ -1415,7 +1456,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
         uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.nameChangePercent;
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         runnerUpRewards = config;
@@ -1427,7 +1469,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
         uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.nameChangePercent;
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         thirdFourthRewards = config;

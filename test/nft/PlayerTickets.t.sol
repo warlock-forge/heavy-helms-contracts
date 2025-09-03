@@ -38,7 +38,8 @@ contract PlayerTicketsTest is Test {
             nameChanges: true,
             weaponSpecialization: false,
             armorSpecialization: false,
-            duels: false
+            duels: false,
+            dailyResets: false
         });
         tickets.setGameContractPermission(gameContract, perms);
     }

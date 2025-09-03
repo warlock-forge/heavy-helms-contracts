@@ -83,7 +83,8 @@ contract TournamentGameTest is TestBase {
             nameChanges: true, // Need for name change ticket rewards
             weaponSpecialization: true,
             armorSpecialization: true,
-            duels: true
+            duels: true,
+            dailyResets: true
         });
         playerTickets.setGameContractPermission(address(game), ticketPerms);
 
@@ -449,7 +450,8 @@ contract TournamentGameTest is TestBase {
             playerSlotPercent: 1000,
             weaponSpecPercent: 1000,
             armorSpecPercent: 500,
-            duelTicketPercent: 500,
+            duelTicketPercent: 300,
+            dailyResetPercent: 200,
             nameChangePercent: 0
         }); // Total = 10000
 
@@ -466,6 +468,7 @@ contract TournamentGameTest is TestBase {
             weaponSpecPercent: 2000,
             armorSpecPercent: 2000,
             duelTicketPercent: 2000,
+            dailyResetPercent: 2000,
             nameChangePercent: 0
         }); // Total > 10000
 
@@ -1351,6 +1354,7 @@ contract TournamentGameTest is TestBase {
             weaponSpecPercent: 5000, // 50%
             armorSpecPercent: 5000, // 50%
             duelTicketPercent: 0, // 0%
+            dailyResetPercent: 0, // 0%
             nameChangePercent: 0 // 0%
         });
 
@@ -1384,7 +1388,8 @@ contract TournamentGameTest is TestBase {
             playerSlotPercent: 1000, // 10%
             weaponSpecPercent: 500, // 5%
             armorSpecPercent: 500, // 5%
-            duelTicketPercent: 500, // 5% = 105% total (should be 100%)
+            duelTicketPercent: 300, // 3%
+            dailyResetPercent: 200, // 2% = 105% total (should be 100%)
             nameChangePercent: 0 // 0%
         });
 
@@ -1401,7 +1406,8 @@ contract TournamentGameTest is TestBase {
             playerSlotPercent: 1500, // 15%
             weaponSpecPercent: 2000, // 20%
             armorSpecPercent: 1500, // 15%
-            duelTicketPercent: 500, // 5% = 100% total
+            duelTicketPercent: 300, // 3%
+            dailyResetPercent: 200, // 2% = 100% total
             nameChangePercent: 0 // 0%
         });
 

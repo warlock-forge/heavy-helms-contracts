@@ -55,7 +55,8 @@ contract TournamentGameDeployScript is Script {
             nameChanges: true,
             weaponSpecialization: true,
             armorSpecialization: true,
-            duels: true
+            duels: true,
+            dailyResets: true
         });
         playerTicketsContract.setGameContractPermission(address(tournamentGame), ticketPerms);
 

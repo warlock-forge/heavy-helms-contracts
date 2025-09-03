@@ -270,7 +270,8 @@ contract GauntletXPRewardsTest is TestBase {
             nameChanges: true,
             weaponSpecialization: true,
             armorSpecialization: true,
-            duels: true
+            duels: true,
+            dailyResets: true
         });
         playerTickets.setGameContractPermission(address(level10Game), ticketPerms);
 

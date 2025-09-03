@@ -153,7 +153,8 @@ abstract contract TestBase is Test {
             nameChanges: true,
             weaponSpecialization: true,
             armorSpecialization: true,
-            duels: true
+            duels: true,
+            dailyResets: true
         });
         playerTickets.setGameContractPermission(address(playerContract), ticketPerms);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));

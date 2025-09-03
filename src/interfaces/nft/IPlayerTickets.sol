@@ -18,6 +18,7 @@ interface IPlayerTickets {
         WEAPON_SPECIALIZATION_TICKET,
         ARMOR_SPECIALIZATION_TICKET,
         DUEL_TICKET,
+        DAILY_RESET_TICKET,
         NAME_CHANGE_TICKET // Non-fungible NFT
 
     }
@@ -32,6 +33,7 @@ interface IPlayerTickets {
         uint16 weaponSpecPercent;
         uint16 armorSpecPercent;
         uint16 duelTicketPercent;
+        uint16 dailyResetPercent;
         uint16 nameChangePercent;
     }
 
@@ -45,8 +47,12 @@ interface IPlayerTickets {
     function WEAPON_SPECIALIZATION_TICKET() external view returns (uint256);
     function ARMOR_SPECIALIZATION_TICKET() external view returns (uint256);
     function DUEL_TICKET() external view returns (uint256);
+    function DAILY_RESET_TICKET() external view returns (uint256);
 
     // Minting functions
     function mintFungibleTicket(address to, uint256 ticketType, uint256 amount) external;
     function mintNameChangeNFT(address to, uint256 seed) external returns (uint256 tokenId);
+
+    // Burning functions
+    function burnFrom(address from, uint256 id, uint256 amount) external;
 }
