@@ -629,7 +629,7 @@ abstract contract TestBase is Test {
     function _getPlayerIdFromLogs(address owner, uint256 requestId) internal returns (uint32) {
         // Player creation event signature
         bytes32 playerCreationEventSig = keccak256(
-            "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)"
+            "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8,bool)"
         );
 
         // Use the most recently captured logs

@@ -10,7 +10,7 @@ contract PlayerSlotsTest is TestBase {
     address public USER_ONE;
     address public USER_TWO;
 
-    event PlayerSlotsPurchased(address indexed user, uint8 slotsAdded, uint8 newTotalSlots, uint256 ethPaid);
+    event PlayerSlotsPurchased(address indexed user, uint8 totalSlots, bool paidWithTicket);
 
     function setUp() public override {
         super.setUp();
@@ -33,7 +33,7 @@ contract PlayerSlotsTest is TestBase {
 
         vm.startPrank(USER_ONE);
         vm.expectEmit(true, false, false, true);
-        emit PlayerSlotsPurchased(USER_ONE, 1, 4, cost);
+        emit PlayerSlotsPurchased(USER_ONE, 4, false);
 
         playerContract.purchasePlayerSlots{value: cost}();
         vm.stopPrank();
@@ -68,7 +68,7 @@ contract PlayerSlotsTest is TestBase {
         tickets.setApprovalForAll(address(playerContract), true);
 
         vm.expectEmit(true, false, false, true);
-        emit PlayerSlotsPurchased(USER_ONE, 1, 4, 0); // 0 ETH paid
+        emit PlayerSlotsPurchased(USER_ONE, 4, true); // paid with ticket
 
         playerContract.purchasePlayerSlotsWithTickets();
         vm.stopPrank();

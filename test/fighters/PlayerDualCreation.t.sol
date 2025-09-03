@@ -10,7 +10,7 @@ import "../TestBase.sol";
 contract PlayerDualCreationTest is TestBase {
     address public USER;
 
-    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
+    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester, bool paidWithTicket);
 
     function setUp() public override {
         super.setUp();
@@ -25,7 +25,7 @@ contract PlayerDualCreationTest is TestBase {
 
         // Create player with ETH
         vm.expectEmit(true, true, false, true);
-        emit PlayerCreationRequested(1, USER);
+        emit PlayerCreationRequested(1, USER, false);
 
         uint256 requestId = playerContract.requestCreatePlayer{value: fee}(false);
         assertEq(requestId, 1);
@@ -60,7 +60,7 @@ contract PlayerDualCreationTest is TestBase {
 
         // Create player with ticket
         vm.expectEmit(true, true, false, true);
-        emit PlayerCreationRequested(1, USER);
+        emit PlayerCreationRequested(1, USER, true);
 
         uint256 requestId = playerContract.requestCreatePlayerWithTicket(false);
         assertEq(requestId, 1);

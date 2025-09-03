@@ -88,11 +88,13 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param useNameSetB Whether to use name set B (true) or A (false) for generation
     /// @param fulfilled Whether the VRF request has been fulfilled
     /// @param timestamp Timestamp when request was created
+    /// @param paidWithTicket Whether the player was paid for with a ticket (true) or ETH (false)
     struct PendingPlayer {
         address owner;
         bool useNameSetB;
         bool fulfilled;
         uint64 timestamp;
+        bool paidWithTicket;
     }
 
     /// @notice Contains metadata about a season
@@ -238,6 +240,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param agility Initial agility value
     /// @param stamina Initial stamina value
     /// @param luck Initial luck value
+    /// @param paidWithTicket Whether the player was paid for with a ticket (true) or ETH (false)
     event PlayerCreationComplete(
         uint256 indexed requestId,
         uint32 indexed playerId,
@@ -250,13 +253,15 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         uint8 size,
         uint8 agility,
         uint8 stamina,
-        uint8 luck
+        uint8 luck,
+        bool paidWithTicket
     );
 
     /// @notice Emitted when a new player creation is requested
     /// @param requestId The VRF request ID
     /// @param requester The address requesting the player creation
-    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
+    /// @param paidWithTicket Whether the player was paid for with a ticket (true) or ETH (false)
+    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester, bool paidWithTicket);
 
     /// @notice Emitted when the player creation fee is updated
     /// @param oldFee The previous fee amount
@@ -274,10 +279,9 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
 
     /// @notice Emitted when a user purchases additional player slots
     /// @param user Address of the purchaser
-    /// @param slotsAdded Number of new slots purchased
     /// @param totalSlots New total slots for the user
-    /// @param amountPaid Amount of ETH paid for the slots
-    event PlayerSlotsPurchased(address indexed user, uint8 slotsAdded, uint8 totalSlots, uint256 amountPaid);
+    /// @param paidWithTicket Whether the slots were paid for with a ticket (true) or ETH (false)
+    event PlayerSlotsPurchased(address indexed user, uint8 totalSlots, bool paidWithTicket);
 
     /// @notice Emitted when a game contract's permissions are updated
     /// @param gameContract Address of the game contract
@@ -491,6 +495,10 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         seasons[0] = Season({startTimestamp: block.timestamp, startBlock: block.number});
         nextSeasonStart = getNextSeasonStartPST();
         emit SeasonStarted(0, block.timestamp, block.number);
+
+        // Emit initial fee events for subgraph tracking
+        emit CreatePlayerFeeUpdated(0, createPlayerFeeAmount);
+        emit SlotBatchCostUpdated(0, slotBatchCost);
     }
 
     //==============================================================//
@@ -640,7 +648,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @dev Requires ETH payment of createPlayerFeeAmount. Reverts if caller has pending requests or is over max players
     function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
         if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
-        return _requestCreatePlayerInternal(useNameSetB);
+        return _requestCreatePlayerInternal(useNameSetB, false);
     }
 
     /// @notice Requests creation of a new player using CREATE_PLAYER_TICKET
@@ -650,7 +658,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     function requestCreatePlayerWithTicket(bool useNameSetB) external whenNotPaused returns (uint256 requestId) {
         // Burn the ticket first (will revert if insufficient balance)
         _playerTickets.burnFrom(msg.sender, _playerTickets.CREATE_PLAYER_TICKET(), 1);
-        return _requestCreatePlayerInternal(useNameSetB);
+        return _requestCreatePlayerInternal(useNameSetB, true);
     }
 
     /// @notice Equips a skin and sets stance for a player
@@ -711,7 +719,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @dev Each purchase adds exactly SLOT_BATCH_SIZE slots for a fixed cost
     function purchasePlayerSlots() external payable {
         if (msg.value < slotBatchCost) revert InsufficientFeeAmount();
-        _addPlayerSlotBatch(msg.sender);
+        _addPlayerSlotBatch(msg.sender, false);
     }
 
     /// @notice Purchase additional player slots using PLAYER_SLOT_TICKET tokens
@@ -719,7 +727,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     function purchasePlayerSlotsWithTickets() external {
         // Burn exactly 1 ticket (will revert if insufficient balance)
         _playerTickets.burnFrom(msg.sender, _playerTickets.PLAYER_SLOT_TICKET(), 1);
-        _addPlayerSlotBatch(msg.sender);
+        _addPlayerSlotBatch(msg.sender, true);
     }
 
     /// @notice Changes a player's name by burning a name change NFT
@@ -1314,7 +1322,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
             stats.attributes.size,
             stats.attributes.agility,
             stats.attributes.stamina,
-            stats.attributes.luck
+            stats.attributes.luck,
+            pending.paidWithTicket
         );
     }
 
@@ -1327,9 +1336,10 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
 
     /// @notice Internal function to handle common player creation logic
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
+    /// @param paidWithTicket Whether the player was paid for with a ticket (true) or ETH (false)
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Shared logic for both ETH and ticket-based player creation
-    function _requestCreatePlayerInternal(bool useNameSetB) private returns (uint256 requestId) {
+    function _requestCreatePlayerInternal(bool useNameSetB, bool paidWithTicket) private returns (uint256 requestId) {
         if (_addressActivePlayerCount[msg.sender] >= getPlayerSlots(msg.sender)) revert TooManyPlayers();
         if (_userPendingRequest[msg.sender] != 0) revert PendingRequestExists();
 
@@ -1339,11 +1349,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
             owner: msg.sender,
             useNameSetB: useNameSetB,
             fulfilled: false,
-            timestamp: uint64(block.timestamp)
+            timestamp: uint64(block.timestamp),
+            paidWithTicket: paidWithTicket
         });
         _userPendingRequest[msg.sender] = requestId;
 
-        emit PlayerCreationRequested(requestId, msg.sender);
+        emit PlayerCreationRequested(requestId, msg.sender, paidWithTicket);
     }
 
     /// @notice Removes a request ID from a user's pending requests
@@ -1357,7 +1368,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
 
     /// @notice Internal function to add exactly one batch of player slots
     /// @param user The address receiving the slots
-    function _addPlayerSlotBatch(address user) internal {
+    /// @param paidWithTicket Whether the slots were paid for with a ticket (true) or ETH (false)
+    function _addPlayerSlotBatch(address user, bool paidWithTicket) internal {
         // Calculate current total slots
         uint8 currentExtraSlots = _extraPlayerSlots[user];
         uint8 currentTotalSlots = BASE_PLAYER_SLOTS + currentExtraSlots;
@@ -1371,7 +1383,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         _extraPlayerSlots[user] += SLOT_BATCH_SIZE;
 
         // Emit event
-        emit PlayerSlotsPurchased(user, SLOT_BATCH_SIZE, currentTotalSlots + SLOT_BATCH_SIZE, msg.value);
+        emit PlayerSlotsPurchased(user, currentTotalSlots + SLOT_BATCH_SIZE, paidWithTicket);
     }
 
     /// @notice Gets the current value of a specified attribute

@@ -41,7 +41,7 @@ contract PlayerTest is TestBase {
     receive() external payable {}
 
     event PlayerSkinEquipped(uint32 indexed playerId, uint32 indexed skinIndex, uint16 indexed skinTokenId);
-    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester);
+    event PlayerCreationRequested(uint256 indexed requestId, address indexed requester, bool paidWithTicket);
     event PlayerCreationComplete(
         uint256 indexed requestId,
         uint32 indexed playerId,
@@ -54,7 +54,8 @@ contract PlayerTest is TestBase {
         uint8 size,
         uint8 agility,
         uint8 stamina,
-        uint8 luck
+        uint8 luck,
+        bool paidWithTicket
     );
     event RequestedRandomness(uint256 round, bytes data);
     event EquipmentStatsUpdated(address indexed oldStats, address indexed newStats);
@@ -547,13 +548,13 @@ contract PlayerTest is TestBase {
 
         vm.startPrank(PLAYER_ONE);
         vm.expectEmit(true, true, false, false);
-        emit PlayerCreationRequested(1, PLAYER_ONE);
+        emit PlayerCreationRequested(1, PLAYER_ONE, false);
         vm.recordLogs();
         uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(true);
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, false); // Only check first three indexed params
-        emit PlayerCreationComplete(requestId, 10001, PLAYER_ONE, 0, 0, 0, 0, 0, 0, 0, 0, 0); // Added placeholders for all params
+        emit PlayerCreationComplete(requestId, 10001, PLAYER_ONE, 0, 0, 0, 0, 0, 0, 0, 0, 0, false); // Added placeholders for all params
         _fulfillVRFRequest(address(playerContract));
     }
 
@@ -815,7 +816,7 @@ contract PlayerTest is TestBase {
             if (
                 entries[i].topics[0]
                     == keccak256(
-                        "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8)"
+                        "PlayerCreationComplete(uint256,uint32,address,uint256,uint16,uint16,uint8,uint8,uint8,uint8,uint8,uint8,bool)"
                     )
             ) {
                 foundPlayerCreationCompleteEvent = true;
@@ -835,8 +836,11 @@ contract PlayerTest is TestBase {
                     uint8 size,
                     uint8 agility,
                     uint8 stamina,
-                    uint8 luck
-                ) = abi.decode(entries[i].data, (uint256, uint16, uint16, uint8, uint8, uint8, uint8, uint8, uint8));
+                    uint8 luck,
+                    bool paidWithTicket
+                ) = abi.decode(
+                    entries[i].data, (uint256, uint16, uint16, uint8, uint8, uint8, uint8, uint8, uint8, bool)
+                );
 
                 // Verify request ID matches
                 assertEq(emittedRequestId, requestId, "Request ID mismatch");
@@ -861,6 +865,9 @@ contract PlayerTest is TestBase {
                 // Verify total stats equal 72
                 uint16 totalStats = uint16(strength) + constitution + size + agility + stamina + luck;
                 assertEq(totalStats, 72, "Total stats should equal 72");
+
+                // Verify payment method (should be false for ETH payment)
+                assertEq(paidWithTicket, false, "Should be paid with ETH, not ticket");
 
                 // Verify name indices are within valid ranges
                 // For Set A names
