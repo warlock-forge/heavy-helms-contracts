@@ -41,13 +41,8 @@ contract GasAnalysisTest is TestBase {
         vrfMock.addConsumer(subscriptionId, address(game));
 
         // Set permissions
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: true,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(game), perms);
 
         // Setup test addresses and players

@@ -31,7 +31,6 @@ contract GauntletGasAnalysisTest is TestBase {
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
             record: true,
             retire: false,
-            attributes: false,
             immortal: false,
             experience: true // Need for XP rewards
         });

@@ -54,13 +54,11 @@ interface IPlayer {
     /// @notice Permission flags for game contracts
     /// @param record Can modify game records (wins, losses, kills)
     /// @param retire Can modify player retirement status
-    /// @param attributes Can modify player attributes
     /// @param immortal Can modify player immortality status
     /// @param experience Can award experience points
     struct GamePermissions {
         bool record;
         bool retire;
-        bool attributes;
         bool immortal;
         bool experience;
     }
@@ -72,7 +70,6 @@ interface IPlayer {
     enum GamePermission {
         RECORD,
         RETIRE,
-        ATTRIBUTES,
         IMMORTAL,
         EXPERIENCE
     }
@@ -211,10 +208,6 @@ interface IPlayer {
     /// @param retired The new retirement status
     function setPlayerRetired(uint32 playerId, bool retired) external;
 
-    /// @notice Awards an attribute swap charge to an address
-    /// @param to Address to receive the charge
-    function awardAttributeSwap(address to) external;
-
     /// @notice Changes a player's name by burning a name change NFT
     /// @param playerId The ID of the player to update
     /// @param nameChangeTokenId The token ID of the name change NFT to burn
@@ -225,11 +218,6 @@ interface IPlayer {
     /// @param decreaseAttribute The attribute to decrease
     /// @param increaseAttribute The attribute to increase
     function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute) external;
-
-    /// @notice Gets the number of attribute swap tickets available for an address
-    /// @param owner The address to check
-    /// @return Number of attribute swap tickets available
-    function attributeSwapTickets(address owner) external view returns (uint256);
 
     /// @notice Gets the number of available attribute points for a player
     /// @param playerId The player ID to check

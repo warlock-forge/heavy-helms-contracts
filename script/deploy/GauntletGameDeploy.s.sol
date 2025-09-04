@@ -65,7 +65,7 @@ contract GauntletGameDeployScript is Script {
         // Whitelist GauntletGame in Player contract
         Player playerContract = Player(playerAddr);
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(gauntletGame), perms);
 
         // Whitelist GauntletGame in PlayerTickets contract for reward minting
@@ -77,7 +77,8 @@ contract GauntletGameDeployScript is Script {
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: true
         });
         playerTicketsContract.setGameContractPermission(address(gauntletGame), ticketPerms);
 

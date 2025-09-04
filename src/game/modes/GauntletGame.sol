@@ -221,8 +221,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     // --- Level 10 Reward Configuration ---
     /// @notice Reward percentages for champions (1st place) in Level 10 gauntlets.
     IPlayerTickets.RewardConfig public championRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 2000,
-        attributeSwapPercent: 0,
+        nonePercent: 1900,
+        attributeSwapPercent: 100,
         createPlayerPercent: 500,
         playerSlotPercent: 500,
         weaponSpecPercent: 2500,
@@ -234,8 +234,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Reward percentages for runner-ups (2nd place) in Level 10 gauntlets.
     IPlayerTickets.RewardConfig public runnerUpRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 5000,
-        attributeSwapPercent: 0,
+        nonePercent: 4950,
+        attributeSwapPercent: 50,
         createPlayerPercent: 200,
         playerSlotPercent: 200,
         weaponSpecPercent: 1500,
@@ -745,6 +745,12 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
             return; // No reward
         }
         roll -= config.nonePercent;
+
+        if (roll < config.attributeSwapPercent) {
+            rewardType = IPlayerTickets.RewardType.ATTRIBUTE_SWAP;
+            ticketId = playerTickets.ATTRIBUTE_SWAP_TICKET();
+        }
+        roll -= config.attributeSwapPercent;
 
         // Get owner once for all reward types
         address owner = playerContract.getPlayerOwner(playerId);

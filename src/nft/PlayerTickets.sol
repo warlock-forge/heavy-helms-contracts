@@ -19,6 +19,8 @@ error NotAuthorizedToMint();
 error ZeroAddress();
 /// @notice Thrown when token ID doesn't exist
 error TokenDoesNotExist();
+/// @notice Thrown when attempting to transfer a soulbound token
+error TokenNotTransferable();
 
 //==============================================================//
 //                      PLAYER TICKETS                          //
@@ -37,7 +39,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     uint256 public constant ARMOR_SPECIALIZATION_TICKET = 4;
     uint256 public constant DUEL_TICKET = 5;
     uint256 public constant DAILY_RESET_TICKET = 6;
-    // Reserved for future fungible tickets: 7-99
+    uint256 public constant ATTRIBUTE_SWAP_TICKET = 7;
 
     // Non-fungible name change NFTs start at 100
     uint256 public nextNameChangeTokenId = 100;
@@ -60,6 +62,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         bool armorSpecialization;
         bool duels;
         bool dailyResets;
+        bool attributeSwaps;
     }
 
     //==============================================================//
@@ -73,7 +76,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         WEAPON_SPECIALIZATION,
         ARMOR_SPECIALIZATION,
         DUELS,
-        DAILY_RESETS
+        DAILY_RESETS,
+        ATTRIBUTE_SWAPS
     }
 
     //==============================================================//
@@ -121,6 +125,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
                 hasRequiredPermission = permissions.duels;
             } else if (permission == TicketPermission.DAILY_RESETS) {
                 hasRequiredPermission = permissions.dailyResets;
+            } else if (permission == TicketPermission.ATTRIBUTE_SWAPS) {
+                hasRequiredPermission = permissions.attributeSwaps;
             }
 
             if (!hasRequiredPermission) revert NotAuthorizedToMint();
@@ -139,9 +145,34 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     //==============================================================//
     //                    EXTERNAL FUNCTIONS                        //
     //==============================================================//
+
+    /// @notice Override safeTransferFrom to block soulbound token transfers
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data)
+        public
+        virtual
+        override
+    {
+        if (_isSoulbound(id)) revert TokenNotTransferable();
+        super.safeTransferFrom(from, to, id, amount, data);
+    }
+
+    /// @notice Override safeBatchTransferFrom to block soulbound token transfers
+    function safeBatchTransferFrom(
+        address from,
+        address to,
+        uint256[] calldata ids,
+        uint256[] calldata amounts,
+        bytes calldata data
+    ) public virtual override {
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (_isSoulbound(ids[i])) revert TokenNotTransferable();
+        }
+        super.safeBatchTransferFrom(from, to, ids, amounts, data);
+    }
     /// @notice Returns the URI for a given token ID
     /// @param id The token ID to get URI for
     /// @return The URI string
+
     function uri(uint256 id) public view override returns (string memory) {
         if (id == CREATE_PLAYER_TICKET) return _generateCreatePlayerURI();
         if (id == PLAYER_SLOT_TICKET) return _generatePlayerSlotURI();
@@ -149,6 +180,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         if (id == ARMOR_SPECIALIZATION_TICKET) return _generateArmorSpecURI();
         if (id == DUEL_TICKET) return _generateDuelTicketURI();
         if (id == DAILY_RESET_TICKET) return _generateDailyResetURI();
+        if (id == ATTRIBUTE_SWAP_TICKET) return _generateAttributeSwapURI();
         if (id >= 100) return _generateNameChangeURI(id);
         return "";
     }
@@ -586,6 +618,53 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         if (ticketType == ARMOR_SPECIALIZATION_TICKET) return TicketPermission.ARMOR_SPECIALIZATION;
         if (ticketType == DUEL_TICKET) return TicketPermission.DUELS;
         if (ticketType == DAILY_RESET_TICKET) return TicketPermission.DAILY_RESETS;
+        if (ticketType == ATTRIBUTE_SWAP_TICKET) return TicketPermission.ATTRIBUTE_SWAPS;
         revert TokenDoesNotExist();
+    }
+
+    /// @notice Checks if a token ID represents a soulbound token
+    /// @param tokenId The token ID to check
+    /// @return True if the token is soulbound (non-transferable)
+    function _isSoulbound(uint256 tokenId) internal pure returns (bool) {
+        return tokenId == ATTRIBUTE_SWAP_TICKET;
+    }
+
+    /// @notice Generates SVG-based URI for Attribute Swap ticket
+    function _generateAttributeSwapURI() internal pure returns (string memory) {
+        string memory svg = string(
+            abi.encodePacked(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
+                _getCommonSVGDefs(),
+                '<rect width="400" height="400" fill="url(#bg)"/>',
+                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
+                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
+                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Soulbound Ticket</text>',
+                '<text x="200" y="180" text-anchor="middle" fill="#FF6B6B" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">ATTRIBUTE</text>',
+                '<text x="200" y="210" text-anchor="middle" fill="#FF6B6B" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">SWAP</text>',
+                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">⚖️</text>',
+                '<text x="200" y="320" text-anchor="middle" fill="#FF6B6B" font-size="14" font-family="serif">LEGENDARY TICKET</text>',
+                '<text x="200" y="340" text-anchor="middle" fill="#888" font-size="10" font-family="serif">NON-TRANSFERABLE</text>',
+                "</svg>"
+            )
+        );
+
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Attribute Swap Ticket",',
+                '"description":"Allows swapping one attribute point between stats. This is a soulbound token that cannot be transferred or sold. Burn this ticket to swap attributes.",',
+                '"image":"data:image/svg+xml;base64,',
+                Base64.encode(bytes(svg)),
+                '",',
+                '"attributes":[',
+                '{"trait_type":"Item Type","value":"Soulbound Ticket"},',
+                '{"trait_type":"Rarity","value":"Legendary"},',
+                '{"trait_type":"Effect","value":"Swap Attributes"},',
+                '{"trait_type":"Transferable","value":"No"},',
+                '{"trait_type":"Burn Type","value":"On Use"}',
+                "]}"
+            )
+        );
+
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
     }
 }

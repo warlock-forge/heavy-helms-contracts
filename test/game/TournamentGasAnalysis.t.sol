@@ -31,23 +31,13 @@ contract TournamentGasAnalysisTest is TestBase {
         defaultPlayerContract.transferOwnership(address(game));
 
         // Set permissions with RETIRE for death mechanics and attributes for rewards
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: true,
-            retire: true,
-            attributes: true, // Need this for attribute swap rewards
-            immortal: false,
-            experience: true
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: true, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(game), perms);
 
         // Also give this test contract experience permissions for leveling up players
-        IPlayer.GamePermissions memory testPerms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: true
-        });
+        IPlayer.GamePermissions memory testPerms =
+            IPlayer.GamePermissions({record: false, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(this), testPerms);
 
         // Give tournament game permissions to mint reward tickets
@@ -58,7 +48,8 @@ contract TournamentGasAnalysisTest is TestBase {
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: true
         });
         playerTickets.setGameContractPermission(address(game), ticketPerms);
     }

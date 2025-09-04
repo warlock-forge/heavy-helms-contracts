@@ -26,13 +26,8 @@ contract PlayerSpecializationTest is TestBase {
         playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Set up permissions for this test contract to award experience
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: true
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: false, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(this), perms);
     }
 

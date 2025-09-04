@@ -9,10 +9,9 @@ interface IPlayerTickets {
     //==============================================================//
 
     /// @notice Standardized reward types across all game modes
-    /// @dev ATTRIBUTE_SWAP is only used in TournamentGame, not GauntletGame
     enum RewardType {
         NONE,
-        ATTRIBUTE_SWAP, // Tournament only - not a ticket
+        ATTRIBUTE_SWAP, // Soulbound NFT ticket
         CREATE_PLAYER_TICKET,
         PLAYER_SLOT_TICKET,
         WEAPON_SPECIALIZATION_TICKET,
@@ -48,6 +47,7 @@ interface IPlayerTickets {
     function ARMOR_SPECIALIZATION_TICKET() external view returns (uint256);
     function DUEL_TICKET() external view returns (uint256);
     function DAILY_RESET_TICKET() external view returns (uint256);
+    function ATTRIBUTE_SWAP_TICKET() external view returns (uint256);
 
     // Minting functions
     function mintFungibleTicket(address to, uint256 ticketType, uint256 amount) external;

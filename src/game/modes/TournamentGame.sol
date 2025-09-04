@@ -1217,8 +1217,10 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
 
         // Handle all reward types - no separate owner variable
         if (rewardType == IPlayerTickets.RewardType.ATTRIBUTE_SWAP) {
-            // Award attribute swap charge directly to player
-            playerContract.awardAttributeSwap(playerContract.getPlayerOwner(playerId));
+            // Mint attribute swap NFT ticket
+            playerTickets.mintFungibleTicket(
+                playerContract.getPlayerOwner(playerId), playerTickets.ATTRIBUTE_SWAP_TICKET(), 1
+            );
         } else if (rewardType == IPlayerTickets.RewardType.NAME_CHANGE_TICKET) {
             // Mint name change NFT with VRF randomness
             ticketId = playerTickets.mintNameChangeNFT(playerContract.getPlayerOwner(playerId), random);

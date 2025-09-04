@@ -29,13 +29,8 @@ contract PlayerAttributePointsTest is TestBase {
         playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Grant experience permission to this test contract
-        IPlayer.GamePermissions memory permissions = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: true
-        });
+        IPlayer.GamePermissions memory permissions =
+            IPlayer.GamePermissions({record: false, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(this), permissions);
     }
 

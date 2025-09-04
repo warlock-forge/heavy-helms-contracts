@@ -60,20 +60,14 @@ contract TournamentGameTest is TestBase {
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
             record: true,
             retire: true, // Critical for death mechanics
-            attributes: true, // Need for attribute swap rewards
             immortal: false,
             experience: true // Need this for test helper function
         });
         playerContract.setGameContractPermission(address(game), perms);
 
         // Also give this test contract experience permissions for leveling up players
-        IPlayer.GamePermissions memory testPerms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: true
-        });
+        IPlayer.GamePermissions memory testPerms =
+            IPlayer.GamePermissions({record: false, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(this), testPerms);
 
         // Give tournament game permissions to mint reward tickets
@@ -84,7 +78,8 @@ contract TournamentGameTest is TestBase {
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: true
         });
         playerTickets.setGameContractPermission(address(game), ticketPerms);
 

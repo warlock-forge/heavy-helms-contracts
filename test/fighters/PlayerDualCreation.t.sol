@@ -47,7 +47,8 @@ contract PlayerDualCreationTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
 
@@ -106,7 +107,8 @@ contract PlayerDualCreationTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
 
@@ -154,7 +156,8 @@ contract PlayerDualCreationTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
 

@@ -44,7 +44,7 @@ contract TournamentGameDeployScript is Script {
         // Whitelist TournamentGame in Player contract with RETIRE permission for death mechanics
         Player playerContract = Player(playerAddr);
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: true, attributes: true, immortal: false, experience: false});
+            IPlayer.GamePermissions({record: true, retire: true, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(tournamentGame), perms);
 
         // Whitelist TournamentGame in PlayerTickets contract for reward minting
@@ -56,7 +56,8 @@ contract TournamentGameDeployScript is Script {
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: true
         });
         playerTicketsContract.setGameContractPermission(address(tournamentGame), ticketPerms);
 

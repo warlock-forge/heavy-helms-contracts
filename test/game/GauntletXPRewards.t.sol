@@ -39,7 +39,7 @@ contract GauntletXPRewardsTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(game), perms);
 
         // Set minimum time between gauntlets to 0 for testing
@@ -192,7 +192,7 @@ contract GauntletXPRewardsTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(levels5To9Game), perms);
         playerContract.setGameContractPermission(address(this), perms); // For leveling up
 
@@ -259,7 +259,7 @@ contract GauntletXPRewardsTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(level10Game), perms);
         playerContract.setGameContractPermission(address(this), perms);
 
@@ -271,7 +271,8 @@ contract GauntletXPRewardsTest is TestBase {
             weaponSpecialization: true,
             armorSpecialization: true,
             duels: true,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: true
         });
         playerTickets.setGameContractPermission(address(level10Game), ticketPerms);
 

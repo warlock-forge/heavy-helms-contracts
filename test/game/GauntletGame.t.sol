@@ -55,7 +55,6 @@ contract GauntletGameTest is TestBase {
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
             record: true,
             retire: false,
-            attributes: false,
             immortal: false,
             experience: true // Need for XP rewards
         });
@@ -813,13 +812,8 @@ contract GauntletGameTest is TestBase {
         );
 
         // Set permissions
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: true,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(levels1To4Game), perms);
 
         // Player level 1-4 should work (players start at level 1)
@@ -849,7 +843,6 @@ contract GauntletGameTest is TestBase {
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
             record: true,
             retire: false,
-            attributes: false,
             immortal: false,
             experience: true // Need for leveling players
         });
@@ -893,7 +886,7 @@ contract GauntletGameTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(levels5To9Game), perms);
         playerContract.setGameContractPermission(address(this), perms);
 
@@ -946,7 +939,7 @@ contract GauntletGameTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(level10Game), perms);
         playerContract.setGameContractPermission(address(this), perms);
 
@@ -995,7 +988,7 @@ contract GauntletGameTest is TestBase {
 
         // Set permissions for all games
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(levels1To4Game), perms);
         playerContract.setGameContractPermission(address(levels5To9Game), perms);
         playerContract.setGameContractPermission(address(level10Game), perms);
@@ -1049,7 +1042,7 @@ contract GauntletGameTest is TestBase {
 
         // Set permissions
         IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, attributes: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(levels5To9Game), perms);
         playerContract.setGameContractPermission(address(this), perms);
 
@@ -1400,7 +1393,8 @@ contract GauntletGameTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
         tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 1);
@@ -1445,7 +1439,8 @@ contract GauntletGameTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
         tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 1);
@@ -1494,7 +1489,8 @@ contract GauntletGameTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
         tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 1);
@@ -1524,7 +1520,8 @@ contract GauntletGameTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: true
+            dailyResets: true,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), perms);
         tickets.mintFungibleTicket(PLAYER_ONE, tickets.DAILY_RESET_TICKET(), 3);

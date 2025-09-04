@@ -43,21 +43,16 @@ contract PlayerPermissionsTest is TestBase {
         // NAME permission no longer exists in Player contract
         // (name changes are now handled through PlayerTickets)
 
-        vm.expectRevert(NoPermission.selector);
-        Player(playerContract).awardAttributeSwap(address(1));
+        // awardAttributeSwap function no longer exists - attribute swaps are now handled via PlayerTickets NFTs
+        // This test is no longer applicable since we removed the awardAttributeSwap function
 
         vm.stopPrank();
     }
 
     function test_RecordPermission() public {
         // Grant only RECORD permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: true,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
@@ -75,46 +70,10 @@ contract PlayerPermissionsTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_AttributePermission() public {
-        // Grant only ATTRIBUTES permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            attributes: true,
-            immortal: false,
-            experience: false
-        });
-        Player(playerContract).setGameContractPermission(gameContract, perms);
-
-        vm.startPrank(gameContract);
-
-        // Should succeed
-        Player(playerContract).awardAttributeSwap(address(1));
-
-        // Other operations should fail
-        uint256 currentSeason = playerContract.currentSeason();
-        vm.expectRevert(NoPermission.selector);
-        Player(playerContract).incrementWins(playerId, currentSeason);
-
-        vm.stopPrank();
-
-        // Test attribute swap with awarded charge
-        vm.startPrank(address(1));
-        // Approve the Player contract to burn the ticket
-        playerContract.playerTickets().setApprovalForAll(address(playerContract), true);
-        Player(playerContract).swapAttributes(playerId, IPlayer.Attribute.STRENGTH, IPlayer.Attribute.AGILITY);
-        vm.stopPrank();
-    }
-
     function test_NamePermission() public {
         // Grant only NAME permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: false, retire: false, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);
@@ -135,13 +94,8 @@ contract PlayerPermissionsTest is TestBase {
 
     function test_RetirePermission() public {
         // Grant only RETIRE permission
-        IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
-            record: false,
-            retire: true,
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory perms =
+            IPlayer.GamePermissions({record: false, retire: true, immortal: false, experience: false});
         Player(playerContract).setGameContractPermission(gameContract, perms);
 
         vm.startPrank(gameContract);

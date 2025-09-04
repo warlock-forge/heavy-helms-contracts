@@ -33,13 +33,8 @@ contract SeasonTest is TestBase {
         testPlayerId2 = _createPlayerAndFulfillVRF(USER_TWO, false);
 
         // Set up permissions for this test contract to call increment functions
-        IPlayer.GamePermissions memory testPermissions = IPlayer.GamePermissions({
-            record: true,
-            retire: false,
-            attributes: false,
-            immortal: false,
-            experience: false
-        });
+        IPlayer.GamePermissions memory testPermissions =
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(address(this), testPermissions);
     }
 

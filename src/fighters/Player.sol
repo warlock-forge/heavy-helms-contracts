@@ -169,8 +169,6 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
     /// @notice Maps address to their number of purchased extra player slots
     mapping(address => uint8) private _extraPlayerSlots;
-    /// @notice Maps address to their attribute swap charges
-    mapping(address => uint256) private _attributeSwapCharges;
     /// @notice Maps player ID to their available attribute points from leveling
     mapping(uint32 => uint256) private _attributePoints;
 
@@ -314,11 +312,6 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param totalCharges Total number of name change charges available
     event NameChangeAwarded(address indexed to, uint256 totalCharges);
 
-    /// @notice Emitted when an attribute swap charge is awarded
-    /// @param to Address receiving the charge
-    /// @param totalCharges Total number of attribute swap charges available
-    event AttributeSwapAwarded(address indexed to, uint256 totalCharges);
-
     /// @notice Emitted when a player's attributes are swapped
     /// @param playerId The ID of the player
     /// @param decreaseAttribute Attribute being decreased
@@ -424,7 +417,6 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         IPlayer.GamePermissions storage perms = _gameContractPermissions[msg.sender];
         if (permission == IPlayer.GamePermission.RECORD && !perms.record) revert NoPermission();
         if (permission == IPlayer.GamePermission.RETIRE && !perms.retire) revert NoPermission();
-        if (permission == IPlayer.GamePermission.ATTRIBUTES && !perms.attributes) revert NoPermission();
         if (permission == IPlayer.GamePermission.IMMORTAL && !perms.immortal) revert NoPermission();
         if (permission == IPlayer.GamePermission.EXPERIENCE && !perms.experience) revert NoPermission();
         _;
@@ -549,13 +541,6 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @return True if the player is immortal, false otherwise
     function isPlayerImmortal(uint32 playerId) external view returns (bool) {
         return _immortalPlayers[playerId];
-    }
-
-    /// @notice Gets the number of attribute swap charges available for an address
-    /// @param owner The address to check
-    /// @return Number of attribute swap charges available
-    function attributeSwapTickets(address owner) external view returns (uint256) {
-        return _attributeSwapCharges[owner];
     }
 
     /// @notice Gets the number of available attribute points for a player
@@ -778,9 +763,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
             revert InvalidAttributeSwap();
         }
 
-        // Use an attribute swap charge
-        if (_attributeSwapCharges[msg.sender] == 0) revert InsufficientCharges();
-        _attributeSwapCharges[msg.sender]--;
+        // Burn attribute swap NFT ticket
+        _playerTickets.burnFrom(msg.sender, _playerTickets.ATTRIBUTE_SWAP_TICKET(), 1);
 
         _setAttributeValue(player, decreaseAttribute, decreaseValue - 1);
         _setAttributeValue(player, increaseAttribute, increaseValue + 1);
@@ -988,15 +972,6 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     {
         _immortalPlayers[playerId] = immortal;
         emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
-    }
-
-    /// @notice Awards an attribute swap charge to an address
-    /// @param to Address to receive the charge
-    /// @dev Requires ATTRIBUTES permission
-    function awardAttributeSwap(address to) external hasPermission(IPlayer.GamePermission.ATTRIBUTES) {
-        if (to == address(0)) revert BadZeroAddress();
-        _attributeSwapCharges[to]++;
-        emit AttributeSwapAwarded(to, _attributeSwapCharges[to]);
     }
 
     /// @notice Awards experience points to a player and handles level ups

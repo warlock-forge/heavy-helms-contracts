@@ -58,7 +58,8 @@ contract PlayerSlotsTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), ticketPerms);
 
@@ -90,7 +91,8 @@ contract PlayerSlotsTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), ticketPerms);
 
@@ -167,7 +169,8 @@ contract PlayerSlotsTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), ticketPerms);
         tickets.mintFungibleTicket(USER_ONE, tickets.PLAYER_SLOT_TICKET(), 2);
@@ -202,7 +205,8 @@ contract PlayerSlotsTest is TestBase {
             weaponSpecialization: false,
             armorSpecialization: false,
             duels: false,
-            dailyResets: false
+            dailyResets: false,
+            attributeSwaps: false
         });
         tickets.setGameContractPermission(address(this), ticketPerms);
 
