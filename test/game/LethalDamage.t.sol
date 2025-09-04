@@ -51,8 +51,10 @@ contract LethalDamageTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         bytes memory results = gameEngine.processGame(
             _convertToFighterStats(p1Loadout),
@@ -90,8 +92,10 @@ contract LethalDamageTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 100;
@@ -141,8 +145,10 @@ contract LethalDamageTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 50;
@@ -192,8 +198,10 @@ contract LethalDamageTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 100;
@@ -244,8 +252,10 @@ contract LethalDamageTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 50;

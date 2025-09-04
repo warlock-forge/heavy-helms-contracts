@@ -9,7 +9,6 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {Player} from "../../src/fighters/Player.sol";
-import {PlayerCreation} from "../../src/fighters/PlayerCreation.sol";
 import {PlayerDataCodec} from "../../src/lib/PlayerDataCodec.sol";
 import {DefaultPlayer} from "../../src/fighters/DefaultPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
@@ -45,16 +44,13 @@ contract FighterDeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // 1. Deploy PlayerCreation helper contract
-        PlayerCreation playerCreation = new PlayerCreation(IPlayerNameRegistry(nameRegistryAddr));
-
-        // 2. Deploy PlayerDataCodec helper contract
+        // 1. Deploy PlayerDataCodec helper contract
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
 
-        // 3. Deploy PlayerTickets contract (requires nameRegistry)
+        // 2. Deploy PlayerTickets contract (requires nameRegistry)
         PlayerTickets playerTickets = new PlayerTickets(nameRegistryAddr);
 
-        // 4. Deploy Player contract with Chainlink VRF coordinator, equipment requirements, and playerTickets
+        // 3. Deploy Player contract with Chainlink VRF coordinator, equipment requirements, and playerTickets
         Player playerContract = new Player(
             skinRegistryAddr,
             nameRegistryAddr,
@@ -63,15 +59,14 @@ contract FighterDeployScript is Script {
             subscriptionId,
             keyHash,
             address(playerTickets),
-            address(playerCreation),
             address(playerDataCodec)
         );
 
-        // 5. Deploy DefaultPlayer and Monster contracts
+        // 4. Deploy DefaultPlayer and Monster contracts
         DefaultPlayer defaultPlayerContract = new DefaultPlayer(skinRegistryAddr, nameRegistryAddr);
         Monster monsterContract = new Monster(skinRegistryAddr, monsterNameRegistryAddr);
 
-        // 6. Deploy and setup DefaultPlayerSkinNFT
+        // 5. Deploy and setup DefaultPlayerSkinNFT
         DefaultPlayerSkinNFT defaultSkin = new DefaultPlayerSkinNFT();
         MonsterSkinNFT monsterSkin = new MonsterSkinNFT();
 
@@ -91,7 +86,7 @@ contract FighterDeployScript is Script {
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(defaultSkinIndex, true);
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(monsterSkinIndex, true);
 
-        // 7. Mint initial characters
+        // 6. Mint initial characters
         console2.log("\n=== Minting Default Characters ===");
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
 

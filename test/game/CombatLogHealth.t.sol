@@ -53,8 +53,10 @@ contract CombatLogHealthTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         // Convert to fighter stats
         IGameEngine.FighterStats memory p1Stats = _convertToFighterStats(p1Loadout);
@@ -199,8 +201,10 @@ contract CombatLogHealthTest is TestBase {
         });
 
         // Get the appropriate Fighter contracts
-        Fighter p1Fighter = _getFighterContract(p1Loadout.playerId);
-        Fighter p2Fighter = _getFighterContract(p2Loadout.playerId);
+        /* Fighter p1Fighter = */
+        _getFighterContract(p1Loadout.playerId);
+        /* Fighter p2Fighter = */
+        _getFighterContract(p2Loadout.playerId);
 
         // Convert to fighter stats
         IGameEngine.FighterStats memory p1Stats = _convertToFighterStats(p1Loadout);

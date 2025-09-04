@@ -21,7 +21,6 @@ import {IPlayerSkinNFT} from "../src/interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 // Concrete implementations (needed for deployment)
 import {Player} from "../src/fighters/Player.sol";
-import {PlayerCreation} from "../src/fighters/PlayerCreation.sol";
 import {PlayerDataCodec} from "../src/lib/PlayerDataCodec.sol";
 import {PlayerTickets} from "../src/nft/PlayerTickets.sol";
 import {DefaultPlayer} from "../src/fighters/DefaultPlayer.sol";
@@ -129,7 +128,6 @@ abstract contract TestBase is Test {
 
         // Create the player contracts with all required dependencies
         playerTickets = new PlayerTickets(address(nameRegistry));
-        PlayerCreation playerCreation = new PlayerCreation(nameRegistry);
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
         playerContract = new Player(
             address(skinRegistry),
@@ -139,7 +137,6 @@ abstract contract TestBase is Test {
             subscriptionId, // Use the subscription ID from the mock
             testKeyHash,
             address(playerTickets),
-            address(playerCreation),
             address(playerDataCodec)
         );
 
@@ -509,7 +506,8 @@ abstract contract TestBase is Test {
 
         vm.startPrank(owner);
         vm.recordLogs();
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        /* uint256 requestId = */
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
         vm.expectRevert(bytes(expectedError));
@@ -520,13 +518,14 @@ abstract contract TestBase is Test {
         address owner,
         bool useSetB,
         string memory expectedError,
-        uint256 customRoundId
+        uint256 /* customRoundId */
     ) internal {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);
         vm.recordLogs();
-        uint256 requestId = playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
+        /* uint256 requestId = */
+        playerContract.requestCreatePlayer{value: playerContract.createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
 
         vm.expectRevert(bytes(expectedError));

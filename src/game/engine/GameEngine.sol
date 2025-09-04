@@ -1132,7 +1132,7 @@ contract GameEngine is IGameEngine {
     function processCounterAttack(
         CalculatedCombatStats memory defender,
         CalculatedCombatStats memory target,
-        uint256 defenderStamina,
+        uint256, /* defenderStamina */
         uint256 targetStamina,
         uint256 seed,
         CounterType counterType
