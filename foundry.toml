@@ -1,3 +1,6 @@
+[lint]
+lint_on_build = false
+
 [profile.default]
 # Compiler settings
 via_ir = true

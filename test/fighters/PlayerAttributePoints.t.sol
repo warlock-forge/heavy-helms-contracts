@@ -181,7 +181,7 @@ contract PlayerAttributePointsTest is TestBase {
         assertEq(playerContract.attributePoints(playerId2), 1);
     }
 
-    function testXPCalculationForLevels() public {
+    function testXPCalculationForLevels() public view {
         // Test that XP requirements are calculated correctly
         assertEq(playerContract.getXPRequiredForLevel(1), 0); // Already at level 1
         assertEq(playerContract.getXPRequiredForLevel(2), 100); // Level 2 requires 100 XP

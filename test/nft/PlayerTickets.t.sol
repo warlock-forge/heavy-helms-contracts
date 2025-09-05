@@ -108,7 +108,7 @@ contract PlayerTicketsTest is Test {
         console.log(uri);
     }
 
-    function testFungibleTicketURIs() public {
+    function testFungibleTicketURIs() public view {
         // Test all 5 fungible ticket URIs are base64 encoded JSON
         string memory uri1 = tickets.uri(tickets.CREATE_PLAYER_TICKET());
         string memory uri2 = tickets.uri(tickets.PLAYER_SLOT_TICKET());
@@ -207,7 +207,7 @@ contract PlayerTicketsTest is Test {
         vm.stopPrank();
     }
 
-    function testGamePermissions() public {
+    function testGamePermissions() public view {
         PlayerTickets.GamePermissions memory perms = tickets.gameContractPermissions(gameContract);
         assertTrue(perms.nameChanges);
         assertFalse(perms.playerCreation);

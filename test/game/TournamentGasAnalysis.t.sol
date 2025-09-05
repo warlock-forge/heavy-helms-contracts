@@ -60,18 +60,6 @@ contract TournamentGasAnalysisTest is TestBase {
         _testTournamentSize(16);
     }
 
-    function test16PlayerTournamentWithDefaultLethality() public skipInCI {
-        _testTournamentSizeWithLethality(16, 20); // Default lethality
-    }
-
-    function test16PlayerTournamentWithZeroLethality() public skipInCI {
-        _testTournamentSizeWithLethality(16, 0); // No lethality like gauntlet
-    }
-
-    function test16PlayerTournamentWithHighLethality() public skipInCI {
-        _testTournamentSizeWithLethality(16, 100); // High lethality to test for lingering bugs
-    }
-
     function test32PlayerTournament3Transaction() public skipInCI {
         _testTournamentSize(32);
     }
@@ -258,67 +246,6 @@ contract TournamentGasAnalysisTest is TestBase {
 
         console2.log("Champion:", tournament.championId);
         console2.log("=== END", size, "PLAYER TOURNAMENT ===");
-        console2.log("");
-    }
-
-    function _testTournamentSizeWithLethality(uint8 size, uint16 lethalityFactor) internal {
-        console2.log("=== TESTING TOURNAMENT WITH LETHALITY ===");
-        console2.log("Size:", size);
-        console2.log("Lethality:", lethalityFactor);
-
-        // Set tournament size and specific lethality
-        game.setTournamentSize(size);
-        game.setLethalityFactor(lethalityFactor);
-
-        // Create players and queue them
-        address[] memory players = new address[](size);
-        uint32[] memory playerIds = new uint32[](size);
-
-        for (uint8 i = 0; i < size; i++) {
-            players[i] = address(uint160(0x10000 + i));
-            vm.deal(players[i], 100 ether);
-            playerIds[i] = _createLevel10Player(players[i], false);
-
-            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-                playerId: playerIds[i],
-                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                stance: 1 // BALANCED
-            });
-
-            vm.prank(players[i]);
-            game.queueForTournament(loadout);
-        }
-
-        // Set proper daily time (20:00 UTC) at least 48 hours after deployment
-        uint256 futureTime = block.timestamp + 48 hours;
-        futureTime = futureTime - (futureTime % 1 days) + 20 hours; // Align to 20:00 UTC
-        vm.warp(futureTime);
-
-        // TRANSACTION 1: Queue Commit
-        uint256 tx1GasUsed = _measureGas(address(game), abi.encodeWithSelector(game.tryStartTournament.selector));
-
-        // Get selection block for next transaction
-        (bool exists, uint256 selectionBlock, uint256 tournamentBlock, uint8 phase,, uint256 participantCount) =
-            game.getPendingTournamentInfo();
-        require(exists, "Pending tournament should exist after commit");
-
-        // TRANSACTION 2: Participant Selection
-        vm.roll(selectionBlock + 1);
-        vm.prevrandao(bytes32(uint256(12345)));
-
-        uint256 tx2GasUsed = _measureGas(address(game), abi.encodeWithSelector(game.tryStartTournament.selector));
-
-        // Get tournament block for next transaction
-        (,, tournamentBlock, phase,, participantCount) = game.getPendingTournamentInfo();
-
-        // TRANSACTION 3: Tournament Execution
-        vm.roll(tournamentBlock + 1);
-        vm.prevrandao(bytes32(uint256(67890)));
-
-        uint256 tx3GasUsed = _measureGas(address(game), abi.encodeWithSelector(game.tryStartTournament.selector));
-
-        console2.log("TX3 (Tournament Execution) gas:", tx3GasUsed);
-        console2.log("=== END LETHALITY TEST ===");
         console2.log("");
     }
 

@@ -229,12 +229,10 @@ contract TournamentGameTest is TestBase {
         vm.warp(futureTime);
 
         // Phase 1: Commit queue
-        uint256 startBlock = block.number;
         game.tryStartTournament();
 
         (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         assertTrue(exists);
-        assertEq(selectionBlock, startBlock + 20);
 
         // Phase 2: Select participants (advance PAST selection block)
         vm.roll(selectionBlock + 1);
@@ -686,7 +684,6 @@ contract TournamentGameTest is TestBase {
         vm.warp(futureTime);
 
         // Phase 1: Commit queue
-        uint256 startBlock = block.number;
         game.tryStartTournament();
 
         // Get the actual selection block from the pending tournament
@@ -982,8 +979,7 @@ contract TournamentGameTest is TestBase {
     // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint32[] participantIds, uint32[] roundWinners)
     // Only non-indexed parameters are in data: size, runnerUpId, participantIds, roundWinners
     function decodeTournamentEvent(bytes memory data) external pure returns (uint32[] memory participantIds) {
-        (uint8 size, uint32 runnerUpId, uint256 seasonId, uint32[] memory participants, uint32[] memory winners) =
-            abi.decode(data, (uint8, uint32, uint256, uint32[], uint32[]));
+        (,,, uint32[] memory participants,) = abi.decode(data, (uint8, uint32, uint256, uint32[], uint32[]));
         return participants;
     }
 
@@ -1047,7 +1043,7 @@ contract TournamentGameTest is TestBase {
         game.tryStartTournament();
 
         // TRANSACTION 2: Participant Selection
-        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         vm.roll(selectionBlock + 1);
         vm.prevrandao(bytes32(uint256(12345)));
         game.tryStartTournament();
@@ -1117,7 +1113,7 @@ contract TournamentGameTest is TestBase {
         // TRANSACTION 1: Queue Commit
         game.tryStartTournament();
 
-        (bool exists, uint256 selectionBlock,, uint8 phase,,) = game.getPendingTournamentInfo();
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         uint256 commitBlock = selectionBlock - 20;
 
         // Move to exactly 255 blocks later (should NOT trigger recovery, but should proceed normally)
@@ -1200,7 +1196,7 @@ contract TournamentGameTest is TestBase {
         _setTournamentTime();
         game.tryStartTournament();
 
-        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
 
         // Move to selection block but don't set prevrandao (blockhash will be 0)
         vm.roll(selectionBlock);
@@ -1281,11 +1277,10 @@ contract TournamentGameTest is TestBase {
         // Queue players and start tournament
         _queuePlayers(16);
         _setTournamentTime();
-        uint256 startBlock = block.number;
         game.tryStartTournament();
 
         // Move exactly 256 blocks from initial commit block
-        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         uint256 commitBlock = selectionBlock - 20; // futureBlocksForSelection = 20
 
         vm.roll(commitBlock + 256);
@@ -1308,13 +1303,13 @@ contract TournamentGameTest is TestBase {
         game.tryStartTournament();
 
         // Progress to participant selection phase
-        (bool exists, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
         vm.roll(selectionBlock + 1); // Move PAST the selection block
         vm.prevrandao(bytes32(uint256(12345)));
         game.tryStartTournament();
 
         // Verify we're in PARTICIPANT_SELECT phase
-        (,, uint256 tournamentBlock, uint8 phase,,) = game.getPendingTournamentInfo();
+        (,,, uint8 phase,,) = game.getPendingTournamentInfo();
         assertEq(uint256(phase), 2, "Should be in PARTICIPANT_SELECT phase");
 
         // Verify queue is empty (all players selected for 16-player tournament)

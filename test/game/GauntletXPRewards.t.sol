@@ -105,7 +105,6 @@ contract GauntletXPRewardsTest is TestBase {
         assertEq(game.getQueueSize(), 4, "Queue should have 4 players");
 
         // Run the 3-phase gauntlet using the exact working pattern
-        uint256 commitBlock = block.number;
         game.tryStartGauntlet();
 
         (bool exists, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();

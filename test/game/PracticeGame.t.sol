@@ -56,7 +56,7 @@ contract PracticeGameTest is TestBase {
         super._assertValidCombatResult(version, condition, actions);
     }
 
-    function testSpecificScenarios() public {
+    function testSpecificScenarios() public view {
         bytes memory results;
         bool player1Won;
         uint16 version;
@@ -65,7 +65,6 @@ contract PracticeGameTest is TestBase {
 
         // Get the player's equipped skin/stance for comparison
         IPlayer.PlayerStats memory p1Stats = playerContract.getPlayer(PLAYER_ONE_ID);
-        IPlayer.PlayerStats memory p2Stats = playerContract.getPlayer(PLAYER_TWO_ID);
 
         // Scenario 1: Verify loadout overrides equipped skin/stance
         // LowStaminaClubsWarrior uses WEAPON_DUAL_CLUBS (18) vs DefaultWarrior's WEAPON_QUARTERSTAFF (5)
@@ -95,7 +94,6 @@ contract PracticeGameTest is TestBase {
 
         // Verify the combat used the loadout weapons, not the equipped ones
         IPlayerSkinNFT.SkinAttributes memory loadoutSkin1 = defaultSkin.getSkinAttributes(loadout1A.skin.skinTokenId);
-        IPlayerSkinNFT.SkinAttributes memory loadoutSkin2 = defaultSkin.getSkinAttributes(loadout1B.skin.skinTokenId);
 
         // The combat should have used the loadout's weapons (LowStaminaClubsWarrior uses different weapon than DefaultWarrior)
         // Player1 should be using dual clubs (18) instead of equipped quarterstaff (5)

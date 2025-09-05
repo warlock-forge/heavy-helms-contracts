@@ -414,11 +414,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param permission The specific permission being checked
     /// @dev Reverts with NoPermission if the caller lacks the required permission
     modifier hasPermission(IPlayer.GamePermission permission) {
-        IPlayer.GamePermissions storage perms = _gameContractPermissions[msg.sender];
-        if (permission == IPlayer.GamePermission.RECORD && !perms.record) revert NoPermission();
-        if (permission == IPlayer.GamePermission.RETIRE && !perms.retire) revert NoPermission();
-        if (permission == IPlayer.GamePermission.IMMORTAL && !perms.immortal) revert NoPermission();
-        if (permission == IPlayer.GamePermission.EXPERIENCE && !perms.experience) revert NoPermission();
+        _checkPermission(permission);
         _;
     }
 
@@ -426,12 +422,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param playerId The ID of the player to check
     /// @dev Reverts with PlayerDoesNotExist if the player ID is invalid
     modifier playerExists(uint32 playerId) {
-        if (!isValidId(playerId)) {
-            revert InvalidPlayerRange();
-        }
-        if (_players[playerId].attributes.strength == 0) {
-            revert PlayerDoesNotExist(playerId);
-        }
+        _checkPlayerExists(playerId);
         _;
     }
 
@@ -1226,6 +1217,29 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     //==============================================================//
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
+    /// @notice Internal method to validate caller has required game permission
+    /// @param permission The specific permission being checked
+    /// @dev Reverts with NoPermission if the caller lacks the required permission
+    function _checkPermission(IPlayer.GamePermission permission) internal view {
+        IPlayer.GamePermissions storage perms = _gameContractPermissions[msg.sender];
+        if (permission == IPlayer.GamePermission.RECORD && !perms.record) revert NoPermission();
+        if (permission == IPlayer.GamePermission.RETIRE && !perms.retire) revert NoPermission();
+        if (permission == IPlayer.GamePermission.IMMORTAL && !perms.immortal) revert NoPermission();
+        if (permission == IPlayer.GamePermission.EXPERIENCE && !perms.experience) revert NoPermission();
+    }
+
+    /// @notice Internal method to validate player exists and is within valid range
+    /// @param playerId The ID of the player to check
+    /// @dev Reverts with InvalidPlayerRange or PlayerDoesNotExist if validation fails
+    function _checkPlayerExists(uint32 playerId) internal view {
+        if (!isValidId(playerId)) {
+            revert InvalidPlayerRange();
+        }
+        if (_players[playerId].attributes.strength == 0) {
+            revert PlayerDoesNotExist(playerId);
+        }
+    }
+
     // VRF Implementation
     /// @notice Requests randomness from Chainlink VRF using subscription
     /// @return requestId The VRF request ID

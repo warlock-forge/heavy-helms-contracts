@@ -40,7 +40,7 @@ contract SeasonTest is TestBase {
 
     // ==================== SEASON INITIALIZATION TESTS ====================
 
-    function testSeasonInitialization() public {
+    function testSeasonInitialization() public view {
         // Check initial season setup
         assertEq(playerContract.currentSeason(), 0, "Should start at season 0");
 
@@ -255,11 +255,9 @@ contract SeasonTest is TestBase {
         bytes32 encoded2 = playerContract.codec().encodePlayerData(testPlayerId2, stats2, record2);
 
         // Decode and verify
-        (uint32 decodedId1, IPlayer.PlayerStats memory decodedStats1, Fighter.Record memory decodedRecord1) =
-            playerContract.codec().decodePlayerData(encoded1);
+        (,, Fighter.Record memory decodedRecord1) = playerContract.codec().decodePlayerData(encoded1);
 
-        (uint32 decodedId2, IPlayer.PlayerStats memory decodedStats2, Fighter.Record memory decodedRecord2) =
-            playerContract.codec().decodePlayerData(encoded2);
+        (,, Fighter.Record memory decodedRecord2) = playerContract.codec().decodePlayerData(encoded2);
 
         // Verify decoded records match seasonal data
         assertEq(decodedRecord1.wins, 1, "Player 1 decoded wins should be 1");
@@ -421,7 +419,7 @@ contract SeasonTest is TestBase {
         assertEq(s1PlayerSeason1.wins, 1, "Season 1 player should have season 1 record");
     }
 
-    function testEmptySeasonRecords() public {
+    function testEmptySeasonRecords() public view {
         // Get records for seasons that haven't happened yet
         Fighter.Record memory futureRecord = playerContract.getSeasonRecord(testPlayerId1, 999);
         assertEq(futureRecord.wins, 0, "Future season should have empty records");

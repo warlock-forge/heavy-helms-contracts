@@ -107,30 +107,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     /// @notice Modifier to check if the calling contract has a specific permission
     /// @param permission The permission type to check
     modifier hasPermission(TicketPermission permission) {
-        if (msg.sender != owner()) {
-            GamePermissions memory permissions = _gameContractPermissions[msg.sender];
-            bool hasRequiredPermission;
-
-            if (permission == TicketPermission.PLAYER_CREATION) {
-                hasRequiredPermission = permissions.playerCreation;
-            } else if (permission == TicketPermission.PLAYER_SLOTS) {
-                hasRequiredPermission = permissions.playerSlots;
-            } else if (permission == TicketPermission.NAME_CHANGES) {
-                hasRequiredPermission = permissions.nameChanges;
-            } else if (permission == TicketPermission.WEAPON_SPECIALIZATION) {
-                hasRequiredPermission = permissions.weaponSpecialization;
-            } else if (permission == TicketPermission.ARMOR_SPECIALIZATION) {
-                hasRequiredPermission = permissions.armorSpecialization;
-            } else if (permission == TicketPermission.DUELS) {
-                hasRequiredPermission = permissions.duels;
-            } else if (permission == TicketPermission.DAILY_RESETS) {
-                hasRequiredPermission = permissions.dailyResets;
-            } else if (permission == TicketPermission.ATTRIBUTE_SWAPS) {
-                hasRequiredPermission = permissions.attributeSwaps;
-            }
-
-            if (!hasRequiredPermission) revert NotAuthorizedToMint();
-        }
+        _checkPermission(permission);
         _;
     }
 
@@ -351,6 +328,36 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     //==============================================================//
     //                   INTERNAL FUNCTIONS                         //
     //==============================================================//
+    /// @notice Internal method to validate caller has required ticket permission
+    /// @param permission The permission type to check
+    /// @dev Reverts with NotAuthorizedToMint if the caller lacks the required permission
+    function _checkPermission(TicketPermission permission) internal view {
+        if (msg.sender != owner()) {
+            GamePermissions memory permissions = _gameContractPermissions[msg.sender];
+            bool hasRequiredPermission;
+
+            if (permission == TicketPermission.PLAYER_CREATION) {
+                hasRequiredPermission = permissions.playerCreation;
+            } else if (permission == TicketPermission.PLAYER_SLOTS) {
+                hasRequiredPermission = permissions.playerSlots;
+            } else if (permission == TicketPermission.NAME_CHANGES) {
+                hasRequiredPermission = permissions.nameChanges;
+            } else if (permission == TicketPermission.WEAPON_SPECIALIZATION) {
+                hasRequiredPermission = permissions.weaponSpecialization;
+            } else if (permission == TicketPermission.ARMOR_SPECIALIZATION) {
+                hasRequiredPermission = permissions.armorSpecialization;
+            } else if (permission == TicketPermission.DUELS) {
+                hasRequiredPermission = permissions.duels;
+            } else if (permission == TicketPermission.DAILY_RESETS) {
+                hasRequiredPermission = permissions.dailyResets;
+            } else if (permission == TicketPermission.ATTRIBUTE_SWAPS) {
+                hasRequiredPermission = permissions.attributeSwaps;
+            }
+
+            if (!hasRequiredPermission) revert NotAuthorizedToMint();
+        }
+    }
+
     /// @notice Generates SVG-based URI for Create Player ticket
     function _generateCreatePlayerURI() internal pure returns (string memory) {
         string memory svg = string(
