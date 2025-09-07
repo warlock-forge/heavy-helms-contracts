@@ -10,8 +10,8 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
+import {IPlayerNameRegistry} from "../../../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import "../../../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //

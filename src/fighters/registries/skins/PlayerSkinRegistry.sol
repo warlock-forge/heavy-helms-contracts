@@ -14,11 +14,11 @@ import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/Confir
 import {ERC20} from "solady/tokens/ERC20.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {ERC721} from "solady/tokens/ERC721.sol";
-import "../../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-import "../../../interfaces/nft/skins/IPlayerSkinNFT.sol";
-import "../../Fighter.sol";
-import "../../../interfaces/game/engine/IGameEngine.sol";
-import "../../../interfaces/game/engine/IEquipmentRequirements.sol";
+import {IPlayerSkinRegistry} from "../../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerSkinNFT} from "../../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import {Fighter} from "../../Fighter.sol";
+import {IEquipmentRequirements} from "../../../interfaces/game/engine/IEquipmentRequirements.sol";
+
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//

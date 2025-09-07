@@ -10,7 +10,7 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "../../../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
+import {IMonsterNameRegistry} from "../../../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 //==============================================================//

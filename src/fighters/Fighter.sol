@@ -10,9 +10,8 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-import "../interfaces/game/engine/IGameEngine.sol";
-import "../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import {IPlayerSkinRegistry} from "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerSkinNFT} from "../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 //==============================================================//
 //                         HEAVY HELMS                          //

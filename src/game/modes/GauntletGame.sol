@@ -10,19 +10,19 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "./BaseGame.sol";
-import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
+import {BaseGame, ZeroAddress} from "./BaseGame.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
-import "../../lib/UniformRandomNumber.sol";
-import "../../interfaces/game/engine/IGameEngine.sol";
-import "../../interfaces/fighters/IPlayer.sol";
-import "../../interfaces/fighters/IPlayerDataCodec.sol";
-import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
-import "../../fighters/Fighter.sol";
-import "../../interfaces/fighters/IDefaultPlayer.sol";
-import "../../interfaces/game/engine/IEquipmentRequirements.sol";
-import "../../interfaces/nft/IPlayerTickets.sol";
+import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
+import {UniformRandomNumber} from "../../lib/UniformRandomNumber.sol";
+import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
+import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
+import {IPlayerSkinRegistry} from "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {IDefaultPlayer} from "../../interfaces/fighters/IDefaultPlayer.sol";
+import {IEquipmentRequirements} from "../../interfaces/game/engine/IEquipmentRequirements.sol";
+import {IPlayerTickets} from "../../interfaces/nft/IPlayerTickets.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -36,6 +36,7 @@ error InvalidSkin();
 error CallerNotPlayerOwner();
 error GauntletNotPending();
 error GameDisabled();
+error GameEnabled();
 error InvalidGauntletSize(uint8 size);
 error QueueNotEmpty();
 error InvalidDefaultPlayerRange();
@@ -46,16 +47,14 @@ error MinTimeNotElapsed();
 error PendingGauntletExists();
 error NoPendingGauntlet();
 error InvalidPhaseTransition();
-error SelectionBlockNotReached(uint256 selectionBlock, uint256 currentBlock);
-error TournamentBlockNotReached(uint256 tournamentBlock, uint256 currentBlock);
+error NotReady(uint256 targetBlock, uint256 currentBlock);
 error InvalidFutureBlocks(uint256 blocks);
 error CannotRecoverYet();
 error NoDefaultPlayersAvailable();
 error InvalidBlockhash();
 error DailyLimitExceeded(uint8 currentRuns, uint8 limit);
 error InsufficientResetFee();
-error InvalidRewardPercentages();
-error InvalidRewardConfiguration();
+error InvalidRewardConfig();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -66,7 +65,9 @@ error InvalidRewardConfiguration();
 ///         of dynamic size (4, 8, 16, 32, or 64) with a dynamic entry fee.
 /// @dev Uses a commit-reveal pattern with future blockhash for randomness.
 ///      Eliminates VRF costs and delays while providing secure participant selection.
-contract GauntletGame is BaseGame, ReentrancyGuard {
+contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
+    using UniformRandomNumber for uint256;
+
     //==============================================================//
     //                          ENUMS                               //
     //==============================================================//
@@ -80,8 +81,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Custom error for bracket validation.
     error PlayerNotInBracket(uint8 playerLevel, LevelBracket requiredBracket);
-    /// @notice Represents the state of a Gauntlet run.
 
+    /// @notice Represents the state of a Gauntlet run.
     enum GauntletState {
         PENDING, // Gauntlet started, awaiting completion.
         COMPLETED // Gauntlet finished.
@@ -325,7 +326,8 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Emitted when the daily gauntlet limit is updated
     event DailyGauntletLimitUpdated(uint8 oldLimit, uint8 newLimit);
     /// @notice Emitted when reward configurations are updated for Level 10 gauntlets.
-    event RewardConfigUpdated(string placement, IPlayerTickets.RewardConfig config);
+    /// @param placement 0=champion, 1=runnerUp, 2=thirdFourth
+    event RewardConfigUpdated(uint8 placement, IPlayerTickets.RewardConfig config);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
 
     //==============================================================//
@@ -359,7 +361,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         address _defaultPlayerAddress,
         LevelBracket _levelBracket,
         address _playerTicketsAddress
-    ) BaseGame(_gameEngine, _playerContract) {
+    ) BaseGame(_gameEngine, _playerContract) ConfirmedOwner(msg.sender) {
         // Input validation
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
         if (_playerTicketsAddress == address(0)) revert ZeroAddress();
@@ -383,11 +385,10 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
         // Emit initial reward configurations for Level 10 gauntlets
         if (_levelBracket == LevelBracket.LEVEL_10) {
-            emit RewardConfigUpdated("champion", championRewards);
-            emit RewardConfigUpdated("runnerUp", runnerUpRewards);
-            emit RewardConfigUpdated("thirdFourth", thirdFourthRewards);
+            emit RewardConfigUpdated(0, championRewards);
+            emit RewardConfigUpdated(1, runnerUpRewards);
+            emit RewardConfigUpdated(2, thirdFourthRewards);
         }
-        // No queue size limits - live free or die!
     }
 
     //==============================================================//
@@ -401,7 +402,6 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         external
         whenGameEnabled
         onlyPlayerOwner(loadout.playerId)
-        nonReentrant
     {
         // Checks
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
@@ -449,7 +449,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Allows a player owner to withdraw their player from the queue before a Gauntlet starts.
     /// @param playerId The ID of the player to withdraw.
     /// @dev Uses swap-and-pop to maintain queue integrity. Cannot withdraw after selection.
-    function withdrawFromQueue(uint32 playerId) external onlyPlayerOwner(playerId) nonReentrant {
+    function withdrawFromQueue(uint32 playerId) external onlyPlayerOwner(playerId) {
         // Checks
         if (playerStatus[playerId] != PlayerStatus.QUEUED) {
             revert PlayerNotInQueue();
@@ -488,7 +488,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Resets the daily gauntlet limit for a player by paying ETH
     /// @param playerId The ID of the player to reset limit for
     /// @dev Player owner pays ETH to reset their daily gauntlet entry count to 0
-    function resetDailyLimit(uint32 playerId) external payable onlyPlayerOwner(playerId) nonReentrant {
+    function resetDailyLimit(uint32 playerId) external payable onlyPlayerOwner(playerId) {
         // Checks
         if (msg.value < dailyResetCost) revert InsufficientResetFee();
 
@@ -503,7 +503,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Resets the daily gauntlet limit for a player by burning a DAILY_RESET_TICKET
     /// @param playerId The ID of the player to reset limit for
     /// @dev Player owner burns a DAILY_RESET_TICKET to reset their daily gauntlet entry count to 0
-    function resetDailyLimitWithTicket(uint32 playerId) external onlyPlayerOwner(playerId) nonReentrant {
+    function resetDailyLimitWithTicket(uint32 playerId) external onlyPlayerOwner(playerId) {
         // Checks & Effects - burn ticket first (will revert if insufficient balance)
         playerTickets.burnFrom(msg.sender, playerTickets.DAILY_RESET_TICKET(), 1);
 
@@ -551,7 +551,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     _selectParticipantsPhase();
                     return;
                 } else {
-                    revert SelectionBlockNotReached(selectionBlock, currentBlock);
+                    revert NotReady(selectionBlock, currentBlock);
                 }
             } else if (currentPhase == GauntletPhase.PARTICIPANT_SELECT) {
                 // Phase 3: Tournament Execution
@@ -559,7 +559,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
                     _executeTournamentPhase();
                     return;
                 } else {
-                    revert TournamentBlockNotReached(tournamentBlock, currentBlock);
+                    revert NotReady(tournamentBlock, currentBlock);
                 }
             }
 
@@ -736,7 +736,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint256 randomness
     ) private {
         uint256 random = uint256(keccak256(abi.encodePacked(randomness, gauntletId, playerId)));
-        uint256 roll = random % 10000; // 0-9999 for percentage precision
+        uint256 roll = random.uniform(10000); // 0-9999 for percentage precision
 
         IPlayerTickets.RewardType rewardType;
         uint256 ticketId;
@@ -746,56 +746,64 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         }
         roll -= config.nonePercent;
 
-        if (roll < config.attributeSwapPercent) {
-            rewardType = IPlayerTickets.RewardType.ATTRIBUTE_SWAP;
-            ticketId = playerTickets.ATTRIBUTE_SWAP_TICKET();
-        }
-        roll -= config.attributeSwapPercent;
-
         // Get owner once for all reward types
         address owner = playerContract.getPlayerOwner(playerId);
 
-        if (roll < config.createPlayerPercent) {
+        if (roll < config.attributeSwapPercent) {
+            rewardType = IPlayerTickets.RewardType.ATTRIBUTE_SWAP;
+            ticketId = playerTickets.ATTRIBUTE_SWAP_TICKET();
+        } else if (roll < config.attributeSwapPercent + config.createPlayerPercent) {
             rewardType = IPlayerTickets.RewardType.CREATE_PLAYER_TICKET;
             ticketId = playerTickets.CREATE_PLAYER_TICKET();
-        } else if (roll < config.createPlayerPercent + config.playerSlotPercent) {
+        } else if (roll < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent) {
             rewardType = IPlayerTickets.RewardType.PLAYER_SLOT_TICKET;
             ticketId = playerTickets.PLAYER_SLOT_TICKET();
-        } else if (roll < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent) {
+        } else if (
+            roll
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent
+        ) {
             rewardType = IPlayerTickets.RewardType.WEAPON_SPECIALIZATION_TICKET;
             ticketId = playerTickets.WEAPON_SPECIALIZATION_TICKET();
         } else if (
             roll
-                < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent
         ) {
             rewardType = IPlayerTickets.RewardType.ARMOR_SPECIALIZATION_TICKET;
             ticketId = playerTickets.ARMOR_SPECIALIZATION_TICKET();
         } else if (
             roll
-                < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent
-                    + config.duelTicketPercent
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
         ) {
             rewardType = IPlayerTickets.RewardType.DUEL_TICKET;
             ticketId = playerTickets.DUEL_TICKET();
         } else if (
             roll
-                < config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent
-                    + config.duelTicketPercent + config.dailyResetPercent
+                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
         ) {
             rewardType = IPlayerTickets.RewardType.DAILY_RESET_TICKET;
             ticketId = playerTickets.DAILY_RESET_TICKET();
         } else {
+            // Must be name change ticket (nameChangePercent is the remainder)
             rewardType = IPlayerTickets.RewardType.NAME_CHANGE_TICKET;
             // Name change tickets are non-fungible, minted with randomness
-            ticketId = playerTickets.mintNameChangeNFT(owner, random);
-            emit GauntletRewardDistributed(gauntletId, playerId, rewardType, ticketId);
+            try playerTickets.mintNameChangeNFTSafe(owner, random) returns (uint256 newTokenId) {
+                emit GauntletRewardDistributed(gauntletId, playerId, rewardType, newTokenId);
+            } catch {
+                emit GauntletRewardDistributed(gauntletId, playerId, rewardType, 0);
+            }
             return;
         }
 
-        // Mint fungible ticket for other reward types
-        playerTickets.mintFungibleTicket(owner, ticketId, 1);
-
-        emit GauntletRewardDistributed(gauntletId, playerId, rewardType, ticketId);
+        // Mint fungible ticket for other reward types with gas limit
+        try playerTickets.mintFungibleTicketSafe(owner, ticketId, 1) {
+            emit GauntletRewardDistributed(gauntletId, playerId, rewardType, ticketId);
+        } catch {
+            emit GauntletRewardDistributed(gauntletId, playerId, rewardType, 0);
+        }
     }
 
     //==============================================================//
@@ -835,23 +843,20 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         gauntlet.state = GauntletState.PENDING;
         gauntlet.startTimestamp = block.timestamp;
 
-        // Store participants ONLY in gauntlet (eliminate duplication)
+        // Store participants in gauntlet AND remove from queue in single loop
         uint256 selectedCount = selectedIds.length; // Cache length to save gas
         for (uint256 i = 0; i < selectedCount; i++) {
             uint32 playerId = selectedIds[i];
             Fighter.PlayerLoadout memory loadout = registrationQueue[playerId];
 
-            // Store ONLY in gauntlet
+            // Store in gauntlet
             gauntlet.participants.push(RegisteredPlayer({playerId: playerId, loadout: loadout}));
 
             // Update player status to final state
             playerStatus[playerId] = PlayerStatus.IN_TOURNAMENT;
             playerCurrentGauntlet[playerId] = gauntletId;
-        }
 
-        // Remove selected players from queue one by one
-        for (uint256 i = 0; i < selectedCount; i++) {
-            uint32 playerId = selectedIds[i];
+            // Remove from queue immediately
             _removePlayerFromQueueArrayIndex(playerId);
             delete registrationQueue[playerId];
         }
@@ -912,7 +917,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint256 remaining = poolSize;
         for (uint256 i = 0; i < size; i++) {
             seed = uint256(keccak256(abi.encodePacked(seed, i)));
-            uint256 index = seed % remaining;
+            uint256 index = seed.uniform(remaining);
 
             selected[i] = pool[index];
 
@@ -1301,7 +1306,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
 
     /// @notice Recovers a pending gauntlet after the 256-block window.
     /// @dev Clears the pending gauntlet without executing it.
-    function recoverPendingGauntlet() external nonReentrant {
+    function recoverPendingGauntlet() external {
         if (!canRecoverPendingGauntlet()) revert CannotRecoverYet();
 
         // Store values for event before deletion
@@ -1322,7 +1327,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Toggles the ability for players to queue for Gauntlets.
     /// @dev If set to `false`, clears the current queue.
     /// @param enabled The desired state (true = enabled, false = disabled).
-    function setGameEnabled(bool enabled) external onlyOwner nonReentrant {
+    function setGameEnabled(bool enabled) external onlyOwner {
         if (isGameEnabled == enabled) return; // No change needed
 
         isGameEnabled = enabled;
@@ -1378,7 +1383,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @param newSize The new gauntlet size.
     function setGauntletSize(uint8 newSize) external onlyOwner {
         // Require game to be disabled. Disabling clears the queue.
-        require(!isGameEnabled, "Game must be disabled to change gauntlet size");
+        if (isGameEnabled) revert GameEnabled();
 
         // Checks for valid size parameter
         if (newSize != 4 && newSize != 8 && newSize != 16 && newSize != 32 && newSize != 64) {
@@ -1407,7 +1412,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         uint256 defaultCount = defaultPlayerContract.validDefaultPlayerCount();
         if (defaultCount == 0) revert NoDefaultPlayersAvailable();
 
-        uint256 randomIndex = randomSeed % defaultCount;
+        uint256 randomIndex = randomSeed.uniform(defaultCount);
         return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
     }
 
@@ -1447,40 +1452,47 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
     /// @notice Updates reward configuration for champions in Level 10 gauntlets.
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setChampionRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
+        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
         uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
             + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
             + config.nameChangePercent;
-        if (total != 10000) revert InvalidRewardPercentages();
+        if (total != 10000) revert InvalidRewardConfig();
 
         championRewards = config;
-        emit RewardConfigUpdated("champion", config);
+        emit RewardConfigUpdated(0, config);
     }
 
     /// @notice Updates reward configuration for runner-ups in Level 10 gauntlets.
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
+        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
         uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
             + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
             + config.nameChangePercent;
-        if (total != 10000) revert InvalidRewardPercentages();
+        if (total != 10000) revert InvalidRewardConfig();
 
         runnerUpRewards = config;
-        emit RewardConfigUpdated("runnerUp", config);
+        emit RewardConfigUpdated(1, config);
     }
 
     /// @notice Updates reward configuration for 3rd-4th place in Level 10 gauntlets.
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfiguration();
+        if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
         uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
             + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
             + config.nameChangePercent;
-        if (total != 10000) revert InvalidRewardPercentages();
+        if (total != 10000) revert InvalidRewardConfig();
 
         thirdFourthRewards = config;
-        emit RewardConfigUpdated("thirdFourth", config);
+        emit RewardConfigUpdated(2, config);
+    }
+
+    /// @notice Sets a new game engine address
+    /// @param _newEngine Address of the new game engine
+    /// @dev Only callable by the contract owner
+    function setGameEngine(address _newEngine) public override(BaseGame) onlyOwner {
+        super.setGameEngine(_newEngine);
     }
 
     //==============================================================//
@@ -1585,7 +1597,7 @@ contract GauntletGame is BaseGame, ReentrancyGuard {
         // True Fisher-Yates shuffle - clean and simple!
         for (uint256 i = participants.length - 1; i > 0; i--) {
             seed = uint256(keccak256(abi.encodePacked(seed, i)));
-            uint256 j = seed % (i + 1);
+            uint256 j = seed.uniform(i + 1);
 
             // Single swap operation
             ActiveParticipant memory temp = participants[i];

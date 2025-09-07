@@ -7,9 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../../lib/UniformRandomNumber.sol";
-import "../../interfaces/fighters/IPlayer.sol";
-import "../../interfaces/game/engine/IGameEngine.sol";
+import {UniformRandomNumber} from "../../lib/UniformRandomNumber.sol";
+import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
 
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;

@@ -7,10 +7,10 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../../interfaces/fighters/IPlayer.sol";
-import "../../nft/skins/DefaultPlayerSkinNFT.sol";
-import "../../fighters/Fighter.sol";
-import "../../interfaces/fighters/IDefaultPlayer.sol";
+import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
+import {DefaultPlayerSkinNFT} from "../../nft/skins/DefaultPlayerSkinNFT.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {IDefaultPlayer} from "../../interfaces/fighters/IDefaultPlayer.sol";
 
 library DefaultPlayerLibrary {
     enum CharacterType {

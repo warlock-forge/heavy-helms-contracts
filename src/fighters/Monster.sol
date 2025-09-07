@@ -10,10 +10,11 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "../interfaces/fighters/IMonster.sol";
-import "../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
+import {IMonster} from "../interfaces/fighters/IMonster.sol";
+import {IMonsterNameRegistry} from "../interfaces/fighters/registries/names/IMonsterNameRegistry.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import "./Fighter.sol";
+import {Fighter} from "./Fighter.sol";
+import {IPlayerSkinRegistry} from "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //

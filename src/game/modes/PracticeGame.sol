@@ -10,10 +10,14 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "./BaseGame.sol";
-import "../../interfaces/game/engine/IGameEngine.sol";
-import "../../interfaces/fighters/IDefaultPlayer.sol";
-import "../../interfaces/fighters/IMonster.sol";
+import {BaseGame, ZeroAddress} from "./BaseGame.sol";
+import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
+import {IDefaultPlayer} from "../../interfaces/fighters/IDefaultPlayer.sol";
+import {IMonster} from "../../interfaces/fighters/IMonster.sol";
+import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
+import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -22,7 +26,7 @@ import "../../interfaces/fighters/IMonster.sol";
 /// @title Practice Game Mode for Heavy Helms
 /// @notice Allows players to practice fighting against any fighter type without consequences
 /// @dev Supports players, default players, and monsters in a non-competitive environment
-contract PracticeGame is BaseGame {
+contract PracticeGame is BaseGame, ConfirmedOwner {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -59,7 +63,7 @@ contract PracticeGame is BaseGame {
         address payable _playerContract,
         address _defaultPlayerContract,
         address _monsterContract
-    ) BaseGame(_gameEngine, _playerContract) {
+    ) BaseGame(_gameEngine, _playerContract) ConfirmedOwner(msg.sender) {
         if (_defaultPlayerContract == address(0) || _monsterContract == address(0)) revert ZeroAddress();
 
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerContract);
@@ -98,6 +102,13 @@ contract PracticeGame is BaseGame {
         address oldContract = address(monsterContract);
         monsterContract = IMonster(_newContract);
         emit MonsterContractUpdated(oldContract, _newContract);
+    }
+
+    /// @notice Sets a new game engine address
+    /// @param _newEngine Address of the new game engine
+    /// @dev Only callable by the contract owner
+    function setGameEngine(address _newEngine) public override(BaseGame) onlyOwner {
+        super.setGameEngine(_newEngine);
     }
 
     /// @notice Simulates a combat between two fighters (Player2 mirrors Player1's level)

@@ -10,13 +10,14 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "./BaseGame.sol";
-import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
+import {BaseGame} from "./BaseGame.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
-import "../../lib/UniformRandomNumber.sol";
-import "../../interfaces/game/engine/IGameEngine.sol";
+import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
+import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 //==============================================================//
 //                         INTERFACES                           //
@@ -34,24 +35,7 @@ interface IPlayerTickets {
 /// @title Duel Game Mode for Heavy Helms
 /// @notice Allows players to challenge each other to 1v1 combat
 /// @dev Integrates with VRF for fair, random combat resolution
-contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
-    // Replicate BaseGame functionality without ownership inheritance
-    IGameEngine public gameEngine;
-    IPlayer public playerContract;
-
-    // Fighter ID ranges from BaseGame
-    uint32 internal constant DEFAULT_PLAYER_END = 2000;
-    uint32 internal constant MONSTER_END = 10000;
-
-    // Events from BaseGame
-    event GameEngineUpdated(address indexed oldGameEngine, address indexed newGameEngine);
-    event PlayerContractUpdated(address indexed oldPlayerContract, address indexed newPlayerContract);
-    event CombatResult(
-        bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 indexed winningPlayerId, bytes packedResults
-    );
-
-    using UniformRandomNumber for uint256;
-
+contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
@@ -170,13 +154,7 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
         uint256 _subscriptionId,
         bytes32 _keyHash,
         address _playerTickets
-    ) VRFConsumerBaseV2Plus(vrfCoordinator) {
-        // Initialize BaseGame-like functionality
-        if (_gameEngine == address(0) || _playerContract == address(0)) {
-            revert("ZeroAddress");
-        }
-        gameEngine = IGameEngine(_gameEngine);
-        playerContract = IPlayer(_playerContract);
+    ) BaseGame(_gameEngine, _playerContract) VRFConsumerBaseV2Plus(vrfCoordinator) {
         require(_playerTickets != address(0), "Invalid player tickets address");
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
@@ -228,7 +206,6 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
     function initiateChallenge(Fighter.PlayerLoadout calldata challengerLoadout, uint32 defenderId)
         external
         whenGameEnabled
-        nonReentrant
         returns (uint256)
     {
         require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
@@ -290,10 +267,7 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
     /// @notice Accepts a duel challenge
     /// @param challengeId ID of the challenge to accept
     /// @param defenderLoadout Loadout for the defender
-    function acceptChallenge(uint256 challengeId, Fighter.PlayerLoadout calldata defenderLoadout)
-        external
-        nonReentrant
-    {
+    function acceptChallenge(uint256 challengeId, Fighter.PlayerLoadout calldata defenderLoadout) external {
         DuelChallenge storage challenge = challenges[challengeId];
 
         // Validate challenge state
@@ -352,7 +326,7 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
 
     /// @notice Cancels a duel challenge (challenger only)
     /// @param challengeId ID of the challenge to cancel
-    function cancelChallenge(uint256 challengeId) external nonReentrant {
+    function cancelChallenge(uint256 challengeId) external {
         DuelChallenge storage challenge = challenges[challengeId];
 
         require(challenge.challengerId != 0, "Challenge does not exist");
@@ -370,7 +344,7 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
 
     /// @notice Allows players to recover from a timed-out VRF request
     /// @param challengeId ID of the challenge to recover
-    function recoverTimedOutVRF(uint256 challengeId) external nonReentrant {
+    function recoverTimedOutVRF(uint256 challengeId) external {
         DuelChallenge storage challenge = challenges[challengeId];
 
         // Verify challenge exists and is in PENDING state
@@ -426,6 +400,13 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
     /// @notice Withdraws all accumulated ETH to the owner address
     function withdrawFees() external onlyOwner {
         SafeTransferLib.safeTransferETH(owner(), address(this).balance);
+    }
+
+    /// @notice Sets a new game engine address
+    /// @param _newEngine Address of the new game engine
+    /// @dev Only callable by the contract owner
+    function setGameEngine(address _newEngine) public override(BaseGame) onlyOwner {
+        super.setGameEngine(_newEngine);
     }
 
     //==============================================================//
@@ -523,7 +504,7 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
     /// @notice Checks if a player ID is supported in Duel mode
     /// @param playerId The ID to check
     /// @return True if player ID is supported
-    function _isPlayerIdSupported(uint32 playerId) internal pure returns (bool) {
+    function _isPlayerIdSupported(uint32 playerId) internal pure override returns (bool) {
         // Only regular players are supported in Duel mode
         return playerId > MONSTER_END;
     }
@@ -531,7 +512,7 @@ contract DuelGame is ReentrancyGuard, VRFConsumerBaseV2Plus {
     /// @notice Gets the fighter contract for a player ID
     /// @param playerId The ID to check
     /// @return Fighter contract implementation
-    function _getFighterContract(uint32 playerId) internal view returns (Fighter) {
+    function _getFighterContract(uint32 playerId) internal view override returns (Fighter) {
         require(_isPlayerIdSupported(playerId), "Unsupported player ID for Duel mode");
         return Fighter(address(playerContract));
     }

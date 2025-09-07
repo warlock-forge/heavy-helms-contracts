@@ -7,8 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../../interfaces/game/engine/IEquipmentRequirements.sol";
-import "../../fighters/Fighter.sol";
+import {IEquipmentRequirements} from "../../interfaces/game/engine/IEquipmentRequirements.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
 
 /// @title Equipment Requirements Contract
 /// @notice Manages stat requirements for weapons and armor in Heavy Helms

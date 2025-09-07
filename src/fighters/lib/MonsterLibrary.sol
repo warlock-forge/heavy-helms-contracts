@@ -7,10 +7,10 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../../fighters/Monster.sol";
-import "../../nft/skins/MonsterSkinNFT.sol";
-import "../../interfaces/fighters/IMonster.sol";
-import "../../game/engine/GameEngine.sol";
+import {Monster} from "../../fighters/Monster.sol";
+import {MonsterSkinNFT} from "../../nft/skins/MonsterSkinNFT.sol";
+import {IMonster} from "../../interfaces/fighters/IMonster.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
 
 library MonsterLibrary {
     enum MonsterType {

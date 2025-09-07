@@ -53,6 +53,10 @@ interface IPlayerTickets {
     function mintFungibleTicket(address to, uint256 ticketType, uint256 amount) external;
     function mintNameChangeNFT(address to, uint256 seed) external returns (uint256 tokenId);
 
+    // Gas-limited minting functions for DoS protection
+    function mintFungibleTicketSafe(address to, uint256 ticketType, uint256 amount) external;
+    function mintNameChangeNFTSafe(address to, uint256 seed) external returns (uint256 tokenId);
+
     // Burning functions
     function burnFrom(address from, uint256 id, uint256 amount) external;
 }

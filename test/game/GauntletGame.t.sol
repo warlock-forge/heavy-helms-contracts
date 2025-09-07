@@ -12,7 +12,8 @@ import {
     GauntletGame,
     InvalidBlockhash,
     DailyLimitExceeded,
-    InsufficientResetFee
+    InsufficientResetFee,
+    GameEnabled
 } from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
@@ -558,7 +559,7 @@ contract GauntletGameTest is TestBase {
     function testRevertWhen_SetGauntletSize_GameEnabled() public {
         // Try to change size while game is enabled
         vm.prank(game.owner());
-        vm.expectRevert("Game must be disabled to change gauntlet size");
+        vm.expectRevert(GameEnabled.selector);
         game.setGauntletSize(8);
     }
 

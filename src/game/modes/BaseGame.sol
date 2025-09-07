@@ -10,10 +10,9 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "../../interfaces/game/engine/IGameEngine.sol";
-import "../../interfaces/fighters/IPlayer.sol";
-import "../../fighters/Fighter.sol";
-import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
+import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -28,15 +27,15 @@ error ZeroAddress();
 /// @title BaseGame
 /// @notice Base contract for game implementations
 /// @dev Inherit from this contract to implement specific game types
-abstract contract BaseGame is ConfirmedOwner {
+abstract contract BaseGame {
     //==============================================================//
     //                    STATE VARIABLES                           //
     //==============================================================//
     /// @notice Interface to the game engine contract
     IGameEngine public gameEngine;
 
-    /// @notice Interface to the player contract
-    IPlayer public playerContract;
+    /// @notice Interface to the player contract (immutable after deployment)
+    IPlayer public immutable playerContract;
 
     // Fighter ID ranges - defined here to avoid duplicate code and reduce gas costs
     // These should match the ranges defined in the respective fighter contracts
@@ -51,9 +50,6 @@ abstract contract BaseGame is ConfirmedOwner {
     /// @notice Emitted when the game engine address is updated
     event GameEngineUpdated(address indexed oldEngine, address indexed newEngine);
 
-    /// @notice Emitted when the player contract address is updated
-    event PlayerContractUpdated(address indexed oldContract, address indexed newContract);
-
     /// @notice Emitted when a combat is completed with results
     event CombatResult(
         bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 indexed winningPlayerId, bytes packedResults
@@ -66,7 +62,7 @@ abstract contract BaseGame is ConfirmedOwner {
     /// @param _gameEngine Address of the game engine contract
     /// @param _playerContract Address of the player contract
     /// @dev Reverts if either address is zero
-    constructor(address _gameEngine, address payable _playerContract) ConfirmedOwner(msg.sender) {
+    constructor(address _gameEngine, address payable _playerContract) {
         if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);
@@ -77,22 +73,12 @@ abstract contract BaseGame is ConfirmedOwner {
     //==============================================================//
     /// @notice Sets a new game engine address
     /// @param _newEngine Address of the new game engine
-    /// @dev Only callable by the contract owner
-    function setGameEngine(address _newEngine) external onlyOwner {
+    /// @dev Virtual function - child contracts must add access control
+    function setGameEngine(address _newEngine) public virtual {
         if (_newEngine == address(0)) revert ZeroAddress();
         address oldEngine = address(gameEngine);
         gameEngine = IGameEngine(_newEngine);
         emit GameEngineUpdated(oldEngine, _newEngine);
-    }
-
-    /// @notice Sets a new player contract address
-    /// @param _newContract Address of the new player contract
-    /// @dev Only callable by the contract owner
-    function setPlayerContract(address _newContract) external onlyOwner {
-        if (_newContract == address(0)) revert ZeroAddress();
-        address oldContract = address(playerContract);
-        playerContract = IPlayer(_newContract);
-        emit PlayerContractUpdated(oldContract, _newContract);
     }
 
     //==============================================================//

@@ -11,10 +11,11 @@ pragma solidity ^0.8.13;
 //                          IMPORTS                             //
 //==============================================================//
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
-import "./Fighter.sol";
-import "../interfaces/fighters/IPlayer.sol";
-import "../interfaces/fighters/IDefaultPlayer.sol";
-import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+import {Fighter} from "./Fighter.sol";
+import {IPlayer} from "../interfaces/fighters/IPlayer.sol";
+import {IDefaultPlayer} from "../interfaces/fighters/IDefaultPlayer.sol";
+import {IPlayerNameRegistry} from "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+import {IPlayerSkinRegistry} from "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //

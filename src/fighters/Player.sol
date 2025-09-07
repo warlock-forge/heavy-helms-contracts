@@ -16,15 +16,16 @@ import {ERC20} from "solady/tokens/ERC20.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 // Internal imports
-import "../interfaces/fighters/IPlayer.sol";
-import "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
-import "../interfaces/game/engine/IEquipmentRequirements.sol";
-import "../nft/PlayerTickets.sol";
-import "./Fighter.sol";
-import "../interfaces/fighters/IPlayerDataCodec.sol";
-import "../lib/UniformRandomNumber.sol";
+import {IPlayer} from "../interfaces/fighters/IPlayer.sol";
+import {IPlayerNameRegistry} from "../interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
+import {IEquipmentRequirements} from "../interfaces/game/engine/IEquipmentRequirements.sol";
+import {PlayerTickets} from "../nft/PlayerTickets.sol";
+import {Fighter} from "./Fighter.sol";
+import {IPlayerDataCodec} from "../interfaces/fighters/IPlayerDataCodec.sol";
+import {UniformRandomNumber} from "../lib/UniformRandomNumber.sol";
+import {IPlayerSkinRegistry} from "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 // DateTime library for PST season calculations
-import "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
+import {BokkyPooBahsDateTimeLibrary} from "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//

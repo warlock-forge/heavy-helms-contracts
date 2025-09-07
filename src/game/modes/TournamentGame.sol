@@ -10,20 +10,20 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                            IMPORTS                           //
 //==============================================================//
-import "./BaseGame.sol";
+import {BaseGame, ZeroAddress} from "./BaseGame.sol";
 import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
-import "../../lib/UniformRandomNumber.sol";
-import "../../interfaces/game/engine/IGameEngine.sol";
-import "../../interfaces/fighters/IPlayer.sol";
-import "../../interfaces/fighters/IPlayerDataCodec.sol";
-import "../../interfaces/game/engine/IEquipmentRequirements.sol";
-import "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-import "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
-import "../../fighters/Fighter.sol";
-import "../../interfaces/fighters/IDefaultPlayer.sol";
-import {Player} from "../../fighters/Player.sol";
-import "../../interfaces/nft/IPlayerTickets.sol";
+import {UniformRandomNumber} from "../../lib/UniformRandomNumber.sol";
+import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
+import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
+import {IPlayerDataCodec} from "../../interfaces/fighters/IPlayerDataCodec.sol";
+import {IEquipmentRequirements} from "../../interfaces/game/engine/IEquipmentRequirements.sol";
+import {IPlayerSkinRegistry} from "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {IDefaultPlayer} from "../../interfaces/fighters/IDefaultPlayer.sol";
+import {IPlayerTickets} from "../../interfaces/nft/IPlayerTickets.sol";
+import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 //==============================================================//
 //                         CUSTOM ERRORS                        //
@@ -66,7 +66,7 @@ error InvalidBlockhash();
 /// @notice Manages daily elimination tournaments with level-based priority,
 ///         tournament ratings, death mechanics, and reward distribution.
 /// @dev Uses a commit-reveal pattern with future blockhash for randomness.
-contract TournamentGame is BaseGame, ReentrancyGuard {
+contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     using UniformRandomNumber for uint256;
     using SafeTransferLib for address;
 
@@ -284,7 +284,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
     /// @notice Emitted when the lethality factor is updated.
     event LethalityFactorSet(uint16 oldFactor, uint16 newFactor);
     /// @notice Emitted when reward configurations are updated.
-    event RewardConfigUpdated(string placement, IPlayerTickets.RewardConfig config);
+    event RewardConfigUpdated(uint8 indexed placement, IPlayerTickets.RewardConfig config);
     /// @notice Emitted when the game enabled status is changed.
     event GameEnabledChanged(bool oldEnabled, bool newEnabled);
     // Inherited from BaseGame: event CombatResult(bytes32 indexed player1Data, bytes32 indexed player2Data, uint32 winnerId, bytes combatLog);
@@ -311,7 +311,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         address payable _playerContract,
         address _defaultPlayerAddress,
         address _playerTicketsAddress
-    ) BaseGame(_gameEngine, _playerContract) {
+    ) BaseGame(_gameEngine, _playerContract) ConfirmedOwner(msg.sender) {
         // Input validation
         if (_defaultPlayerAddress == address(0)) revert ZeroAddress();
         if (_playerTicketsAddress == address(0)) revert ZeroAddress();
@@ -322,9 +322,9 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         lastTournamentStartTimestamp = block.timestamp;
 
         // Emit initial reward configurations
-        emit RewardConfigUpdated("winner", winnerRewards);
-        emit RewardConfigUpdated("runnerUp", runnerUpRewards);
-        emit RewardConfigUpdated("thirdFourth", thirdFourthRewards);
+        emit RewardConfigUpdated(0, winnerRewards);
+        emit RewardConfigUpdated(1, runnerUpRewards);
+        emit RewardConfigUpdated(2, thirdFourthRewards);
 
         // No need to store season - always get from Player contract
     }
@@ -557,7 +557,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         if (total != 10000) revert InvalidRewardPercentages();
 
         winnerRewards = config;
-        emit RewardConfigUpdated("winner", config);
+        emit RewardConfigUpdated(0, config);
     }
 
     /// @notice Updates reward configuration for runner-up.
@@ -568,7 +568,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         if (total != 10000) revert InvalidRewardPercentages();
 
         runnerUpRewards = config;
-        emit RewardConfigUpdated("runnerUp", config);
+        emit RewardConfigUpdated(1, config);
     }
 
     /// @notice Updates reward configuration for 3rd-4th place.
@@ -579,7 +579,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         if (total != 10000) revert InvalidRewardPercentages();
 
         thirdFourthRewards = config;
-        emit RewardConfigUpdated("thirdFourth", config);
+        emit RewardConfigUpdated(2, config);
     }
 
     /// @notice Toggles whether the game is enabled.
@@ -587,6 +587,13 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         bool oldEnabled = isGameEnabled;
         isGameEnabled = enabled;
         emit GameEnabledChanged(oldEnabled, enabled);
+    }
+
+    /// @notice Sets a new game engine address
+    /// @param _newEngine Address of the new game engine
+    /// @dev Only callable by the contract owner
+    function setGameEngine(address _newEngine) public override(BaseGame) onlyOwner {
+        super.setGameEngine(_newEngine);
     }
 
     //==============================================================//
@@ -707,7 +714,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             uint256 remaining = poolIndex;
             for (uint256 i = selectedCount; i < size && remaining > 0; i++) {
                 seed = uint256(keccak256(abi.encodePacked(seed, i)));
-                uint256 index = seed % remaining;
+                uint256 index = seed.uniform(remaining);
 
                 selected[i] = pool[index];
 
@@ -1164,7 +1171,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         uint256 randomness
     ) private {
         uint256 random = uint256(keccak256(abi.encodePacked(randomness, tournamentId, playerId)));
-        uint256 roll = random % 10000; // 0-9999 for percentage precision
+        uint256 roll = random.uniform(10000); // 0-9999 for percentage precision
 
         IPlayerTickets.RewardType rewardType;
         uint256 ticketId;
@@ -1215,23 +1222,36 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
             rewardType = IPlayerTickets.RewardType.NAME_CHANGE_TICKET;
         }
 
-        // Handle all reward types - no separate owner variable
+        // Handle all reward types with gas-limited minting to prevent DoS
         if (rewardType == IPlayerTickets.RewardType.ATTRIBUTE_SWAP) {
-            // Mint attribute swap NFT ticket
-            playerTickets.mintFungibleTicket(
+            // Mint attribute swap NFT ticket with gas limit
+            try playerTickets.mintFungibleTicketSafe(
                 playerContract.getPlayerOwner(playerId), playerTickets.ATTRIBUTE_SWAP_TICKET(), 1
-            );
+            ) {
+                emit RewardDistributed(tournamentId, playerId, rewardType, playerTickets.ATTRIBUTE_SWAP_TICKET());
+            } catch {
+                emit RewardDistributed(tournamentId, playerId, rewardType, 0);
+            }
         } else if (rewardType == IPlayerTickets.RewardType.NAME_CHANGE_TICKET) {
-            // Mint name change NFT with VRF randomness
-            ticketId = playerTickets.mintNameChangeNFT(playerContract.getPlayerOwner(playerId), random);
-            emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
+            // Mint name change NFT with VRF randomness and gas limit
+            try playerTickets.mintNameChangeNFTSafe(playerContract.getPlayerOwner(playerId), random) returns (
+                uint256 newTicketId
+            ) {
+                emit RewardDistributed(tournamentId, playerId, rewardType, newTicketId);
+            } catch {
+                emit RewardDistributed(tournamentId, playerId, rewardType, 0);
+            }
             return; // Early return for name change tickets
         } else if (ticketId > 0) {
-            // Mint fungible ticket for other reward types
-            playerTickets.mintFungibleTicket(playerContract.getPlayerOwner(playerId), ticketId, 1);
+            // Mint fungible ticket for other reward types with gas limit
+            try playerTickets.mintFungibleTicketSafe(playerContract.getPlayerOwner(playerId), ticketId, 1) {
+                emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
+            } catch {
+                emit RewardDistributed(tournamentId, playerId, rewardType, 0);
+            }
+        } else {
+            emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
         }
-
-        emit RewardDistributed(tournamentId, playerId, rewardType, ticketId);
     }
 
     // --- Internal Helpers ---
@@ -1303,7 +1323,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         uint256 participantCount = participants.length;
         for (uint256 i = participantCount - 1; i > 0; i--) {
             seed = uint256(keccak256(abi.encodePacked(seed, i)));
-            uint256 j = seed % (i + 1);
+            uint256 j = seed.uniform(i + 1);
 
             // Single swap operation
             ActiveParticipant memory temp = participants[i];
@@ -1328,7 +1348,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         uint256 defaultCount = defaultPlayerContract.validDefaultPlayerCount();
         if (defaultCount == 0) revert NoDefaultPlayersAvailable();
 
-        uint256 randomIndex = randomSeed % defaultCount;
+        uint256 randomIndex = randomSeed.uniform(defaultCount);
         return defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
     }
 
@@ -1355,7 +1375,7 @@ contract TournamentGame is BaseGame, ReentrancyGuard {
         while (selectedCount < count && attempts < maxAttempts) {
             // Generate next candidate
             randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, attempts)));
-            uint256 randomIndex = randomSeed % totalDefaults;
+            uint256 randomIndex = randomSeed.uniform(totalDefaults);
             uint32 candidate = defaultPlayerContract.getValidDefaultPlayerId(randomIndex);
 
             // Check if candidate is already excluded (skip loop if no exclusions)
