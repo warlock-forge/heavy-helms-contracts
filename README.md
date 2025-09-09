@@ -3,22 +3,22 @@
 ## Deployed Contract Addresses - Base Sepolia
 
 - GameEngine: 0xC128bCd9b18782c69dFA7b4Bdce61D6B6E3A1A96 v1.0
-- EquipmentRequirements: 0x3b448807536b95B97fEFE0EBc15489ADaE7da2aA
-- PlayerSkinRegistry: 0xaA8c214bA0efFd88CdE442946B518b91a437b4e3
-- PlayerNameRegistry: 0x7224Ff906a60E96725D019E84f3B23540442A898
-- MonsterNameRegistry: 0xacD57159a8A02b59E923FCE01Ca8A21f16C2042A
-- PlayerTickets: 0xc0e8973f7AF2e7Ab5F5749419934A04e1A90c6cB
-- Player: 0x2d248A737e3eCB013e2a62fD8959a0A3D7eCf9F3
-- DefaultPlayer: 0xcE8129957D8B64813D9E936921819741a54649Fc
-- Monster: 0x3feae9A9788c3d48C06F15d9115fA47b536EA66F
-- DefaultPlayerSkinNFT: 0x4a8b436456f12559EAb0A5Ba68E09181cEb91593
-- MonsterSkinNFT: 0x31fE904307a15a24D02E711Db0cA4fbB9869BAD6
-- PracticeGame: 0xa1Ff9Cf87Ec73F30d6AD5A5a963809D0806C9852
-- DuelGame: 0x86f776A0d39F5640a276696A868814f99a58b4D2
-- GauntletGame: 0xDF4Dca458939d95C64B5d610B6867d794C3FeC3f (levels 1-4)
-- GauntletGame: 0x7AC1E825dB7501b7F886704f85d9E62B3E19DD41 (levels 5-9)
-- GauntletGame: 0x6E8266C2264c84e7552DA3f4eE9DC4634a90fA7c (level 10)
-- TournamentGame: 0x742af1F015920cF7eAd4ca68697c77e631489336
+- EquipmentRequirements: 0xde2bE2739bB1350Be75cf671d0657FD51aD02E8C
+- PlayerSkinRegistry: 0x9D371Aac24d54b397e9CBCdf048681BF17F12716
+- PlayerNameRegistry: 0x0b7529Fb5BE5485e8799F13F079d1eB2b65FeCf7
+- MonsterNameRegistry: 0x09CdBd3763d9Eec6d7AC35EC312859D0Ee40158F
+- PlayerTickets: 0x73c6149A5AEA3569516dB6FCD87D4dc4AA143054
+- Player: 0x5C716544Ad465cEABc0Be10c204E76BC761f9D56
+- DefaultPlayer: 0x3554BFC5d5A95A9ae1139d9dBa7160EFDeA781F9
+- Monster: 0xCfb1580C3E0624e960FedaE72Fb342602FBc2e5f
+- DefaultPlayerSkinNFT: 0xb243A7C288121EC15eede321710Ba57298DBcCc3
+- MonsterSkinNFT: 0xf9C8a0178C83c040C24fc0Af9b3D73f4fc30Ac7f
+- PracticeGame: 0x5365DdbdD130B070928B8713BC79A5fe67564cA4
+- DuelGame: 0x5DaCCD177e362c136103c7A3B169589Bc7b25567
+- GauntletGame: 0x71AD5e337EfA81FDe0eB737aB17342F25FE4C93b (levels 1-4)
+- GauntletGame: 0xf1639B58aF4cf0097b253c13Ec229082826224ca (levels 5-9)
+- GauntletGame: 0x757BCCee1AAf9fb7C44ac1CE8bEdd434f71a2C0e (level 10)
+- TournamentGame: 0x0Fda98b3167e35A6c01d2D38DEa4945CaEc908da
 
 ## Prerequisites
 
@@ -98,12 +98,11 @@ forge script script/deploy/FighterDeploy.s.sol --sig "run(address,address,addres
 
 **Note:** The FighterDeploy script now deploys multiple contracts in this order:
 
-1. PlayerCreation helper contract
-2. PlayerDataCodec helper contract
-3. PlayerTickets contract (requires nameRegistry)
-4. Player contract (with references to PlayerTickets, PlayerCreation, and PlayerDataCodec)
-5. DefaultPlayer and Monster contracts
-6. Default skin NFTs and registry setup
+1. PlayerDataCodec helper contract
+2. PlayerTickets contract (requires nameRegistry)
+3. Player contract (with references to PlayerTickets, PlayerCreation, and PlayerDataCodec)
+4. DefaultPlayer and Monster contracts
+5. Default skin NFTs and registry setup
 
 All contracts are deployed automatically within the FighterDeploy script - no separate deployment needed.
 
