@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import {console2} from "forge-std/console2.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
 import {IPlayerNameRegistry} from "../../src/interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
@@ -104,8 +104,8 @@ contract PlayerTicketsTest is Test {
         (uint16 firstNameIndex, uint16 surnameIndex) = tickets.getNameChangeData(tokenId);
         (string memory firstName, string memory surname) = nameRegistry.getFullName(firstNameIndex, surnameIndex);
 
-        console.log("Generated URI for", firstName, surname);
-        console.log(uri);
+        console2.log("Generated URI for", firstName, surname);
+        console2.log(uri);
     }
 
     function testFungibleTicketURIs() public view {
@@ -131,8 +131,8 @@ contract PlayerTicketsTest is Test {
         assertTrue(_startsWith(uri5, "data:application/json;base64,"));
 
         // Log one example to verify it looks good
-        console.log("Create Player Ticket URI:");
-        console.log(uri1);
+        console2.log("Create Player Ticket URI:");
+        console2.log(uri1);
     }
 
     function _startsWith(string memory str, string memory prefix) private pure returns (bool) {
@@ -266,9 +266,9 @@ contract PlayerTicketsTest is Test {
 
         // Log to see distribution (Set B is 0-99, Set A is 1000+)
         if (firstNameIndex < 1000) {
-            console.log("Selected from Set B:", firstNameIndex);
+            console2.log("Selected from Set B:", firstNameIndex);
         } else {
-            console.log("Selected from Set A:", firstNameIndex);
+            console2.log("Selected from Set A:", firstNameIndex);
         }
     }
 }

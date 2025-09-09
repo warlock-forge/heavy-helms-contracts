@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
-import {Player, InsufficientFeeAmount} from "../../src/fighters/Player.sol";
+import {InsufficientFeeAmount} from "../../src/fighters/Player.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
 
 contract PlayerDualCreationTest is TestBase {
     address public USER;

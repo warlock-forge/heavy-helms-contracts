@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {GauntletGame} from "../../../../src/game/modes/GauntletGame.sol";
 
 contract SetGauntletSizeScript is Script {
@@ -25,17 +25,17 @@ contract SetGauntletSizeScript is Script {
         GauntletGame gauntletGame = GauntletGame(gauntletGameAddr);
 
         // --- NEW LOGIC: Disable, Set, Enable ---
-        console.log("Disabling game...");
+        console2.log("Disabling game...");
         gauntletGame.setGameEnabled(false);
 
-        console.log("Setting gauntlet size to:", size);
+        console2.log("Setting gauntlet size to:", size);
         gauntletGame.setGauntletSize(size);
 
-        console.log("Re-enabling game...");
+        console2.log("Re-enabling game...");
         gauntletGame.setGameEnabled(true);
         // --- END NEW LOGIC ---
 
-        console.log("Gauntlet size set successfully.");
+        console2.log("Gauntlet size set successfully.");
 
         vm.stopBroadcast();
     }

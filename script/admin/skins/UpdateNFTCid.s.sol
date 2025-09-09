@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {DefaultPlayerSkinNFT} from "../../../src/nft/skins/DefaultPlayerSkinNFT.sol";
 
 contract UpdateNFTCidScript is Script {

@@ -1,4 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 //==============================================================//
@@ -23,29 +29,30 @@ error TokenDoesNotExist();
 error TokenNotTransferable();
 
 //==============================================================//
-//                      PLAYER TICKETS                          //
+//                         HEAVY HELMS                          //
+//                       PLAYER TICKETS                         //
 //==============================================================//
-/// @title PlayerTickets - Game utility tokens for Heavy Helms
+/// @title Player Tickets for Heavy Helms
 /// @notice Manages both fungible utility tickets and non-fungible name change NFTs
-/// @dev All tickets are tradeable on OpenSea
+/// @dev All tickets are tradeable on OpenSea except soulbound tokens
 contract PlayerTickets is ERC1155, ConfirmedOwner {
     //==============================================================//
-    //                     TOKEN ID CONSTANTS                       //
+    //                          ENUMS                               //
     //==============================================================//
-    // Fungible ticket IDs (1-99)
-    uint256 public constant CREATE_PLAYER_TICKET = 1;
-    uint256 public constant PLAYER_SLOT_TICKET = 2;
-    uint256 public constant WEAPON_SPECIALIZATION_TICKET = 3;
-    uint256 public constant ARMOR_SPECIALIZATION_TICKET = 4;
-    uint256 public constant DUEL_TICKET = 5;
-    uint256 public constant DAILY_RESET_TICKET = 6;
-    uint256 public constant ATTRIBUTE_SWAP_TICKET = 7;
-
-    // Non-fungible name change NFTs start at 100
-    uint256 public nextNameChangeTokenId = 100;
+    /// @notice Types of permissions that can be granted to game contracts
+    enum TicketPermission {
+        PLAYER_CREATION,
+        PLAYER_SLOTS,
+        NAME_CHANGES,
+        WEAPON_SPECIALIZATION,
+        ARMOR_SPECIALIZATION,
+        DUELS,
+        DAILY_RESETS,
+        ATTRIBUTE_SWAPS
+    }
 
     //==============================================================//
-    //                        STRUCTS                               //
+    //                          STRUCTS                             //
     //==============================================================//
     /// @notice Data stored for each name change NFT
     struct NameData {
@@ -66,23 +73,21 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     }
 
     //==============================================================//
-    //                          ENUMS                               //
+    //                      STATE VARIABLES                         //
     //==============================================================//
-    /// @notice Types of permissions that can be granted to game contracts
-    enum TicketPermission {
-        PLAYER_CREATION,
-        PLAYER_SLOTS,
-        NAME_CHANGES,
-        WEAPON_SPECIALIZATION,
-        ARMOR_SPECIALIZATION,
-        DUELS,
-        DAILY_RESETS,
-        ATTRIBUTE_SWAPS
-    }
+    // --- Token ID Constants ---
+    /// @notice Fungible ticket IDs (1-99)
+    uint256 public constant CREATE_PLAYER_TICKET = 1;
+    uint256 public constant PLAYER_SLOT_TICKET = 2;
+    uint256 public constant WEAPON_SPECIALIZATION_TICKET = 3;
+    uint256 public constant ARMOR_SPECIALIZATION_TICKET = 4;
+    uint256 public constant DUEL_TICKET = 5;
+    uint256 public constant DAILY_RESET_TICKET = 6;
+    uint256 public constant ATTRIBUTE_SWAP_TICKET = 7;
 
-    //==============================================================//
-    //                    STATE VARIABLES                           //
-    //==============================================================//
+    // --- Dynamic Variables ---
+    /// @notice Non-fungible name change NFTs start at 100
+    uint256 public nextNameChangeTokenId = 100;
     /// @notice Reference to the player name registry for resolving names
     IPlayerNameRegistry private immutable _nameRegistry;
 
@@ -399,7 +404,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     }
 
     //==============================================================//
-    //                     INTERNAL HELPERS                         //
+    //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
     /// @notice Gets the required permission for a ticket type
     /// @param ticketType The ticket type to check

@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {DuelGame} from "../../../src/game/modes/DuelGame.sol";
 
 contract CancelDuelScript is Script {
@@ -26,7 +26,7 @@ contract CancelDuelScript is Script {
 
         // Cancel the challenge
         duelGame.cancelChallenge(challengeId);
-        console.log("Challenge cancelled:", challengeId);
+        console2.log("Challenge cancelled:", challengeId);
 
         vm.stopBroadcast();
     }

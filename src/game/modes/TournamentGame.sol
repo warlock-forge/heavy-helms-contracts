@@ -16,7 +16,6 @@ import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {UniformRandomNumber} from "../../lib/UniformRandomNumber.sol";
 import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
 import {IPlayer} from "../../interfaces/fighters/IPlayer.sol";
-import {IPlayerDataCodec} from "../../interfaces/fighters/IPlayerDataCodec.sol";
 import {IEquipmentRequirements} from "../../interfaces/game/engine/IEquipmentRequirements.sol";
 import {IPlayerSkinRegistry} from "../../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
@@ -156,7 +155,7 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     uint256 public futureBlocksForTournament = 20;
     /// @notice Whether the game is enabled for queueing.
     bool public isGameEnabled = true;
-    /// @notice Daily tournament hour in UTC (20:00 = noon PST).
+    /// @notice Daily tournament hour in UTC (20:00).
     uint256 public constant DAILY_TOURNAMENT_HOUR = 20;
     /// @notice Window after tournament hour to run (1 hour).
     uint256 public constant TOURNAMENT_WINDOW_HOURS = 1;

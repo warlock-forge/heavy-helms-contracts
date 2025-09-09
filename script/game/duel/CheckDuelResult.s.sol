@@ -7,10 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {DuelGame} from "../../../src/game/modes/DuelGame.sol";
-import {GameEngine} from "../../../src/game/engine/GameEngine.sol";
-import {Fighter} from "../../../src/fighters/Fighter.sol";
 
 contract CheckDuelResultScript is Script {
     function setUp() public {}
@@ -45,21 +43,21 @@ contract CheckDuelResultScript is Script {
             DuelGame.ChallengeState state
         ) = duelGame.challenges(challengeId);
 
-        console.log("Challenge ID:", challengeId);
-        console.log("Challenger ID:", challengerId);
-        console.log("Defender ID:", defenderId);
-        console.log("Created Block:", createdBlock);
-        console.log("Created Timestamp:", createdTimestamp);
-        console.log("VRF Request Timestamp:", vrfRequestTimestamp);
-        console.log("State:", getStateString(state));
+        console2.log("Challenge ID:", challengeId);
+        console2.log("Challenger ID:", challengerId);
+        console2.log("Defender ID:", defenderId);
+        console2.log("Created Block:", createdBlock);
+        console2.log("Created Timestamp:", createdTimestamp);
+        console2.log("VRF Request Timestamp:", vrfRequestTimestamp);
+        console2.log("State:", getStateString(state));
 
         if (state == DuelGame.ChallengeState.COMPLETED) {
-            console.log("Duel has been completed!");
+            console2.log("Duel has been completed!");
             // You can check the DuelComplete event logs to see who won
         } else if (state == DuelGame.ChallengeState.PENDING) {
-            console.log("Duel is still pending VRF completion");
+            console2.log("Duel is still pending VRF completion");
         } else {
-            console.log("Challenge is not active or has expired");
+            console2.log("Challenge is not active or has expired");
         }
 
         vm.stopBroadcast();

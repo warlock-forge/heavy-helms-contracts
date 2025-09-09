@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {MonsterSkinNFT} from "../../../src/nft/skins/MonsterSkinNFT.sol";
 import {MonsterLibrary} from "../../../src/fighters/lib/MonsterLibrary.sol";
 import {Monster} from "../../../src/fighters/Monster.sol";

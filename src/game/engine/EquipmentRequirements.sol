@@ -30,7 +30,6 @@ contract EquipmentRequirements is IEquipmentRequirements {
     uint8 public constant WEAPON_AXE_KITE = 12;
     uint8 public constant WEAPON_AXE_TOWER = 13;
     uint8 public constant WEAPON_DUAL_SCIMITARS = 14;
-    uint8 public constant WEAPON_FLAIL_BUCKLER = 15;
     uint8 public constant WEAPON_MACE_KITE = 16;
     uint8 public constant WEAPON_CLUB_TOWER = 17;
     uint8 public constant WEAPON_DUAL_CLUBS = 18;
@@ -38,7 +37,6 @@ contract EquipmentRequirements is IEquipmentRequirements {
     uint8 public constant WEAPON_SCIMITAR_DAGGER = 20;
     uint8 public constant WEAPON_ARMING_SWORD_CLUB = 21;
     uint8 public constant WEAPON_AXE_MACE = 22;
-    uint8 public constant WEAPON_FLAIL_DAGGER = 23;
     uint8 public constant WEAPON_MACE_SHORTSWORD = 24;
     uint8 public constant WEAPON_MAUL = 25;
     uint8 public constant WEAPON_TRIDENT = 26;
@@ -109,10 +107,6 @@ contract EquipmentRequirements is IEquipmentRequirements {
         return Fighter.Attributes({strength: 8, constitution: 0, size: 0, agility: 14, stamina: 0, luck: 0});
     }
 
-    function flailBucklerReqs() public pure returns (Fighter.Attributes memory) {
-        return Fighter.Attributes({strength: 10, constitution: 0, size: 0, agility: 10, stamina: 0, luck: 0});
-    }
-
     function maceKiteReqs() public pure returns (Fighter.Attributes memory) {
         return Fighter.Attributes({strength: 10, constitution: 0, size: 5, agility: 0, stamina: 5, luck: 0});
     }
@@ -139,10 +133,6 @@ contract EquipmentRequirements is IEquipmentRequirements {
 
     function axeMaceReqs() public pure returns (Fighter.Attributes memory) {
         return Fighter.Attributes({strength: 16, constitution: 0, size: 0, agility: 8, stamina: 0, luck: 0});
-    }
-
-    function flailDaggerReqs() public pure returns (Fighter.Attributes memory) {
-        return Fighter.Attributes({strength: 12, constitution: 0, size: 0, agility: 14, stamina: 0, luck: 0});
     }
 
     function maceShortswordReqs() public pure returns (Fighter.Attributes memory) {
@@ -176,7 +166,6 @@ contract EquipmentRequirements is IEquipmentRequirements {
         if (weapon == WEAPON_AXE_KITE) return axeKiteReqs();
         if (weapon == WEAPON_AXE_TOWER) return axeTowerReqs();
         if (weapon == WEAPON_DUAL_SCIMITARS) return dualScimitarsReqs();
-        if (weapon == WEAPON_FLAIL_BUCKLER) return flailBucklerReqs();
         if (weapon == WEAPON_MACE_KITE) return maceKiteReqs();
         if (weapon == WEAPON_CLUB_TOWER) return clubTowerReqs();
         if (weapon == WEAPON_DUAL_CLUBS) return dualClubsReqs();
@@ -184,7 +173,6 @@ contract EquipmentRequirements is IEquipmentRequirements {
         if (weapon == WEAPON_SCIMITAR_DAGGER) return scimitarDaggerReqs();
         if (weapon == WEAPON_ARMING_SWORD_CLUB) return armingSwordClubReqs();
         if (weapon == WEAPON_AXE_MACE) return axeMaceReqs();
-        if (weapon == WEAPON_FLAIL_DAGGER) return flailDaggerReqs();
         if (weapon == WEAPON_MACE_SHORTSWORD) return maceShortswordReqs();
         if (weapon == WEAPON_MAUL) return maulReqs();
         if (weapon == WEAPON_TRIDENT) return tridentReqs();

@@ -7,30 +7,23 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
+import {Vm} from "forge-std/Vm.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
 import {
-    Player,
     TooManyPlayers,
     NotPlayerOwner,
     NoPermission,
     PlayerDoesNotExist,
-    InsufficientCharges,
-    InvalidAttributeSwap,
-    InvalidNameIndex,
-    BadZeroAddress,
-    InsufficientFeeAmount,
-    PendingRequestExists,
-    NoPendingRequest
+    InsufficientFeeAmount
 } from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import {EquipmentRequirementsNotMet} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
 import {SkinNotOwned, SkinRegistryDoesNotExist} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
-import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
-import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
 import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
-import "../TestBase.sol";
-import "../mocks/UnlockNFT.sol";
+import {TestBase} from "../TestBase.sol";
+import {UnlockNFT} from "../mocks/UnlockNFT.sol";
 
 contract PlayerTest is TestBase {
     // Test addresses

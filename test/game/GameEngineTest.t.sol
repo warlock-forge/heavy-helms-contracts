@@ -7,9 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
 import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {GameEngine} from "../../src/game/engine/GameEngine.sol";

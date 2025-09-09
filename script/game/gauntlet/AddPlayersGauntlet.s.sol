@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {GauntletGame} from "../../../src/game/modes/GauntletGame.sol";
 import {Fighter} from "../../../src/fighters/Fighter.sol";
 import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";

@@ -7,12 +7,12 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
-import "forge-std/console.sol";
-import "../../src/game/engine/GameEngine.sol";
-import "../../src/interfaces/fighters/IPlayer.sol";
-import "../../src/interfaces/game/engine/IGameEngine.sol";
-import "../TestBase.sol";
+import {console} from "forge-std/console.sol";
+import {GameEngine} from "../../src/game/engine/GameEngine.sol";
+import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+import {TestBase} from "../TestBase.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
 
 contract BalanceTest is TestBase {
     // Standard test attributes

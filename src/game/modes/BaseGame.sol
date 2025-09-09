@@ -66,6 +66,7 @@ abstract contract BaseGame {
         if (_gameEngine == address(0) || _playerContract == address(0)) revert ZeroAddress();
         gameEngine = IGameEngine(_gameEngine);
         playerContract = IPlayer(_playerContract);
+        emit GameEngineUpdated(address(0), _gameEngine);
     }
 
     //==============================================================//

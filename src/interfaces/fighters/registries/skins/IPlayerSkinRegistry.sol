@@ -10,8 +10,8 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "../../../../fighters/Fighter.sol";
-import "../../../game/engine/IEquipmentRequirements.sol";
+import {Fighter} from "../../../../fighters/Fighter.sol";
+import {IEquipmentRequirements} from "../../../game/engine/IEquipmentRequirements.sol";
 
 //==============================================================//
 //                    PLAYER SKIN REGISTRY                      //

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {Test, stdError} from "forge-std/Test.sol";
-import {Player, NotPlayerOwner, InsufficientCharges, InvalidAttributeSwap} from "../../src/fighters/Player.sol";
+import {NotPlayerOwner, InsufficientCharges} from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
 
 contract PlayerAttributePointsTest is TestBase {
     address public PLAYER_ONE;
@@ -12,7 +11,7 @@ contract PlayerAttributePointsTest is TestBase {
     uint32 public playerId1;
     uint32 public playerId2;
 
-    event PlayerLevelUp(uint32 indexed playerId, uint8 newLevel, uint8 attributePointsAwarded);
+    event PlayerLevelUp(uint32 indexed playerId, uint8 newLevel);
     event PlayerAttributePointUsed(
         uint32 indexed playerId, IPlayer.Attribute attribute, uint8 newValue, uint256 remainingPoints
     );
@@ -44,7 +43,7 @@ contract PlayerAttributePointsTest is TestBase {
 
         // Award enough XP to level up (100 XP for level 2)
         vm.expectEmit(true, false, false, true);
-        emit PlayerLevelUp(playerId1, 2, 1);
+        emit PlayerLevelUp(playerId1, 2);
 
         playerContract.awardExperience(playerId1, 100);
 

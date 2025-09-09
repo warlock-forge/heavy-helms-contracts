@@ -14,6 +14,14 @@ import {IPlayerSkinRegistry} from "../interfaces/fighters/registries/skins/IPlay
 import {IPlayerSkinNFT} from "../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 //==============================================================//
+//                       CUSTOM ERRORS                          //
+//==============================================================//
+/// @notice Thrown when a zero address is provided for skin registry
+error InvalidSkinRegistry();
+/// @notice Thrown when an invalid skin is provided
+error InvalidSkin();
+
+//==============================================================//
 //                         HEAVY HELMS                          //
 //                           FIGHTER                            //
 //==============================================================//
@@ -98,7 +106,7 @@ abstract contract Fighter {
     /// @param skinRegistryAddress Address of the skin registry contract
     /// @dev Reverts if the skin registry address is zero
     constructor(address skinRegistryAddress) {
-        require(skinRegistryAddress != address(0), "Invalid skin registry");
+        if (skinRegistryAddress == address(0)) revert InvalidSkinRegistry();
         _skinRegistry = IPlayerSkinRegistry(skinRegistryAddress);
     }
 
@@ -130,6 +138,10 @@ abstract contract Fighter {
     function getSkinAttributes(SkinInfo memory skin) public view returns (IPlayerSkinNFT.SkinAttributes memory) {
         IPlayerSkinRegistry skinReg = skinRegistry();
         IPlayerSkinRegistry.SkinCollectionInfo memory skinInfo = skinReg.getSkin(skin.skinIndex);
+
+        // Validate skin collection exists
+        if (skinInfo.contractAddress == address(0)) revert InvalidSkin();
+
         return IPlayerSkinNFT(skinInfo.contractAddress).getSkinAttributes(skin.skinTokenId);
     }
 

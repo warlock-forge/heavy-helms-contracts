@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {Player} from "../../../src/fighters/Player.sol";
 import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 
@@ -27,7 +27,7 @@ contract WhitelistGameScript is Script {
         IPlayer.GamePermissions memory perms =
             IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: false});
         playerContract.setGameContractPermission(gameAddr, perms);
-        console.log("Game contract permission set:", gameAddr);
+        console2.log("Game contract permission set:", gameAddr);
 
         vm.stopBroadcast();
     }

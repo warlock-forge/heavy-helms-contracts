@@ -7,9 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {Player} from "../../../src/fighters/Player.sol";
-import {PlayerSkinRegistry} from "../../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
 import {IPlayer} from "../../../src/interfaces/fighters/IPlayer.sol";
 
 contract EquipSkinScript is Script {

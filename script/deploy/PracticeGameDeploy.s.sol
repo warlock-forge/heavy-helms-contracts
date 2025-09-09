@@ -7,10 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {PracticeGame} from "../../src/game/modes/PracticeGame.sol";
-import {GameEngine} from "../../src/game/engine/GameEngine.sol";
-import {Player} from "../../src/fighters/Player.sol";
 
 contract PracticeGameDeployScript is Script {
     function setUp() public {}

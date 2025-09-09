@@ -7,12 +7,9 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
 import {Player, NoPermission} from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
-import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
-import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
 
 contract PlayerPermissionsTest is TestBase {
     address public gameContract;

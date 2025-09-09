@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
 import {
     GauntletGame,
     InvalidBlockhash,
@@ -18,6 +18,8 @@ import {
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
+import {Vm} from "forge-std/Vm.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 
 // Helper contract to receive ETH
 contract EthReceiver {

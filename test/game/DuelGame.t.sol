@@ -7,20 +7,12 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import {DuelGame} from "../../src/game/modes/DuelGame.sol";
-import {Player} from "../../src/fighters/Player.sol";
-import {GameEngine} from "../../src/game/engine/GameEngine.sol";
-import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
-import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
-import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
-import {UnlockNFT} from "../mocks/UnlockNFT.sol";
-import "../TestBase.sol";
-import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
+import {TestBase} from "../TestBase.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
-import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
+import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 
 contract DuelGameTest is TestBase {
     DuelGame public game;

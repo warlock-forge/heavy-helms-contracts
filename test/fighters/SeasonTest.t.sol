@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import "../TestBase.sol";
-import "../../src/fighters/Fighter.sol";
-import {BokkyPooBahsDateTimeLibrary} from "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
+import {TestBase} from "../TestBase.sol";
+import {Fighter} from "../../src/fighters/Fighter.sol";
+import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 
 contract SeasonTest is TestBase {
     uint32 public testPlayerId1;
@@ -80,17 +80,17 @@ contract SeasonTest is TestBase {
         playerContract.setSeasonLength(2);
     }
 
-    function testPSTCalculation() public {
-        // Test PST calculation function
-        uint256 nextMonthPST = playerContract.getNextSeasonStartPST();
-        assertGt(nextMonthPST, block.timestamp, "Next month PST should be in future");
+    function testSeasonCalculation() public {
+        // Test season calculation function
+        uint256 nextMonth = playerContract.getNextSeasonStart();
+        assertGt(nextMonth, block.timestamp, "Next month should be in future");
 
         // Test with different season lengths
         vm.prank(address(this));
         playerContract.setSeasonLength(3);
 
-        uint256 next3MonthsPST = playerContract.getNextSeasonStartPST();
-        assertGt(next3MonthsPST, nextMonthPST, "3-month period should be later than 1-month");
+        uint256 next3Months = playerContract.getNextSeasonStart();
+        assertGt(next3Months, nextMonth, "3-month period should be later than 1-month");
     }
 
     // ==================== SEASON TRANSITION TESTS ====================

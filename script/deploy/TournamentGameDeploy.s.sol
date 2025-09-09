@@ -7,9 +7,8 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {TournamentGame} from "../../src/game/modes/TournamentGame.sol";
-import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 import {Player} from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";

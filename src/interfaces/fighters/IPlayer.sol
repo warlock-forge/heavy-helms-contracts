@@ -10,11 +10,11 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "./registries/names/IPlayerNameRegistry.sol";
-import "./registries/skins/IPlayerSkinRegistry.sol";
-import "./IPlayerDataCodec.sol";
-import "../../fighters/Fighter.sol";
-import "../game/engine/IEquipmentRequirements.sol";
+import {IPlayerNameRegistry} from "./registries/names/IPlayerNameRegistry.sol";
+import {IPlayerSkinRegistry} from "./registries/skins/IPlayerSkinRegistry.sol";
+import {IPlayerDataCodec} from "./IPlayerDataCodec.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {IEquipmentRequirements} from "../game/engine/IEquipmentRequirements.sol";
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -218,11 +218,6 @@ interface IPlayer {
     /// @param decreaseAttribute The attribute to decrease
     /// @param increaseAttribute The attribute to increase
     function swapAttributes(uint32 playerId, Attribute decreaseAttribute, Attribute increaseAttribute) external;
-
-    /// @notice Gets the number of available attribute points for a player
-    /// @param playerId The player ID to check
-    /// @return Number of available attribute points from leveling
-    function attributePoints(uint32 playerId) external view returns (uint256);
 
     /// @notice Uses an attribute point earned from leveling to increase a player's attribute by 1
     /// @param playerId The ID of the player to update

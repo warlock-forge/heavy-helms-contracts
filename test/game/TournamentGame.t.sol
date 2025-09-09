@@ -7,7 +7,7 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
 import {
     TournamentGame,
     AlreadyInQueue,
@@ -24,8 +24,10 @@ import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
 import {IPlayerTickets} from "../../src/interfaces/nft/IPlayerTickets.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract TournamentGameTest is TestBase {
     TournamentGame public game;
@@ -170,7 +172,7 @@ contract TournamentGameTest is TestBase {
         // Queue minimum players
         _queuePlayers(16);
 
-        // Set time to before tournament hour (noon PST = 20:00 UTC)
+        // Set time to before tournament hour (20:00 UTC)
         vm.warp(block.timestamp - (block.timestamp % 1 days) + 19 hours); // 19:00 UTC
 
         vm.expectRevert(TournamentTooEarly.selector);

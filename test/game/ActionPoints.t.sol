@@ -7,13 +7,10 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test} from "forge-std/Test.sol";
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
-import "../TestBase.sol";
-import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
-import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
-import {Player} from "../../src/fighters/Player.sol";
+import {TestBase} from "../TestBase.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
+import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 
 contract ActionPointsTest is TestBase {
     function setUp() public override {

@@ -7,10 +7,9 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {DefaultPlayerSkinNFT} from "../../../src/nft/skins/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../../src/fighters/lib/DefaultPlayerLibrary.sol";
-import {IDefaultPlayer} from "../../../src/interfaces/fighters/IDefaultPlayer.sol";
 import {DefaultPlayer} from "../../../src/fighters/DefaultPlayer.sol";
 
 contract MintDefaultSkinScript is Script {

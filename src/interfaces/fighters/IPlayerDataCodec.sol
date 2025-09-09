@@ -1,13 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "./IPlayer.sol";
-import "../../fighters/Fighter.sol";
+//==============================================================//
+//                          IMPORTS                             //
+//==============================================================//
+import {IPlayer} from "./IPlayer.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
 
-/// @title IPlayerDataCodec
-/// @notice Interface for encoding and decoding player data for efficient storage/transmission
+//==============================================================//
+//                         HEAVY HELMS                          //
+//                   PLAYER DATA CODEC INTERFACE                //
+//==============================================================//
+/// @title Player Data Codec Interface for Heavy Helms
+/// @notice Defines functionality for encoding/decoding player data for efficient storage
 /// @dev Used by Player contract and game modes for data packing
 interface IPlayerDataCodec {
+    //==============================================================//
+    //                    EXTERNAL FUNCTIONS                        //
+    //==============================================================//
     /// @notice Packs player data into a compact bytes32 format for efficient storage/transmission
     /// @param playerId The ID of the player to encode
     /// @param stats The player's stats and attributes to encode

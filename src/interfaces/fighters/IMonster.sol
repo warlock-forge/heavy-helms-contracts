@@ -10,8 +10,9 @@ pragma solidity ^0.8.13;
 //==============================================================//
 //                          IMPORTS                             //
 //==============================================================//
-import "../../fighters/Fighter.sol";
-import "./registries/names/IMonsterNameRegistry.sol";
+import {Fighter} from "../../fighters/Fighter.sol";
+import {IMonsterNameRegistry} from "./registries/names/IMonsterNameRegistry.sol";
+import {IPlayerSkinRegistry} from "./registries/skins/IPlayerSkinRegistry.sol";
 
 //==============================================================//
 //                         HEAVY HELMS                          //

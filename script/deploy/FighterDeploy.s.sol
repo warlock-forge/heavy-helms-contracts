@@ -7,17 +7,14 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {Player} from "../../src/fighters/Player.sol";
 import {PlayerDataCodec} from "../../src/lib/PlayerDataCodec.sol";
 import {DefaultPlayer} from "../../src/fighters/DefaultPlayer.sol";
 import {DefaultPlayerSkinNFT} from "../../src/nft/skins/DefaultPlayerSkinNFT.sol";
 import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
-import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
-import {IPlayerNameRegistry} from "../../src/interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkinRegistry.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-import {IDefaultPlayer} from "../../src/interfaces/fighters/IDefaultPlayer.sol";
 import {Monster} from "../../src/fighters/Monster.sol";
 import {MonsterLibrary} from "../../src/fighters/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../../src/nft/skins/MonsterSkinNFT.sol";

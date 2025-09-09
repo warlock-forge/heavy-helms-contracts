@@ -12,7 +12,6 @@ pragma solidity ^0.8.13;
 //==============================================================//
 // External imports
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
-import {ERC20} from "solady/tokens/ERC20.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 // Internal imports
@@ -24,13 +23,14 @@ import {Fighter} from "./Fighter.sol";
 import {IPlayerDataCodec} from "../interfaces/fighters/IPlayerDataCodec.sol";
 import {UniformRandomNumber} from "../lib/UniformRandomNumber.sol";
 import {IPlayerSkinRegistry} from "../interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
-// DateTime library for PST season calculations
+// DateTime library for season calculations
 import {BokkyPooBahsDateTimeLibrary} from "BokkyPooBahsDateTimeLibrary/BokkyPooBahsDateTimeLibrary.sol";
+
 //==============================================================//
 //                       CUSTOM ERRORS                          //
 //==============================================================//
-/// @notice Thrown when a player ID doesn't exist
 
+/// @notice Thrown when a player ID doesn't exist
 error PlayerDoesNotExist(uint32 playerId);
 /// @notice Thrown when caller doesn't own the player they're trying to modify
 error NotPlayerOwner();
@@ -40,6 +40,8 @@ error VrfRequestNotTimedOut();
 error ValueMustBePositive();
 /// @notice Thrown when attempting to modify a retired player
 error PlayerIsRetired(uint32 playerId);
+/// @notice Thrown when attempting to retire an immortal player
+error PlayerIsImmortal(uint32 playerId);
 /// @notice Thrown when contract is in paused state
 error ContractPaused();
 /// @notice Thrown when an address attempts to create more players than allowed
@@ -163,15 +165,15 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @notice Tracks how many active (non-retired) players each address has
     mapping(address => uint256) private _addressActivePlayerCount;
     /// @notice Maps player ID to their retirement status
-    mapping(uint32 => bool) private _retiredPlayers;
+    mapping(uint32 => bool) public retiredPlayers;
     /// @notice Maps player ID to their immortality status
-    mapping(uint32 => bool) private _immortalPlayers;
+    mapping(uint32 => bool) public immortalPlayers;
     /// @notice Maps game contract address to their granted permissions
     mapping(address => IPlayer.GamePermissions) private _gameContractPermissions;
     /// @notice Maps address to their number of purchased extra player slots
     mapping(address => uint8) private _extraPlayerSlots;
     /// @notice Maps player ID to their available attribute points from leveling
-    mapping(uint32 => uint256) private _attributePoints;
+    mapping(uint32 => uint256) public attributePoints;
 
     // VRF Request tracking
     /// @notice Maps VRF request IDs to their pending player creation details
@@ -308,11 +310,6 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param surnameIndex New surname index
     event PlayerNameUpdated(uint32 indexed playerId, uint16 firstNameIndex, uint16 surnameIndex);
 
-    /// @notice Emitted when a name change charge is awarded
-    /// @param to Address receiving the charge
-    /// @param totalCharges Total number of name change charges available
-    event NameChangeAwarded(address indexed to, uint256 totalCharges);
-
     /// @notice Emitted when a player's attributes are swapped
     /// @param playerId The ID of the player
     /// @param decreaseAttribute Attribute being decreased
@@ -359,8 +356,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @notice Emitted when a player levels up
     /// @param playerId The ID of the player
     /// @param newLevel The new level achieved
-    /// @param attributePointsAwarded Number of attribute points awarded
-    event PlayerLevelUp(uint32 indexed playerId, uint8 newLevel, uint8 attributePointsAwarded);
+    event PlayerLevelUp(uint32 indexed playerId, uint8 newLevel);
 
     /// @notice Emitted when a player's weapon specialization changes
     /// @param playerId The ID of the player
@@ -372,10 +368,9 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param armorType The new armor specialization (255 = none)
     event PlayerArmorSpecializationChanged(uint32 indexed playerId, uint8 armorType);
 
-    /// @notice Emitted when an attribute point charge is awarded
-    /// @param to Address receiving the charge
-    /// @param totalCharges Total number of attribute point charges available
-    event AttributePointAwarded(address indexed to, uint256 totalCharges);
+    /// @notice Emitted when an attribute point charge is awarded from leveing up
+    /// @param playerId The ID of the player receiving the attribute point
+    event AttributePointAwarded(uint32 indexed playerId);
 
     /// @notice Emitted when VRF configuration is updated
     /// @param keyHash New gas lane key hash
@@ -474,12 +469,15 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         // Initialize season 0
         currentSeason = 0;
         seasons[0] = Season({startTimestamp: block.timestamp, startBlock: block.number});
-        nextSeasonStart = getNextSeasonStartPST();
+        nextSeasonStart = getNextSeasonStart();
         emit SeasonStarted(0, block.timestamp, block.number);
 
-        // Emit initial fee events for subgraph tracking
+        // Emit initial configuration events for subgraph tracking
         emit CreatePlayerFeeUpdated(0, createPlayerFeeAmount);
         emit SlotBatchCostUpdated(0, slotBatchCost);
+        emit EquipmentRequirementsUpdated(address(0), equipmentRequirementsAddress);
+        emit VRFConfigUpdated(_keyHash, callbackGasLimit, requestConfirmations);
+        emit SubscriptionIdUpdated(0, _subscriptionId);
     }
 
     //==============================================================//
@@ -522,21 +520,14 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param playerId The ID of the player to check
     /// @return True if the player is retired, false otherwise
     function isPlayerRetired(uint32 playerId) external view returns (bool) {
-        return _retiredPlayers[playerId];
+        return retiredPlayers[playerId];
     }
 
     /// @notice Checks if a player is immortal
     /// @param playerId The ID of the player to check
     /// @return True if the player is immortal, false otherwise
     function isPlayerImmortal(uint32 playerId) external view returns (bool) {
-        return _immortalPlayers[playerId];
-    }
-
-    /// @notice Gets the number of available attribute points for a player
-    /// @param playerId The player ID to check
-    /// @return Number of available attribute points from leveling
-    function attributePoints(uint32 playerId) external view returns (uint256) {
-        return _attributePoints[playerId];
+        return immortalPlayers[playerId];
     }
 
     /// @notice Calculates XP required for a specific level
@@ -546,13 +537,23 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         if (level == 1) return 0; // Already at level 1
         if (level > 10) return 0; // Invalid level
 
-        // Moderate exponential: BASE_XP * (1.5^(level-2))
-        // Level 2: 100, Level 3: 150, Level 4: 225, etc.
-        uint256 multiplier = 100; // Start at 100 (1.0x)
-        for (uint8 i = 2; i < level; i++) {
-            multiplier = (multiplier * 150) / 100; // Multiply by 1.5
-        }
-        return uint16((uint256(BASE_XP) * multiplier) / 100);
+        // Pre-calculated XP requirements for each level
+        // Formula: BASE_XP * 1.5^(level-2)
+        uint16[11] memory xpRequirements = [
+            uint16(0), // Level 0 (unused)
+            0, // Level 1 (already at level 1)
+            100, // Level 2: 100
+            150, // Level 3: 100 * 1.5
+            225, // Level 4: 100 * 1.5^2
+            338, // Level 5: 100 * 1.5^3 (337.5 rounded)
+            506, // Level 6: 100 * 1.5^4 (506.25 rounded)
+            759, // Level 7: 100 * 1.5^5 (759.375 rounded)
+            1139, // Level 8: 100 * 1.5^6
+            1709, // Level 9: 100 * 1.5^7
+            2563 // Level 10: 100 * 1.5^8
+        ];
+
+        return xpRequirements[level];
     }
 
     /// @notice Gets the status of a VRF request
@@ -647,7 +648,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         onlyPlayerOwner(playerId)
     {
         // Check if player is retired
-        if (_retiredPlayers[playerId]) {
+        if (retiredPlayers[playerId]) {
             revert PlayerIsRetired(playerId);
         }
 
@@ -681,7 +682,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         }
 
         // Check if player is retired
-        if (_retiredPlayers[playerId]) {
+        if (retiredPlayers[playerId]) {
             revert PlayerIsRetired(playerId);
         }
 
@@ -777,7 +778,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         onlyPlayerOwner(playerId)
     {
         // Check if this player has available attribute points
-        if (_attributePoints[playerId] == 0) {
+        if (attributePoints[playerId] == 0) {
             revert InsufficientCharges();
         }
 
@@ -790,12 +791,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         }
 
         // Consume one attribute point from THIS player
-        _attributePoints[playerId]--;
+        attributePoints[playerId]--;
 
         // Increase the attribute
         _setAttributeValue(player, attribute, currentValue + 1);
 
-        emit PlayerAttributePointUsed(playerId, attribute, currentValue + 1, _attributePoints[playerId]);
+        emit PlayerAttributePointUsed(playerId, attribute, currentValue + 1, attributePoints[playerId]);
     }
 
     /// @notice Sets weapon specialization for a player
@@ -864,10 +865,10 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         if (_playerOwners[playerId] != msg.sender) revert NotPlayerOwner();
 
         // Prevent double retirement
-        if (_retiredPlayers[playerId]) revert PlayerIsRetired(playerId);
+        if (retiredPlayers[playerId]) revert PlayerIsRetired(playerId);
 
         // Mark as retired and decrease active count
-        _retiredPlayers[playerId] = true;
+        retiredPlayers[playerId] = true;
         _addressActivePlayerCount[msg.sender]--;
 
         emit PlayerRetired(playerId, msg.sender, true);
@@ -884,8 +885,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         playerExists(playerId)
     {
         // Update both seasonal and lifetime records
-        lifetimeRecords[playerId].wins++;
-        seasonalRecords[playerId][season].wins++;
+        if (lifetimeRecords[playerId].wins < type(uint16).max) {
+            lifetimeRecords[playerId].wins++;
+        }
+        if (seasonalRecords[playerId][season].wins < type(uint16).max) {
+            seasonalRecords[playerId][season].wins++;
+        }
 
         // Emit atomic event for this specific win
         emit PlayerWinRecorded(playerId, season);
@@ -901,8 +906,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         playerExists(playerId)
     {
         // Update both seasonal and lifetime records
-        lifetimeRecords[playerId].losses++;
-        seasonalRecords[playerId][season].losses++;
+        if (lifetimeRecords[playerId].losses < type(uint16).max) {
+            lifetimeRecords[playerId].losses++;
+        }
+        if (seasonalRecords[playerId][season].losses < type(uint16).max) {
+            seasonalRecords[playerId][season].losses++;
+        }
 
         // Emit atomic event for this specific loss
         emit PlayerLossRecorded(playerId, season);
@@ -918,8 +927,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         playerExists(playerId)
     {
         // Update both seasonal and lifetime records
-        lifetimeRecords[playerId].kills++;
-        seasonalRecords[playerId][season].kills++;
+        if (lifetimeRecords[playerId].kills < type(uint16).max) {
+            lifetimeRecords[playerId].kills++;
+        }
+        if (seasonalRecords[playerId][season].kills < type(uint16).max) {
+            seasonalRecords[playerId][season].kills++;
+        }
 
         // Emit atomic event for this specific kill
         emit PlayerKillRecorded(playerId, season);
@@ -934,19 +947,25 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         hasPermission(IPlayer.GamePermission.RETIRE)
         playerExists(playerId)
     {
-        bool wasRetired = _retiredPlayers[playerId];
-        address owner = _playerOwners[playerId];
-
-        // Only update if status is actually changing
-        if (wasRetired != retired) {
-            if (retired) {
-                _addressActivePlayerCount[owner]--;
-            } else {
-                _addressActivePlayerCount[owner]++;
-            }
+        // Prevent retiring immortal players
+        if (retired && immortalPlayers[playerId]) {
+            revert PlayerIsImmortal(playerId);
         }
 
-        _retiredPlayers[playerId] = retired;
+        bool wasRetired = retiredPlayers[playerId];
+
+        if (wasRetired == retired) return;
+
+        address owner = _playerOwners[playerId];
+
+        // Update active count
+        if (retired) {
+            _addressActivePlayerCount[owner]--;
+        } else {
+            _addressActivePlayerCount[owner]++;
+        }
+
+        retiredPlayers[playerId] = retired;
         emit PlayerRetired(playerId, msg.sender, retired);
     }
 
@@ -959,7 +978,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         hasPermission(IPlayer.GamePermission.IMMORTAL)
         playerExists(playerId)
     {
-        _immortalPlayers[playerId] = immortal;
+        immortalPlayers[playerId] = immortal;
         emit PlayerImmortalityChanged(playerId, msg.sender, immortal);
     }
 
@@ -973,27 +992,39 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         playerExists(playerId)
     {
         PlayerStats storage player = _players[playerId];
-        address owner = _playerOwners[playerId];
 
-        // Add experience
-        player.currentXP += xpAmount;
+        // Add experience with overflow protection
+        uint32 newTotalXP = uint32(player.currentXP) + uint32(xpAmount);
+        if (newTotalXP > type(uint16).max) {
+            player.currentXP = type(uint16).max; // Cap at max
+        } else {
+            player.currentXP = uint16(newTotalXP);
+        }
         emit ExperienceGained(playerId, xpAmount, player.currentXP);
 
         // Check for level ups (max level 10)
-        while (player.level < 10) {
-            uint16 xpRequired = getXPRequiredForLevel(player.level + 1);
-            if (player.currentXP < xpRequired) break;
+        uint8 currentLevel = player.level;
+        uint16 currentXP = player.currentXP;
+
+        while (currentLevel < 10) {
+            uint16 xpRequired = getXPRequiredForLevel(currentLevel + 1);
+            if (currentXP < xpRequired) break;
 
             // Level up!
-            player.currentXP -= xpRequired;
-            player.level++;
+            currentXP -= xpRequired;
+            currentLevel++;
 
             // Award attribute points to this player
-            uint8 attributePointsAwarded = 1;
-            _attributePoints[playerId] += attributePointsAwarded;
+            attributePoints[playerId]++;
 
-            emit PlayerLevelUp(playerId, player.level, attributePointsAwarded);
-            emit AttributePointAwarded(owner, _attributePoints[playerId]);
+            emit PlayerLevelUp(playerId, currentLevel);
+            emit AttributePointAwarded(playerId);
+        }
+
+        // Write back to storage only once
+        if (player.level != currentLevel) {
+            player.level = currentLevel;
+            player.currentXP = currentXP;
         }
     }
 
@@ -1009,13 +1040,18 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         if (block.timestamp <= request.timestamp + vrfRequestTimeout) revert VrfRequestNotTimedOut();
 
         // Effects - clear request data before transfer
+        bool wasTicketPayment = request.paidWithTicket;
         delete _pendingPlayers[requestId];
         delete _userPendingRequest[msg.sender];
 
-        // Interactions - transfer ETH after state changes
-        SafeTransferLib.safeTransferETH(msg.sender, createPlayerFeeAmount);
+        // Interactions - only refund ETH if they paid with ETH
+        if (!wasTicketPayment) {
+            SafeTransferLib.safeTransferETH(msg.sender, createPlayerFeeAmount);
+        }
 
-        emit RequestRecovered(requestId, msg.sender, createPlayerFeeAmount, false, block.timestamp);
+        emit RequestRecovered(
+            requestId, msg.sender, wasTicketPayment ? 0 : createPlayerFeeAmount, false, block.timestamp
+        );
     }
 
     // Admin Functions
@@ -1114,7 +1150,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         seasonLengthMonths = months;
 
         // Recalculate next season start with new length
-        nextSeasonStart = getNextSeasonStartPST();
+        nextSeasonStart = getNextSeasonStart();
 
         emit SeasonLengthUpdated(oldLength, months);
     }
@@ -1163,21 +1199,18 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
             seasons[currentSeason] = Season({startTimestamp: block.timestamp, startBlock: block.number});
 
             // Calculate next season start
-            nextSeasonStart = getNextSeasonStartPST();
+            nextSeasonStart = getNextSeasonStart();
 
             emit SeasonStarted(currentSeason, block.timestamp, block.number);
         }
         return currentSeason;
     }
 
-    /// @notice Calculates the timestamp for the first day of next season at midnight PST
+    /// @notice Calculates the timestamp for the first day of next season at midnight
     /// @return Timestamp for next season start
-    function getNextSeasonStartPST() public view returns (uint256) {
-        // Adjust current time to UTC-8 by adding 8 hours
-        uint256 adjustedTime = block.timestamp + 8 hours;
-
-        // Get current date components in UTC-8
-        (uint256 year, uint256 month, /* uint256 day */ ) = BokkyPooBahsDateTimeLibrary.timestampToDate(adjustedTime);
+    function getNextSeasonStart() public view returns (uint256) {
+        // Get current date components
+        (uint256 year, uint256 month, /* uint256 day */ ) = BokkyPooBahsDateTimeLibrary.timestampToDate(block.timestamp);
 
         // Add the configured number of months
         month += seasonLengthMonths;
@@ -1186,11 +1219,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
             year += 1;
         }
 
-        // Create timestamp for 1st of target month at midnight UTC-8
-        uint256 firstOfMonthUTC = BokkyPooBahsDateTimeLibrary.timestampFromDate(year, month, 1);
-
-        // Subtract 8 hours to get the actual UTC timestamp
-        return firstOfMonthUTC - 8 hours;
+        // Create timestamp for 1st of target month at midnight
+        return BokkyPooBahsDateTimeLibrary.timestampFromDate(year, month, 1);
     }
 
     /// @notice Gets the current season record for a player

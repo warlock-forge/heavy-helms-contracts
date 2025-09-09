@@ -7,11 +7,12 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test, console2} from "forge-std/Test.sol";
 import {TournamentGame} from "../../src/game/modes/TournamentGame.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
-import "../TestBase.sol";
+import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
+import {console2} from "forge-std/console2.sol";
+import {TestBase} from "../TestBase.sol";
 
 contract TournamentGasAnalysisTest is TestBase {
     TournamentGame public game;

@@ -7,10 +7,11 @@
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 import {GauntletGame} from "../../src/game/modes/GauntletGame.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
-import "../TestBase.sol";
+import {TestBase} from "../TestBase.sol";
+import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 
 contract GauntletGasAnalysisTest is TestBase {
     GauntletGame public game;

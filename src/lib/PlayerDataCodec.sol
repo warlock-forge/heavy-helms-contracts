@@ -1,19 +1,35 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import "../interfaces/fighters/IPlayerDataCodec.sol";
-import "../interfaces/fighters/IPlayer.sol";
-import "../fighters/Fighter.sol";
+//==============================================================//
+//                          IMPORTS                             //
+//==============================================================//
+import {IPlayerDataCodec} from "../interfaces/fighters/IPlayerDataCodec.sol";
+import {IPlayer} from "../interfaces/fighters/IPlayer.sol";
+import {Fighter} from "../fighters/Fighter.sol";
 
-/// @title PlayerDataCodec
+//==============================================================//
+//                         HEAVY HELMS                          //
+//                      PLAYER DATA CODEC                       //
+//==============================================================//
+/// @title Player Data Codec for Heavy Helms
 /// @notice Handles encoding and decoding of player data for efficient storage/transmission
 /// @dev Pure functions extracted from Player contract to reduce size
 contract PlayerDataCodec is IPlayerDataCodec {
+    //==============================================================//
+    //                    EXTERNAL FUNCTIONS                        //
+    //==============================================================//
     /// @notice Packs player data into a compact bytes32 format for efficient storage/transmission
     /// @param playerId The ID of the player to encode
     /// @param stats The player's stats and attributes to encode
     /// @param seasonalRecord The player's seasonal record to encode
-    /// @return bytes32 Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][stance(1)][names(4)][records(6)][progression(5)]
+    /// @return Packed player data in the format: [playerId(4)][stats(6)][skinIndex(4)][tokenId(2)][stance(1)][names(4)][records(6)][progression(5)]
     /// @dev Byte layout: [0-3:playerId][4-9:stats][10-13:skinIndex][14-15:tokenId][16:stance][17-20:names][21-26:records][27-31:progression]
     function encodePlayerData(uint32 playerId, IPlayer.PlayerStats memory stats, Fighter.Record memory seasonalRecord)
         external
