@@ -45,7 +45,11 @@ contract FighterDeployScript is Script {
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
 
         // 2. Deploy PlayerTickets contract (requires nameRegistry)
-        PlayerTickets playerTickets = new PlayerTickets(nameRegistryAddr);
+        PlayerTickets playerTickets = new PlayerTickets(
+            nameRegistryAddr,
+            "bafybeib2pydnkibnj5o3udxg2grmh4dt2tztcecccka4rxia5xumqpemjm", // Fungible metadata CID
+            "bafybeibgu5ach7brer6jcjqcgtacxn2ltmgxwencxmcmlf3jt5mmwhxrje" // Name change image CID
+        );
 
         // 3. Deploy Player contract with Chainlink VRF coordinator, equipment requirements, and playerTickets
         Player playerContract = new Player(
@@ -91,6 +95,7 @@ contract FighterDeployScript is Script {
         MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
 
         console2.log("\n=== Deployed Addresses ===");
+        console2.log("PlayerDataCodec:", address(playerDataCodec));
         console2.log("Player:", address(playerContract));
         console2.log("PlayerTickets:", address(playerTickets));
         console2.log("DefaultPlayer:", address(defaultPlayerContract));

@@ -29,7 +29,11 @@ contract PlayerTicketsTest is Test {
         nameRegistry.addSurnames(NameLibrary.getInitialSurnames());
 
         // Deploy PlayerTickets with name registry
-        tickets = new PlayerTickets(address(nameRegistry));
+        tickets = new PlayerTickets(
+            address(nameRegistry),
+            "bafybeib2pydnkibnj5o3udxg2grmh4dt2tztcecccka4rxia5xumqpemjm", // Fungible metadata CID
+            "bafybeibgu5ach7brer6jcjqcgtacxn2ltmgxwencxmcmlf3jt5mmwhxrje" // Name change image CID
+        );
 
         // Set up game contract permissions for name changes
         PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
@@ -109,26 +113,26 @@ contract PlayerTicketsTest is Test {
     }
 
     function testFungibleTicketURIs() public view {
-        // Test all 5 fungible ticket URIs are base64 encoded JSON
+        // Test all 5 fungible ticket URIs are IPFS links
         string memory uri1 = tickets.uri(tickets.CREATE_PLAYER_TICKET());
         string memory uri2 = tickets.uri(tickets.PLAYER_SLOT_TICKET());
         string memory uri3 = tickets.uri(tickets.WEAPON_SPECIALIZATION_TICKET());
         string memory uri4 = tickets.uri(tickets.ARMOR_SPECIALIZATION_TICKET());
         string memory uri5 = tickets.uri(tickets.DUEL_TICKET());
 
-        // All should start with data:application/json;base64,
+        // All should be non-empty
         assertTrue(bytes(uri1).length > 0);
         assertTrue(bytes(uri2).length > 0);
         assertTrue(bytes(uri3).length > 0);
         assertTrue(bytes(uri4).length > 0);
         assertTrue(bytes(uri5).length > 0);
 
-        // Verify they're data URIs (not IPFS)
-        assertTrue(_startsWith(uri1, "data:application/json;base64,"));
-        assertTrue(_startsWith(uri2, "data:application/json;base64,"));
-        assertTrue(_startsWith(uri3, "data:application/json;base64,"));
-        assertTrue(_startsWith(uri4, "data:application/json;base64,"));
-        assertTrue(_startsWith(uri5, "data:application/json;base64,"));
+        // Verify they're IPFS URIs
+        assertTrue(_startsWith(uri1, "ipfs://"));
+        assertTrue(_startsWith(uri2, "ipfs://"));
+        assertTrue(_startsWith(uri3, "ipfs://"));
+        assertTrue(_startsWith(uri4, "ipfs://"));
+        assertTrue(_startsWith(uri5, "ipfs://"));
 
         // Log one example to verify it looks good
         console2.log("Create Player Ticket URI:");

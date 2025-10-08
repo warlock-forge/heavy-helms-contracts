@@ -85,6 +85,12 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     uint256 public constant DAILY_RESET_TICKET = 6;
     uint256 public constant ATTRIBUTE_SWAP_TICKET = 7;
 
+    // --- IPFS Configuration ---
+    /// @notice IPFS CID for fungible ticket metadata (IDs 1-7)
+    string public fungibleMetadataCID;
+    /// @notice IPFS CID for name change NFT background image
+    string public nameChangeImageCID;
+
     // --- Dynamic Variables ---
     /// @notice Non-fungible name change NFTs start at 100
     uint256 public nextNameChangeTokenId = 100;
@@ -106,6 +112,12 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     /// @notice Emitted when a name change NFT is minted
     event NameChangeNFTMinted(uint256 indexed tokenId, address indexed to, uint16 firstNameIndex, uint16 surnameIndex);
 
+    /// @notice Emitted when fungible metadata CID is updated
+    event FungibleMetadataCIDUpdated(string oldCID, string newCID);
+
+    /// @notice Emitted when name change image CID is updated
+    event NameChangeImageCIDUpdated(string oldCID, string newCID);
+
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
@@ -119,9 +131,13 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     //==============================================================//
     //                       CONSTRUCTOR                            //
     //==============================================================//
-    constructor(address nameRegistryAddress) ConfirmedOwner(msg.sender) {
+    constructor(address nameRegistryAddress, string memory _fungibleMetadataCID, string memory _nameChangeImageCID)
+        ConfirmedOwner(msg.sender)
+    {
         if (nameRegistryAddress == address(0)) revert ZeroAddress();
         _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
+        fungibleMetadataCID = _fungibleMetadataCID;
+        nameChangeImageCID = _nameChangeImageCID;
     }
 
     //==============================================================//
@@ -157,14 +173,14 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     /// @param id The token ID to get URI for
     /// @return The URI string
     function uri(uint256 id) public view override returns (string memory) {
-        if (id == CREATE_PLAYER_TICKET) return _generateCreatePlayerURI();
-        if (id == PLAYER_SLOT_TICKET) return _generatePlayerSlotURI();
-        if (id == WEAPON_SPECIALIZATION_TICKET) return _generateWeaponSpecURI();
-        if (id == ARMOR_SPECIALIZATION_TICKET) return _generateArmorSpecURI();
-        if (id == DUEL_TICKET) return _generateDuelTicketURI();
-        if (id == DAILY_RESET_TICKET) return _generateDailyResetURI();
-        if (id == ATTRIBUTE_SWAP_TICKET) return _generateAttributeSwapURI();
-        if (id >= 100) return _generateNameChangeURI(id);
+        // Fungible tickets (IDs 1-7) use IPFS metadata
+        if (id >= 1 && id <= 7) {
+            return string(abi.encodePacked("ipfs://", fungibleMetadataCID, "/", LibString.toString(id), ".json"));
+        }
+        // Name change NFTs (IDs >= 100) use dynamic on-chain metadata
+        if (id >= 100) {
+            return _generateNameChangeURI(id);
+        }
         return "";
     }
 
@@ -403,6 +419,22 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         emit GameContractPermissionsUpdated(gameContract, permissions);
     }
 
+    /// @notice Updates the IPFS CID for fungible ticket metadata
+    /// @param newCID The new IPFS CID
+    function setFungibleMetadataCID(string calldata newCID) external onlyOwner {
+        string memory oldCID = fungibleMetadataCID;
+        fungibleMetadataCID = newCID;
+        emit FungibleMetadataCIDUpdated(oldCID, newCID);
+    }
+
+    /// @notice Updates the IPFS CID for name change NFT background image
+    /// @param newCID The new IPFS CID
+    function setNameChangeImageCID(string calldata newCID) external onlyOwner {
+        string memory oldCID = nameChangeImageCID;
+        nameChangeImageCID = newCID;
+        emit NameChangeImageCIDUpdated(oldCID, newCID);
+    }
+
     //==============================================================//
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
@@ -457,281 +489,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         }
     }
 
-    /// @notice Generates SVG-based URI for Create Player ticket
-    function _generateCreatePlayerURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
-                '<text x="200" y="200" text-anchor="middle" fill="#4169E1" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">CREATE PLAYER</text>',
-                unicode'<text x="200" y="240" text-anchor="middle" fill="white" font-size="48">⚔️</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#4169E1" font-size="14" font-family="serif">RARE TICKET</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Player Creation Ticket",',
-                '"description":"Allows creation of a new warrior in Heavy Helms. Burn this ticket to bypass the ETH creation fee and mint your warrior.",',
-                '"image":"data:image/svg+xml;base64,',
-                Base64.encode(bytes(svg)),
-                '",',
-                '"attributes":[',
-                '{"trait_type":"Item Type","value":"Ticket"},',
-                '{"trait_type":"Rarity","value":"Rare"},',
-                '{"trait_type":"Effect","value":"Create Player"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Generates SVG-based URI for Player Slot ticket
-    function _generatePlayerSlotURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
-                '<text x="200" y="200" text-anchor="middle" fill="#32CD32" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">PLAYER SLOT</text>',
-                unicode'<text x="200" y="240" text-anchor="middle" fill="white" font-size="48">📦</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#32CD32" font-size="14" font-family="serif">UNCOMMON TICKET</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Player Slot Ticket",',
-                '"description":"Grants an additional player slot in Heavy Helms. Burn this ticket to expand your warrior roster capacity.",',
-                '"image":"data:image/svg+xml;base64,',
-                Base64.encode(bytes(svg)),
-                '",',
-                '"attributes":[',
-                '{"trait_type":"Item Type","value":"Ticket"},',
-                '{"trait_type":"Rarity","value":"Uncommon"},',
-                '{"trait_type":"Effect","value":"Add Player Slot"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Generates SVG-based URI for Weapon Specialization ticket
-    function _generateWeaponSpecURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
-                '<text x="200" y="190" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">WEAPON</text>',
-                '<text x="200" y="220" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">SPECIALIZATION</text>',
-                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">🗡️</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#C0C0C0" font-size="14" font-family="serif">COMMON TICKET</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Weapon Specialization Ticket",',
-                '"description":"Allows a warrior to respecialize their weapon mastery. Burn this ticket to change weapon specialization. Initial specialization is free.",',
-                '"image":"data:image/svg+xml;base64,',
-                Base64.encode(bytes(svg)),
-                '",',
-                '"attributes":[',
-                '{"trait_type":"Item Type","value":"Ticket"},',
-                '{"trait_type":"Rarity","value":"Common"},',
-                '{"trait_type":"Effect","value":"Respec Weapon"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Generates SVG-based URI for Armor Specialization ticket
-    function _generateArmorSpecURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
-                '<text x="200" y="190" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">ARMOR</text>',
-                '<text x="200" y="220" text-anchor="middle" fill="#C0C0C0" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">SPECIALIZATION</text>',
-                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">🛡️</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#C0C0C0" font-size="14" font-family="serif">COMMON TICKET</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Armor Specialization Ticket",',
-                '"description":"Allows a warrior to respecialize their armor expertise. Burn this ticket to change armor specialization. Initial specialization is free.",',
-                '"image":"data:image/svg+xml;base64,',
-                Base64.encode(bytes(svg)),
-                '",',
-                '"attributes":[',
-                '{"trait_type":"Item Type","value":"Ticket"},',
-                '{"trait_type":"Rarity","value":"Common"},',
-                '{"trait_type":"Effect","value":"Respec Armor"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Generates SVG-based URI for Duel ticket
-    function _generateDuelTicketURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
-                '<text x="200" y="200" text-anchor="middle" fill="#C0C0C0" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">DUEL TICKET</text>',
-                unicode'<text x="200" y="240" text-anchor="middle" fill="white" font-size="48">⚔️</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#C0C0C0" font-size="14" font-family="serif">COMMON TICKET</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Duel Ticket",',
-                '"description":"Grants entry to a duel match in Heavy Helms. Burn this ticket to challenge another warrior in single combat.",',
-                '"image":"data:image/svg+xml;base64,',
-                Base64.encode(bytes(svg)),
-                '",',
-                '"attributes":[',
-                '{"trait_type":"Item Type","value":"Ticket"},',
-                '{"trait_type":"Rarity","value":"Common"},',
-                '{"trait_type":"Effect","value":"Start Duel"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Returns common SVG definitions used across all tickets
-    function _getCommonSVGDefs() internal pure returns (string memory) {
-        return string(
-            abi.encodePacked(
-                "<defs>",
-                '<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">',
-                '<stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />',
-                '<stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />',
-                "</linearGradient>",
-                '<filter id="glow">',
-                '<feGaussianBlur stdDeviation="3" result="coloredBlur"/>',
-                '<feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>',
-                "</filter>",
-                "</defs>"
-            )
-        );
-    }
-
-    /// @notice Generates SVG-based URI for Daily Reset ticket
-    function _generateDailyResetURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Utility Ticket</text>',
-                '<text x="200" y="180" text-anchor="middle" fill="#C0C0C0" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">DAILY RESET</text>',
-                '<text x="200" y="210" text-anchor="middle" fill="#C0C0C0" font-size="24" font-family="serif" font-weight="bold" filter="url(#glow)">TICKET</text>',
-                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">🔄</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#888" font-size="12" font-family="sans-serif">Resets daily gauntlet cooldown</text>',
-                '<text x="200" y="340" text-anchor="middle" fill="#888" font-size="12" font-family="sans-serif">Single use - burns on consumption</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Daily Reset Ticket","description":"A utility ticket that allows immediate reset of daily gauntlet cooldown. Burns on use.","image":"',
-                "data:image/svg+xml;base64,",
-                Base64.encode(bytes(svg)),
-                '","attributes":[',
-                '{"trait_type":"Type","value":"Utility Ticket"},',
-                '{"trait_type":"Effect","value":"Daily Reset"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Generates SVG-based URI for Attribute Swap ticket
-    function _generateAttributeSwapURI() internal pure returns (string memory) {
-        string memory svg = string(
-            abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                _getCommonSVGDefs(),
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Soulbound Ticket</text>',
-                '<text x="200" y="180" text-anchor="middle" fill="#FF6B6B" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">ATTRIBUTE</text>',
-                '<text x="200" y="210" text-anchor="middle" fill="#FF6B6B" font-size="22" font-family="serif" font-weight="bold" filter="url(#glow)">SWAP</text>',
-                unicode'<text x="200" y="260" text-anchor="middle" fill="white" font-size="48">⚖️</text>',
-                '<text x="200" y="320" text-anchor="middle" fill="#FF6B6B" font-size="14" font-family="serif">LEGENDARY TICKET</text>',
-                '<text x="200" y="340" text-anchor="middle" fill="#888" font-size="10" font-family="serif">NON-TRANSFERABLE</text>',
-                "</svg>"
-            )
-        );
-
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Attribute Swap Ticket",',
-                '"description":"Allows swapping one attribute point between stats. This is a soulbound token that cannot be transferred or sold. Burn this ticket to swap attributes.",',
-                '"image":"data:image/svg+xml;base64,',
-                Base64.encode(bytes(svg)),
-                '",',
-                '"attributes":[',
-                '{"trait_type":"Item Type","value":"Soulbound Ticket"},',
-                '{"trait_type":"Rarity","value":"Legendary"},',
-                '{"trait_type":"Effect","value":"Swap Attributes"},',
-                '{"trait_type":"Transferable","value":"No"},',
-                '{"trait_type":"Burn Type","value":"On Use"}',
-                "]}"
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
-    }
-
-    /// @notice Generates dynamic SVG-based URI for name change NFTs
+    /// @notice Generates dynamic SVG-based URI for name change NFTs with IPFS background
     /// @param tokenId The token ID to generate URI for
     /// @return The complete data URI with embedded SVG and metadata
     function _generateNameChangeURI(uint256 tokenId) internal view returns (string memory) {
@@ -744,34 +502,17 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         (string memory firstName, string memory surname) =
             _nameRegistry.getFullName(data.firstNameIndex, data.surnameIndex);
 
-        // Generate SVG image
+        // Generate SVG image with IPFS background and dynamic name overlay
         string memory svg = string(
             abi.encodePacked(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">',
-                "<defs>",
-                '<linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">',
-                '<stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />',
-                '<stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />',
-                "</linearGradient>",
-                '<filter id="glow">',
-                '<feGaussianBlur stdDeviation="3" result="coloredBlur"/>',
-                '<feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>',
-                "</filter>",
-                "</defs>",
-                '<rect width="400" height="400" fill="url(#bg)"/>',
-                '<rect x="20" y="20" width="360" height="360" fill="none" stroke="gold" stroke-width="3" rx="20"/>',
-                '<text x="200" y="80" text-anchor="middle" fill="gold" font-size="18" font-family="serif" font-weight="bold">HEAVY HELMS</text>',
-                '<text x="200" y="110" text-anchor="middle" fill="white" font-size="14" font-family="serif">Name Change Certificate</text>',
-                '<text x="200" y="200" text-anchor="middle" fill="white" font-size="28" font-family="serif" font-weight="bold" filter="url(#glow)">',
+                '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">',
+                '<image href="ipfs://',
+                nameChangeImageCID,
+                '/100.png" width="512" height="512"/>',
+                '<text x="256" y="470" text-anchor="middle" fill="#FFFFFF" font-size="22" font-family="Arial, sans-serif" font-weight="bold">',
                 firstName,
-                "</text>",
-                '<text x="200" y="240" text-anchor="middle" fill="white" font-size="28" font-family="serif" font-weight="bold" filter="url(#glow)">',
+                " ",
                 surname,
-                "</text>",
-                '<circle cx="100" cy="320" r="3" fill="gold" opacity="0.7"/>',
-                '<circle cx="300" cy="320" r="3" fill="gold" opacity="0.7"/>',
-                '<text x="200" y="340" text-anchor="middle" fill="gold" font-size="12" font-family="serif">',
-                unicode"⚔️ CERTIFIED WARRIOR ⚔️",
                 "</text>",
                 "</svg>"
             )

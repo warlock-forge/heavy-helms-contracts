@@ -127,7 +127,11 @@ abstract contract TestBase is Test {
         vm.warp(1692803367 + 1000); // Set timestamp to after genesis
 
         // Create the player contracts with all required dependencies
-        playerTickets = new PlayerTickets(address(nameRegistry));
+        playerTickets = new PlayerTickets(
+            address(nameRegistry),
+            "bafybeib2pydnkibnj5o3udxg2grmh4dt2tztcecccka4rxia5xumqpemjm", // Fungible metadata CID
+            "bafybeibgu5ach7brer6jcjqcgtacxn2ltmgxwencxmcmlf3jt5mmwhxrje" // Name change image CID
+        );
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();
         playerContract = new Player(
             address(skinRegistry),
