@@ -58,7 +58,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         OPEN, // Challenge created but not yet accepted
         PENDING, // Challenge accepted and awaiting VRF result
         COMPLETED // Challenge completed (fulfilled or cancelled)
-
     }
 
     // Structs
@@ -233,11 +232,12 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         // Validate skin ownership and requirements
         address owner = IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId);
         IPlayer(playerContract).skinRegistry().validateSkinOwnership(challengerLoadout.skin, owner);
-        IPlayer(playerContract).skinRegistry().validateSkinRequirements(
-            challengerLoadout.skin,
-            IPlayer(playerContract).getPlayer(challengerLoadout.playerId).attributes,
-            IPlayer(playerContract).equipmentRequirements()
-        );
+        IPlayer(playerContract).skinRegistry()
+            .validateSkinRequirements(
+                challengerLoadout.skin,
+                IPlayer(playerContract).getPlayer(challengerLoadout.playerId).attributes,
+                IPlayer(playerContract).equipmentRequirements()
+            );
 
         // Create challenge
         uint256 challengeId = nextChallengeId++;
@@ -309,11 +309,12 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         // Validate ownership and requirements
         address owner = IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId);
         IPlayer(playerContract).skinRegistry().validateSkinOwnership(defenderLoadout.skin, owner);
-        IPlayer(playerContract).skinRegistry().validateSkinRequirements(
-            defenderLoadout.skin,
-            IPlayer(playerContract).getPlayer(defenderLoadout.playerId).attributes,
-            IPlayer(playerContract).equipmentRequirements()
-        );
+        IPlayer(playerContract).skinRegistry()
+            .validateSkinRequirements(
+                defenderLoadout.skin,
+                IPlayer(playerContract).getPlayer(defenderLoadout.playerId).attributes,
+                IPlayer(playerContract).equipmentRequirements()
+            );
 
         emit ChallengeAccepted(
             challengeId,
@@ -443,8 +444,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
 
         IPlayer.PlayerStats memory defenderStats = playerContract.getPlayer(challenge.defenderId);
         defenderStats.skin = Fighter.SkinInfo({
-            skinIndex: challenge.defenderLoadout.skin.skinIndex,
-            skinTokenId: challenge.defenderLoadout.skin.skinTokenId
+            skinIndex: challenge.defenderLoadout.skin.skinIndex, skinTokenId: challenge.defenderLoadout.skin.skinTokenId
         });
         defenderStats.stance = challenge.defenderLoadout.stance;
 

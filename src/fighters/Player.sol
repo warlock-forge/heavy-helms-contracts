@@ -653,16 +653,16 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         }
 
         // Validate skin ownership through registry
-        skinRegistry().validateSkinOwnership(
-            Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}), msg.sender
-        );
+        skinRegistry()
+            .validateSkinOwnership(Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}), msg.sender);
 
         // Validate stat requirements
-        skinRegistry().validateSkinRequirements(
-            Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}),
-            _players[playerId].attributes,
-            _equipmentRequirements
-        );
+        skinRegistry()
+            .validateSkinRequirements(
+                Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}),
+                _players[playerId].attributes,
+                _equipmentRequirements
+            );
 
         // Update player's skin and stance
         _players[playerId].skin.skinIndex = skinIndex;
@@ -1210,7 +1210,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @return Timestamp for next season start
     function getNextSeasonStart() public view returns (uint256) {
         // Get current date components
-        (uint256 year, uint256 month, /* uint256 day */ ) = BokkyPooBahsDateTimeLibrary.timestampToDate(block.timestamp);
+        (uint256 year, uint256 month,/* uint256 day */) = BokkyPooBahsDateTimeLibrary.timestampToDate(block.timestamp);
 
         // Add the configured number of months
         month += seasonLengthMonths;
@@ -1378,11 +1378,11 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed, "chance")));
 
                 uint256 pointsCap = chance < 50
-                    ? 9 // 0-49: normal roll (3+9=12)
+                    ? 9  // 0-49: normal roll (3+9=12)
                     : chance < 80
-                        ? 12 // 50-79: medium roll (3+12=15)
+                        ? 12  // 50-79: medium roll (3+12=15)
                         : chance < 95
-                            ? 15 // 80-94: high roll (3+15=18)
+                            ? 15  // 80-94: high roll (3+15=18)
                             : 18; // 95-99: max roll (3+18=21)
 
                 // Add random points to selected stat using the cap
@@ -1466,7 +1466,8 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         if (player.attributes.luck < MIN_STAT || player.attributes.luck > MAX_STAT) return false;
 
         // Calculate total stat points
-        uint256 total = uint256(player.attributes.strength) + uint256(player.attributes.constitution)
+        uint256 total =
+            uint256(player.attributes.strength) + uint256(player.attributes.constitution)
             + uint256(player.attributes.size) + uint256(player.attributes.agility) + uint256(player.attributes.stamina)
             + uint256(player.attributes.luck);
 
@@ -1484,9 +1485,9 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         pure
         returns (IPlayer.PlayerStats memory)
     {
-        uint16 total = uint16(player.attributes.strength) + uint16(player.attributes.constitution)
-            + uint16(player.attributes.size) + uint16(player.attributes.agility) + uint16(player.attributes.stamina)
-            + uint16(player.attributes.luck);
+        uint16 total =
+            uint16(player.attributes.strength) + uint16(player.attributes.constitution) + uint16(player.attributes.size)
+            + uint16(player.attributes.agility) + uint16(player.attributes.stamina) + uint16(player.attributes.luck);
 
         // First ensure all stats are within 3-21 range
         uint8[6] memory stats = [
@@ -1538,7 +1539,9 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
                 luck: stats[5]
             }),
             skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            name: IPlayer.PlayerName({firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex}),
+            name: IPlayer.PlayerName({
+                firstNameIndex: player.name.firstNameIndex, surnameIndex: player.name.surnameIndex
+            }),
             stance: 1, // Initialize to BALANCED stance
             level: player.level, // Preserve level
             currentXP: player.currentXP, // Preserve XP

@@ -226,9 +226,9 @@ contract PlayerTest is TestBase {
         // Mint skin with meaningful requirements: DUAL_DAGGERS (agi >= 8) + LEATHER (str >= 5)
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
-        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, equipmentRequirements.WEAPON_DUAL_DAGGERS(), equipmentRequirements.ARMOR_LEATHER()
-        );
+        skinNFT.mintSkin{
+            value: skinNFT.mintPrice()
+        }(PLAYER_ONE, equipmentRequirements.WEAPON_DUAL_DAGGERS(), equipmentRequirements.ARMOR_LEATHER());
         uint16 tokenId = 1;
         vm.stopPrank();
 
@@ -257,9 +257,9 @@ contract PlayerTest is TestBase {
         address otherAddress = address(0x2);
         vm.deal(otherAddress, 0.01 ether);
         vm.startPrank(otherAddress);
-        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            otherAddress, gameEngine.WEAPON_ARMING_SWORD_KITE(), gameEngine.ARMOR_PLATE()
-        );
+        skinNFT.mintSkin{
+            value: skinNFT.mintPrice()
+        }(otherAddress, gameEngine.WEAPON_ARMING_SWORD_KITE(), gameEngine.ARMOR_PLATE());
         uint16 tokenId = 1;
         vm.stopPrank();
 
@@ -331,7 +331,9 @@ contract PlayerTest is TestBase {
             i < nameRegistry.getSetAStart() + nameRegistry.getNameSetALength();
             i++
         ) {
-            if (firstNameCounts[i] > 0) uniqueFirstNames++;
+            if (firstNameCounts[i] > 0) {
+                uniqueFirstNames++;
+            }
         }
 
         // Count unique surnames
@@ -381,9 +383,9 @@ contract PlayerTest is TestBase {
         _assertStatRanges(stats);
 
         // Verify total points are within expected range
-        uint256 totalPoints = uint256(stats.attributes.strength) + uint256(stats.attributes.constitution)
-            + uint256(stats.attributes.size) + uint256(stats.attributes.agility) + uint256(stats.attributes.stamina)
-            + uint256(stats.attributes.luck);
+        uint256 totalPoints =
+            uint256(stats.attributes.strength) + uint256(stats.attributes.constitution) + uint256(stats.attributes.size)
+            + uint256(stats.attributes.agility) + uint256(stats.attributes.stamina) + uint256(stats.attributes.luck);
         assertTrue(totalPoints >= 18 && totalPoints <= 126, "Total points out of range");
     }
 
@@ -413,11 +415,8 @@ contract PlayerTest is TestBase {
 
             for (uint256 j = 0; j < 6; j++) {
                 if (statArray[j] >= 19) maxStatCount++; // 19-21
-
                 else if (statArray[j] >= 16) highStatCount++; // 16-18
-
                 else if (statArray[j] >= 13) medStatCount++; // 13-15
-
                 else lowStatCount++; // 3-12
             }
         }
@@ -487,9 +486,9 @@ contract PlayerTest is TestBase {
         // Try to equip without owning unlock NFT (should fail)
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
-        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH()
-        );
+        skinNFT.mintSkin{
+            value: skinNFT.mintPrice()
+        }(PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH());
         uint16 tokenId = 1;
         vm.stopPrank();
 
@@ -520,9 +519,9 @@ contract PlayerTest is TestBase {
         // Mint skin to player with low requirement equipment
         vm.deal(PLAYER_ONE, 0.01 ether);
         vm.startPrank(PLAYER_ONE);
-        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH()
-        );
+        skinNFT.mintSkin{
+            value: skinNFT.mintPrice()
+        }(PLAYER_ONE, equipmentRequirements.WEAPON_QUARTERSTAFF(), equipmentRequirements.ARMOR_CLOTH());
         uint16 tokenId = 1;
         vm.stopPrank();
 
@@ -929,9 +928,9 @@ contract PlayerTest is TestBase {
         // Mint a skin with high requirement weapon (e.g., greatsword) and heavy armor
         vm.startPrank(PLAYER_ONE);
         vm.deal(PLAYER_ONE, skinNFT.mintPrice());
-        skinNFT.mintSkin{value: skinNFT.mintPrice()}(
-            PLAYER_ONE, equipmentRequirements.WEAPON_SCIMITAR_DAGGER(), equipmentRequirements.ARMOR_PLATE()
-        );
+        skinNFT.mintSkin{
+            value: skinNFT.mintPrice()
+        }(PLAYER_ONE, equipmentRequirements.WEAPON_SCIMITAR_DAGGER(), equipmentRequirements.ARMOR_PLATE());
         uint16 tokenId = 1;
 
         // Get the player's stats to verify they're too low
@@ -984,9 +983,7 @@ contract PlayerTest is TestBase {
     }
 
     // Skin Equipment Helper
-    function _equipSkinToPlayer(uint32 playerId, uint32 skinIndexToEquip, uint16 tokenId, bool shouldSucceed)
-        internal
-    {
+    function _equipSkinToPlayer(uint32 playerId, uint32 skinIndexToEquip, uint16 tokenId, bool shouldSucceed) internal {
         vm.startPrank(PLAYER_ONE);
         if (shouldSucceed) {
             playerContract.equipSkin(playerId, skinIndexToEquip, tokenId, 1);

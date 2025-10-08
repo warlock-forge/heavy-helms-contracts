@@ -41,7 +41,10 @@ contract DuelGameTest is TestBase {
     );
     event ChallengeCancelled(uint256 indexed challengeId);
     event DuelComplete( // This is the key addition
-    uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomness);
+        uint256 indexed challengeId,
+        uint32 indexed winnerId,
+        uint256 randomness
+    );
     event ChallengeRecovered(uint256 indexed challengeId);
 
     function setUp() public override {
@@ -364,9 +367,7 @@ contract DuelGameTest is TestBase {
         // Try to create challenge without ticket - should fail
         vm.startPrank(newPlayer);
         Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-            playerId: newPlayerId,
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            stance: 1
+            playerId: newPlayerId, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
         });
         vm.expectRevert();
         game.initiateChallenge(loadout, PLAYER_TWO_ID);
@@ -429,7 +430,8 @@ contract DuelGameTest is TestBase {
         } catch Error(string memory reason) {
             console2.log("Reverted with reason:", reason);
             didRevert = true;
-        } catch (bytes memory) /*lowLevelData*/ {
+        } catch (bytes memory) {
+            /*lowLevelData*/
             console2.log("Reverted with no reason");
             didRevert = true;
         }
@@ -636,6 +638,7 @@ contract DuelGameTest is TestBase {
             ,
             Fighter.PlayerLoadout memory storedChallengerLoadout,
             Fighter.PlayerLoadout memory storedDefenderLoadout,
+
         ) = game.challenges(challengeId);
 
         // Verify loadouts were stored as passed, not as equipped

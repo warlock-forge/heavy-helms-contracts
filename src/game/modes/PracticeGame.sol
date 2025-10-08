@@ -64,7 +64,9 @@ contract PracticeGame is BaseGame, ConfirmedOwner {
         address _defaultPlayerContract,
         address _monsterContract
     ) BaseGame(_gameEngine, _playerContract) ConfirmedOwner(msg.sender) {
-        if (_defaultPlayerContract == address(0) || _monsterContract == address(0)) revert ZeroAddress();
+        if (_defaultPlayerContract == address(0) || _monsterContract == address(0)) {
+            revert ZeroAddress();
+        }
 
         defaultPlayerContract = IDefaultPlayer(_defaultPlayerContract);
         monsterContract = IMonster(_monsterContract);
@@ -205,11 +207,12 @@ contract PracticeGame is BaseGame, ConfirmedOwner {
 
             address owner = IPlayer(playerContract).getPlayerOwner(fighter.playerId);
             IPlayer(playerContract).skinRegistry().validateSkinOwnership(fighter.skin, owner);
-            IPlayer(playerContract).skinRegistry().validateSkinRequirements(
-                fighter.skin,
-                IPlayer(playerContract).getPlayer(fighter.playerId).attributes,
-                IPlayer(playerContract).equipmentRequirements()
-            );
+            IPlayer(playerContract).skinRegistry()
+                .validateSkinRequirements(
+                    fighter.skin,
+                    IPlayer(playerContract).getPlayer(fighter.playerId).attributes,
+                    IPlayer(playerContract).equipmentRequirements()
+                );
         }
     }
 

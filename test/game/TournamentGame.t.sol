@@ -134,9 +134,7 @@ contract TournamentGameTest is TestBase {
 
     function testCannotDoubleQueue() public {
         Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-            playerId: PLAYER_ONE_ID,
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            stance: 2
+            playerId: PLAYER_ONE_ID, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 2
         });
 
         vm.prank(PLAYER_ONE);
@@ -149,9 +147,7 @@ contract TournamentGameTest is TestBase {
 
     function testWithdrawFromQueue() public {
         Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-            playerId: PLAYER_ONE_ID,
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-            stance: 2
+            playerId: PLAYER_ONE_ID, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 2
         });
 
         vm.prank(PLAYER_ONE);
@@ -580,9 +576,7 @@ contract TournamentGameTest is TestBase {
             vm.prank(owner);
             game.queueForTournament(
                 Fighter.PlayerLoadout({
-                    playerId: playerId,
-                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                    stance: 1
+                    playerId: playerId, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
                 })
             );
         }
@@ -665,9 +659,7 @@ contract TournamentGameTest is TestBase {
         for (uint256 i = count; i > 0; i--) {
             uint256 index = i - 1;
             Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
-                playerId: playerIds[index],
-                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                stance: 1
+                playerId: playerIds[index], skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
             });
 
             vm.prank(players[index]);
@@ -1226,9 +1218,7 @@ contract TournamentGameTest is TestBase {
             vm.startPrank(newPlayer);
             game.queueForTournament(
                 Fighter.PlayerLoadout({
-                    playerId: newPlayerId,
-                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                    stance: 1
+                    playerId: newPlayerId, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
                 })
             );
             vm.stopPrank();
@@ -1267,9 +1257,7 @@ contract TournamentGameTest is TestBase {
         vm.expectRevert(abi.encodeWithSignature("PlayerLevelTooLow()"));
         game.queueForTournament(
             Fighter.PlayerLoadout({
-                playerId: lowLevelPlayerId,
-                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                stance: 1
+                playerId: lowLevelPlayerId, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
             })
         );
         vm.stopPrank();
@@ -1436,9 +1424,7 @@ contract TournamentGameTest is TestBase {
             vm.startPrank(playerOwner);
             game.queueForTournament(
                 Fighter.PlayerLoadout({
-                    playerId: lowLevelPlayers[i],
-                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                    stance: 1
+                    playerId: lowLevelPlayers[i], skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
                 })
             );
             vm.stopPrank();
@@ -1452,9 +1438,7 @@ contract TournamentGameTest is TestBase {
             vm.startPrank(playerOwner);
             game.queueForTournament(
                 Fighter.PlayerLoadout({
-                    playerId: highLevelPlayers[i],
-                    skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
-                    stance: 1
+                    playerId: highLevelPlayers[i], skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
                 })
             );
             vm.stopPrank();

@@ -76,12 +76,10 @@ contract FighterDeployScript is Script {
         uint32 monsterSkinIndex = PlayerSkinRegistry(payable(skinRegistryAddr)).registerSkin(address(monsterSkin));
 
         // Set as DefaultPlayer type
-        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinType(
-            defaultSkinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer
-        );
-        PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinType(
-            monsterSkinIndex, IPlayerSkinRegistry.SkinType.Monster
-        );
+        PlayerSkinRegistry(payable(skinRegistryAddr))
+            .setSkinType(defaultSkinIndex, IPlayerSkinRegistry.SkinType.DefaultPlayer);
+        PlayerSkinRegistry(payable(skinRegistryAddr))
+            .setSkinType(monsterSkinIndex, IPlayerSkinRegistry.SkinType.Monster);
 
         // Set verification
         PlayerSkinRegistry(payable(skinRegistryAddr)).setSkinVerification(defaultSkinIndex, true);

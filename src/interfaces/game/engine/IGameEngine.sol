@@ -29,7 +29,6 @@ interface IGameEngine {
         EXHAUSTION, // Won because opponent couldn't attack (low stamina)
         MAX_ROUNDS, // Won by having more health after max rounds
         DEATH // RIP
-
     }
 
     /// @notice Types of combat results for each action
@@ -46,7 +45,6 @@ interface IGameEngine {
         RIPOSTE_CRIT, // 9 - Critical counter after parry
         EXHAUSTED, // 10 - Failed due to stamina
         HIT // 11 - Taking full damage (failed defense)
-
     }
 
     //==============================================================//

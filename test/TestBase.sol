@@ -194,7 +194,7 @@ abstract contract TestBase is Test {
     }
 
     // Helper function for VRF fulfillment with Chainlink VRF
-    function _fulfillVRF(uint256 requestId, uint256 randomSeed, address /* vrfConsumer */ ) internal {
+    function _fulfillVRF(uint256 requestId, uint256 randomSeed, address /* vrfConsumer */) internal {
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = randomSeed;
 
@@ -209,9 +209,8 @@ abstract contract TestBase is Test {
     function _createPlayerRequest(address owner, IPlayer contractInstance, bool useSetB) internal returns (uint256) {
         vm.deal(owner, contractInstance.createPlayerFeeAmount());
         vm.startPrank(owner);
-        uint256 requestId = Player(payable(address(contractInstance))).requestCreatePlayer{
-            value: Player(payable(address(contractInstance))).createPlayerFeeAmount()
-        }(useSetB);
+        uint256 requestId = Player(payable(address(contractInstance)))
+        .requestCreatePlayer{value: Player(payable(address(contractInstance))).createPlayerFeeAmount()}(useSetB);
         vm.stopPrank();
         return requestId;
     }
@@ -523,7 +522,9 @@ abstract contract TestBase is Test {
         bool useSetB,
         string memory expectedError,
         uint256 /* customRoundId */
-    ) internal {
+    )
+        internal
+    {
         vm.deal(owner, playerContract.createPlayerFeeAmount());
 
         vm.startPrank(owner);

@@ -38,7 +38,6 @@ contract GameEngine is IGameEngine {
         Hybrid_Slash_Pierce, // For weapons mixing slashing and piercing
         Hybrid_Slash_Blunt, // For weapons mixing slashing and blunt
         Hybrid_Pierce_Blunt // For weapons mixing piercing and blunt
-
     }
 
     enum ShieldType {
@@ -56,7 +55,6 @@ contract GameEngine is IGameEngine {
         HEAVY_DEMOLITION, // STR+SIZE damage
         DUAL_WIELD_BRUTE, // STR+SIZE+AGI damage
         REACH_CONTROL // AGI+STR damage + dodge bonus
-
     }
 
     struct WeaponStats {
@@ -539,9 +537,11 @@ contract GameEngine is IGameEngine {
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
             // Determine if anyone can attack this round, including stamina check
-            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST
+            bool canP1Attack =
+                state.p1ActionPoints >= ATTACK_ACTION_COST
                 && state.p1Stamina >= calculateStaminaCost(ActionType.ATTACK, p1Calculated);
-            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST
+            bool canP2Attack =
+                state.p2ActionPoints >= ATTACK_ACTION_COST
                 && state.p2Stamina >= calculateStaminaCost(ActionType.ATTACK, p2Calculated);
 
             // First check if any player has 0 health - this should take precedence
@@ -905,9 +905,9 @@ contract GameEngine is IGameEngine {
 
             if (isCritical) {
                 // Apply both character and weapon crit multipliers AFTER armor reduction
-                uint64 totalMultiplier = (
-                    uint64(modifiedAttacker.stats.critMultiplier) * uint64(modifiedAttacker.weapon.critMultiplier)
-                ) / 100;
+                uint64 totalMultiplier =
+                    (uint64(modifiedAttacker.stats.critMultiplier) * uint64(modifiedAttacker.weapon.critMultiplier))
+                    / 100;
                 uint64 critDamage = (uint64(armorReducedDamage) * totalMultiplier) / 100;
                 attackDamage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
                 attackResult = uint8(CombatResultType.CRIT);
@@ -1009,9 +1009,10 @@ contract GameEngine is IGameEngine {
 
                 if (riposteRoll < effectiveRiposteChance) {
                     seed = uint256(keccak256(abi.encodePacked(seed)));
-                    return processCounterAttack(
-                        defender, attacker, defenderStamina, attackerStamina, seed, CounterType.PARRY
-                    );
+                    return
+                        processCounterAttack(
+                            defender, attacker, defenderStamina, attackerStamina, seed, CounterType.PARRY
+                        );
                 }
                 uint8 safeParryCost = parryStaminaCost > 255 ? 255 : uint8(parryStaminaCost);
                 return (uint8(CombatResultType.PARRY), 0, safeParryCost, seed);
@@ -1060,7 +1061,11 @@ contract GameEngine is IGameEngine {
     function calculateFinalParryChance(
         CalculatedCombatStats memory defender,
         CalculatedCombatStats memory /* attacker */
-    ) internal pure returns (uint16) {
+    )
+        internal
+        pure
+        returns (uint16)
+    {
         // Calculate base parry chance
         uint32 baseParryChance = (uint32(defender.stats.parryChance) * uint32(defender.weapon.parryChance)) / 100;
 
@@ -1367,7 +1372,8 @@ contract GameEngine is IGameEngine {
         if (
             defenseResult != uint8(CombatResultType.PARRY) && defenseResult != uint8(CombatResultType.BLOCK)
                 && defenseResult != uint8(CombatResultType.DODGE) && defenseResult != uint8(CombatResultType.COUNTER)
-                && defenseResult != uint8(CombatResultType.COUNTER_CRIT) && defenseResult != uint8(CombatResultType.RIPOSTE)
+                && defenseResult != uint8(CombatResultType.COUNTER_CRIT)
+                && defenseResult != uint8(CombatResultType.RIPOSTE)
                 && defenseResult != uint8(CombatResultType.RIPOSTE_CRIT)
         ) {
             applyDamageAndCheckLethality(

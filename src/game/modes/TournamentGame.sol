@@ -76,7 +76,6 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     enum TournamentState {
         PENDING, // Tournament started, awaiting completion.
         COMPLETED // Tournament finished.
-
     }
 
     /// @notice Represents the phase of the 3-transaction tournament system.
@@ -85,7 +84,6 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         QUEUE_COMMIT, // Phase 1: Waiting for participant selection block
         PARTICIPANT_SELECT, // Phase 2: Waiting for tournament execution block
         TOURNAMENT_READY // Phase 3: Ready to execute tournament
-
     }
 
     /// @notice Represents the current status of a player in relation to the Tournament mode.
@@ -93,7 +91,6 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         NONE, // Not participating.
         QUEUED, // Waiting in the queue, can withdraw.
         IN_TOURNAMENT // Actively participating in a Tournament run.
-
     }
 
     /// @notice Reasons why a player might be replaced in a tournament.
@@ -550,9 +547,10 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
     /// @notice Updates reward configuration for winners.
     function setWinnerRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
-            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-            + config.dailyResetPercent + config.nameChangePercent;
+        uint256 total =
+            config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         winnerRewards = config;
@@ -561,9 +559,10 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
     /// @notice Updates reward configuration for runner-up.
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
-            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-            + config.dailyResetPercent + config.nameChangePercent;
+        uint256 total =
+            config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         runnerUpRewards = config;
@@ -572,9 +571,10 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
     /// @notice Updates reward configuration for 3rd-4th place.
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
-            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-            + config.dailyResetPercent + config.nameChangePercent;
+        uint256 total =
+            config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         thirdFourthRewards = config;
@@ -838,12 +838,14 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
                 // Check if player still owns their skin
                 if (!shouldReplace) {
-                    try playerContract.skinRegistry().validateSkinOwnership(
-                        tournament.participants[i].loadout.skin,
-                        playerContract.getPlayerOwner(tournament.participants[i].playerId)
-                    ) {
-                        // Skin validation passed
-                    } catch {
+                    try playerContract.skinRegistry()
+                        .validateSkinOwnership(
+                            tournament.participants[i].loadout.skin,
+                            playerContract.getPlayerOwner(tournament.participants[i].playerId)
+                        ) {
+                    // Skin validation passed
+                    }
+                    catch {
                         // Skin validation failed - player no longer owns the skin
                         shouldReplace = true;
                         reason = ReplacementReason.SKIN_OWNERSHIP_LOST;
@@ -1212,7 +1214,8 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         } else if (
             roll
                 < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
+                    + config.dailyResetPercent
         ) {
             rewardType = IPlayerTickets.RewardType.DAILY_RESET_TICKET;
             ticketId = playerTickets.DAILY_RESET_TICKET();
@@ -1233,9 +1236,9 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             }
         } else if (rewardType == IPlayerTickets.RewardType.NAME_CHANGE_TICKET) {
             // Mint name change NFT with VRF randomness and gas limit
-            try playerTickets.mintNameChangeNFTSafe(playerContract.getPlayerOwner(playerId), random) returns (
-                uint256 newTicketId
-            ) {
+            try playerTickets.mintNameChangeNFTSafe(
+                playerContract.getPlayerOwner(playerId), random
+            ) returns (uint256 newTicketId) {
                 emit RewardDistributed(tournamentId, playerId, rewardType, newTicketId);
             } catch {
                 emit RewardDistributed(tournamentId, playerId, rewardType, 0);

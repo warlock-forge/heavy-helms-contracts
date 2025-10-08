@@ -251,8 +251,9 @@ contract BalanceTest is TestBase {
         uint8 stam,
         uint8 luck
     ) private pure returns (TestFighter memory) {
-        Fighter.Attributes memory attrs =
-            Fighter.Attributes({strength: str, constitution: con, size: siz, agility: agi, stamina: stam, luck: luck});
+        Fighter.Attributes memory attrs = Fighter.Attributes({
+            strength: str, constitution: con, size: siz, agility: agi, stamina: stam, luck: luck
+        });
 
         return TestFighter({
             name: name,

@@ -114,15 +114,11 @@ contract ActionPointsTest is TestBase {
         uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
 
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
-            playerId: weaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}),
-            stance: 1
+            playerId: weaponId, skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}), stance: 1
         });
 
         Fighter.PlayerLoadout memory p2Loadout = Fighter.PlayerLoadout({
-            playerId: weaponId,
-            skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}),
-            stance: 1
+            playerId: weaponId, skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}), stance: 1
         });
 
         // Use a fixed seed to ensure deterministic behavior regardless of test order

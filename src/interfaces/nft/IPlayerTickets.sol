@@ -29,7 +29,6 @@ interface IPlayerTickets {
         DUEL_TICKET, // Fungible ticket for duel games
         DAILY_RESET_TICKET, // Fungible ticket for gauntlet resets
         NAME_CHANGE_TICKET // Non-fungible NFT with name data
-
     }
 
     //==============================================================//

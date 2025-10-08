@@ -43,10 +43,15 @@ library MonsterLibrary {
         return monsterId;
     }
 
-    function createAllMonsters(MonsterSkinNFT, /* monsterSkin */ Monster, /* monster */ uint32 /* skinIndex */ )
+    function createAllMonsters(
+        MonsterSkinNFT,
+        /* monsterSkin */
+        Monster,
+        /* monster */
+        uint32 /* skinIndex */
+    )
         internal
-        pure
-    {
+        pure {
         // uint16 tokenId = 1;
         // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Goblin);
         // createMonster(monsterSkin, monster, skinIndex, tokenId++, MonsterType.Orc);
@@ -101,7 +106,9 @@ library MonsterLibrary {
         returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({strength: 14, constitution: 14, size: 14, agility: 8, stamina: 12, luck: 8}),
+            attributes: Fighter.Attributes({
+                strength: 14, constitution: 14, size: 14, agility: 8, stamina: 12, luck: 8
+            }),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),
@@ -125,7 +132,9 @@ library MonsterLibrary {
         returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({strength: 16, constitution: 16, size: 16, agility: 6, stamina: 14, luck: 6}),
+            attributes: Fighter.Attributes({
+                strength: 16, constitution: 16, size: 16, agility: 6, stamina: 14, luck: 6
+            }),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 1,
             name: IMonster.MonsterName({nameIndex: 0}),
@@ -149,7 +158,9 @@ library MonsterLibrary {
         returns (uint8, uint8, IMonster.MonsterStats memory, string memory)
     {
         IMonster.MonsterStats memory stats = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({strength: 18, constitution: 18, size: 18, agility: 4, stamina: 16, luck: 4}),
+            attributes: Fighter.Attributes({
+                strength: 18, constitution: 18, size: 18, agility: 4, stamina: 16, luck: 4
+            }),
             skin: Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: tokenId}),
             stance: 2,
             name: IMonster.MonsterName({nameIndex: 0}),

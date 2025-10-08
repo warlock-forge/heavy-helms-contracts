@@ -76,7 +76,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         LEVELS_1_TO_4, // Players level 1-4
         LEVELS_5_TO_9, // Players level 5-9
         LEVEL_10 // Players level 10 only
-
     }
 
     /// @notice Custom error for bracket validation.
@@ -86,7 +85,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     enum GauntletState {
         PENDING, // Gauntlet started, awaiting completion.
         COMPLETED // Gauntlet finished.
-
     }
 
     /// @notice Represents the phase of the 3-transaction gauntlet system.
@@ -95,7 +93,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         QUEUE_COMMIT, // Phase 1: Waiting for participant selection block
         PARTICIPANT_SELECT, // Phase 2: Waiting for tournament execution block
         TOURNAMENT_READY // Phase 3: Ready to execute tournament
-
     }
 
     /// @notice Represents the current status of a player in relation to the Gauntlet mode.
@@ -103,7 +100,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         NONE, // Not participating.
         QUEUED, // Waiting in the queue, can withdraw.
         IN_TOURNAMENT // Actively participating in a Gauntlet run.
-
     }
 
     /// @notice Reasons why a player might be replaced in a gauntlet.
@@ -428,7 +424,8 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         }
         try skinRegistry.validateSkinRequirements(
             loadout.skin, playerContract.getPlayer(loadout.playerId).attributes, equipmentReqs
-        ) {} catch {
+        ) {}
+        catch {
             revert InvalidLoadout();
         }
 
@@ -782,7 +779,8 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         } else if (
             roll
                 < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
+                    + config.dailyResetPercent
         ) {
             rewardType = IPlayerTickets.RewardType.DAILY_RESET_TICKET;
             ticketId = playerTickets.DAILY_RESET_TICKET();
@@ -978,8 +976,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                 try skinRegistry.validateSkinOwnership(
                     regPlayer.loadout.skin, playerContract.getPlayerOwner(regPlayer.playerId)
                 ) {
-                    // Skin validation passed
-                } catch {
+                // Skin validation passed
+                }
+                catch {
                     // Skin validation failed - player no longer owns the skin
                     shouldReplace = true;
                     reason = ReplacementReason.SKIN_OWNERSHIP_LOST;
@@ -1066,11 +1065,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         for (
             uint256 roundIndex = 0;
             roundIndex
-                < (
-                    gauntlet.size == 4
+                < (gauntlet.size == 4
                         ? 2
-                        : (gauntlet.size == 8 ? 3 : (gauntlet.size == 16 ? 4 : (gauntlet.size == 32 ? 5 : 6)))
-                );
+                        : (gauntlet.size == 8 ? 3 : (gauntlet.size == 16 ? 4 : (gauntlet.size == 32 ? 5 : 6))));
             roundIndex++
         ) {
             uint256 currentRoundSize = currentRound.length;
@@ -1453,9 +1450,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setChampionRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
-        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
-            + config.nameChangePercent;
+        uint256 total =
+            config.nonePercent + config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent
+            + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardConfig();
 
         championRewards = config;
@@ -1466,9 +1463,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
-        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
-            + config.nameChangePercent;
+        uint256 total =
+            config.nonePercent + config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent
+            + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardConfig();
 
         runnerUpRewards = config;
@@ -1479,9 +1476,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
-        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
-            + config.nameChangePercent;
+        uint256 total =
+            config.nonePercent + config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent
+            + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardConfig();
 
         thirdFourthRewards = config;
