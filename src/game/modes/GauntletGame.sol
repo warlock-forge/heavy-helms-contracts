@@ -281,12 +281,14 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     event GauntletRewardDistributed(
         uint256 indexed gauntletId, uint32 indexed playerId, IPlayerTickets.RewardType rewardType, uint256 ticketId
     );
-    /// @notice Emitted when a gauntlet is recovered due to blockhash expiration.
-    /// @param gauntletId The ID of the gauntlet being recovered (0 if in QUEUE_COMMIT phase).
-    /// @param phase The phase when recovery occurred.
-    /// @param targetBlock The block that expired (selectionBlock or tournamentBlock).
-    /// @param participantIds Array of participant IDs if gauntlet was started, empty otherwise.
-    event GauntletRecovered(uint256 indexed gauntletId, GauntletPhase phase, uint256 targetBlock, uint32[] participantIds);
+    /// @notice Emitted when queue commit phase times out - no gauntlet created, players remain queued.
+    /// @param targetBlock The selection block that expired.
+    event QueueRecovered(uint256 targetBlock);
+    /// @notice Emitted when gauntlet recovery occurs after participant selection - players returned to queue.
+    /// @param gauntletId The ID of the gauntlet being recovered.
+    /// @param targetBlock The tournament block that expired.
+    /// @param participantIds Array of participant IDs being returned to queue.
+    event GauntletRecovered(uint256 indexed gauntletId, uint256 targetBlock, uint32[] participantIds);
     /// @notice Emitted when a player is replaced during gauntlet execution.
     event PlayerReplaced(
         uint256 indexed gauntletId,
@@ -935,6 +937,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
             // No participants yet, just clear pending gauntlet
             delete pendingGauntlet;
+            emit QueueRecovered(targetBlock);
         } else {
             // If we're past participant selection, need to clean up player states
             Gauntlet storage gauntlet = gauntlets[gauntletId];
@@ -973,10 +976,10 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                 // Mark gauntlet as completed to prevent future issues
                 gauntlet.state = GauntletState.COMPLETED;
                 gauntlet.completionTimestamp = block.timestamp;
+                
+                emit GauntletRecovered(gauntletId, targetBlock, participantIds);
             }
         }
-        
-        emit GauntletRecovered(gauntletId, currentPhase, targetBlock, participantIds);
     }
 
     /// @notice Executes a gauntlet tournament using blockhash randomness.

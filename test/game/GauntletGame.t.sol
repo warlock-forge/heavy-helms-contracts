@@ -32,7 +32,8 @@ contract GauntletGameTest is TestBase {
     GauntletGame public game;
 
     // Event declarations for testing
-    event GauntletRecovered(uint256 indexed gauntletId, GauntletGame.GauntletPhase phase, uint256 targetBlock, uint32[] participantIds);
+    event QueueRecovered(uint256 targetBlock);
+    event GauntletRecovered(uint256 indexed gauntletId, uint256 targetBlock, uint32[] participantIds);
 
     address public PLAYER_ONE;
     address public PLAYER_TWO;
