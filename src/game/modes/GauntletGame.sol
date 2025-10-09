@@ -461,7 +461,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         return queueIndex.length;
     }
 
-
     /// @notice Gets the current daily run count for a player
     /// @param playerId The ID of the player to check
     /// @return The number of gauntlet runs today for this player
@@ -521,7 +520,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             // Check if we're past the 256-block limit for the current phase's target block
             bool shouldRecover = false;
             uint256 targetBlock;
-            
+
             if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
                 targetBlock = selectionBlock;
                 shouldRecover = currentBlock >= selectionBlock + 256;
@@ -652,19 +651,19 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     function _getRoundXP(uint8 size, uint256 round, uint16 baseXP) private pure returns (uint16) {
         // Size 4: No XP for any rounds (top 50% rule)
         if (size == 4) return 0;
-        
+
         // Size 8: Only round 1 (3rd-4th place) gets 30%
         if (size == 8) {
             return round == 1 ? (baseXP * 30) / 100 : 0;
         }
-        
+
         // Size 16: Round 1 (5th-8th) gets 20%, round 2 (3rd-4th) gets 30%
         if (size == 16) {
             if (round == 1) return (baseXP * 20) / 100;
             if (round == 2) return (baseXP * 30) / 100;
             return 0;
         }
-        
+
         // Size 32: Round 1 (9th-16th) gets 5%, round 2 (5th-8th) gets 20%, round 3 (3rd-4th) gets 30%
         if (size == 32) {
             if (round == 1) return (baseXP * 5) / 100;
@@ -672,7 +671,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             if (round == 3) return (baseXP * 30) / 100;
             return 0;
         }
-        
+
         // Size 64: Similar pattern with one more round
         if (size == 64) {
             if (round == 1) return (baseXP * 5) / 100;
@@ -681,7 +680,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             if (round == 4) return (baseXP * 30) / 100;
             return 0;
         }
-        
+
         return 0;
     }
 
@@ -916,11 +915,11 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     function recoverPendingGauntlet() public {
         // Check if recovery is possible (256 blocks have passed)
         if (pendingGauntlet.phase == GauntletPhase.NONE) revert NoPendingGauntlet();
-        
+
         GauntletPhase currentPhase = pendingGauntlet.phase;
         uint256 targetBlock;
         bool canRecover;
-        
+
         if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
             targetBlock = pendingGauntlet.selectionBlock;
             canRecover = block.number > targetBlock + 256;
@@ -929,11 +928,11 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             canRecover = block.number > targetBlock + 256;
         }
         if (!canRecover) revert CannotRecoverYet();
-        
+
         // Cache data for event before deletion
         uint256 gauntletId = pendingGauntlet.gauntletId;
         uint32[] memory participantIds;
-        
+
         if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
             // No participants yet, just clear pending gauntlet
             delete pendingGauntlet;
@@ -945,7 +944,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             // Only process if gauntlet exists and is pending
             if (gauntlet.state == GauntletState.PENDING) {
                 uint256 participantCount = gauntlet.participants.length;
-                
+
                 // Get participant IDs for event
                 participantIds = new uint32[](participantCount);
                 for (uint256 i = 0; i < participantCount; i++) {
@@ -976,7 +975,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                 // Mark gauntlet as completed to prevent future issues
                 gauntlet.state = GauntletState.COMPLETED;
                 gauntlet.completionTimestamp = block.timestamp;
-                
+
                 emit GauntletRecovered(gauntletId, targetBlock, participantIds);
             }
         }
@@ -1023,9 +1022,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             // Check if player still owns their skin
             if (!shouldReplace) {
                 address playerOwner = playerContract.getPlayerOwner(regPlayer.playerId);
-                try skinRegistry.validateSkinOwnership(
-                    regPlayer.loadout.skin, playerOwner
-                ) {
+                try skinRegistry.validateSkinOwnership(regPlayer.loadout.skin, playerOwner) {
                 // Skin validation passed
                 }
                 catch {
@@ -1112,8 +1109,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         ActiveParticipant[] memory currentRound = participants;
 
         // Calculate number of rounds: log2(size) since each round halves participants
-        uint256 totalRounds = gauntlet.size == 4 ? 2 : gauntlet.size == 8 ? 3 : gauntlet.size == 16 ? 4 : gauntlet.size == 32 ? 5 : 6;
-        
+        uint256 totalRounds =
+            gauntlet.size == 4 ? 2 : gauntlet.size == 8 ? 3 : gauntlet.size == 16 ? 4 : gauntlet.size == 32 ? 5 : 6;
+
         for (uint256 roundIndex = 0; roundIndex < totalRounds; roundIndex++) {
             uint256 currentRoundSize = currentRound.length;
             uint256 nextRoundSize = currentRoundSize / 2;
@@ -1330,8 +1328,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             participantCount = 0;
         }
     }
-
-
 
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //

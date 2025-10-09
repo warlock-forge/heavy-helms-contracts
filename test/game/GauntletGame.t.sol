@@ -261,7 +261,7 @@ contract GauntletGameTest is TestBase {
 
         // Commit
         game.tryStartGauntlet();
-        
+
         // Get the selection block from pending gauntlet info
         (, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();
 
@@ -412,7 +412,7 @@ contract GauntletGameTest is TestBase {
         // Verify gauntlet was created
         uint256 gauntletId = game.nextGauntletId() - 1;
 
-        // Get the tournament block and advance past 256 blocks from it  
+        // Get the tournament block and advance past 256 blocks from it
         (,, uint256 tournamentBlock,,,) = game.getPendingGauntletInfo();
         vm.roll(tournamentBlock + 257);
 
