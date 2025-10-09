@@ -13,7 +13,9 @@ import {
     InvalidBlockhash,
     DailyLimitExceeded,
     InsufficientResetFee,
-    GameEnabled
+    GameEnabled,
+    AlreadyInQueue,
+    PlayerNotInQueue
 } from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
@@ -28,6 +30,9 @@ contract EthReceiver {
 
 contract GauntletGameTest is TestBase {
     GauntletGame public game;
+
+    // Event declarations for testing
+    event GauntletRecovered(uint256 indexed gauntletId, GauntletGame.GauntletPhase phase, uint256 targetBlock, uint32[] participantIds);
 
     address public PLAYER_ONE;
     address public PLAYER_TWO;
@@ -254,20 +259,16 @@ contract GauntletGameTest is TestBase {
         );
 
         // Commit
-        uint256 commitBlock = block.number;
         game.tryStartGauntlet();
+        
+        // Get the selection block from pending gauntlet info
+        (, uint256 selectionBlock,,,,) = game.getPendingGauntletInfo();
 
-        // Can't recover yet
-        assertFalse(game.canRecoverPendingGauntlet(), "Should not be able to recover yet");
-        vm.expectRevert();
-        game.recoverPendingGauntlet();
+        // Advance past 256 blocks from the selection block to enable auto-recovery
+        vm.roll(selectionBlock + 257);
 
-        // Advance past 256 blocks
-        vm.roll(commitBlock + 257);
-
-        // Now can recover
-        assertTrue(game.canRecoverPendingGauntlet(), "Should be able to recover now");
-        game.recoverPendingGauntlet();
+        // Auto-recovery through tryStartGauntlet
+        game.tryStartGauntlet();
 
         // Check pending gauntlet cleared
         (bool exists,,,,,) = game.getPendingGauntletInfo();
@@ -275,6 +276,189 @@ contract GauntletGameTest is TestBase {
 
         // Check queue still has players
         assertEq(game.getQueueSize(), 4, "Queue should still have 4 players");
+    }
+
+    function testBug_PlayersStuckAfterRecoveryPostSelection() public {
+        // Queue 4 players
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.prank(PLAYER_TWO);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID));
+        vm.prank(PLAYER_THREE);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_THREE_ID));
+        vm.prank(PLAYER_FOUR);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_FOUR_ID));
+
+        // TX1: Commit (QUEUE_COMMIT phase)
+        game.tryStartGauntlet();
+
+        // Verify players are still QUEUED after commit
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "Should be QUEUED after commit"
+        );
+
+        // Need to advance past the selection block and mine a block so blockhash exists
+        vm.roll(block.number + game.futureBlocksForSelection() + 1);
+
+        // TX2: Select participants (moves to IN_TOURNAMENT) - record logs to capture participant order
+        vm.recordLogs();
+        game.tryStartGauntlet();
+
+        // Verify players moved to IN_TOURNAMENT
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(GauntletGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_TWO_ID)),
+            uint8(GauntletGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_THREE_ID)),
+            uint8(GauntletGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_FOUR_ID)),
+            uint8(GauntletGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+
+        // Verify gauntlet was created
+        uint256 gauntletId = game.nextGauntletId() - 1;
+        (uint256 id, uint8 size, GauntletGame.GauntletState state,,, uint32 championId, uint32 runnerUpId) =
+            game.gauntlets(gauntletId);
+        assertEq(id, gauntletId, "Gauntlet ID should match");
+        assertEq(size, 4, "Gauntlet size should be 4");
+        assertEq(uint8(state), uint8(GauntletGame.GauntletState.PENDING), "Gauntlet should be PENDING");
+        assertEq(championId, 0, "Champion should be 0");
+        assertEq(runnerUpId, 0, "Runner up should be 0");
+
+        // Get the tournament block and advance past 256 blocks from it to trigger auto-recovery
+        (,, uint256 tournamentBlock,,,) = game.getPendingGauntletInfo();
+        vm.roll(tournamentBlock + 257);
+
+        // TX3: This should auto-recover - just verify it works, don't test exact event data
+        game.tryStartGauntlet();
+
+        // Verify pending gauntlet is cleared
+        (bool exists,,,,,) = game.getPendingGauntletInfo();
+        assertFalse(exists, "Pending gauntlet should be cleared");
+
+        // FIXED: Players should now be back in QUEUED status after recovery
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "FIXED: Player should be QUEUED after recovery!"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_TWO_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "FIXED: Player should be QUEUED after recovery!"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_THREE_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "FIXED: Player should be QUEUED after recovery!"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_FOUR_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "FIXED: Player should be QUEUED after recovery!"
+        );
+
+        // Verify gauntlet is marked as COMPLETED after recovery
+        (,, GauntletGame.GauntletState stateAfter,,,,) = game.gauntlets(gauntletId);
+        assertEq(
+            uint8(stateAfter),
+            uint8(GauntletGame.GauntletState.COMPLETED),
+            "FIXED: Gauntlet should be COMPLETED after recovery!"
+        );
+
+        // Players should be able to withdraw from queue now
+        vm.prank(PLAYER_ONE);
+        game.withdrawFromQueue(PLAYER_ONE_ID);
+        assertEq(game.getQueueSize(), 3, "Player should be able to withdraw");
+
+        // And can re-queue
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        assertEq(game.getQueueSize(), 4, "Player should be able to re-queue");
+    }
+
+    function testFix_RecoveryReturnsPlayersToQueue() public {
+        // Queue 4 players
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        vm.prank(PLAYER_TWO);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_TWO_ID));
+        vm.prank(PLAYER_THREE);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_THREE_ID));
+        vm.prank(PLAYER_FOUR);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_FOUR_ID));
+
+        // TX1: Commit
+        game.tryStartGauntlet();
+
+        // TX2: Select participants
+        vm.roll(block.number + game.futureBlocksForSelection() + 1);
+        game.tryStartGauntlet();
+
+        // Verify gauntlet was created
+        uint256 gauntletId = game.nextGauntletId() - 1;
+
+        // Get the tournament block and advance past 256 blocks from it  
+        (,, uint256 tournamentBlock,,,) = game.getPendingGauntletInfo();
+        vm.roll(tournamentBlock + 257);
+
+        // TX3: Auto-recover
+        game.tryStartGauntlet();
+
+        // Verify players are back in QUEUED status
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "Should be QUEUED after recovery"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_TWO_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "Should be QUEUED after recovery"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_THREE_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "Should be QUEUED after recovery"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_FOUR_ID)),
+            uint8(GauntletGame.PlayerStatus.QUEUED),
+            "Should be QUEUED after recovery"
+        );
+
+        // Verify queue has all 4 players back
+        assertEq(game.getQueueSize(), 4, "Queue should have 4 players");
+
+        // Verify gauntlet is marked as COMPLETED
+        (,, GauntletGame.GauntletState stateAfter,,,,) = game.gauntlets(gauntletId);
+        assertEq(
+            uint8(stateAfter),
+            uint8(GauntletGame.GauntletState.COMPLETED),
+            "Gauntlet should be COMPLETED after recovery"
+        );
+
+        // Players should be able to queue again (withdraw and re-queue to test)
+        vm.prank(PLAYER_ONE);
+        game.withdrawFromQueue(PLAYER_ONE_ID);
+        assertEq(game.getQueueSize(), 3, "Queue should have 3 players after withdraw");
+
+        vm.prank(PLAYER_ONE);
+        game.queueForGauntlet(_createSimpleLoadout(PLAYER_ONE_ID));
+        assertEq(game.getQueueSize(), 4, "Queue should have 4 players after re-queue");
     }
 
     function testConfigurableFutureBlocks() public {

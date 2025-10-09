@@ -34,19 +34,13 @@ error PlayerIsRetired();
 error InvalidLoadout();
 error InvalidSkin();
 error CallerNotPlayerOwner();
-error GauntletNotPending();
 error GameDisabled();
 error GameEnabled();
 error InvalidGauntletSize(uint8 size);
-error QueueNotEmpty();
-error InvalidDefaultPlayerRange();
-error TimeoutNotReached();
 error UnsupportedPlayerId();
 error InsufficientQueueSize(uint256 current, uint8 required);
 error MinTimeNotElapsed();
-error PendingGauntletExists();
 error NoPendingGauntlet();
-error InvalidPhaseTransition();
 error NotReady(uint256 targetBlock, uint256 currentBlock);
 error InvalidFutureBlocks(uint256 blocks);
 error CannotRecoverYet();
@@ -91,8 +85,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     enum GauntletPhase {
         NONE, // No pending gauntlet
         QUEUE_COMMIT, // Phase 1: Waiting for participant selection block
-        PARTICIPANT_SELECT, // Phase 2: Waiting for tournament execution block
-        TOURNAMENT_READY // Phase 3: Ready to execute tournament
+        PARTICIPANT_SELECT // Phase 2: Waiting for tournament execution block
     }
 
     /// @notice Represents the current status of a player in relation to the Gauntlet mode.
@@ -288,10 +281,12 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     event GauntletRewardDistributed(
         uint256 indexed gauntletId, uint32 indexed playerId, IPlayerTickets.RewardType rewardType, uint256 ticketId
     );
-    /// @notice Emitted when a pending Gauntlet is recovered after timeout.
-    event GauntletRecovered(uint256 indexed gauntletId, uint256 commitTimestamp);
-    /// @notice Emitted when a gauntlet is auto-recovered due to blockhash expiration.
-    event GauntletAutoRecovered(uint256 commitBlock, uint256 currentBlock, GauntletPhase phase);
+    /// @notice Emitted when a gauntlet is recovered due to blockhash expiration.
+    /// @param gauntletId The ID of the gauntlet being recovered (0 if in QUEUE_COMMIT phase).
+    /// @param phase The phase when recovery occurred.
+    /// @param targetBlock The block that expired (selectionBlock or tournamentBlock).
+    /// @param participantIds Array of participant IDs if gauntlet was started, empty otherwise.
+    event GauntletRecovered(uint256 indexed gauntletId, GauntletPhase phase, uint256 targetBlock, uint32[] participantIds);
     /// @notice Emitted when a player is replaced during gauntlet execution.
     event PlayerReplaced(
         uint256 indexed gauntletId,
@@ -431,10 +426,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
         // Effects
         uint32 playerId = loadout.playerId;
-        registrationQueue[playerId] = loadout;
-        queueIndex.push(playerId);
-        playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
-        playerStatus[playerId] = PlayerStatus.QUEUED;
+        _addPlayerToQueue(playerId, loadout);
 
         // Increment daily run counter (user pays gas for state change)
         _playerDailyRuns[playerId][today]++;
@@ -467,12 +459,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         return queueIndex.length;
     }
 
-    /// @notice Returns the loadout for a player from the queue.
-    /// @param playerId The ID of the player to retrieve the loadout for.
-    /// @return The loadout for the specified player.
-    function getPlayerLoadoutFromQueue(uint32 playerId) external view returns (Fighter.PlayerLoadout memory) {
-        return registrationQueue[playerId];
-    }
 
     /// @notice Gets the current daily run count for a player
     /// @param playerId The ID of the player to check
@@ -530,15 +516,21 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             uint256 tournamentBlock = pendingGauntlet.tournamentBlock;
             uint256 currentBlock = block.number; // Cache block.number to save gas
 
-            // Check if we're past the 256-block limit from initial commit for auto-recovery
-            uint256 commitBlock = (currentPhase == GauntletPhase.QUEUE_COMMIT)
-                ? selectionBlock - futureBlocksForSelection
-                : tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
+            // Check if we're past the 256-block limit for the current phase's target block
+            bool shouldRecover = false;
+            uint256 targetBlock;
+            
+            if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
+                targetBlock = selectionBlock;
+                shouldRecover = currentBlock >= selectionBlock + 256;
+            } else {
+                targetBlock = tournamentBlock;
+                shouldRecover = currentBlock >= tournamentBlock + 256;
+            }
 
-            if (currentBlock >= commitBlock + 256) {
-                // Auto-recovery if we missed the window
-                emit GauntletAutoRecovered(commitBlock, currentBlock, currentPhase);
-                _recoverPendingGauntlet();
+            if (shouldRecover) {
+                // Auto-recovery if we missed the window - just call the public recovery function
+                recoverPendingGauntlet();
                 return;
             }
 
@@ -611,9 +603,6 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             awardedXP[awardCount++] = runnerUpXP;
         }
 
-        // Calculate XP for each elimination round based on gauntlet size
-        uint16[] memory roundXP = _calculateRoundXP(size, championBaseXP);
-
         // Process eliminated players but exclude final round
         uint256 eliminatedPerRound = size / 2;
         uint256 currentRound = 0;
@@ -631,13 +620,13 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             }
 
             // Award XP if it's a player and they get XP for this round
-            if (
-                _getFighterType(playerId) == Fighter.FighterType.PLAYER && currentRound < roundXP.length
-                    && roundXP[currentRound] > 0
-            ) {
-                playerContract.awardExperience(playerId, roundXP[currentRound]);
-                awardedPlayerIds[awardCount] = playerId;
-                awardedXP[awardCount++] = roundXP[currentRound];
+            if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
+                uint16 xpAmount = _getRoundXP(size, currentRound, championBaseXP);
+                if (xpAmount > 0) {
+                    playerContract.awardExperience(playerId, xpAmount);
+                    awardedPlayerIds[awardCount] = playerId;
+                    awardedXP[awardCount++] = xpAmount;
+                }
             }
         }
 
@@ -653,43 +642,45 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         }
     }
 
-    /// @notice Calculates XP amounts for each elimination round based on gauntlet size.
+    /// @notice Gets XP for a specific round based on gauntlet size.
     /// @param size The size of the gauntlet (4, 8, 16, 32, or 64)
+    /// @param round The round index
     /// @param baseXP The base XP amount for the champion
-    /// @return roundXP Array of XP amounts for each elimination round
-    function _calculateRoundXP(uint8 size, uint16 baseXP) private pure returns (uint16[] memory roundXP) {
-        if (size == 4) {
-            roundXP = new uint16[](2);
-            roundXP[1] = 0; // Round 1 losers (3rd-4th) - 0% (top 50% rule: only top 2 get XP)
-            roundXP[0] = 0; // Round 2 loser (2nd) - handled separately as runner-up
-        } else if (size == 8) {
-            roundXP = new uint16[](3);
-            roundXP[0] = 0; // Round 1 losers (5th-8th) - 0% (only top 4 get XP)
-            roundXP[1] = (baseXP * 30) / 100; // Round 2 losers (3rd-4th) - 30%
-            roundXP[2] = 0; // Round 3 loser (2nd) - handled separately as runner-up
-        } else if (size == 16) {
-            roundXP = new uint16[](4);
-            roundXP[0] = 0; // Round 1 losers (9th-16th) - 0% (only top 8 get XP)
-            roundXP[1] = (baseXP * 20) / 100; // Round 2 losers (5th-8th) - 20%
-            roundXP[2] = (baseXP * 30) / 100; // Round 3 losers (3rd-4th) - 30%
-            roundXP[3] = 0; // Round 4 loser (2nd) - handled as runner-up
-        } else if (size == 32) {
-            roundXP = new uint16[](5);
-            roundXP[0] = 0; // Round 1 losers (17th-32nd) - 0% (only top 16 get XP)
-            roundXP[1] = (baseXP * 5) / 100; // Round 2 losers (9th-16th) - 5%
-            roundXP[2] = (baseXP * 20) / 100; // Round 3 losers (5th-8th) - 20%
-            roundXP[3] = (baseXP * 30) / 100; // Round 4 losers (3rd-4th) - 30%
-            roundXP[4] = 0; // Round 5 loser (2nd) - handled as runner-up
-        } else if (size == 64) {
-            roundXP = new uint16[](6);
-            roundXP[0] = 0; // Round 1 losers (33rd-64th) - 0% (only top 32 get XP)
-            roundXP[1] = (baseXP * 5) / 100; // Round 2 losers (17th-32nd) - 5%
-            roundXP[2] = (baseXP * 10) / 100; // Round 3 losers (9th-16th) - 10%
-            roundXP[3] = (baseXP * 20) / 100; // Round 4 losers (5th-8th) - 20%
-            roundXP[4] = (baseXP * 30) / 100; // Round 5 losers (3rd-4th) - 30%
-            roundXP[5] = 0; // Round 6 loser (2nd) - handled as runner-up
+    /// @return The XP amount for that round (0 if no XP awarded)
+    function _getRoundXP(uint8 size, uint256 round, uint16 baseXP) private pure returns (uint16) {
+        // Size 4: No XP for any rounds (top 50% rule)
+        if (size == 4) return 0;
+        
+        // Size 8: Only round 1 (3rd-4th place) gets 30%
+        if (size == 8) {
+            return round == 1 ? (baseXP * 30) / 100 : 0;
         }
-        return roundXP;
+        
+        // Size 16: Round 1 (5th-8th) gets 20%, round 2 (3rd-4th) gets 30%
+        if (size == 16) {
+            if (round == 1) return (baseXP * 20) / 100;
+            if (round == 2) return (baseXP * 30) / 100;
+            return 0;
+        }
+        
+        // Size 32: Round 1 (9th-16th) gets 5%, round 2 (5th-8th) gets 20%, round 3 (3rd-4th) gets 30%
+        if (size == 32) {
+            if (round == 1) return (baseXP * 5) / 100;
+            if (round == 2) return (baseXP * 20) / 100;
+            if (round == 3) return (baseXP * 30) / 100;
+            return 0;
+        }
+        
+        // Size 64: Similar pattern with one more round
+        if (size == 64) {
+            if (round == 1) return (baseXP * 5) / 100;
+            if (round == 2) return (baseXP * 10) / 100;
+            if (round == 3) return (baseXP * 20) / 100;
+            if (round == 4) return (baseXP * 30) / 100;
+            return 0;
+        }
+        
+        return 0;
     }
 
     //==============================================================//
@@ -735,53 +726,45 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         uint256 random = uint256(keccak256(abi.encodePacked(randomness, gauntletId, playerId)));
         uint256 roll = random.uniform(10000); // 0-9999 for percentage precision
 
+        // Calculate cumulative thresholds (including none)
+        uint256 t0 = config.nonePercent;
+        uint256 t1 = t0 + config.attributeSwapPercent;
+        uint256 t2 = t1 + config.createPlayerPercent;
+        uint256 t3 = t2 + config.playerSlotPercent;
+        uint256 t4 = t3 + config.weaponSpecPercent;
+        uint256 t5 = t4 + config.armorSpecPercent;
+        uint256 t6 = t5 + config.duelTicketPercent;
+        uint256 t7 = t6 + config.dailyResetPercent;
+
         IPlayerTickets.RewardType rewardType;
         uint256 ticketId;
 
-        if (roll < config.nonePercent) {
+        if (roll < t0) {
             return; // No reward
         }
-        roll -= config.nonePercent;
 
         // Get owner once for all reward types
         address owner = playerContract.getPlayerOwner(playerId);
 
-        if (roll < config.attributeSwapPercent) {
+        if (roll < t1) {
             rewardType = IPlayerTickets.RewardType.ATTRIBUTE_SWAP;
             ticketId = playerTickets.ATTRIBUTE_SWAP_TICKET();
-        } else if (roll < config.attributeSwapPercent + config.createPlayerPercent) {
+        } else if (roll < t2) {
             rewardType = IPlayerTickets.RewardType.CREATE_PLAYER_TICKET;
             ticketId = playerTickets.CREATE_PLAYER_TICKET();
-        } else if (roll < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent) {
+        } else if (roll < t3) {
             rewardType = IPlayerTickets.RewardType.PLAYER_SLOT_TICKET;
             ticketId = playerTickets.PLAYER_SLOT_TICKET();
-        } else if (
-            roll
-                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-                    + config.weaponSpecPercent
-        ) {
+        } else if (roll < t4) {
             rewardType = IPlayerTickets.RewardType.WEAPON_SPECIALIZATION_TICKET;
             ticketId = playerTickets.WEAPON_SPECIALIZATION_TICKET();
-        } else if (
-            roll
-                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-                    + config.weaponSpecPercent + config.armorSpecPercent
-        ) {
+        } else if (roll < t5) {
             rewardType = IPlayerTickets.RewardType.ARMOR_SPECIALIZATION_TICKET;
             ticketId = playerTickets.ARMOR_SPECIALIZATION_TICKET();
-        } else if (
-            roll
-                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-        ) {
+        } else if (roll < t6) {
             rewardType = IPlayerTickets.RewardType.DUEL_TICKET;
             ticketId = playerTickets.DUEL_TICKET();
-        } else if (
-            roll
-                < config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-                    + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
-                    + config.dailyResetPercent
-        ) {
+        } else if (roll < t7) {
             rewardType = IPlayerTickets.RewardType.DAILY_RESET_TICKET;
             ticketId = playerTickets.DAILY_RESET_TICKET();
         } else {
@@ -862,9 +845,10 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         // Emit start event NOW in TX2
         emit GauntletStarted(gauntletId, gauntlet.size, levelBracket, gauntlet.participants);
 
-        // Set up tournament phase
+        // Set up tournament phase with fresh 256-block window
         pendingGauntlet.phase = GauntletPhase.PARTICIPANT_SELECT;
         pendingGauntlet.tournamentBlock = block.number + futureBlocksForTournament;
+        pendingGauntlet.commitTimestamp = block.timestamp;
 
         emit ParticipantsSelected(pendingGauntlet.gauntletId, pendingGauntlet.tournamentBlock, selectedIds);
     }
@@ -925,12 +909,74 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         }
     }
 
-    /// @notice Helper function to clean up pending gauntlet state during recovery.
-    function _recoverPendingGauntlet() private {
-        // In our architecture, recovery is simple - just clear the pending gauntlet
-        // Players remain in queue during QUEUE_COMMIT phase
-        // Players are in tournament during PARTICIPANT_SELECT phase (no recovery needed)
-        delete pendingGauntlet;
+    /// @notice Recovers a pending gauntlet after the 256-block window expires.
+    /// @dev Can be called directly or through auto-recovery in tryStartGauntlet.
+    function recoverPendingGauntlet() public {
+        // Check if recovery is possible (256 blocks have passed)
+        if (pendingGauntlet.phase == GauntletPhase.NONE) revert NoPendingGauntlet();
+        
+        GauntletPhase currentPhase = pendingGauntlet.phase;
+        uint256 targetBlock;
+        bool canRecover;
+        
+        if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
+            targetBlock = pendingGauntlet.selectionBlock;
+            canRecover = block.number > targetBlock + 256;
+        } else {
+            targetBlock = pendingGauntlet.tournamentBlock;
+            canRecover = block.number > targetBlock + 256;
+        }
+        if (!canRecover) revert CannotRecoverYet();
+        
+        // Cache data for event before deletion
+        uint256 gauntletId = pendingGauntlet.gauntletId;
+        uint32[] memory participantIds;
+        
+        if (currentPhase == GauntletPhase.QUEUE_COMMIT) {
+            // No participants yet, just clear pending gauntlet
+            delete pendingGauntlet;
+        } else {
+            // If we're past participant selection, need to clean up player states
+            Gauntlet storage gauntlet = gauntlets[gauntletId];
+
+            // Only process if gauntlet exists and is pending
+            if (gauntlet.state == GauntletState.PENDING) {
+                uint256 participantCount = gauntlet.participants.length;
+                
+                // Get participant IDs for event
+                participantIds = new uint32[](participantCount);
+                for (uint256 i = 0; i < participantCount; i++) {
+                    participantIds[i] = gauntlet.participants[i].playerId;
+                }
+
+                // Clear pending gauntlet after getting participant data
+                delete pendingGauntlet;
+
+                // Return all participants back to queue
+                for (uint256 i = 0; i < participantCount; i++) {
+                    uint32 playerId = gauntlet.participants[i].playerId;
+
+                    // Only reset if they're still in this tournament
+                    if (
+                        playerStatus[playerId] == PlayerStatus.IN_TOURNAMENT
+                            && playerCurrentGauntlet[playerId] == gauntletId
+                    ) {
+                        // Clear tournament status first
+                        playerStatus[playerId] = PlayerStatus.NONE;
+                        delete playerCurrentGauntlet[playerId];
+
+                        // Re-add to queue using shared helper
+                        _addPlayerToQueue(playerId, gauntlet.participants[i].loadout);
+                    }
+                }
+
+                // Mark gauntlet as completed to prevent future issues
+                gauntlet.state = GauntletState.COMPLETED;
+                gauntlet.completionTimestamp = block.timestamp;
+            }
+        }
+        
+        emit GauntletRecovered(gauntletId, currentPhase, targetBlock, participantIds);
     }
 
     /// @notice Executes a gauntlet tournament using blockhash randomness.
@@ -973,8 +1019,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
             // Check if player still owns their skin
             if (!shouldReplace) {
+                address playerOwner = playerContract.getPlayerOwner(regPlayer.playerId);
                 try skinRegistry.validateSkinOwnership(
-                    regPlayer.loadout.skin, playerContract.getPlayerOwner(regPlayer.playerId)
+                    regPlayer.loadout.skin, playerOwner
                 ) {
                 // Skin validation passed
                 }
@@ -1061,15 +1108,10 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         // Current round participants - clean struct array
         ActiveParticipant[] memory currentRound = participants;
 
-        // Determine number of rounds and loop directly
-        for (
-            uint256 roundIndex = 0;
-            roundIndex
-                < (gauntlet.size == 4
-                        ? 2
-                        : (gauntlet.size == 8 ? 3 : (gauntlet.size == 16 ? 4 : (gauntlet.size == 32 ? 5 : 6))));
-            roundIndex++
-        ) {
+        // Calculate number of rounds: log2(size) since each round halves participants
+        uint256 totalRounds = gauntlet.size == 4 ? 2 : gauntlet.size == 8 ? 3 : gauntlet.size == 16 ? 4 : gauntlet.size == 32 ? 5 : 6;
+        
+        for (uint256 roundIndex = 0; roundIndex < totalRounds; roundIndex++) {
             uint256 currentRoundSize = currentRound.length;
             uint256 nextRoundSize = currentRoundSize / 2;
 
@@ -1286,36 +1328,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         }
     }
 
-    /// @notice Checks if the pending gauntlet can be recovered.
-    /// @return True if recovery is possible (256 blocks have passed since commit).
-    function canRecoverPendingGauntlet() public view returns (bool) {
-        if (pendingGauntlet.phase == GauntletPhase.NONE) return false;
 
-        // After 256 blocks from commit, blockhash(revealBlock) returns 0
-        uint256 commitBlock;
-        if (pendingGauntlet.phase == GauntletPhase.QUEUE_COMMIT) {
-            commitBlock = pendingGauntlet.selectionBlock - futureBlocksForSelection;
-        } else {
-            commitBlock = pendingGauntlet.tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
-        }
-        return block.number > commitBlock + 256;
-    }
-
-    /// @notice Recovers a pending gauntlet after the 256-block window.
-    /// @dev Clears the pending gauntlet without executing it.
-    function recoverPendingGauntlet() external {
-        if (!canRecoverPendingGauntlet()) revert CannotRecoverYet();
-
-        // Store values for event before deletion
-        uint256 gauntletId = pendingGauntlet.gauntletId;
-        uint256 timestamp = pendingGauntlet.commitTimestamp;
-
-        // Clear pending gauntlet
-        delete pendingGauntlet;
-
-        // No need to process participants - they're still in queue
-        emit GauntletRecovered(gauntletId, timestamp);
-    }
 
     //==============================================================//
     //                     ADMIN FUNCTIONS                          //
@@ -1496,6 +1509,19 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     //                     INTERNAL FUNCTIONS                       //
     //==============================================================//
 
+    // --- Queue Management Helpers ---
+
+    /// @notice Internal helper to add a player to the queue with their loadout.
+    /// @param playerId The ID of the player to add.
+    /// @param loadout The player's loadout configuration.
+    /// @dev Used by both queueForGauntlet and recovery functions for DRY.
+    function _addPlayerToQueue(uint32 playerId, Fighter.PlayerLoadout memory loadout) internal {
+        registrationQueue[playerId] = loadout;
+        queueIndex.push(playerId);
+        playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
+        playerStatus[playerId] = PlayerStatus.QUEUED;
+    }
+
     // --- Level Bracket Validation ---
 
     /// @notice Validates that a player's level matches this gauntlet's bracket.
@@ -1592,7 +1618,8 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         returns (ActiveParticipant[] memory)
     {
         // True Fisher-Yates shuffle - clean and simple!
-        for (uint256 i = participants.length - 1; i > 0; i--) {
+        uint256 length = participants.length;
+        for (uint256 i = length - 1; i > 0; i--) {
             seed = uint256(keccak256(abi.encodePacked(seed, i)));
             uint256 j = seed.uniform(i + 1);
 
