@@ -48,6 +48,7 @@ error NoDefaultPlayersAvailable();
 error InvalidBlockhash();
 error DailyLimitExceeded(uint8 currentRuns, uint8 limit);
 error InsufficientResetFee();
+error ResetNotNeeded(uint8 currentRuns, uint8 limit);
 error InvalidRewardConfig();
 
 //==============================================================//
@@ -476,8 +477,13 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         // Checks
         if (msg.value < dailyResetCost) revert InsufficientResetFee();
 
-        // Effects
         uint256 today = _getDayNumber();
+        uint8 currentRuns = _playerDailyRuns[playerId][today];
+        if (currentRuns <= dailyGauntletLimit - 2) {
+            revert ResetNotNeeded(currentRuns, dailyGauntletLimit);
+        }
+
+        // Effects
         _playerDailyRuns[playerId][today] = 0;
 
         // Interactions
@@ -488,11 +494,17 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @param playerId The ID of the player to reset limit for
     /// @dev Player owner burns a DAILY_RESET_TICKET to reset their daily gauntlet entry count to 0
     function resetDailyLimitWithTicket(uint32 playerId) external onlyPlayerOwner(playerId) {
-        // Checks & Effects - burn ticket first (will revert if insufficient balance)
+        // Check if reset is needed before burning expensive ticket
+        uint256 today = _getDayNumber();
+        uint8 currentRuns = _playerDailyRuns[playerId][today];
+        if (currentRuns <= dailyGauntletLimit - 2) {
+            revert ResetNotNeeded(currentRuns, dailyGauntletLimit);
+        }
+
+        // Checks & Effects - burn ticket after validation
         playerTickets.burnFrom(msg.sender, playerTickets.DAILY_RESET_TICKET(), 1);
 
         // Effects
-        uint256 today = _getDayNumber();
         _playerDailyRuns[playerId][today] = 0;
 
         // Interactions
