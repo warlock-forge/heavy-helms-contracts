@@ -12,6 +12,7 @@ pragma solidity ^0.8.13;
 //==============================================================//
 import {ERC721} from "solady/tokens/ERC721.sol";
 import {ConfirmedOwner} from "@chainlink/contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 //==============================================================//
@@ -176,7 +177,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, ConfirmedOwner {
 
     /// @notice Withdraws accumulated ETH to owner
     function withdraw() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+        SafeTransferLib.safeTransferETH(owner(), address(this).balance);
     }
 
     //==============================================================//

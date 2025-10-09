@@ -479,7 +479,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
         uint256 today = _getDayNumber();
         uint8 currentRuns = _playerDailyRuns[playerId][today];
-        if (currentRuns <= dailyGauntletLimit - 2) {
+        if (dailyGauntletLimit > 2 && currentRuns <= dailyGauntletLimit - 2) {
             revert ResetNotNeeded(currentRuns, dailyGauntletLimit);
         }
 
@@ -497,7 +497,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         // Check if reset is needed before burning expensive ticket
         uint256 today = _getDayNumber();
         uint8 currentRuns = _playerDailyRuns[playerId][today];
-        if (currentRuns <= dailyGauntletLimit - 2) {
+        if (dailyGauntletLimit > 2 && currentRuns <= dailyGauntletLimit - 2) {
             revert ResetNotNeeded(currentRuns, dailyGauntletLimit);
         }
 
