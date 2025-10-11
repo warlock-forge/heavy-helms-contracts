@@ -240,12 +240,12 @@ forge snapshot    # Create gas snapshots for tests
 
 #### 5. **Bruiser** (Brute Force Brawler)
 - **Stats**: STR=19, CON=5, SIZE=19, AGI=5, STA=12, LUCK=12 (Total: 72)
-- **Weapons**: DUAL_CLUBS, AXE_MACE, FLAIL_DAGGER, MACE_SHORTSWORD
+- **Weapons**: DUAL_CLUBS, AXE_MACE, MACE_SHORTSWORD
 - **Identity**: Sustained damage output, dual-wield specialist
 
 #### 6. **Vanguard** (Balanced Heavy Fighter)
 - **Stats**: STR=19, CON=19, SIZE=12, AGI=5, STA=12, LUCK=5 (Total: 72)
-- **Weapons**: GREATSWORD, AXE_KITE, QUARTERSTAFF, FLAIL_BUCKLER
+- **Weapons**: GREATSWORD, AXE_KITE, QUARTERSTAFF
 - **Identity**: Versatile heavy fighter, defensive capabilities with offensive potential
 
 #### 7. **Balanced** (All-Rounder Fighter)
@@ -322,13 +322,13 @@ Applied to ALL weapons regardless of class:
 - ARMING_SWORD_SHORTSWORD (45-60 dmg, 85 spd), ARMING_SWORD_CLUB (50-65 dmg, 75 spd), ARMING_SWORD_KITE (35-43 dmg, 75 spd)
 
 **PURE_BLUNT**: Pure STR×10 damage scaling
-- DUAL_CLUBS (54-66 dmg, 85 spd), MACE_KITE (43-53 dmg, 65 spd), FLAIL_BUCKLER (50-63 dmg, 70 spd), MACE_TOWER (33-42 dmg, 70 spd), CLUB_TOWER (33-42 dmg, 70 spd)
+- DUAL_CLUBS (54-66 dmg, 85 spd), MACE_KITE (43-53 dmg, 65 spd), MACE_TOWER (33-42 dmg, 70 spd), CLUB_TOWER (33-42 dmg, 70 spd)
 
 **HEAVY_DEMOLITION**: STR×5 + SIZE×5 damage scaling (original formula)
 - BATTLEAXE (130-140 dmg, 40 spd), GREATSWORD (76-85 dmg, 60 spd), MAUL (130-140 dmg, 40 spd), AXE_KITE (36-44 dmg, 70 spd), AXE_TOWER (34-43 dmg, 65 spd)
 
 **DUAL_WIELD_BRUTE**: STR×4 + SIZE×3 + AGI×3 damage scaling
-- AXE_MACE (66-90 dmg, 65 spd), FLAIL_DAGGER (60-84 dmg, 70 spd), MACE_SHORTSWORD (60-84 dmg, 70 spd)
+- AXE_MACE (66-90 dmg, 65 spd), MACE_SHORTSWORD (60-84 dmg, 70 spd)
 
 **REACH_CONTROL**: AGI×5 + STR×5 damage scaling + 15 dodge bonus
 - TRIDENT (47-58 dmg, 55 spd), SPEAR (32-40 dmg, 80 spd), QUARTERSTAFF (29-36 dmg, 80 spd)
@@ -358,10 +358,9 @@ TRUE DPR = (Average Weapon Damage × Damage Modifier ÷ 100) × (Attack Speed ÷
 4. **RAPIER_DAGGER** - **73.3 DPR** (Assassin: 55×221.45÷100×100÷149)
 5. **DUAL_SCIMITARS** - **73.3 DPR** (Assassin: 55×211÷100×100÷149)
 6. **AXE_MACE** - **68.8 DPR** (Bruiser: 78×213.57÷100×65÷149)
-7. **FLAIL_DAGGER** - **67.0 DPR** (Bruiser: 72×213.57÷100×70÷149)
-8. **MACE_SHORTSWORD** - **67.0 DPR** (Bruiser: 72×213.57÷100×70÷149)
-9. **DUAL_CLUBS** - **64.5 DPR** (Bruiser: 60×213.57÷100×85÷149)
-10. **GREATSWORD** - **53.4 DPR** (Berserker: 80.5×248.04÷100×60÷149)
+7. **MACE_SHORTSWORD** - **67.0 DPR** (Bruiser: 72×213.57÷100×70÷149)
+8. **DUAL_CLUBS** - **64.5 DPR** (Bruiser: 60×213.57÷100×85÷149)
+9. **GREATSWORD** - **53.4 DPR** (Berserker: 80.5×248.04÷100×60÷149)
 
 **Note**: Updated with GameEngine v28 actual weapon stats. Tower weapons maintain lowest DPR as intended per shield principle (defense trades for offense).
 

@@ -31,6 +31,7 @@ import {PlayerSkinRegistry} from "../src/fighters/registries/skins/PlayerSkinReg
 import {PlayerNameRegistry} from "../src/fighters/registries/names/PlayerNameRegistry.sol";
 import {MonsterNameRegistry} from "../src/fighters/registries/names/MonsterNameRegistry.sol";
 import {Fighter} from "../src/fighters/Fighter.sol";
+import {TestPlayerTicketMinter} from "./helpers/TestPlayerTicketMinter.sol";
 
 // Libraries
 import {DefaultPlayerLibrary} from "../src/fighters/lib/DefaultPlayerLibrary.sol";
@@ -38,8 +39,9 @@ import {MonsterLibrary} from "../src/fighters/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../src/nft/skins/MonsterSkinNFT.sol";
 import {NameLibrary} from "../src/fighters/registries/names/lib/NameLibrary.sol";
 import {EquipmentRequirements} from "../src/game/engine/EquipmentRequirements.sol";
+import {IERC1155Receiver} from "@openzeppelin/contracts@4.9.6/token/ERC1155/IERC1155Receiver.sol";
 
-abstract contract TestBase is Test {
+abstract contract TestBase is Test, IERC1155Receiver {
     bool private constant CI_MODE = true;
     uint256 private constant DEFAULT_FORK_BLOCK = 19_000_000;
     uint256 private constant VRF_ROUND = 335;
@@ -62,6 +64,7 @@ abstract contract TestBase is Test {
     uint32 public monsterSkinIndex;
     MonsterNameRegistry public monsterNameRegistry;
     PlayerTickets public playerTickets;
+    TestPlayerTicketMinter public ticketMinter;
 
     /// @notice Modifier to skip tests in CI environment
     /// @dev Uses vm.envOr to check if CI environment variable is set
@@ -159,6 +162,20 @@ abstract contract TestBase is Test {
             attributeSwaps: true
         });
         playerTickets.setGameContractPermission(address(playerContract), ticketPerms);
+
+        // Create test ticket minter and give it all permissions
+        ticketMinter = new TestPlayerTicketMinter(address(playerTickets), address(this));
+        PlayerTickets.GamePermissions memory minterPerms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true,
+            dailyResets: true,
+            attributeSwaps: true
+        });
+        playerTickets.setGameContractPermission(address(ticketMinter), minterPerms);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));
         monsterContract = new Monster(address(skinRegistry), address(nameRegistry));
 
@@ -679,5 +696,103 @@ abstract contract TestBase is Test {
         assertEq(owner, player, "Owner should match");
 
         return requestId;
+    }
+
+    //==============================================================//
+    //                    TICKET HELPER FUNCTIONS                   //
+    //==============================================================//
+
+    /// @notice Helper to mint fungible tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param ticketType The type of ticket to mint (1-7)
+    /// @param amount Number of tickets to mint
+    function _mintTickets(address to, uint256 ticketType, uint256 amount) internal {
+        ticketMinter.mintFungibleTicket(to, ticketType, amount);
+    }
+
+    /// @notice Helper to mint create player tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintCreatePlayerTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.CREATE_PLAYER_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint player slot tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintPlayerSlotTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.PLAYER_SLOT_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint weapon specialization tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintWeaponSpecTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.WEAPON_SPECIALIZATION_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint armor specialization tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintArmorSpecTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.ARMOR_SPECIALIZATION_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint duel tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintDuelTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.DUEL_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint daily reset tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintDailyResetTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.DAILY_RESET_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint attribute swap tickets for testing
+    /// @param to Address to mint tickets to
+    /// @param amount Number of tickets to mint
+    function _mintAttributeSwapTickets(address to, uint256 amount) internal {
+        _mintTickets(to, playerTickets.ATTRIBUTE_SWAP_TICKET(), amount);
+    }
+
+    /// @notice Helper to mint name change NFT for testing
+    /// @param to Address to mint the NFT to
+    /// @param seed Seed for randomness
+    /// @return tokenId The ID of the minted NFT
+    function _mintNameChangeNFT(address to, uint256 seed) internal returns (uint256 tokenId) {
+        return ticketMinter.mintNameChangeNFT(to, seed);
+    }
+
+    //==============================================================//
+    //                 ERC1155 RECEIVER IMPLEMENTATION              //
+    //==============================================================//
+
+    /// @notice Handle receipt of a single ERC1155 token type
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
+        return this.onERC1155Received.selector;
+    }
+
+    /// @notice Handle receipt of multiple ERC1155 token types
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    /// @notice Check if contract supports interface
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == 0x01ffc9a7; // ERC165 interface
     }
 }

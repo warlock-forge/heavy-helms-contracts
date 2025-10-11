@@ -3,14 +3,15 @@ pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
+import {PlayerTickets, NotAuthorizedToMint} from "../../src/nft/PlayerTickets.sol";
 import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
 import {IPlayerNameRegistry} from "../../src/interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import {NameLibrary} from "../../src/fighters/registries/names/lib/NameLibrary.sol";
 import {LibString} from "solady/utils/LibString.sol";
 import {Base64} from "solady/utils/Base64.sol";
+import {IERC1155Receiver} from "@openzeppelin/contracts@4.9.6/token/ERC1155/IERC1155Receiver.sol";
 
-contract PlayerTicketsTest is Test {
+contract PlayerTicketsTest is Test, IERC1155Receiver {
     PlayerTickets public tickets;
     PlayerNameRegistry public nameRegistry;
 
@@ -110,6 +111,19 @@ contract PlayerTicketsTest is Test {
 
         console2.log("Generated URI for", firstName, surname);
         console2.log(uri);
+    }
+
+    function testInitialSupplyMinted() public view {
+        // Verify initial supply was minted to deployer
+        assertEq(tickets.balanceOf(owner, tickets.CREATE_PLAYER_TICKET()), 1000);
+        assertEq(tickets.balanceOf(owner, tickets.PLAYER_SLOT_TICKET()), 1000);
+        assertEq(tickets.balanceOf(owner, tickets.DAILY_RESET_TICKET()), 1000);
+
+        // Verify other tickets were NOT minted initially
+        assertEq(tickets.balanceOf(owner, tickets.WEAPON_SPECIALIZATION_TICKET()), 0);
+        assertEq(tickets.balanceOf(owner, tickets.ARMOR_SPECIALIZATION_TICKET()), 0);
+        assertEq(tickets.balanceOf(owner, tickets.DUEL_TICKET()), 0);
+        assertEq(tickets.balanceOf(owner, tickets.ATTRIBUTE_SWAP_TICKET()), 0);
     }
 
     function testFungibleTicketURIs() public view {
@@ -218,11 +232,11 @@ contract PlayerTicketsTest is Test {
         assertFalse(perms.playerSlots);
     }
 
-    function testOwnerCanAlwaysMint() public {
-        // Owner should be able to mint without explicit permissions
-        uint256 tokenId = tickets.mintNameChangeNFT(user1, 5555);
-        assertEq(tokenId, 100);
-        assertEq(tickets.balanceOf(user1, tokenId), 1);
+    function testOwnerCannotMintWithoutPermissions() public {
+        // Owner should NOT be able to mint without explicit permissions
+        // This ensures a more secure permission model
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        tickets.mintNameChangeNFT(user1, 5555);
     }
 
     function testSameSeedDifferentBlockchainState() public {
@@ -274,5 +288,28 @@ contract PlayerTicketsTest is Test {
         } else {
             console2.log("Selected from Set A:", firstNameIndex);
         }
+    }
+
+    // ERC1155 Receiver implementation
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
+        return this.onERC1155Received.selector;
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
+        return this.onERC1155BatchReceived.selector;
+    }
+
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == 0x01ffc9a7; // ERC165 interface
     }
 }

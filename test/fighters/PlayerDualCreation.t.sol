@@ -38,21 +38,8 @@ contract PlayerDualCreationTest is TestBase {
     function testCreatePlayerWithTicket() public {
         PlayerTickets tickets = playerContract.playerTickets();
 
-        // Grant permission to mint tickets
-        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
-            playerCreation: true,
-            playerSlots: false,
-            nameChanges: false,
-            weaponSpecialization: false,
-            armorSpecialization: false,
-            duels: false,
-            dailyResets: false,
-            attributeSwaps: false
-        });
-        tickets.setGameContractPermission(address(this), perms);
-
         // Mint ticket to user
-        tickets.mintFungibleTicket(USER, tickets.CREATE_PLAYER_TICKET(), 1);
+        _mintCreatePlayerTickets(USER, 1);
 
         vm.startPrank(USER);
 
@@ -98,21 +85,8 @@ contract PlayerDualCreationTest is TestBase {
     function testCreatePlayerWithTicketFullWorkflow() public {
         PlayerTickets tickets = playerContract.playerTickets();
 
-        // Grant permission to mint tickets
-        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
-            playerCreation: true,
-            playerSlots: false,
-            nameChanges: false,
-            weaponSpecialization: false,
-            armorSpecialization: false,
-            duels: false,
-            dailyResets: false,
-            attributeSwaps: false
-        });
-        tickets.setGameContractPermission(address(this), perms);
-
         // Mint ticket to user
-        tickets.mintFungibleTicket(USER, tickets.CREATE_PLAYER_TICKET(), 1);
+        _mintCreatePlayerTickets(USER, 1);
 
         vm.startPrank(USER);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -147,21 +121,8 @@ contract PlayerDualCreationTest is TestBase {
     function testMixedCreationMethods() public {
         PlayerTickets tickets = playerContract.playerTickets();
 
-        // Grant permission to mint tickets
-        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
-            playerCreation: true,
-            playerSlots: false,
-            nameChanges: false,
-            weaponSpecialization: false,
-            armorSpecialization: false,
-            duels: false,
-            dailyResets: false,
-            attributeSwaps: false
-        });
-        tickets.setGameContractPermission(address(this), perms);
-
         // Mint ticket to user
-        tickets.mintFungibleTicket(USER, tickets.CREATE_PLAYER_TICKET(), 1);
+        _mintCreatePlayerTickets(USER, 1);
 
         vm.startPrank(USER);
         tickets.setApprovalForAll(address(playerContract), true);

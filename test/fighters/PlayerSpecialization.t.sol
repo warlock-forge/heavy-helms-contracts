@@ -101,7 +101,7 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setWeaponSpecialization(playerId, 2);
 
         // Mint a respec ticket and try again
-        tickets.mintFungibleTicket(PLAYER_ONE, tickets.WEAPON_SPECIALIZATION_TICKET(), 1);
+        _mintWeaponSpecTickets(PLAYER_ONE, 1);
 
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -173,7 +173,7 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setArmorSpecialization(playerId, 2);
 
         // Mint a respec ticket and try again
-        tickets.mintFungibleTicket(PLAYER_ONE, tickets.ARMOR_SPECIALIZATION_TICKET(), 1);
+        _mintArmorSpecTickets(PLAYER_ONE, 1);
 
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -204,7 +204,7 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setWeaponSpecialization(playerId, 7); // Should not revert
 
         // Subsequent changes need tickets
-        tickets.mintFungibleTicket(PLAYER_ONE, tickets.WEAPON_SPECIALIZATION_TICKET(), 2);
+        _mintWeaponSpecTickets(PLAYER_ONE, 2);
 
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -228,7 +228,7 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setArmorSpecialization(playerId, 50); // Should not revert
 
         // Subsequent changes need tickets
-        tickets.mintFungibleTicket(PLAYER_ONE, tickets.ARMOR_SPECIALIZATION_TICKET(), 2);
+        _mintArmorSpecTickets(PLAYER_ONE, 2);
 
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);
@@ -271,7 +271,7 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setWeaponSpecialization(playerId, 1);
 
         // Mint multiple tickets for multiple respecs
-        tickets.mintFungibleTicket(PLAYER_ONE, tickets.WEAPON_SPECIALIZATION_TICKET(), 3);
+        _mintWeaponSpecTickets(PLAYER_ONE, 3);
 
         vm.startPrank(PLAYER_ONE);
         tickets.setApprovalForAll(address(playerContract), true);

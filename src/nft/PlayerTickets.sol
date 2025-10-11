@@ -138,6 +138,14 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         _nameRegistry = IPlayerNameRegistry(nameRegistryAddress);
         fungibleMetadataCID = _fungibleMetadataCID;
         nameChangeImageCID = _nameChangeImageCID;
+
+        // Mint initial supply of tickets to owner for distribution
+        // This provides a fixed, transparent supply instead of unlimited minting
+        // Using the gas-limited mint to avoid issues with EOA receivers
+        uint256 initialSupply = 1000;
+        _mint(msg.sender, CREATE_PLAYER_TICKET, initialSupply, "");
+        _mint(msg.sender, PLAYER_SLOT_TICKET, initialSupply, "");
+        _mint(msg.sender, DAILY_RESET_TICKET, initialSupply, "");
     }
 
     //==============================================================//
@@ -463,30 +471,29 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     /// @param permission The permission type to check
     /// @dev Reverts with NotAuthorizedToMint if the caller lacks the required permission
     function _checkPermission(TicketPermission permission) internal view {
-        if (msg.sender != owner()) {
-            GamePermissions memory permissions = _gameContractPermissions[msg.sender];
-            bool hasRequiredPermission;
+        // Owner no longer has automatic minting permissions
+        GamePermissions memory permissions = _gameContractPermissions[msg.sender];
+        bool hasRequiredPermission;
 
-            if (permission == TicketPermission.PLAYER_CREATION) {
-                hasRequiredPermission = permissions.playerCreation;
-            } else if (permission == TicketPermission.PLAYER_SLOTS) {
-                hasRequiredPermission = permissions.playerSlots;
-            } else if (permission == TicketPermission.NAME_CHANGES) {
-                hasRequiredPermission = permissions.nameChanges;
-            } else if (permission == TicketPermission.WEAPON_SPECIALIZATION) {
-                hasRequiredPermission = permissions.weaponSpecialization;
-            } else if (permission == TicketPermission.ARMOR_SPECIALIZATION) {
-                hasRequiredPermission = permissions.armorSpecialization;
-            } else if (permission == TicketPermission.DUELS) {
-                hasRequiredPermission = permissions.duels;
-            } else if (permission == TicketPermission.DAILY_RESETS) {
-                hasRequiredPermission = permissions.dailyResets;
-            } else if (permission == TicketPermission.ATTRIBUTE_SWAPS) {
-                hasRequiredPermission = permissions.attributeSwaps;
-            }
-
-            if (!hasRequiredPermission) revert NotAuthorizedToMint();
+        if (permission == TicketPermission.PLAYER_CREATION) {
+            hasRequiredPermission = permissions.playerCreation;
+        } else if (permission == TicketPermission.PLAYER_SLOTS) {
+            hasRequiredPermission = permissions.playerSlots;
+        } else if (permission == TicketPermission.NAME_CHANGES) {
+            hasRequiredPermission = permissions.nameChanges;
+        } else if (permission == TicketPermission.WEAPON_SPECIALIZATION) {
+            hasRequiredPermission = permissions.weaponSpecialization;
+        } else if (permission == TicketPermission.ARMOR_SPECIALIZATION) {
+            hasRequiredPermission = permissions.armorSpecialization;
+        } else if (permission == TicketPermission.DUELS) {
+            hasRequiredPermission = permissions.duels;
+        } else if (permission == TicketPermission.DAILY_RESETS) {
+            hasRequiredPermission = permissions.dailyResets;
+        } else if (permission == TicketPermission.ATTRIBUTE_SWAPS) {
+            hasRequiredPermission = permissions.attributeSwaps;
         }
+
+        if (!hasRequiredPermission) revert NotAuthorizedToMint();
     }
 
     /// @notice Generates dynamic SVG-based URI for name change NFTs with IPFS background

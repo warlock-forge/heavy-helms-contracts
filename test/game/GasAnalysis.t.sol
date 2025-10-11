@@ -56,8 +56,8 @@ contract GasAnalysisTest is TestBase {
         vm.deal(PLAYER_TWO, 100 ether);
 
         // Give players duel tickets for gas analysis
-        playerTickets.mintFungibleTicket(PLAYER_ONE, playerTickets.DUEL_TICKET(), 10);
-        playerTickets.mintFungibleTicket(PLAYER_TWO, playerTickets.DUEL_TICKET(), 10);
+        _mintDuelTickets(PLAYER_ONE, 10);
+        _mintDuelTickets(PLAYER_TWO, 10);
 
         // Give players approval to DuelGame to burn their tickets
         vm.prank(PLAYER_ONE);

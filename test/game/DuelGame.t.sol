@@ -93,10 +93,6 @@ contract DuelGameTest is TestBase {
         playerTickets.setApprovalForAll(address(game), true);
     }
 
-    function _mintDuelTickets(address to, uint256 amount) internal {
-        playerTickets.mintFungibleTicket(to, playerTickets.DUEL_TICKET(), amount);
-    }
-
     function testInitialState() public view {
         assertEq(address(game.gameEngine()), address(gameEngine));
         assertEq(address(game.playerContract()), address(playerContract));
