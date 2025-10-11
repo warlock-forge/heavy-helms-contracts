@@ -211,7 +211,13 @@ abstract contract TestBase is Test, IERC1155Receiver {
     }
 
     // Helper function for VRF fulfillment with Chainlink VRF
-    function _fulfillVRF(uint256 requestId, uint256 randomSeed, address /* vrfConsumer */) internal {
+    function _fulfillVRF(
+        uint256 requestId,
+        uint256 randomSeed,
+        address /* vrfConsumer */
+    )
+        internal
+    {
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = randomSeed;
 
