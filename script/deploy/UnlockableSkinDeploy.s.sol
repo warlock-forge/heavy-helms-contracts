@@ -13,11 +13,10 @@ import {PlayerSkinNFT} from "../../src/nft/skins/PlayerSkinNFT.sol";
 
 contract UnlockableSkinDeployScript is Script {
     function run(address skinRegistryAddress) public {
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         vm.createSelectFork(rpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         PlayerSkinRegistry skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
 

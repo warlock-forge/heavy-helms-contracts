@@ -20,13 +20,12 @@ contract MintDefaultSkinScript is Script {
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");
 
         // Get private key from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         DefaultPlayerSkinNFT defaultSkin = DefaultPlayerSkinNFT(defaultSkinAddr);
         DefaultPlayer defaultPlayer = DefaultPlayer(defaultPlayerAddr);

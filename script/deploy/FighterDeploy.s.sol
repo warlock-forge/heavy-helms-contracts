@@ -33,13 +33,12 @@ contract FighterDeployScript is Script {
         bytes32 keyHash
     ) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // 1. Deploy PlayerDataCodec helper contract
         PlayerDataCodec playerDataCodec = new PlayerDataCodec();

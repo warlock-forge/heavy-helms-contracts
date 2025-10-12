@@ -15,12 +15,11 @@ contract ClearPendingVRFScript is Script {
 
     function run(address payable playerContractAddr, address walletToClear) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Get the deployed Player contract
         Player player = Player(playerContractAddr);

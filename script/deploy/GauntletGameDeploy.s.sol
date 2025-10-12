@@ -28,13 +28,12 @@ contract GauntletGameDeployScript is Script {
         require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
 
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Deploy all 3 bracket contracts
         deployGauntletBracket(

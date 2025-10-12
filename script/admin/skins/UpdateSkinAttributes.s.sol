@@ -15,13 +15,12 @@ contract UpdateSkinAttributesScript is Script {
 
     function run(address defaultSkinAddr, uint32 tokenId, uint8 weapon, uint8 armor) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Get the NFT contract
         DefaultPlayerSkinNFT defaultSkin = DefaultPlayerSkinNFT(defaultSkinAddr);

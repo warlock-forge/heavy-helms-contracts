@@ -28,27 +28,19 @@ contract DuelGameDeployScript is Script {
         require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
 
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Deploy DuelGame
         DuelGame duelGame =
             new DuelGame(gameEngineAddr, playerAddr, vrfCoordinator, subscriptionId, keyHash, playerTicketsAddr);
 
-        // Whitelist DuelGame in Player contract
-        Player playerContract = Player(playerAddr);
-        IPlayer.GamePermissions memory perms =
-            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: false});
-        playerContract.setGameContractPermission(address(duelGame), perms);
-
         console2.log("\n=== Deployed Addresses ===");
         console2.log("DuelGame:", address(duelGame));
-        console2.log("DuelGame whitelisted in Player contract");
 
         vm.stopBroadcast();
     }

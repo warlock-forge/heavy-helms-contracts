@@ -15,12 +15,11 @@ contract CancelDuelScript is Script {
 
     function run(address duelGameAddr, uint256 challengeId) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         DuelGame duelGame = DuelGame(payable(duelGameAddr));
 

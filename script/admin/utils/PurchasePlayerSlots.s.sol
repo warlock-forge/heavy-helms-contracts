@@ -15,12 +15,11 @@ contract PurchasePlayerSlotsScript is Script {
 
     function run(address payable playerContractAddr) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Get the deployed Player contract
         Player player = Player(playerContractAddr);
@@ -32,7 +31,7 @@ contract PurchasePlayerSlotsScript is Script {
         player.purchasePlayerSlots{value: cost}();
 
         // Log the results
-        address owner = vm.addr(deployerPrivateKey);
+        address owner = msg.sender;
         uint256 newSlotCount = player.getPlayerSlots(owner);
         console2.log("Purchased 1 player slot for", cost, "wei");
         console2.log("New total slot count:", newSlotCount);

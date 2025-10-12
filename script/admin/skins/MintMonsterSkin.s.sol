@@ -18,13 +18,12 @@ contract MintMonsterSkinScript is Script {
         require(monsterAddr != address(0), "Monster address cannot be zero");
 
         // Get private key from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         MonsterSkinNFT monsterSkin = MonsterSkinNFT(monsterSkinAddr);
         Monster monster = Monster(monsterAddr);

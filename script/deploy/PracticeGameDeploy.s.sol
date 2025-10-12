@@ -22,13 +22,12 @@ contract PracticeGameDeployScript is Script {
         require(monsterAddr != address(0), "Monster address cannot be zero");
 
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Deploy PracticeGame
         PracticeGame practiceGame = new PracticeGame(gameEngineAddr, playerAddr, defaultPlayerAddr, monsterAddr);

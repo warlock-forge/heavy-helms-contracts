@@ -17,12 +17,11 @@ contract DuelPlayersScript is Script {
 
     function run(address duelGameAddr, uint32 challengerId, uint32 defenderId) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         DuelGame duelGame = DuelGame(payable(duelGameAddr));
         IPlayer playerContract = IPlayer(duelGame.playerContract());

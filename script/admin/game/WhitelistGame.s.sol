@@ -16,12 +16,11 @@ contract WhitelistGameScript is Script {
 
     function run(address gameAddr, address payable playerAddr) public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         Player playerContract = Player(playerAddr);
         IPlayer.GamePermissions memory perms =

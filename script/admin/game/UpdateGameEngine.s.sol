@@ -18,13 +18,12 @@ contract UpdateGameEngineScript is Script {
         require(gameContractAddr != address(0), "Game contract address cannot be zero");
 
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Cast the address to BaseGame since all game contracts inherit from it
         BaseGame game = BaseGame(gameContractAddr);

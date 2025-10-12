@@ -13,13 +13,12 @@ import {PlayerSkinRegistry} from "../../src/fighters/registries/skins/PlayerSkin
 contract PlayerSkinRegistryDeploy is Script {
     function run() public {
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
         PlayerSkinRegistry skinRegistry = new PlayerSkinRegistry();
         vm.stopBroadcast();
 

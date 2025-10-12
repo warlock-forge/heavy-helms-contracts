@@ -18,13 +18,12 @@ contract UpdateEquipmentRequirementsScript is Script {
         require(playerContractAddr != address(0), "Player contract address cannot be zero");
 
         // Get values from .env
-        uint256 deployerPrivateKey = vm.envUint("PK");
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Cast the address to Player
         Player player = Player(playerContractAddr);
