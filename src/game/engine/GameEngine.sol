@@ -13,7 +13,10 @@ import {IGameEngine} from "../../interfaces/game/engine/IGameEngine.sol";
 contract GameEngine is IGameEngine {
     using UniformRandomNumber for uint256;
 
-    uint16 public constant version = 256;
+    error InvalidResults();
+    error InvalidEquipment();
+
+    uint16 public constant version = 257;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -91,6 +94,7 @@ contract GameEngine is IGameEngine {
         uint16 riposteChance; // New field
         uint16 staminaCostModifier; // Add this new field
         uint16 survivalFactor; // Base 100, higher means better survival chance
+        uint16 heavyArmorEffectiveness; // Plate armor defense/resistance effectiveness
     }
 
     struct CalculatedCombatStats {
@@ -128,12 +132,12 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 14;
-    uint8 private immutable STAMINA_BLOCK = 2;
-    uint8 private immutable STAMINA_DODGE = 2;
-    uint8 private immutable STAMINA_COUNTER = 3;
-    uint8 private immutable STAMINA_PARRY = 2;
-    uint8 private immutable STAMINA_RIPOSTE = 3;
+    uint8 private immutable STAMINA_ATTACK = 15;
+    uint8 private immutable STAMINA_BLOCK = 4;
+    uint8 private immutable STAMINA_DODGE = 4;
+    uint8 private immutable STAMINA_COUNTER = 6;
+    uint8 private immutable STAMINA_PARRY = 4;
+    uint8 private immutable STAMINA_RIPOSTE = 6;
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
     uint8 private constant REACH_DODGE_BONUS = 5;
@@ -211,7 +215,9 @@ contract GameEngine is IGameEngine {
         pure
         returns (bool player1Won, uint16 gameEngineVersion, WinCondition condition, CombatAction[] memory actions)
     {
-        require(results.length >= 4, "Results too short");
+        if (results.length < 4) {
+            revert InvalidResults();
+        }
 
         // Read winner (1 byte) - 0 means player1 won, 1 means player2 won
         player1Won = uint8(results[0]) == 0;
@@ -370,7 +376,7 @@ contract GameEngine is IGameEngine {
         }
         // SIZE 9-16: 0% (baseline) - no modification needed
 
-        uint16 physicalPowerMod = uint16(minUint256(tempPowerMod, type(uint16).max));
+        uint16 physicalPowerMod = uint16(tempPowerMod < type(uint16).max ? tempPowerMod : type(uint16).max);
 
         // Calculate base survival rate
         uint16 baseSurvivalRate =
@@ -812,8 +818,10 @@ contract GameEngine is IGameEngine {
         returns (CalculatedCombatStats memory)
     {
         // Shield Tanks (Tower Shield + Defensive Stance) are immune to stamina penalties
-        // Defensive stance has 125% block chance multiplier - this is more robust than checking stamina
-        if (defender.weapon.shieldType == ShieldType.TOWER_SHIELD && defender.stanceMultipliers.blockChance == 125) {
+        if (
+            defender.weapon.shieldType == ShieldType.TOWER_SHIELD
+                && defender.stanceMultipliers.heavyArmorEffectiveness == 100
+        ) {
             return defender; // No penalties for dedicated tank builds (Defensive Stance)
         }
 
@@ -900,7 +908,8 @@ contract GameEngine is IGameEngine {
                 baseDamage,
                 modifiedDefender.armor,
                 modifiedAttacker.weapon.damageType,
-                modifiedAttacker.weapon.weaponClass
+                modifiedAttacker.weapon.weaponClass,
+                modifiedDefender.stanceMultipliers
             );
 
             if (isCritical) {
@@ -1156,7 +1165,11 @@ contract GameEngine is IGameEngine {
 
         // Apply armor reduction FIRST (before crit multiplier)
         uint16 armorReducedDamage = applyDefensiveStats(
-            counterDamage, modifiedTarget.armor, modifiedDefender.weapon.damageType, modifiedDefender.weapon.weaponClass
+            counterDamage,
+            modifiedTarget.armor,
+            modifiedDefender.weapon.damageType,
+            modifiedDefender.weapon.weaponClass,
+            modifiedTarget.stanceMultipliers
         );
 
         if (isCritical) {
@@ -1195,31 +1208,21 @@ contract GameEngine is IGameEngine {
         );
     }
 
-    function minUint256(uint256 a, uint256 b) private pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    function minUint16(uint16 a, uint16 b) private pure returns (uint16) {
-        return a < b ? a : b;
-    }
-
-    function applyDamage(uint96 currentHealth, uint16 damage) private pure returns (uint96) {
-        unchecked {
-            return currentHealth > damage ? currentHealth - damage : 0;
-        }
-    }
-
     function applyDefensiveStats(
         uint16 incomingDamage,
         ArmorStats memory armor,
         DamageType damageType,
-        WeaponClass weaponClass
+        WeaponClass weaponClass,
+        StanceMultiplier memory stance
     ) private pure returns (uint16) {
-        // Get resistance percentage (0-100)
-        uint16 resistance = getResistanceForDamageType(armor, damageType);
+        // Apply stance armor effectiveness only to plate armor (weight >= 100)
+        uint16 armorEff = armor.weight >= 100 ? stance.heavyArmorEffectiveness : 100;
+        uint32 effectiveDefense = (uint32(armor.defense) * armorEff) / 100;
+        uint16 baseResistance = getResistanceForDamageType(armor, damageType);
+        uint32 effectiveResistance = (uint32(baseResistance) * armorEff) / 100;
 
-        // First apply flat reduction
-        uint32 afterFlat = incomingDamage > armor.defense ? uint32(incomingDamage) - armor.defense : 0;
+        // First apply flat reduction with stance modifier
+        uint32 afterFlat = incomingDamage > effectiveDefense ? uint32(incomingDamage) - effectiveDefense : 0;
 
         // Calculate armor penetration for HEAVY_DEMOLITION weapons vs heavy armor
         uint32 armorPen = 0;
@@ -1229,11 +1232,11 @@ contract GameEngine is IGameEngine {
         }
 
         // Then apply percentage reduction with armor penetration
-        uint32 reductionPercent = resistance > 90 ? 90 : resistance;
+        uint32 reductionPercent = effectiveResistance > 90 ? 90 : effectiveResistance;
         reductionPercent = armorPen >= reductionPercent ? 0 : reductionPercent - armorPen;
         uint32 finalDamage = (afterFlat * (100 - reductionPercent)) / 100;
 
-        return finalDamage > type(uint16).max ? type(uint16).max : uint16(finalDamage);
+        return finalDamage > type(uint16).max ? type(uint16).max : uint16(finalDamage == 0 ? 1 : finalDamage);
     }
 
     function getResistanceForDamageType(ArmorStats memory armor, DamageType damageType) private pure returns (uint16) {
@@ -1245,11 +1248,11 @@ contract GameEngine is IGameEngine {
             return armor.bluntResist;
         } else if (damageType == DamageType.Hybrid_Slash_Pierce) {
             // Use the lower resistance (more favorable to attacker)
-            return minUint16(armor.slashResist, armor.pierceResist);
+            return armor.slashResist < armor.pierceResist ? armor.slashResist : armor.pierceResist;
         } else if (damageType == DamageType.Hybrid_Slash_Blunt) {
-            return minUint16(armor.slashResist, armor.bluntResist);
+            return armor.slashResist < armor.bluntResist ? armor.slashResist : armor.bluntResist;
         } else if (damageType == DamageType.Hybrid_Pierce_Blunt) {
-            return minUint16(armor.pierceResist, armor.bluntResist);
+            return armor.pierceResist < armor.bluntResist ? armor.pierceResist : armor.bluntResist;
         }
         return 0;
     }
@@ -1304,7 +1307,7 @@ contract GameEngine is IGameEngine {
         bool wouldKill = damage >= currentHealth;
 
         // Apply damage normally
-        currentHealth = applyDamage(currentHealth, damage);
+        currentHealth = currentHealth > damage ? currentHealth - damage : 0;
 
         if (isPlayer1Attacker) {
             state.p2Health = currentHealth;
@@ -1467,7 +1470,7 @@ contract GameEngine is IGameEngine {
     /// and carrying them through combat, consider only storing combat actions during the fight and concatenating
     /// the prefix at the end. This would reduce memory copying in appendCombatAction and be more gas efficient.
     function encodeCombatResults(CombatState memory state, bytes memory results) private pure returns (bytes memory) {
-        require(results.length >= 4, "Invalid results length");
+        if (results.length < 4) revert InvalidResults();
 
         // Write single byte for winner (0 for player1, 1 for player2)
         results[0] = bytes1(state.player1Won ? uint8(0) : uint8(1));
@@ -1543,8 +1546,8 @@ contract GameEngine is IGameEngine {
 
     function ARMING_SWORD_KITE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 35, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
-            maxDamage: 43, // Shield principle: kite shields prioritize defense over damage (~30 DPR)
+            minDamage: 35,
+            maxDamage: 43,
             attackSpeed: 75,
             parryChance: 140,
             riposteChance: 100,
@@ -1559,13 +1562,13 @@ contract GameEngine is IGameEngine {
 
     function MACE_TOWER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 33, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
-            maxDamage: 42, // Shield principle: tower shields prioritize maximum defense (~25 DPR)
+            minDamage: 33,
+            maxDamage: 42,
             attackSpeed: 70,
             parryChance: 140,
             riposteChance: 85,
-            critMultiplier: 190, // v28: Reduced from 220 - dial back 2k+ crits
-            staminaMultiplier: 85, // Tower shields should be very sustainable
+            critMultiplier: 190,
+            staminaMultiplier: 85,
             survivalFactor: 130,
             damageType: DamageType.Blunt,
             shieldType: ShieldType.TOWER_SHIELD,
@@ -1575,13 +1578,13 @@ contract GameEngine is IGameEngine {
 
     function RAPIER_BUCKLER() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40, // Buffed to 38-40 DPR range
-            maxDamage: 52, // Buffed to 38-40 DPR range
+            minDamage: 40,
+            maxDamage: 52,
             attackSpeed: 90,
-            parryChance: 155, // v28: Moderate buff +45 - not overwhelming vs assassins
-            riposteChance: 140, // v28: Moderate buff +45 - not overwhelming vs assassins
+            parryChance: 155,
+            riposteChance: 140,
             critMultiplier: 190,
-            staminaMultiplier: 105, // Light finesse efficient
+            staminaMultiplier: 105,
             survivalFactor: 120,
             damageType: DamageType.Piercing,
             shieldType: ShieldType.BUCKLER,
@@ -1591,13 +1594,13 @@ contract GameEngine is IGameEngine {
 
     function GREATSWORD() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 76, // Adjusted to achieve ~52 DPR - balanced power level
-            maxDamage: 85, // Adjusted to achieve ~52 DPR - balanced power level
+            minDamage: 76,
+            maxDamage: 85,
             attackSpeed: 60,
             parryChance: 120,
             riposteChance: 70,
-            critMultiplier: 190, // v28: Reduced from 220 - dial back 2k+ crits
-            staminaMultiplier: 260, // Reduced from 290 - berserkers need to counter shield tanks
+            critMultiplier: 190,
+            staminaMultiplier: 260,
             survivalFactor: 90,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1607,13 +1610,13 @@ contract GameEngine is IGameEngine {
 
     function BATTLEAXE() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 130, // Adjusted to achieve ~58 DPR - powerful but not overpowering
-            maxDamage: 140, // Adjusted to achieve ~58 DPR - powerful but not overpowering
+            minDamage: 130,
+            maxDamage: 140,
             attackSpeed: 40,
             parryChance: 70,
             riposteChance: 40,
-            critMultiplier: 230, // v28: Reduced from 270 - dial back 2k+ crits
-            staminaMultiplier: 280, // Reduced from 315 - berserkers need to counter shield tanks
+            critMultiplier: 230,
+            staminaMultiplier: 280,
             survivalFactor: 80,
             damageType: DamageType.Slashing,
             shieldType: ShieldType.NONE,
@@ -1623,8 +1626,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 29, // Nerfed to target ~40 DPR range
-            maxDamage: 36, // Nerfed to target ~40 DPR range
+            minDamage: 36,
+            maxDamage: 45,
             attackSpeed: 80,
             parryChance: 140,
             riposteChance: 120,
@@ -1639,8 +1642,8 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 32, // v27: Nerfed from 38 to balance DPR (~45 target)
-            maxDamage: 40, // v27: Nerfed from 52 to balance DPR (~45 target)
+            minDamage: 40,
+            maxDamage: 49,
             attackSpeed: 80,
             parryChance: 130,
             riposteChance: 140,
@@ -1930,8 +1933,8 @@ contract GameEngine is IGameEngine {
 
     function TRIDENT() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 47, // v27: Nerfed from 65 to balance DPR (~45 target)
-            maxDamage: 58, // v27: Nerfed from 75 to balance DPR (~45 target)
+            minDamage: 64,
+            maxDamage: 81,
             attackSpeed: 55,
             parryChance: 100,
             riposteChance: 100,
@@ -1970,7 +1973,7 @@ contract GameEngine is IGameEngine {
         if (weapon == WEAPON_MACE_SHORTSWORD) return MACE_SHORTSWORD();
         if (weapon == WEAPON_MAUL) return MAUL();
         if (weapon == WEAPON_TRIDENT) return TRIDENT();
-        revert("Invalid weapon type");
+        revert InvalidEquipment();
     }
 
     // =============================================
@@ -1998,7 +2001,7 @@ contract GameEngine is IGameEngine {
         if (armor == ARMOR_LEATHER) return LEATHER();
         if (armor == ARMOR_CHAIN) return CHAIN();
         if (armor == ARMOR_PLATE) return PLATE();
-        revert("Invalid armor type");
+        revert InvalidEquipment();
     }
 
     // =============================================
@@ -2007,17 +2010,18 @@ contract GameEngine is IGameEngine {
 
     function DEFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
-            damageModifier: 80,
-            hitChance: 85,
-            critChance: 85,
-            critMultiplier: 95,
-            blockChance: 140,
-            parryChance: 140,
-            dodgeChance: 125,
-            counterChance: 130,
-            riposteChance: 130,
-            staminaCostModifier: 70,
-            survivalFactor: 125
+            damageModifier: 75,
+            hitChance: 75,
+            critChance: 75,
+            critMultiplier: 85,
+            blockChance: 150,
+            parryChance: 150,
+            dodgeChance: 140,
+            counterChance: 150,
+            riposteChance: 150,
+            staminaCostModifier: 60,
+            survivalFactor: 125,
+            heavyArmorEffectiveness: 100
         });
     }
 
@@ -2033,23 +2037,25 @@ contract GameEngine is IGameEngine {
             counterChance: 100,
             riposteChance: 100,
             staminaCostModifier: 100,
-            survivalFactor: 100
+            survivalFactor: 100,
+            heavyArmorEffectiveness: 75
         });
     }
 
     function OFFENSIVE_STANCE() public pure returns (StanceMultiplier memory) {
         return StanceMultiplier({
-            damageModifier: 110,
-            hitChance: 115,
-            critChance: 105,
-            critMultiplier: 115,
-            blockChance: 70,
-            parryChance: 70,
-            dodgeChance: 70,
-            counterChance: 80,
-            riposteChance: 80,
-            staminaCostModifier: 115,
-            survivalFactor: 85
+            damageModifier: 115,
+            hitChance: 130,
+            critChance: 115,
+            critMultiplier: 150,
+            blockChance: 60,
+            parryChance: 60,
+            dodgeChance: 60,
+            counterChance: 70,
+            riposteChance: 70,
+            staminaCostModifier: 125,
+            survivalFactor: 75,
+            heavyArmorEffectiveness: 50
         });
     }
 
@@ -2111,11 +2117,11 @@ contract GameEngine is IGameEngine {
         returns (uint16 blockChance, uint16 counterChance, uint16 dodgeModifier, uint16 staminaModifier)
     {
         if (shieldType == ShieldType.BUCKLER) {
-            return (90, 120, 120, 80);
+            return (70, 110, 110, 100);
         } else if (shieldType == ShieldType.KITE_SHIELD) {
-            return (140, 100, 75, 100);
+            return (110, 90, 55, 120);
         } else if (shieldType == ShieldType.TOWER_SHIELD) {
-            return (180, 50, 20, 120);
+            return (140, 50, 20, 150);
         }
         return (0, 0, 100, 100);
     }
