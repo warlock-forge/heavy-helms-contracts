@@ -1210,7 +1210,10 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @return Timestamp for next season start
     function getNextSeasonStart() public view returns (uint256) {
         // Get current date components
-        (uint256 year, uint256 month,/* uint256 day */) = BokkyPooBahsDateTimeLibrary.timestampToDate(block.timestamp);
+        (
+            uint256 year,
+            uint256 month, /* uint256 day */
+        ) = BokkyPooBahsDateTimeLibrary.timestampToDate(block.timestamp);
 
         // Add the configured number of months
         month += seasonLengthMonths;

@@ -627,14 +627,9 @@ contract DuelGameTest is TestBase {
 
         // Retrieve stored loadouts from challenge
         (
-            ,
-            ,
-            ,
-            ,
-            ,
+            ,,,,,
             Fighter.PlayerLoadout memory storedChallengerLoadout,
             Fighter.PlayerLoadout memory storedDefenderLoadout,
-
         ) = game.challenges(challengeId);
 
         // Verify loadouts were stored as passed, not as equipped

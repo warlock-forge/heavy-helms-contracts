@@ -37,9 +37,7 @@ contract CheckDuelResultScript is Script {
             uint32 defenderId,
             uint256 createdBlock,
             uint256 createdTimestamp,
-            uint256 vrfRequestTimestamp,
-            ,
-            ,
+            uint256 vrfRequestTimestamp,,,
             DuelGame.ChallengeState state
         ) = duelGame.challenges(challengeId);
 
