@@ -1,8 +1,8 @@
 # Heavy Helms v2 - Progression
 
-## Deployed Contract Addresses - Base Sepolia
+## Deployed Contract Addresses - Base Mainnet
 
-- **GameEngine**: 0xD351cF16cBc8A8732D6E5aB46B3d8b350075567a v1.1
+- **GameEngine**: 0xD351cF16cBc8A8732D6E5aB46B3d8b350075567a v1.2
 - **EquipmentRequirements**: 0xB7710a3C16f71bD46E174E5806F4274Cbc934837
 - **PlayerSkinRegistry**: 0xA308ECAD719A4d8708462318727a6001e6604f10
 - **PlayerNameRegistry**: 0x6106E1f3De585b968CEAa4b9f732cCd201aD9811
@@ -14,11 +14,11 @@
 - **Monster**: 0x9c586B69b63c775f05d3c2590c4C2C06D2D6ABE1
 - **DefaultPlayerSkinNFT**: 0x2af065B73940Be500A38F4CE63EFE4a6bf3A81D4
 - **MonsterSkinNFT**: 0x83d7A13457df1cb1a9c8E29dEE62078a1a7cacf2
-- **PracticeGame**: 0xcCC01A2b34aecde9d4a4BDA88D71c117e1A82dC4
-- **DuelGame**: 0xEeCF7f20D836744621EB881ABAC7Fb20fF965d5b
-- **GauntletGame**: 0xe76A989546397270EaeAF69412F3D703D975BFaE (L1-4)
-- **GauntletGame**: 0xd088bb2e9F47cb3175E44E95F0d30Bdd8b3A3307 (L5-9)
-- **GauntletGame**: 0xC1773261B5410BF16050621FB18b9de97B63Cb50 (L10)
+- **PracticeGame**: 0x4A72CD0d147Af3923bCa35a0097Be9e8711789ac
+- **DuelGame**: 0x595C77EFce088936e7E1E94432732984b30a1CAc
+- **GauntletGame**: 0x005744D889870E6de3c5cC0a4537B88034620416 (L1-4)
+- **GauntletGame**: 0x4D31cA1dC8664d26e9AC4A50B4483Ce715BD6EBc (l5-9)
+- **GauntletGame**: 0x2Ff94A1F55fE00bE2b540CB1e6BEDb0712f7E73E (L10)
 
 ## Prerequisites
 
