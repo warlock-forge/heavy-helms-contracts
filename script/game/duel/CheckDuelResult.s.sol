@@ -31,12 +31,8 @@ contract CheckDuelResultScript is Script {
         DuelGame duelGame = DuelGame(payable(duelGameAddr));
 
         // Get challenge details
-        (
-            uint32 challengerId,
-            uint32 defenderId,
-            uint256 vrfRequestTimestamp,,,
-            DuelGame.ChallengeState state
-        ) = duelGame.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId, uint256 vrfRequestTimestamp,,, DuelGame.ChallengeState state) =
+            duelGame.challenges(challengeId);
 
         console2.log("Challenge ID:", challengeId);
         console2.log("Challenger ID:", challengerId);

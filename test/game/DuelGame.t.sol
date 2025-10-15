@@ -146,7 +146,6 @@ contract DuelGameTest is TestBase {
         assertEq(defenderLoadout.playerId, PLAYER_TWO_ID, "Defender loadout incorrect");
     }
 
-
     function testCompleteDuelWorkflow() public {
         // Complete end-to-end duel workflow
         vm.startPrank(PLAYER_ONE);
@@ -196,7 +195,6 @@ contract DuelGameTest is TestBase {
         game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
     }
-
 
     function test_RevertWhen_WrongDefenderAccepts() public {
         // First create a valid challenge
@@ -268,7 +266,9 @@ contract DuelGameTest is TestBase {
         assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after acceptance");
         assertTrue(game.isChallengePending(challengeId2), "Challenge should be pending after acceptance");
         (,,,,, DuelGame.ChallengeState acceptedState) = game.challenges(challengeId2);
-        assertFalse(acceptedState == DuelGame.ChallengeState.COMPLETED, "Challenge should not be completed after acceptance");
+        assertFalse(
+            acceptedState == DuelGame.ChallengeState.COMPLETED, "Challenge should not be completed after acceptance"
+        );
 
         // 4. First challenge should still be active (no expiry)
         assertTrue(game.isChallengeActive(challengeId), "Challenge should remain active (no expiry)");
@@ -280,7 +280,9 @@ contract DuelGameTest is TestBase {
         assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after completion");
         assertFalse(game.isChallengePending(challengeId2), "Challenge should not be pending after completion");
         (,,,,, DuelGame.ChallengeState fulfilledState) = game.challenges(challengeId2);
-        assertTrue(fulfilledState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed after fulfillment");
+        assertTrue(
+            fulfilledState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed after fulfillment"
+        );
     }
 
     function testDuelsDoNotUpdateWinLossRecords() public {
@@ -356,8 +358,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Get current challenge state
-        (,,,,, DuelGame.ChallengeState state) =
-            game.challenges(challengeId);
+        (,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         console2.log("Initial state:", uint256(state));
         console2.log("Current block:", block.number);
         console2.log("Current timestamp:", block.timestamp);
@@ -587,7 +588,9 @@ contract DuelGameTest is TestBase {
 
         // Challenge completed successfully with override loadouts
         (,,,,, DuelGame.ChallengeState overrideState) = game.challenges(challengeId);
-        assertTrue(overrideState == DuelGame.ChallengeState.COMPLETED, "Challenge should complete with override loadouts");
+        assertTrue(
+            overrideState == DuelGame.ChallengeState.COMPLETED, "Challenge should complete with override loadouts"
+        );
     }
 
     function testDuelFeeAmountConfiguration() public {

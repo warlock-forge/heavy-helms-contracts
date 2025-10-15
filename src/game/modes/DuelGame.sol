@@ -215,8 +215,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         return challenge.challengerId != 0 && challenge.state == ChallengeState.PENDING;
     }
 
-
-
     /// @notice Creates a new duel challenge using a DUEL_TICKET
     /// @param challengerLoadout Loadout for the challenger
     /// @param defenderId ID of the defender
@@ -309,7 +307,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         );
     }
 
-
     /// @notice Allows players to recover from a timed-out VRF request
     /// @param challengeId ID of the challenge to recover
     function recoverTimedOutVRF(uint256 challengeId) external {
@@ -348,7 +345,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         emit GameEnabledUpdated(enabled);
         isGameEnabled = enabled;
     }
-
 
     /// @notice Updates the timeout period for VRF requests
     /// @param newValue The new timeout period in seconds
