@@ -16,7 +16,7 @@ contract GameEngine is IGameEngine {
     error InvalidResults();
     error InvalidEquipment();
 
-    uint16 public constant version = 257;
+    uint16 public constant version = 258;
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -132,7 +132,7 @@ contract GameEngine is IGameEngine {
     }
 
     // Combat-related constants
-    uint8 private immutable STAMINA_ATTACK = 15;
+    uint8 private immutable STAMINA_ATTACK = 16;
     uint8 private immutable STAMINA_BLOCK = 4;
     uint8 private immutable STAMINA_DODGE = 4;
     uint8 private immutable STAMINA_COUNTER = 6;
@@ -312,7 +312,7 @@ contract GameEngine is IGameEngine {
 
         if (weaponStats.weaponClass == WeaponClass.LIGHT_FINESSE) {
             // Pure AGI damage scaling (10x total, single stat)
-            baseDamage = 25; // Single stat weapons: Base 25
+            baseDamage = 20; // Single stat weapons: Base 25
             tempPowerMod = baseDamage + (uint32(player.attributes.agility) * 10);
         } else if (weaponStats.weaponClass == WeaponClass.CURVED_BLADE) {
             // AGI-heavy scaling: AGI*7 + STR*3 (10x total, dual stat uneven split)
@@ -326,7 +326,7 @@ contract GameEngine is IGameEngine {
                 baseDamage + (uint32(player.attributes.strength) * 7) + (uint32(player.attributes.agility) * 3);
         } else if (weaponStats.weaponClass == WeaponClass.PURE_BLUNT) {
             // Pure STR damage scaling (10x total, single stat)
-            baseDamage = 25; // Single stat weapons: Base 25
+            baseDamage = 20; // Single stat weapons: Base 20
             tempPowerMod = baseDamage + (uint32(player.attributes.strength) * 10);
         } else if (weaponStats.weaponClass == WeaponClass.HEAVY_DEMOLITION) {
             // STR+SIZE scaling: STR*5 + SIZE*5 (10x total, dual stat even split)
@@ -339,12 +339,12 @@ contract GameEngine is IGameEngine {
                 + (uint32(player.attributes.agility) * 3);
         } else if (weaponStats.weaponClass == WeaponClass.REACH_CONTROL) {
             // AGI+STR scaling buffed for technique masters: AGI*8 + STR*8 (16x total)
-            baseDamage = 40; // Dual stat even: Base 40
+            baseDamage = 35; // Dual stat even: Base 35
             tempPowerMod =
                 baseDamage + (uint32(player.attributes.agility) * 8) + (uint32(player.attributes.strength) * 8);
         } else {
             // Fallback to original formula if somehow no classification
-            baseDamage = 25;
+            baseDamage = 20;
             tempPowerMod = baseDamage + (uint32(player.attributes.strength) * 5) + (uint32(player.attributes.size) * 5);
         }
 
@@ -1626,8 +1626,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 36,
-            maxDamage: 45,
+            minDamage: 34,
+            maxDamage: 43,
             attackSpeed: 80,
             parryChance: 140,
             riposteChance: 120,
@@ -1642,8 +1642,8 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 40,
-            maxDamage: 49,
+            minDamage: 38,
+            maxDamage: 47,
             attackSpeed: 80,
             parryChance: 130,
             riposteChance: 140,
@@ -1933,8 +1933,8 @@ contract GameEngine is IGameEngine {
 
     function TRIDENT() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 64,
-            maxDamage: 81,
+            minDamage: 62,
+            maxDamage: 79,
             attackSpeed: 55,
             parryChance: 100,
             riposteChance: 100,
@@ -2019,7 +2019,7 @@ contract GameEngine is IGameEngine {
             dodgeChance: 140,
             counterChance: 150,
             riposteChance: 150,
-            staminaCostModifier: 60,
+            staminaCostModifier: 55,
             survivalFactor: 125,
             heavyArmorEffectiveness: 100
         });
@@ -2053,7 +2053,7 @@ contract GameEngine is IGameEngine {
             dodgeChance: 60,
             counterChance: 70,
             riposteChance: 70,
-            staminaCostModifier: 125,
+            staminaCostModifier: 145,
             survivalFactor: 75,
             heavyArmorEffectiveness: 50
         });
