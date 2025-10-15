@@ -72,6 +72,12 @@ error NoPendingRequest();
 error WeaponSpecializationLevelTooLow();
 /// @notice Thrown when player level is too low for armor specialization (requires level 5)
 error ArmorSpecializationLevelTooLow();
+/// @notice Thrown when gas price is too high for VRF operations
+error GasPriceTooHighForVRF();
+/// @notice Thrown when gas price must be positive but zero was provided
+error GasPriceMustBePositive();
+/// @notice Thrown when season length is invalid (must be 1-12 months)
+error InvalidSeasonLength();
 
 //==============================================================//
 //                         HEAVY HELMS                          //
@@ -144,6 +150,10 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     uint8 public immutable SLOT_BATCH_SIZE = 1;
     /// @notice Whether the contract is paused (prevents new player creation)
     bool public isPaused;
+    /// @notice Maximum gas price allowed for VRF-dependent operations (in wei)
+    uint256 public maxVRFGasPrice = 100000000; // 0.1 gwei
+    /// @notice Whether gas price protection is enabled for VRF operations
+    bool public vrfGasProtectionEnabled = true;
 
     // Contract References
     /// @notice Registry contract for managing player name sets and validation
@@ -403,6 +413,15 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         uint32 indexed playerId, Attribute attribute, uint8 newValue, uint256 remainingPoints
     );
 
+    /// @notice Emitted when VRF gas protection settings are updated
+    /// @param enabled Whether VRF gas protection is enabled
+    event VRFGasProtectionUpdated(bool enabled);
+
+    /// @notice Emitted when maximum VRF gas price is updated
+    /// @param oldValue The previous max gas price
+    /// @param newValue The new max gas price
+    event MaxVRFGasPriceUpdated(uint256 oldValue, uint256 newValue);
+
     //==============================================================//
     //                        MODIFIERS                             //
     //==============================================================//
@@ -431,6 +450,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @dev Reverts with ContractPaused if the contract is in a paused state
     modifier whenNotPaused() {
         if (isPaused) revert ContractPaused();
+        _;
+    }
+
+    /// @notice Protects against high gas prices for VRF operations
+    modifier vrfGasProtection() {
+        if (vrfGasProtectionEnabled && tx.gasprice > maxVRFGasPrice) revert GasPriceTooHighForVRF();
         _;
     }
 
@@ -621,7 +646,13 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Requires ETH payment of createPlayerFeeAmount. Reverts if caller has pending requests or is over max players
-    function requestCreatePlayer(bool useNameSetB) external payable whenNotPaused returns (uint256 requestId) {
+    function requestCreatePlayer(bool useNameSetB)
+        external
+        payable
+        whenNotPaused
+        vrfGasProtection
+        returns (uint256 requestId)
+    {
         if (msg.value < createPlayerFeeAmount) revert InsufficientFeeAmount();
         return _requestCreatePlayerInternal(useNameSetB, false);
     }
@@ -630,7 +661,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param useNameSetB If true, uses name set B for generation, otherwise uses set A
     /// @return requestId The VRF request ID for tracking the creation
     /// @dev Requires burning 1 CREATE_PLAYER_TICKET token. Reverts if caller has pending requests or is over max players
-    function requestCreatePlayerWithTicket(bool useNameSetB) external whenNotPaused returns (uint256 requestId) {
+    function requestCreatePlayerWithTicket(bool useNameSetB)
+        external
+        whenNotPaused
+        vrfGasProtection
+        returns (uint256 requestId)
+    {
         // Burn the ticket first (will revert if insufficient balance)
         _playerTickets.burnFrom(msg.sender, _playerTickets.CREATE_PLAYER_TICKET(), 1);
         return _requestCreatePlayerInternal(useNameSetB, true);
@@ -1144,7 +1180,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     /// @param months The new season length (1-12 months)
     /// @dev Only callable by contract owner. Takes effect on next season transition.
     function setSeasonLength(uint256 months) external onlyOwner {
-        require(months > 0 && months <= 12, "Invalid season length");
+        if (months == 0 || months > 12) revert InvalidSeasonLength();
 
         uint256 oldLength = seasonLengthMonths;
         seasonLengthMonths = months;
@@ -1185,6 +1221,21 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         subscriptionId = newSubscriptionId;
 
         emit SubscriptionIdUpdated(oldSubscriptionId, newSubscriptionId);
+    }
+
+    /// @notice Enables or disables gas price protection for VRF operations
+    /// @param enabled Whether VRF gas protection should be enabled
+    function setVRFGasProtectionEnabled(bool enabled) external onlyOwner {
+        vrfGasProtectionEnabled = enabled;
+        emit VRFGasProtectionUpdated(enabled);
+    }
+
+    /// @notice Updates maximum gas price for VRF operations
+    /// @param newMaxGasPrice The new maximum gas price in wei
+    function setMaxVRFGasPrice(uint256 newMaxGasPrice) external onlyOwner {
+        if (newMaxGasPrice == 0) revert GasPriceMustBePositive();
+        emit MaxVRFGasPriceUpdated(maxVRFGasPrice, newMaxGasPrice);
+        maxVRFGasPrice = newMaxGasPrice;
     }
 
     //==============================================================//

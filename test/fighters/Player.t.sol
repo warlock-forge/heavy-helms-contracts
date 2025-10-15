@@ -15,7 +15,9 @@ import {
     NotPlayerOwner,
     NoPermission,
     PlayerDoesNotExist,
-    InsufficientFeeAmount
+    InsufficientFeeAmount,
+    GasPriceTooHighForVRF,
+    GasPriceMustBePositive
 } from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
@@ -1051,4 +1053,138 @@ contract PlayerTest is TestBase {
         // Extract player ID from logs
         return _getPlayerIdFromLogs(owner, requestId);
     }
+
+    //==============================================================//
+    //                VRF GAS CIRCUIT BREAKER TESTS                //
+    //==============================================================//
+
+    function testVRFGasProtectionDefaults() public view {
+        // Check default values
+        assertEq(playerContract.maxVRFGasPrice(), 100000000, "Default max VRF gas price should be 0.1 gwei");
+        assertTrue(playerContract.vrfGasProtectionEnabled(), "VRF gas protection should be enabled by default");
+    }
+
+    function testCreatePlayerWithHighGas() public {
+        uint256 feeAmount = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, feeAmount);
+
+        // Set gas price above limit
+        uint256 highGasPrice = playerContract.maxVRFGasPrice() + 1;
+        vm.txGasPrice(highGasPrice);
+
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(GasPriceTooHighForVRF.selector);
+        playerContract.requestCreatePlayer{value: feeAmount}(false);
+        vm.stopPrank();
+    }
+
+    function testCreatePlayerWithTicketHighGas() public {
+        // Give player a ticket first
+        _mintTickets(PLAYER_ONE, playerTickets.CREATE_PLAYER_TICKET(), 1);
+
+        // Set gas price above limit
+        uint256 highGasPrice = playerContract.maxVRFGasPrice() + 1;
+        vm.txGasPrice(highGasPrice);
+
+        vm.startPrank(PLAYER_ONE);
+        vm.expectRevert(GasPriceTooHighForVRF.selector);
+        playerContract.requestCreatePlayerWithTicket(false);
+        vm.stopPrank();
+    }
+
+    function testCreatePlayerWithLowGas() public {
+        uint256 feeAmount = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, feeAmount);
+
+        // Set gas price below limit
+        uint256 lowGasPrice = playerContract.maxVRFGasPrice() - 1;
+        vm.txGasPrice(lowGasPrice);
+
+        vm.startPrank(PLAYER_ONE);
+        uint256 requestId = playerContract.requestCreatePlayer{value: feeAmount}(false);
+        vm.stopPrank();
+
+        // Should succeed and create a request
+        assertTrue(requestId > 0, "Request should be created");
+        assertEq(playerContract.getPendingRequest(PLAYER_ONE), requestId, "Request should be pending");
+    }
+
+    function testVRFGasProtectionDisabled() public {
+        // Disable gas protection
+        vm.prank(playerContract.owner());
+        playerContract.setVRFGasProtectionEnabled(false);
+
+        uint256 feeAmount = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, feeAmount);
+
+        // Set gas price way above normal limit
+        uint256 veryHighGasPrice = playerContract.maxVRFGasPrice() * 10;
+        vm.txGasPrice(veryHighGasPrice);
+
+        vm.startPrank(PLAYER_ONE);
+        uint256 requestId = playerContract.requestCreatePlayer{value: feeAmount}(false);
+        vm.stopPrank();
+
+        // Should succeed even with high gas price when protection is disabled
+        assertTrue(requestId > 0, "Request should be created even with high gas price");
+        assertEq(playerContract.getPendingRequest(PLAYER_ONE), requestId, "Request should be pending");
+    }
+
+    function testVRFGasProtectionOnlyAppliesToVRF() public {
+        // Create player first
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+
+        // Set high gas price
+        uint256 highGasPrice = playerContract.maxVRFGasPrice() + 1;
+        vm.txGasPrice(highGasPrice);
+
+        // Non-VRF operations should work fine with high gas
+        vm.startPrank(PLAYER_ONE);
+
+        // setStance should work (non-VRF operation)
+        playerContract.setStance(playerId, 2);
+
+        // getPlayer should work (view function)
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+        assertEq(stats.stance, 2, "Stance should be updated");
+
+        vm.stopPrank();
+    }
+
+    function testVRFGasProtectionConfiguration() public {
+        address owner = playerContract.owner();
+
+        // Test setVRFGasProtectionEnabled
+        vm.expectEmit(true, false, false, false);
+        emit VRFGasProtectionUpdated(false);
+        vm.prank(owner);
+        playerContract.setVRFGasProtectionEnabled(false);
+        assertFalse(playerContract.vrfGasProtectionEnabled(), "Gas protection should be disabled");
+
+        // Test setMaxVRFGasPrice
+        uint256 newGasPrice = 200000000; // 0.2 gwei
+        vm.expectEmit(false, false, false, true);
+        emit MaxVRFGasPriceUpdated(playerContract.maxVRFGasPrice(), newGasPrice);
+        vm.prank(owner);
+        playerContract.setMaxVRFGasPrice(newGasPrice);
+        assertEq(playerContract.maxVRFGasPrice(), newGasPrice, "Max VRF gas price should be updated");
+
+        // Test revert for zero gas price
+        vm.prank(owner);
+        vm.expectRevert(GasPriceMustBePositive.selector);
+        playerContract.setMaxVRFGasPrice(0);
+
+        // Test non-owner cannot change settings
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert();
+        playerContract.setVRFGasProtectionEnabled(true);
+
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert();
+        playerContract.setMaxVRFGasPrice(100000000);
+    }
+
+    // Events for gas protection tests
+    event VRFGasProtectionUpdated(bool enabled);
+    event MaxVRFGasPriceUpdated(uint256 oldValue, uint256 newValue);
 }
