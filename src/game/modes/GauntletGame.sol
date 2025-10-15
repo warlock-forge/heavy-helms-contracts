@@ -212,12 +212,12 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     // --- Level 10 Reward Configuration ---
     /// @notice Reward percentages for champions (1st place) in Level 10 gauntlets.
     IPlayerTickets.RewardConfig public championRewards = IPlayerTickets.RewardConfig({
-        nonePercent: 1900,
+        nonePercent: 3900,
         attributeSwapPercent: 100,
         createPlayerPercent: 500,
         playerSlotPercent: 500,
-        weaponSpecPercent: 2500,
-        armorSpecPercent: 2500,
+        weaponSpecPercent: 1500,
+        armorSpecPercent: 1500,
         duelTicketPercent: 1200,
         dailyResetPercent: 300,
         nameChangePercent: 500

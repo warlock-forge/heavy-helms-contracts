@@ -20,8 +20,34 @@ import {Fighter} from "../../fighters/Fighter.sol";
 import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 
 //==============================================================//
-//                         INTERFACES                           //
+//                       CUSTOM ERRORS                          //
 //==============================================================//
+error GameDisabled();
+error GasPriceTooHigh();
+error InvalidPlayerTicketsAddress();
+error InsufficientFeeAmount();
+error ChallengeNotActive();
+error NotDefender();
+error WrongDefenderId();
+error NotPlayerOwner();
+error DefenderRetired();
+error ChallengerRetired();
+error CannotDuelYourself();
+error ChallengerMustBePlayer();
+error DefenderMustBePlayer();
+error MustOwnChallengerPlayer();
+error ChallengeDoesNotExist();
+error ChallengeNotPending();
+error NotAuthorized();
+error InvalidVrfRequestTimestamp();
+error VrfTimeoutNotReached();
+error ValueMustBePositive();
+error GasPriceMustBePositive();
+error UnsupportedPlayerIdForDuelMode();
+
+//==============================================================//
+//                         INTERFACES                           //
+//=============================================================//
 /// @notice Interface for PlayerTickets contract functions needed by DuelGame
 interface IPlayerTickets {
     function DUEL_TICKET() external view returns (uint256);
@@ -42,8 +68,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     // Constants
     /// @notice Timeout period in seconds after which a VRF request can be considered failed
     uint256 public vrfRequestTimeout = 24 hours;
-    /// @notice Time (in seconds) after which a challenge expires
-    uint256 public timeUntilExpire = 7 days; // 7 days
     /// @notice Chainlink VRF configuration
     uint256 public subscriptionId;
     bytes32 public keyHash;
@@ -63,15 +87,13 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     enum ChallengeState {
         OPEN, // Challenge created but not yet accepted
         PENDING, // Challenge accepted and awaiting VRF result
-        COMPLETED // Challenge completed (fulfilled or cancelled)
+        COMPLETED // Challenge completed (fulfilled)
     }
 
     // Structs
     /// @notice Structure storing a duel challenge data
     /// @param challengerId ID of the player issuing the challenge
     /// @param defenderId ID of the player being challenged
-    /// @param createdBlock Block number when challenge was created
-    /// @param createdTimestamp Timestamp when challenge was created
     /// @param challengerLoadout Loadout of the challenger player
     /// @param defenderLoadout Loadout of the defender player
     /// @param state State of the challenge
@@ -79,8 +101,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     struct DuelChallenge {
         uint32 challengerId;
         uint32 defenderId;
-        uint256 createdBlock;
-        uint256 createdTimestamp;
         uint256 vrfRequestTimestamp;
         Fighter.PlayerLoadout challengerLoadout;
         Fighter.PlayerLoadout defenderLoadout;
@@ -121,14 +141,10 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         uint16 defenderSkinTokenId,
         uint8 defenderStance
     );
-    /// @notice Emitted when a challenge is cancelled
-    event ChallengeCancelled(uint256 indexed challengeId);
     /// @notice Emitted when a duel is completed
     event DuelComplete(uint256 indexed challengeId, uint32 indexed winnerId, uint256 randomness);
     /// @notice Emitted when game enabled state is updated
     event GameEnabledUpdated(bool enabled);
-    /// @notice Emitted when time until expire is updated
-    event TimeUntilExpireUpdated(uint256 oldValue, uint256 newValue);
     /// @notice Emitted when a challenge is recovered from a VRF timeout
     event ChallengeRecovered(uint256 indexed challengeId);
     /// @notice Emitted when VRF request timeout is updated
@@ -145,13 +161,13 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     //==============================================================//
     /// @notice Ensures game is enabled for function execution
     modifier whenGameEnabled() {
-        require(isGameEnabled, "Game is disabled");
+        if (!isGameEnabled) revert GameDisabled();
         _;
     }
 
     /// @notice Protects against high gas prices when accepting challenges
     modifier gasProtection() {
-        require(!gasProtectionEnabled || tx.gasprice <= maxAcceptGasPrice, "Gas price too high");
+        if (gasProtectionEnabled && tx.gasprice > maxAcceptGasPrice) revert GasPriceTooHigh();
         _;
     }
 
@@ -173,7 +189,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         bytes32 _keyHash,
         address _playerTickets
     ) BaseGame(_gameEngine, _playerContract) VRFConsumerBaseV2Plus(vrfCoordinator) {
-        require(_playerTickets != address(0), "Invalid player tickets address");
+        if (_playerTickets == address(0)) revert InvalidPlayerTicketsAddress();
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
         playerTickets = IPlayerTickets(_playerTickets);
@@ -183,13 +199,12 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     //                    EXTERNAL FUNCTIONS                        //
     //==============================================================//
 
-    /// @notice Checks if a challenge exists and is in OPEN state (not expired)
+    /// @notice Checks if a challenge exists and is in OPEN state
     /// @param challengeId ID of the challenge to check
-    /// @return isActive True if challenge exists, is in OPEN state, and not expired
+    /// @return isActive True if challenge exists and is in OPEN state
     function isChallengeActive(uint256 challengeId) public view returns (bool) {
         DuelChallenge storage challenge = challenges[challengeId];
-        return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN
-            && block.timestamp <= challenge.createdTimestamp + timeUntilExpire;
+        return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN;
     }
 
     /// @notice Checks if a challenge exists and is in PENDING state
@@ -200,22 +215,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         return challenge.challengerId != 0 && challenge.state == ChallengeState.PENDING;
     }
 
-    /// @notice Checks if a challenge exists and is in COMPLETED state
-    /// @param challengeId ID of the challenge to check
-    /// @return isCompleted True if challenge exists and is in COMPLETED state
-    function isChallengeCompleted(uint256 challengeId) public view returns (bool) {
-        DuelChallenge storage challenge = challenges[challengeId];
-        return challenge.challengerId != 0 && challenge.state == ChallengeState.COMPLETED;
-    }
 
-    /// @notice Checks if a challenge is expired but still in OPEN state
-    /// @param challengeId ID of the challenge to check
-    /// @return isExpired True if challenge exists and is in OPEN state but expired
-    function isChallengeExpired(uint256 challengeId) public view returns (bool) {
-        DuelChallenge storage challenge = challenges[challengeId];
-        return challenge.challengerId != 0 && challenge.state == ChallengeState.OPEN
-            && block.timestamp > challenge.createdTimestamp + timeUntilExpire;
-    }
 
     /// @notice Creates a new duel challenge using a DUEL_TICKET
     /// @param challengerLoadout Loadout for the challenger
@@ -241,7 +241,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         whenGameEnabled
         returns (uint256)
     {
-        require(msg.value >= duelFeeAmount, "Insufficient fee amount");
+        if (msg.value < duelFeeAmount) revert InsufficientFeeAmount();
         return _initiateChallenge(challengerLoadout, defenderId, false);
     }
 
@@ -255,20 +255,20 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         DuelChallenge storage challenge = challenges[challengeId];
 
         // Validate challenge state
-        require(isChallengeActive(challengeId), "Challenge not active");
+        if (!isChallengeActive(challengeId)) revert ChallengeNotActive();
 
         // Check player existence by calling getPlayer (will revert if player doesn't exist)
         IPlayer(playerContract).getPlayer(defenderLoadout.playerId);
 
         // Verify msg.sender owns the defender
         address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
-        require(msg.sender == defender, "Not defender");
-        require(defenderLoadout.playerId == challenge.defenderId, "Wrong defender ID");
+        if (msg.sender != defender) revert NotDefender();
+        if (defenderLoadout.playerId != challenge.defenderId) revert WrongDefenderId();
 
         // Validate player ownership and stats
-        require(IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId) == msg.sender, "Not player owner");
-        require(!IPlayer(playerContract).isPlayerRetired(defenderLoadout.playerId), "Defender is retired");
-        require(!IPlayer(playerContract).isPlayerRetired(challenge.challengerId), "Challenger is retired");
+        if (IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId) != msg.sender) revert NotPlayerOwner();
+        if (IPlayer(playerContract).isPlayerRetired(defenderLoadout.playerId)) revert DefenderRetired();
+        if (IPlayer(playerContract).isPlayerRetired(challenge.challengerId)) revert ChallengerRetired();
 
         // Store defender loadout
         challenge.defenderLoadout = defenderLoadout;
@@ -309,23 +309,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         );
     }
 
-    /// @notice Cancels a duel challenge (challenger only)
-    /// @param challengeId ID of the challenge to cancel
-    function cancelChallenge(uint256 challengeId) external {
-        DuelChallenge storage challenge = challenges[challengeId];
-
-        require(challenge.challengerId != 0, "Challenge does not exist");
-        require(challenge.state == ChallengeState.OPEN, "Challenge not cancellable");
-
-        // Get challenger's address
-        address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
-        require(msg.sender == challenger, "Not challenger");
-
-        // Mark as completed
-        challenge.state = ChallengeState.COMPLETED;
-
-        emit ChallengeCancelled(challengeId);
-    }
 
     /// @notice Allows players to recover from a timed-out VRF request
     /// @param challengeId ID of the challenge to recover
@@ -333,21 +316,21 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         DuelChallenge storage challenge = challenges[challengeId];
 
         // Verify challenge exists and is in PENDING state
-        require(challenge.challengerId != 0, "Challenge does not exist");
-        require(challenge.state == ChallengeState.PENDING, "Challenge not pending");
+        if (challenge.challengerId == 0) revert ChallengeDoesNotExist();
+        if (challenge.state != ChallengeState.PENDING) revert ChallengeNotPending();
 
         // Get player addresses early
         address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
         address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
 
         // Require caller to be either challenger or defender
-        require(msg.sender == challenger || msg.sender == defender, "Not authorized");
+        if (msg.sender != challenger && msg.sender != defender) revert NotAuthorized();
 
         // Verify that VRF request timestamp is non-zero
-        require(challenge.vrfRequestTimestamp != 0, "Invalid VRF request timestamp");
+        if (challenge.vrfRequestTimestamp == 0) revert InvalidVrfRequestTimestamp();
 
         // Check if enough time has passed since VRF was requested
-        require(block.timestamp >= challenge.vrfRequestTimestamp + vrfRequestTimeout, "VRF timeout not reached");
+        if (block.timestamp < challenge.vrfRequestTimestamp + vrfRequestTimeout) revert VrfTimeoutNotReached();
 
         // Mark as completed
         challenge.state = ChallengeState.COMPLETED;
@@ -366,18 +349,11 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         isGameEnabled = enabled;
     }
 
-    /// @notice Updates the time until a challenge expires
-    /// @param newValue The new time until expire
-    function setTimeUntilExpire(uint256 newValue) external onlyOwner {
-        require(newValue > 0, "Value must be positive");
-        emit TimeUntilExpireUpdated(timeUntilExpire, newValue);
-        timeUntilExpire = newValue;
-    }
 
     /// @notice Updates the timeout period for VRF requests
     /// @param newValue The new timeout period in seconds
     function setVrfRequestTimeout(uint256 newValue) external onlyOwner {
-        require(newValue > 0, "Value must be positive");
+        if (newValue == 0) revert ValueMustBePositive();
         emit VrfRequestTimeoutUpdated(vrfRequestTimeout, newValue);
         vrfRequestTimeout = newValue;
     }
@@ -399,7 +375,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     /// @notice Updates the maximum gas price allowed for accepting challenges
     /// @param newMaxGasPrice The new maximum gas price in wei
     function setMaxAcceptGasPrice(uint256 newMaxGasPrice) external onlyOwner {
-        require(newMaxGasPrice > 0, "Gas price must be positive");
+        if (newMaxGasPrice == 0) revert GasPriceMustBePositive();
         emit MaxAcceptGasPriceUpdated(maxAcceptGasPrice, newMaxGasPrice);
         maxAcceptGasPrice = newMaxGasPrice;
     }
@@ -430,24 +406,22 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         uint32 defenderId,
         bool paidWithTicket
     ) internal returns (uint256) {
-        require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
-        require(
-            address(_getFighterContract(challengerLoadout.playerId)) == address(playerContract),
-            "Challenger must be a Player"
-        );
-        require(address(_getFighterContract(defenderId)) == address(playerContract), "Defender must be a Player");
-        require(
-            IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId) == msg.sender,
-            "Must own challenger player"
-        );
+        if (challengerLoadout.playerId == defenderId) revert CannotDuelYourself();
+        if (address(_getFighterContract(challengerLoadout.playerId)) != address(playerContract)) {
+            revert ChallengerMustBePlayer();
+        }
+        if (address(_getFighterContract(defenderId)) != address(playerContract)) revert DefenderMustBePlayer();
+        if (IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId) != msg.sender) {
+            revert MustOwnChallengerPlayer();
+        }
 
         // Check player existence by calling getPlayer (will revert if player doesn't exist)
         IPlayer(playerContract).getPlayer(challengerLoadout.playerId);
         IPlayer(playerContract).getPlayer(defenderId);
 
         // Verify players are not retired
-        require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
-        require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
+        if (playerContract.isPlayerRetired(challengerLoadout.playerId)) revert ChallengerRetired();
+        if (playerContract.isPlayerRetired(defenderId)) revert DefenderRetired();
 
         // Validate skin ownership and requirements
         address owner = IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId);
@@ -464,8 +438,6 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         challenges[challengeId] = DuelChallenge({
             challengerId: challengerLoadout.playerId,
             defenderId: defenderId,
-            createdBlock: block.number,
-            createdTimestamp: block.timestamp,
             vrfRequestTimestamp: 0,
             challengerLoadout: challengerLoadout,
             defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0), 1),
@@ -491,15 +463,15 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
         uint256 challengeId = requestToChallengeId[requestId];
         DuelChallenge storage challenge = challenges[challengeId];
-        require(isChallengePending(challengeId), "Challenge not pending");
+        if (!isChallengePending(challengeId)) revert ChallengeNotPending();
 
         // Clear state FIRST
         delete requestToChallengeId[requestId];
         challenge.state = ChallengeState.COMPLETED; // Prevent re-entry
 
         // THEN do external calls
-        require(!playerContract.isPlayerRetired(challenge.challengerId), "Challenger is retired");
-        require(!playerContract.isPlayerRetired(challenge.defenderId), "Defender is retired");
+        if (playerContract.isPlayerRetired(challenge.challengerId)) revert ChallengerRetired();
+        if (playerContract.isPlayerRetired(challenge.defenderId)) revert DefenderRetired();
 
         uint256 randomness = randomWords[0];
 
@@ -585,7 +557,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     /// @param playerId The ID to check
     /// @return Fighter contract implementation
     function _getFighterContract(uint32 playerId) internal view override returns (Fighter) {
-        require(_isPlayerIdSupported(playerId), "Unsupported player ID for Duel mode");
+        if (!_isPlayerIdSupported(playerId)) revert UnsupportedPlayerIdForDuelMode();
         return Fighter(address(playerContract));
     }
 

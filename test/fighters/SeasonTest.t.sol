@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import {TestBase} from "../TestBase.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
+import {InvalidSeasonLength} from "../../src/fighters/Player.sol";
 
 contract SeasonTest is TestBase {
     uint32 public testPlayerId1;
@@ -67,11 +68,11 @@ contract SeasonTest is TestBase {
 
         // Test invalid season lengths
         vm.prank(address(this));
-        vm.expectRevert("Invalid season length");
+        vm.expectRevert(InvalidSeasonLength.selector);
         playerContract.setSeasonLength(0);
 
         vm.prank(address(this));
-        vm.expectRevert("Invalid season length");
+        vm.expectRevert(InvalidSeasonLength.selector);
         playerContract.setSeasonLength(13);
 
         // Test non-owner cannot set

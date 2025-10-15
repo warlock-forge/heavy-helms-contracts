@@ -14,6 +14,20 @@ import {Fighter} from "../../src/fighters/Fighter.sol";
 import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 
+// Import custom errors from DuelGame
+import {
+    UnsupportedPlayerIdForDuelMode,
+    ChallengeDoesNotExist,
+    NotDefender,
+    GameDisabled,
+    ChallengerRetired,
+    InsufficientFeeAmount,
+    GasPriceTooHigh,
+    NotAuthorized,
+    VrfTimeoutNotReached,
+    GasPriceMustBePositive
+} from "../../src/game/modes/DuelGame.sol";
+
 contract DuelGameTest is TestBase {
     DuelGame public game;
 
@@ -40,7 +54,6 @@ contract DuelGameTest is TestBase {
         uint16 defenderSkinTokenId,
         uint8 defenderStance
     );
-    event ChallengeCancelled(uint256 indexed challengeId);
     event DuelComplete( // This is the key addition
         uint256 indexed challengeId,
         uint32 indexed winnerId,
@@ -108,7 +121,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Verify challenge state before acceptance
-        (,,,, uint256 initialVrfTimestamp,,, DuelGame.ChallengeState initialState) = game.challenges(challengeId);
+        (,, uint256 initialVrfTimestamp,,, DuelGame.ChallengeState initialState) = game.challenges(challengeId);
         assertTrue(initialState == DuelGame.ChallengeState.OPEN, "Challenge should be OPEN");
         assertEq(initialVrfTimestamp, 0, "VRF timestamp should be 0 initially");
 
@@ -119,7 +132,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Verify challenge state changed to PENDING after VRF request
-        (,,,, uint256 vrfTimestamp,,, DuelGame.ChallengeState pendingState) = game.challenges(challengeId);
+        (,, uint256 vrfTimestamp,,, DuelGame.ChallengeState pendingState) = game.challenges(challengeId);
         assertTrue(pendingState == DuelGame.ChallengeState.PENDING, "Challenge should be PENDING");
         assertTrue(vrfTimestamp > 0, "VRF timestamp should be set after acceptance");
 
@@ -127,33 +140,12 @@ contract DuelGameTest is TestBase {
         assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after acceptance");
 
         // Verify loadouts were stored correctly during acceptance
-        (,,,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
+        (,,, Fighter.PlayerLoadout memory challengerLoadout, Fighter.PlayerLoadout memory defenderLoadout,) =
             game.challenges(challengeId);
         assertEq(challengerLoadout.playerId, PLAYER_ONE_ID, "Challenger loadout incorrect");
         assertEq(defenderLoadout.playerId, PLAYER_TWO_ID, "Defender loadout incorrect");
     }
 
-    function testCancelExpiredChallenge() public {
-        vm.startPrank(PLAYER_ONE);
-
-        // Get challenger's address
-        address challenger = playerContract.getPlayerOwner(PLAYER_ONE_ID);
-        require(challenger == PLAYER_ONE, "Player one should own their player");
-
-        // Create a challenge
-        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
-
-        // Warp to after expiry - using timestamps now instead of blocks
-        vm.warp(block.timestamp + game.timeUntilExpire() + 1);
-
-        // Cancel the challenge
-        game.cancelChallenge(challengeId);
-
-        // Verify challenge state
-        (,,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
-        assertTrue(state == DuelGame.ChallengeState.COMPLETED);
-        vm.stopPrank();
-    }
 
     function testCompleteDuelWorkflow() public {
         // Complete end-to-end duel workflow
@@ -174,8 +166,6 @@ contract DuelGameTest is TestBase {
         (
             uint32 challengerId,
             uint32 defenderId,
-            uint256 createdBlock,
-            uint256 createdTimestamp,
             uint256 vrfRequestTimestamp,
             Fighter.PlayerLoadout memory challengerLoadout,
             Fighter.PlayerLoadout memory defenderLoadout,
@@ -185,8 +175,6 @@ contract DuelGameTest is TestBase {
         // Verify challenge data integrity
         assertEq(challengerId, PLAYER_ONE_ID, "Challenger ID should match");
         assertEq(defenderId, PLAYER_TWO_ID, "Defender ID should match");
-        assertTrue(createdTimestamp > 0, "Challenge should have creation timestamp");
-        assertTrue(createdBlock > 0, "Challenge should have creation block");
         assertTrue(vrfRequestTimestamp > 0, "Challenge should have VRF request timestamp");
         assertTrue(finalState == DuelGame.ChallengeState.COMPLETED, "Challenge should be COMPLETED");
 
@@ -204,17 +192,11 @@ contract DuelGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout =
             Fighter.PlayerLoadout({playerId: 999, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1});
 
-        vm.expectRevert("Unsupported player ID for Duel mode");
+        vm.expectRevert(UnsupportedPlayerIdForDuelMode.selector);
         game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
     }
 
-    function test_RevertWhen_CancellingNonExistentChallenge() public {
-        vm.startPrank(PLAYER_ONE);
-        vm.expectRevert("Challenge does not exist");
-        game.cancelChallenge(999);
-        vm.stopPrank();
-    }
 
     function test_RevertWhen_WrongDefenderAccepts() public {
         // First create a valid challenge
@@ -228,7 +210,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
 
-        vm.expectRevert(bytes("Not defender"));
+        vm.expectRevert(NotDefender.selector);
         game.acceptChallenge(challengeId, defenderLoadout);
         vm.stopPrank();
     }
@@ -249,7 +231,7 @@ contract DuelGameTest is TestBase {
 
         vm.startPrank(PLAYER_ONE);
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
-        vm.expectRevert("Game is disabled");
+        vm.expectRevert(GameDisabled.selector);
         game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
 
@@ -269,8 +251,8 @@ contract DuelGameTest is TestBase {
         // 1. Test initial state
         assertTrue(game.isChallengeActive(challengeId), "Challenge should be active initially");
         assertFalse(game.isChallengePending(challengeId), "Challenge should not be pending initially");
-        assertFalse(game.isChallengeCompleted(challengeId), "Challenge should not be completed initially");
-        assertFalse(game.isChallengeExpired(challengeId), "Challenge should not be expired initially");
+        (,,,,, DuelGame.ChallengeState initialState) = game.challenges(challengeId);
+        assertFalse(initialState == DuelGame.ChallengeState.COMPLETED, "Challenge should not be completed initially");
 
         // 2. Create a second challenge to test acceptance
         vm.startPrank(PLAYER_ONE);
@@ -285,14 +267,11 @@ contract DuelGameTest is TestBase {
 
         assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after acceptance");
         assertTrue(game.isChallengePending(challengeId2), "Challenge should be pending after acceptance");
-        assertFalse(game.isChallengeCompleted(challengeId2), "Challenge should not be completed after acceptance");
+        (,,,,, DuelGame.ChallengeState acceptedState) = game.challenges(challengeId2);
+        assertFalse(acceptedState == DuelGame.ChallengeState.COMPLETED, "Challenge should not be completed after acceptance");
 
-        // 4. Roll forward to expire the first challenge - using timestamps now instead of blocks
-        vm.warp(block.timestamp + game.timeUntilExpire() + 1);
-
-        // Test the expired challenge state
-        assertFalse(game.isChallengeActive(challengeId), "Challenge should not be active after expiration");
-        assertTrue(game.isChallengeExpired(challengeId), "Challenge should be expired");
+        // 4. First challenge should still be active (no expiry)
+        assertTrue(game.isChallengeActive(challengeId), "Challenge should remain active (no expiry)");
 
         // 5. Fulfill randomness for the second (accepted) challenge
         _fulfillVRFRequest(address(game));
@@ -300,7 +279,8 @@ contract DuelGameTest is TestBase {
         // Test completed state
         assertFalse(game.isChallengeActive(challengeId2), "Challenge should not be active after completion");
         assertFalse(game.isChallengePending(challengeId2), "Challenge should not be pending after completion");
-        assertTrue(game.isChallengeCompleted(challengeId2), "Challenge should be completed after fulfillment");
+        (,,,,, DuelGame.ChallengeState fulfilledState) = game.challenges(challengeId2);
+        assertTrue(fulfilledState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed after fulfillment");
     }
 
     function testDuelsDoNotUpdateWinLossRecords() public {
@@ -362,7 +342,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Verify challenge was created
-        (uint32 challengerId,,,,,,,) = game.challenges(challengeId);
+        (uint32 challengerId,,,,,) = game.challenges(challengeId);
         assertEq(challengerId, newPlayerId);
 
         // Verify ticket was burned
@@ -376,46 +356,19 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Get current challenge state
-        (,, uint256 createdBlock, uint256 createdTimestamp,,,, DuelGame.ChallengeState state) =
+        (,,,,, DuelGame.ChallengeState state) =
             game.challenges(challengeId);
         console2.log("Initial state:", uint256(state));
-        console2.log("Created at block:", createdBlock);
-        console2.log("Created at timestamp:", createdTimestamp);
         console2.log("Current block:", block.number);
         console2.log("Current timestamp:", block.timestamp);
-        console2.log("Time until expire:", game.timeUntilExpire());
-
-        // Warp forward enough time to ensure expiration
-        vm.warp(block.timestamp + game.timeUntilExpire() + 10); // Add extra time to be safe
-
-        console2.log("After warp, timestamp:", block.timestamp);
-        console2.log("Expiration threshold:", createdTimestamp + game.timeUntilExpire());
-
-        // Manually check if it should be expired
-        bool shouldBeExpired = block.timestamp > createdTimestamp + game.timeUntilExpire();
-        console2.log("Should be expired?", shouldBeExpired);
-        console2.log("Is expired according to contract?", game.isChallengeExpired(challengeId));
-        console2.log("Is active according to contract?", game.isChallengeActive(challengeId));
-
-        // Try to accept the challenge
+        // Since there's no expiry anymore, challenges should always be acceptable
+        // Try to accept the challenge - should work
         vm.startPrank(PLAYER_TWO);
-
-        // Don't use expectRevert here, instead try/catch to see what happens
-        bool didRevert = false;
-        try game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID)) {
-            console2.log("Call succeeded unexpectedly!");
-        } catch Error(string memory reason) {
-            console2.log("Reverted with reason:", reason);
-            didRevert = true;
-        } catch (bytes memory) {
-            /*lowLevelData*/
-            console2.log("Reverted with no reason");
-            didRevert = true;
-        }
-
-        // Assert that it did revert
-        assertTrue(didRevert, "Challenge acceptance should have reverted");
+        game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
         vm.stopPrank();
+
+        // Verify challenge is now pending
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after acceptance");
     }
 
     function test_RevertWhen_PlayerRetiredDuringFulfillment() public {
@@ -445,7 +398,7 @@ contract DuelGameTest is TestBase {
 
         // Fulfillment should revert
         vm.prank(vrfCoordinator);
-        vm.expectRevert(bytes("Challenger is retired"));
+        vm.expectRevert(ChallengerRetired.selector);
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao)));
         game.rawFulfillRandomWords(1, randomWords);
@@ -470,7 +423,7 @@ contract DuelGameTest is TestBase {
         Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
 
         // Now expect the revert on just the acceptChallenge call
-        vm.expectRevert("Challenger is retired");
+        vm.expectRevert(ChallengerRetired.selector);
         game.acceptChallenge(challengeId, defenderLoadout);
 
         vm.stopPrank();
@@ -503,7 +456,8 @@ contract DuelGameTest is TestBase {
 
         // Step 5: Verify results
         // Challenge should be completed
-        assertTrue(game.isChallengeCompleted(challengeId), "Challenge should be completed after recovery");
+        (,,,,, DuelGame.ChallengeState recoveredState) = game.challenges(challengeId);
+        assertTrue(recoveredState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed after recovery");
     }
 
     function testRevertWhen_RecoverTimedOutVRF_NotAuthorized() public {
@@ -522,7 +476,7 @@ contract DuelGameTest is TestBase {
         // Try to recover as unauthorized address
         address randomUser = address(0x123);
         vm.prank(randomUser);
-        vm.expectRevert("Not authorized");
+        vm.expectRevert(NotAuthorized.selector);
         game.recoverTimedOutVRF(challengeId);
     }
 
@@ -538,7 +492,7 @@ contract DuelGameTest is TestBase {
 
         // Try to recover before timeout
         vm.prank(PLAYER_ONE);
-        vm.expectRevert("VRF timeout not reached");
+        vm.expectRevert(VrfTimeoutNotReached.selector);
         game.recoverTimedOutVRF(challengeId);
     }
 
@@ -553,8 +507,8 @@ contract DuelGameTest is TestBase {
         uint256 challengeId2 = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
 
         // Verify both challenges exist and are OPEN
-        (,,,,,,, DuelGame.ChallengeState state1) = game.challenges(challengeId1);
-        (,,,,,,, DuelGame.ChallengeState state2) = game.challenges(challengeId2);
+        (,,,,, DuelGame.ChallengeState state1) = game.challenges(challengeId1);
+        (,,,,, DuelGame.ChallengeState state2) = game.challenges(challengeId2);
         assertTrue(state1 == DuelGame.ChallengeState.OPEN, "First challenge should be OPEN");
         assertTrue(state2 == DuelGame.ChallengeState.OPEN, "Second challenge should be OPEN");
 
@@ -608,7 +562,7 @@ contract DuelGameTest is TestBase {
 
         // Retrieve stored loadouts from challenge
         (
-            ,,,,,
+            ,,,
             Fighter.PlayerLoadout memory storedChallengerLoadout,
             Fighter.PlayerLoadout memory storedDefenderLoadout,
         ) = game.challenges(challengeId);
@@ -632,7 +586,8 @@ contract DuelGameTest is TestBase {
         _fulfillVRFRequest(address(game));
 
         // Challenge completed successfully with override loadouts
-        assertTrue(game.isChallengeCompleted(challengeId), "Challenge should complete with override loadouts");
+        (,,,,, DuelGame.ChallengeState overrideState) = game.challenges(challengeId);
+        assertTrue(overrideState == DuelGame.ChallengeState.COMPLETED, "Challenge should complete with override loadouts");
     }
 
     function testDuelFeeAmountConfiguration() public {
@@ -666,7 +621,7 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallengeWithETH{value: 0.0001 ether}(loadout, PLAYER_TWO_ID);
 
         assertEq(challengeId, 0);
-        (uint32 challengerId, uint32 defenderId,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertEq(challengerId, PLAYER_ONE_ID);
         assertEq(defenderId, PLAYER_TWO_ID);
         assertTrue(state == DuelGame.ChallengeState.OPEN);
@@ -686,7 +641,7 @@ contract DuelGameTest is TestBase {
         uint256 challengeId = game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
 
         assertEq(challengeId, 0);
-        (uint32 challengerId, uint32 defenderId,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        (uint32 challengerId, uint32 defenderId,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
         assertEq(challengerId, PLAYER_ONE_ID);
         assertEq(defenderId, PLAYER_TWO_ID);
         assertTrue(state == DuelGame.ChallengeState.OPEN);
@@ -699,7 +654,7 @@ contract DuelGameTest is TestBase {
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
         // Try with insufficient ETH
-        vm.expectRevert("Insufficient fee amount");
+        vm.expectRevert(InsufficientFeeAmount.selector);
         game.initiateChallengeWithETH{value: 0.00005 ether}(loadout, PLAYER_TWO_ID);
 
         // Try with exact amount (should work)
@@ -740,7 +695,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
 
         // Verify challenge was created
-        (uint32 challengerId,,,,,,,) = game.challenges(challengeId);
+        (uint32 challengerId,,,,,) = game.challenges(challengeId);
         assertEq(challengerId, newPlayerId);
     }
 
@@ -785,7 +740,8 @@ contract DuelGameTest is TestBase {
         _fulfillVRFRequest(address(game));
 
         // Verify final challenge state
-        assertTrue(game.isChallengeCompleted(challengeId), "Challenge should be completed");
+        (,,,,, DuelGame.ChallengeState completedState) = game.challenges(challengeId);
+        assertTrue(completedState == DuelGame.ChallengeState.COMPLETED, "Challenge should be completed");
 
         // Verify next challenge ID incremented
         assertEq(game.nextChallengeId(), 1, "Next challenge ID should increment");
@@ -852,7 +808,7 @@ contract DuelGameTest is TestBase {
     function testGasProtectionValidation() public {
         // Test zero gas price validation
         vm.prank(game.owner());
-        vm.expectRevert("Gas price must be positive");
+        vm.expectRevert(GasPriceMustBePositive.selector);
         game.setMaxAcceptGasPrice(0);
     }
 
@@ -883,7 +839,7 @@ contract DuelGameTest is TestBase {
         vm.txGasPrice(200000000); // Set gas price to 0.2 gwei - above limit
 
         Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
-        vm.expectRevert("Gas price too high");
+        vm.expectRevert(GasPriceTooHigh.selector);
         game.acceptChallenge(challengeId, defenderLoadout);
         vm.stopPrank();
 
@@ -954,7 +910,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_TWO);
         vm.txGasPrice(150000000); // Set gas price to 0.15 gwei
         Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
-        vm.expectRevert("Gas price too high");
+        vm.expectRevert(GasPriceTooHigh.selector);
         game.acceptChallenge(challengeId, defenderLoadout);
         vm.stopPrank();
 

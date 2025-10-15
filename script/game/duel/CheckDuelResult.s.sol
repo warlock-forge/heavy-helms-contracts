@@ -34,8 +34,6 @@ contract CheckDuelResultScript is Script {
         (
             uint32 challengerId,
             uint32 defenderId,
-            uint256 createdBlock,
-            uint256 createdTimestamp,
             uint256 vrfRequestTimestamp,,,
             DuelGame.ChallengeState state
         ) = duelGame.challenges(challengeId);
@@ -43,8 +41,6 @@ contract CheckDuelResultScript is Script {
         console2.log("Challenge ID:", challengeId);
         console2.log("Challenger ID:", challengerId);
         console2.log("Defender ID:", defenderId);
-        console2.log("Created Block:", createdBlock);
-        console2.log("Created Timestamp:", createdTimestamp);
         console2.log("VRF Request Timestamp:", vrfRequestTimestamp);
         console2.log("State:", getStateString(state));
 
