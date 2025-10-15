@@ -30,7 +30,8 @@ contract DuelGameTest is TestBase {
         uint32 indexed defenderId,
         uint32 challengerSkinIndex,
         uint16 challengerSkinTokenId,
-        uint8 challengerStance
+        uint8 challengerStance,
+        bool paidWithTicket
     );
     event ChallengeAccepted(
         uint256 indexed challengeId,
@@ -100,30 +101,10 @@ contract DuelGameTest is TestBase {
         assertEq(game.nextChallengeId(), 0);
     }
 
-    function testCreateChallenge() public {
-        vm.startPrank(PLAYER_ONE);
-
-        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
-
-        vm.expectEmit(true, true, true, true);
-        emit ChallengeCreated(
-            0, PLAYER_ONE_ID, PLAYER_TWO_ID, loadout.skin.skinIndex, loadout.skin.skinTokenId, loadout.stance
-        );
-
-        uint256 challengeId = game.initiateChallenge(loadout, PLAYER_TWO_ID);
-
-        assertEq(challengeId, 0);
-        (uint32 challengerId, uint32 defenderId,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
-        assertEq(challengerId, PLAYER_ONE_ID);
-        assertEq(defenderId, PLAYER_TWO_ID);
-        assertTrue(state == DuelGame.ChallengeState.OPEN);
-        vm.stopPrank();
-    }
-
     function testAcceptChallenge() public {
         // First create a challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Verify challenge state before acceptance
@@ -160,7 +141,7 @@ contract DuelGameTest is TestBase {
         require(challenger == PLAYER_ONE, "Player one should own their player");
 
         // Create a challenge
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
 
         // Warp to after expiry - using timestamps now instead of blocks
         vm.warp(block.timestamp + game.timeUntilExpire() + 1);
@@ -177,7 +158,7 @@ contract DuelGameTest is TestBase {
     function testCompleteDuelWorkflow() public {
         // Complete end-to-end duel workflow
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Accept challenge
@@ -224,7 +205,7 @@ contract DuelGameTest is TestBase {
             Fighter.PlayerLoadout({playerId: 999, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1});
 
         vm.expectRevert("Unsupported player ID for Duel mode");
-        game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
     }
 
@@ -240,7 +221,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
 
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
-        uint256 challengeId = game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Try to accept with wrong defender
@@ -269,7 +250,7 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
         vm.expectRevert("Game is disabled");
-        game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Owner can re-enable
@@ -282,7 +263,7 @@ contract DuelGameTest is TestBase {
     function testHelperFunctions() public {
         // Create a challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // 1. Test initial state
@@ -293,7 +274,7 @@ contract DuelGameTest is TestBase {
 
         // 2. Create a second challenge to test acceptance
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId2 = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId2 = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // 3. Accept the second challenge and test pending state
@@ -329,7 +310,7 @@ contract DuelGameTest is TestBase {
 
         // Complete a duel
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         vm.startPrank(PLAYER_TWO);
@@ -366,7 +347,7 @@ contract DuelGameTest is TestBase {
             playerId: newPlayerId, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
         });
         vm.expectRevert();
-        game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Give them a ticket and try again - should work
@@ -377,7 +358,7 @@ contract DuelGameTest is TestBase {
         playerTickets.setApprovalForAll(address(game), true);
 
         vm.startPrank(newPlayer);
-        uint256 challengeId = game.initiateChallenge(loadout, PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Verify challenge was created
@@ -391,7 +372,7 @@ contract DuelGameTest is TestBase {
     function test_RevertWhen_AcceptingExpiredChallenge() public {
         // Create a challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Get current challenge state
@@ -449,7 +430,7 @@ contract DuelGameTest is TestBase {
 
         // Create a challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Accept the challenge
@@ -473,7 +454,7 @@ contract DuelGameTest is TestBase {
     function test_RevertWhen_ChallengerRetiredBeforeAcceptance() public {
         // Create a challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
 
         // Retire the challenger's player using the player's own method
         playerContract.retireOwnPlayer(PLAYER_ONE_ID);
@@ -498,7 +479,7 @@ contract DuelGameTest is TestBase {
     function testRecoverTimedOutVRF() public {
         // Step 1: Create a challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Step 2: Accept the challenge as PLAYER_TWO to make it PENDING
@@ -528,7 +509,7 @@ contract DuelGameTest is TestBase {
     function testRevertWhen_RecoverTimedOutVRF_NotAuthorized() public {
         // Create and accept challenge like in previous test
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         vm.startPrank(PLAYER_TWO);
@@ -548,7 +529,7 @@ contract DuelGameTest is TestBase {
     function testRevertWhen_RecoverTimedOutVRF_TimeoutNotReached() public {
         // Create and accept challenge
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
         vm.startPrank(PLAYER_TWO);
@@ -566,10 +547,10 @@ contract DuelGameTest is TestBase {
         vm.startPrank(PLAYER_ONE);
 
         // Create first challenge against PLAYER_TWO
-        uint256 challengeId1 = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId1 = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
 
         // Create second challenge against PLAYER_TWO (same defender)
-        uint256 challengeId2 = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId2 = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
 
         // Verify both challenges exist and are OPEN
         (,,,,,,, DuelGame.ChallengeState state1) = game.challenges(challengeId1);
@@ -585,7 +566,7 @@ contract DuelGameTest is TestBase {
 
         // Now test PLAYER_TWO can also create challenges while having incoming challenges
         vm.startPrank(PLAYER_TWO);
-        uint256 challengeId3 = game.initiateChallenge(_createLoadout(PLAYER_TWO_ID), PLAYER_ONE_ID);
+        uint256 challengeId3 = game.initiateChallengeWithTicket(_createLoadout(PLAYER_TWO_ID), PLAYER_ONE_ID);
         vm.stopPrank();
 
         // Verify all three challenges coexist
@@ -607,7 +588,7 @@ contract DuelGameTest is TestBase {
         });
 
         vm.startPrank(PLAYER_ONE);
-        uint256 challengeId = game.initiateChallenge(challengerLoadout, PLAYER_TWO_ID);
+        uint256 challengeId = game.initiateChallengeWithTicket(challengerLoadout, PLAYER_TWO_ID);
         vm.stopPrank();
 
         // Accept with different loadout
@@ -652,6 +633,344 @@ contract DuelGameTest is TestBase {
 
         // Challenge completed successfully with override loadouts
         assertTrue(game.isChallengeCompleted(challengeId), "Challenge should complete with override loadouts");
+    }
+
+    function testDuelFeeAmountConfiguration() public {
+        // Test default value
+        assertEq(game.duelFeeAmount(), 0.0001 ether, "Default duel fee should be 0.0001 ETH");
+
+        // Test owner can update fee
+        vm.prank(game.owner());
+        vm.expectEmit(true, false, false, true);
+        emit DuelFeeAmountUpdated(0.0001 ether, 0.0002 ether);
+        game.setDuelFeeAmount(0.0002 ether);
+
+        assertEq(game.duelFeeAmount(), 0.0002 ether, "Fee should be updated to 0.0002 ETH");
+
+        // Test non-owner cannot update fee
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("Only callable by owner");
+        game.setDuelFeeAmount(0.0003 ether);
+    }
+
+    function testInitiateChallengeWithETH() public {
+        vm.startPrank(PLAYER_ONE);
+
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+
+        vm.expectEmit(true, true, true, true);
+        emit ChallengeCreated(
+            0, PLAYER_ONE_ID, PLAYER_TWO_ID, loadout.skin.skinIndex, loadout.skin.skinTokenId, loadout.stance, false
+        );
+
+        uint256 challengeId = game.initiateChallengeWithETH{value: 0.0001 ether}(loadout, PLAYER_TWO_ID);
+
+        assertEq(challengeId, 0);
+        (uint32 challengerId, uint32 defenderId,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        assertEq(challengerId, PLAYER_ONE_ID);
+        assertEq(defenderId, PLAYER_TWO_ID);
+        assertTrue(state == DuelGame.ChallengeState.OPEN);
+        vm.stopPrank();
+    }
+
+    function testInitiateChallengeWithTicket() public {
+        vm.startPrank(PLAYER_ONE);
+
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+
+        vm.expectEmit(true, true, true, true);
+        emit ChallengeCreated(
+            0, PLAYER_ONE_ID, PLAYER_TWO_ID, loadout.skin.skinIndex, loadout.skin.skinTokenId, loadout.stance, true
+        );
+
+        uint256 challengeId = game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
+
+        assertEq(challengeId, 0);
+        (uint32 challengerId, uint32 defenderId,,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
+        assertEq(challengerId, PLAYER_ONE_ID);
+        assertEq(defenderId, PLAYER_TWO_ID);
+        assertTrue(state == DuelGame.ChallengeState.OPEN);
+        vm.stopPrank();
+    }
+
+    function testRevertWhen_InsufficientETHForDuel() public {
+        vm.startPrank(PLAYER_ONE);
+
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+
+        // Try with insufficient ETH
+        vm.expectRevert("Insufficient fee amount");
+        game.initiateChallengeWithETH{value: 0.00005 ether}(loadout, PLAYER_TWO_ID);
+
+        // Try with exact amount (should work)
+        uint256 challengeId = game.initiateChallengeWithETH{value: 0.0001 ether}(loadout, PLAYER_TWO_ID);
+        assertEq(challengeId, 0);
+
+        vm.stopPrank();
+    }
+
+    function testRevertWhen_NoTicketsForDuel() public {
+        // Create new player with no tickets
+        address newPlayer = address(0xDEF);
+        vm.deal(newPlayer, 100 ether);
+        uint32 newPlayerId = _createPlayerAndFulfillVRF(newPlayer, playerContract, false);
+
+        // Give approval to burn tickets (needed for the revert test)
+        vm.prank(newPlayer);
+        playerTickets.setApprovalForAll(address(game), true);
+
+        // Verify player has no tickets
+        assertEq(
+            playerTickets.balanceOf(newPlayer, playerTickets.DUEL_TICKET()), 0, "New player should have no tickets"
+        );
+
+        // Try to create challenge with ticket - should fail due to insufficient balance
+        vm.startPrank(newPlayer);
+        Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+            playerId: newPlayerId, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 1
+        });
+        vm.expectRevert();
+        game.initiateChallengeWithTicket(loadout, PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // But ETH payment should work - give them enough ETH for the duel fee
+        vm.deal(newPlayer, 1 ether);
+        vm.startPrank(newPlayer);
+        uint256 challengeId = game.initiateChallengeWithETH{value: 0.0001 ether}(loadout, PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Verify challenge was created
+        (uint32 challengerId,,,,,,,) = game.challenges(challengeId);
+        assertEq(challengerId, newPlayerId);
+    }
+
+    function testETHWithdrawal() public {
+        uint256 initialBalance = game.owner().balance;
+
+        // Create some challenges with ETH to accumulate fees
+        vm.startPrank(PLAYER_ONE);
+        game.initiateChallengeWithETH{value: 0.0001 ether}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        vm.startPrank(PLAYER_TWO);
+        game.initiateChallengeWithETH{value: 0.0001 ether}(_createLoadout(PLAYER_TWO_ID), PLAYER_ONE_ID);
+        vm.stopPrank();
+
+        // Contract should have 0.0002 ETH
+        assertEq(address(game).balance, 0.0002 ether, "Contract should have accumulated fees");
+
+        // Owner can withdraw
+        vm.prank(game.owner());
+        game.withdrawFees();
+
+        // Check balances
+        assertEq(address(game).balance, 0, "Contract balance should be zero after withdrawal");
+        assertEq(game.owner().balance, initialBalance + 0.0002 ether, "Owner should receive the fees");
+    }
+
+    function testCompleteDuelWorkflowWithETH() public {
+        // Complete end-to-end duel workflow using ETH payment
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId =
+            game.initiateChallengeWithETH{value: 0.0001 ether}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Accept challenge
+        vm.startPrank(PLAYER_TWO);
+        vm.recordLogs();
+        game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Fulfill VRF to complete the duel
+        _fulfillVRFRequest(address(game));
+
+        // Verify final challenge state
+        assertTrue(game.isChallengeCompleted(challengeId), "Challenge should be completed");
+
+        // Verify next challenge ID incremented
+        assertEq(game.nextChallengeId(), 1, "Next challenge ID should increment");
+    }
+
+    function testMixedPaymentMethods() public {
+        // Test that both payment methods can be used in the same game
+        vm.startPrank(PLAYER_ONE);
+        uint256 ethChallengeId =
+            game.initiateChallengeWithETH{value: 0.0001 ether}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 ticketChallengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Verify both challenges were created
+        assertTrue(game.isChallengeActive(ethChallengeId), "ETH challenge should be active");
+        assertTrue(game.isChallengeActive(ticketChallengeId), "Ticket challenge should be active");
+        assertEq(ethChallengeId + 1, ticketChallengeId, "Challenge IDs should be sequential");
+    }
+
+    event DuelFeeAmountUpdated(uint256 oldValue, uint256 newValue);
+    event GasProtectionUpdated(bool enabled);
+    event MaxAcceptGasPriceUpdated(uint256 oldValue, uint256 newValue);
+
+    function testGasProtectionDefaults() public {
+        // Test default values
+        assertEq(game.maxAcceptGasPrice(), 100000000, "Default max gas price should be 0.1 gwei");
+        assertTrue(game.gasProtectionEnabled(), "Gas protection should be enabled by default");
+    }
+
+    function testGasProtectionConfiguration() public {
+        // Test owner can update gas protection settings
+        vm.startPrank(game.owner());
+
+        // Test disabling gas protection
+        vm.expectEmit(true, false, false, true);
+        emit GasProtectionUpdated(false);
+        game.setGasProtectionEnabled(false);
+        assertFalse(game.gasProtectionEnabled(), "Gas protection should be disabled");
+
+        // Test enabling gas protection
+        vm.expectEmit(true, false, false, true);
+        emit GasProtectionUpdated(true);
+        game.setGasProtectionEnabled(true);
+        assertTrue(game.gasProtectionEnabled(), "Gas protection should be enabled");
+
+        // Test updating max gas price
+        vm.expectEmit(true, false, false, true);
+        emit MaxAcceptGasPriceUpdated(100000000, 200000000);
+        game.setMaxAcceptGasPrice(200000000); // 0.2 gwei
+        assertEq(game.maxAcceptGasPrice(), 200000000, "Max gas price should be updated");
+
+        vm.stopPrank();
+
+        // Test non-owner cannot update settings
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("Only callable by owner");
+        game.setGasProtectionEnabled(false);
+
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("Only callable by owner");
+        game.setMaxAcceptGasPrice(300000000);
+    }
+
+    function testGasProtectionValidation() public {
+        // Test zero gas price validation
+        vm.prank(game.owner());
+        vm.expectRevert("Gas price must be positive");
+        game.setMaxAcceptGasPrice(0);
+    }
+
+    function testAcceptChallengeWithLowGas() public {
+        // Create challenge first
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Accept challenge with low gas (should work)
+        vm.startPrank(PLAYER_TWO);
+        vm.txGasPrice(50000000); // Set gas price to 0.05 gwei - below limit
+        game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Verify challenge is now pending
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after low-gas acceptance");
+    }
+
+    function testAcceptChallengeWithHighGas() public {
+        // Create challenge first
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Try to accept challenge with high gas (should fail)
+        vm.startPrank(PLAYER_TWO);
+        vm.txGasPrice(200000000); // Set gas price to 0.2 gwei - above limit
+
+        Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
+        vm.expectRevert("Gas price too high");
+        game.acceptChallenge(challengeId, defenderLoadout);
+        vm.stopPrank();
+
+        // Verify challenge is still active (not accepted)
+        assertTrue(game.isChallengeActive(challengeId), "Challenge should still be active after failed acceptance");
+    }
+
+    function testAcceptChallengeWithGasProtectionDisabled() public {
+        // Disable gas protection
+        vm.prank(game.owner());
+        game.setGasProtectionEnabled(false);
+
+        // Create challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Accept challenge with high gas (should work when protection disabled)
+        vm.startPrank(PLAYER_TWO);
+        vm.txGasPrice(500000000); // 0.5 gwei - very high but should work
+        game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Verify challenge is now pending
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending when gas protection disabled");
+    }
+
+    function testGasProtectionAtExactLimit() public {
+        // Create challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // Accept challenge at exact gas limit (should work)
+        vm.startPrank(PLAYER_TWO);
+        vm.txGasPrice(100000000); // Set gas price to exactly 0.1 gwei
+        game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
+        vm.stopPrank();
+
+        // Verify challenge is now pending
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending at exact gas limit");
+    }
+
+    function testGasProtectionOnlyAppliesToAccept() public {
+        // Verify gas protection doesn't affect challenge creation
+        vm.startPrank(PLAYER_ONE);
+        vm.txGasPrice(500000000); // 0.5 gwei - very high
+
+        // Both initiate functions should work regardless of gas price
+        uint256 challengeId1 = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        uint256 challengeId2 =
+            game.initiateChallengeWithETH{value: 0.0001 ether}(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+
+        vm.stopPrank();
+
+        // Verify both challenges were created
+        assertTrue(game.isChallengeActive(challengeId1), "Ticket challenge should be created regardless of gas");
+        assertTrue(game.isChallengeActive(challengeId2), "ETH challenge should be created regardless of gas");
+    }
+
+    function testDynamicGasLimitUpdates() public {
+        // Create challenge
+        vm.startPrank(PLAYER_ONE);
+        uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+        vm.stopPrank();
+
+        // First try to accept at 0.15 gwei (above default 0.1 gwei limit)
+        vm.startPrank(PLAYER_TWO);
+        vm.txGasPrice(150000000); // Set gas price to 0.15 gwei
+        Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(PLAYER_TWO_ID);
+        vm.expectRevert("Gas price too high");
+        game.acceptChallenge(challengeId, defenderLoadout);
+        vm.stopPrank();
+
+        // Owner increases gas limit to 0.2 gwei
+        vm.prank(game.owner());
+        game.setMaxAcceptGasPrice(200000000);
+
+        // Now the same gas price should work
+        vm.startPrank(PLAYER_TWO);
+        vm.txGasPrice(150000000); // Same gas price, now under new limit
+        defenderLoadout = _createLoadout(PLAYER_TWO_ID);
+        game.acceptChallenge(challengeId, defenderLoadout);
+        vm.stopPrank();
+
+        // Verify challenge is now pending
+        assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after gas limit increase");
     }
 
     receive() external payable {}

@@ -51,6 +51,12 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     uint16 public requestConfirmations = 3;
     /// @notice Player tickets contract for burning duel tickets
     IPlayerTickets public playerTickets;
+    /// @notice Fee amount in ETH required to start a duel (alternative to ticket)
+    uint256 public duelFeeAmount = 0.0001 ether;
+    /// @notice Maximum gas price allowed for accepting challenges (in wei)
+    uint256 public maxAcceptGasPrice = 100000000; // 0.1 gwei
+    /// @notice Whether gas price protection is enabled (true = protection on, false = no protection)
+    bool public gasProtectionEnabled = true;
 
     // Enum
     /// @notice Enum representing the state of a duel challenge
@@ -104,7 +110,8 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         uint32 indexed defenderId,
         uint32 challengerSkinIndex,
         uint16 challengerSkinTokenId,
-        uint8 challengerStance
+        uint8 challengerStance,
+        bool paidWithTicket
     );
     /// @notice Emitted when a challenge is accepted
     event ChallengeAccepted(
@@ -126,6 +133,12 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     event ChallengeRecovered(uint256 indexed challengeId);
     /// @notice Emitted when VRF request timeout is updated
     event VrfRequestTimeoutUpdated(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when duel fee amount is updated
+    event DuelFeeAmountUpdated(uint256 oldValue, uint256 newValue);
+    /// @notice Emitted when gas protection settings are updated
+    event GasProtectionUpdated(bool enabled);
+    /// @notice Emitted when max accept gas price is updated
+    event MaxAcceptGasPriceUpdated(uint256 oldValue, uint256 newValue);
 
     //==============================================================//
     //                        MODIFIERS                             //
@@ -133,6 +146,12 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     /// @notice Ensures game is enabled for function execution
     modifier whenGameEnabled() {
         require(isGameEnabled, "Game is disabled");
+        _;
+    }
+
+    /// @notice Protects against high gas prices when accepting challenges
+    modifier gasProtection() {
+        require(!gasProtectionEnabled || tx.gasprice <= maxAcceptGasPrice, "Gas price too high");
         _;
     }
 
@@ -198,76 +217,41 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
             && block.timestamp > challenge.createdTimestamp + timeUntilExpire;
     }
 
-    /// @notice Creates a new duel challenge
+    /// @notice Creates a new duel challenge using a DUEL_TICKET
     /// @param challengerLoadout Loadout for the challenger
     /// @param defenderId ID of the defender
     /// @return challengeId ID of the created challenge
-    function initiateChallenge(Fighter.PlayerLoadout calldata challengerLoadout, uint32 defenderId)
+    function initiateChallengeWithTicket(Fighter.PlayerLoadout calldata challengerLoadout, uint32 defenderId)
         external
         whenGameEnabled
         returns (uint256)
     {
-        require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
-        require(
-            address(_getFighterContract(challengerLoadout.playerId)) == address(playerContract),
-            "Challenger must be a Player"
-        );
-        require(address(_getFighterContract(defenderId)) == address(playerContract), "Defender must be a Player");
-        require(
-            IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId) == msg.sender,
-            "Must own challenger player"
-        );
-
-        // Check player existence by calling getPlayer (will revert if player doesn't exist)
-        IPlayer(playerContract).getPlayer(challengerLoadout.playerId);
-        IPlayer(playerContract).getPlayer(defenderId);
-
-        // Verify players are not retired
-        require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
-        require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
-
         // Burn duel ticket from challenger - duels require tickets to prevent spam
         playerTickets.burnFrom(msg.sender, playerTickets.DUEL_TICKET(), 1);
+        return _initiateChallenge(challengerLoadout, defenderId, true);
+    }
 
-        // Validate skin ownership and requirements
-        address owner = IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId);
-        IPlayer(playerContract).skinRegistry().validateSkinOwnership(challengerLoadout.skin, owner);
-        IPlayer(playerContract).skinRegistry()
-            .validateSkinRequirements(
-                challengerLoadout.skin,
-                IPlayer(playerContract).getPlayer(challengerLoadout.playerId).attributes,
-                IPlayer(playerContract).equipmentRequirements()
-            );
-
-        // Create challenge
-        uint256 challengeId = nextChallengeId++;
-        challenges[challengeId] = DuelChallenge({
-            challengerId: challengerLoadout.playerId,
-            defenderId: defenderId,
-            createdBlock: block.number,
-            createdTimestamp: block.timestamp,
-            vrfRequestTimestamp: 0,
-            challengerLoadout: challengerLoadout,
-            defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0), 1),
-            state: ChallengeState.OPEN
-        });
-
-        emit ChallengeCreated(
-            challengeId,
-            challengerLoadout.playerId,
-            defenderId,
-            challengerLoadout.skin.skinIndex,
-            challengerLoadout.skin.skinTokenId,
-            challengerLoadout.stance
-        );
-
-        return challengeId;
+    /// @notice Creates a new duel challenge using ETH payment
+    /// @param challengerLoadout Loadout for the challenger
+    /// @param defenderId ID of the defender
+    /// @return challengeId ID of the created challenge
+    function initiateChallengeWithETH(Fighter.PlayerLoadout calldata challengerLoadout, uint32 defenderId)
+        external
+        payable
+        whenGameEnabled
+        returns (uint256)
+    {
+        require(msg.value >= duelFeeAmount, "Insufficient fee amount");
+        return _initiateChallenge(challengerLoadout, defenderId, false);
     }
 
     /// @notice Accepts a duel challenge
     /// @param challengeId ID of the challenge to accept
     /// @param defenderLoadout Loadout for the defender
-    function acceptChallenge(uint256 challengeId, Fighter.PlayerLoadout calldata defenderLoadout) external {
+    function acceptChallenge(uint256 challengeId, Fighter.PlayerLoadout calldata defenderLoadout)
+        external
+        gasProtection
+    {
         DuelChallenge storage challenge = challenges[challengeId];
 
         // Validate challenge state
@@ -398,6 +382,28 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         vrfRequestTimeout = newValue;
     }
 
+    /// @notice Updates the fee required to start a duel with ETH
+    /// @param newFeeAmount The new fee amount in ETH
+    function setDuelFeeAmount(uint256 newFeeAmount) external onlyOwner {
+        emit DuelFeeAmountUpdated(duelFeeAmount, newFeeAmount);
+        duelFeeAmount = newFeeAmount;
+    }
+
+    /// @notice Enables or disables gas price protection for accepting challenges
+    /// @param enabled Whether gas protection should be enabled
+    function setGasProtectionEnabled(bool enabled) external onlyOwner {
+        gasProtectionEnabled = enabled;
+        emit GasProtectionUpdated(enabled);
+    }
+
+    /// @notice Updates the maximum gas price allowed for accepting challenges
+    /// @param newMaxGasPrice The new maximum gas price in wei
+    function setMaxAcceptGasPrice(uint256 newMaxGasPrice) external onlyOwner {
+        require(newMaxGasPrice > 0, "Gas price must be positive");
+        emit MaxAcceptGasPriceUpdated(maxAcceptGasPrice, newMaxGasPrice);
+        maxAcceptGasPrice = newMaxGasPrice;
+    }
+
     /// @notice Withdraws all accumulated ETH to the owner address
     function withdrawFees() external onlyOwner {
         SafeTransferLib.safeTransferETH(owner(), address(this).balance);
@@ -413,6 +419,72 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     //==============================================================//
     //                    INTERNAL FUNCTIONS                        //
     //==============================================================//
+
+    /// @notice Internal function to create a duel challenge
+    /// @param challengerLoadout Loadout for the challenger
+    /// @param defenderId ID of the defender
+    /// @param paidWithTicket Whether the challenge was paid for with a ticket
+    /// @return challengeId ID of the created challenge
+    function _initiateChallenge(
+        Fighter.PlayerLoadout calldata challengerLoadout,
+        uint32 defenderId,
+        bool paidWithTicket
+    ) internal returns (uint256) {
+        require(challengerLoadout.playerId != defenderId, "Cannot duel yourself");
+        require(
+            address(_getFighterContract(challengerLoadout.playerId)) == address(playerContract),
+            "Challenger must be a Player"
+        );
+        require(address(_getFighterContract(defenderId)) == address(playerContract), "Defender must be a Player");
+        require(
+            IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId) == msg.sender,
+            "Must own challenger player"
+        );
+
+        // Check player existence by calling getPlayer (will revert if player doesn't exist)
+        IPlayer(playerContract).getPlayer(challengerLoadout.playerId);
+        IPlayer(playerContract).getPlayer(defenderId);
+
+        // Verify players are not retired
+        require(!playerContract.isPlayerRetired(challengerLoadout.playerId), "Challenger is retired");
+        require(!playerContract.isPlayerRetired(defenderId), "Defender is retired");
+
+        // Validate skin ownership and requirements
+        address owner = IPlayer(playerContract).getPlayerOwner(challengerLoadout.playerId);
+        IPlayer(playerContract).skinRegistry().validateSkinOwnership(challengerLoadout.skin, owner);
+        IPlayer(playerContract).skinRegistry()
+            .validateSkinRequirements(
+                challengerLoadout.skin,
+                IPlayer(playerContract).getPlayer(challengerLoadout.playerId).attributes,
+                IPlayer(playerContract).equipmentRequirements()
+            );
+
+        // Create challenge
+        uint256 challengeId = nextChallengeId++;
+        challenges[challengeId] = DuelChallenge({
+            challengerId: challengerLoadout.playerId,
+            defenderId: defenderId,
+            createdBlock: block.number,
+            createdTimestamp: block.timestamp,
+            vrfRequestTimestamp: 0,
+            challengerLoadout: challengerLoadout,
+            defenderLoadout: Fighter.PlayerLoadout(0, Fighter.SkinInfo(0, 0), 1),
+            state: ChallengeState.OPEN
+        });
+
+        emit ChallengeCreated(
+            challengeId,
+            challengerLoadout.playerId,
+            defenderId,
+            challengerLoadout.skin.skinIndex,
+            challengerLoadout.skin.skinTokenId,
+            challengerLoadout.stance,
+            paidWithTicket
+        );
+
+        return challengeId;
+    }
+
     /// @notice Processes VRF randomness fulfillment
     /// @param requestId ID of the VRF request
     /// @param randomWords Array of random values from VRF (we only use the first one)

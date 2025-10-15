@@ -72,7 +72,7 @@ contract GasAnalysisTest is TestBase {
         for (uint256 i = 0; i < 5; i++) {
             // Create and accept a challenge
             vm.startPrank(PLAYER_ONE);
-            uint256 challengeId = game.initiateChallenge(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
+            uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
             vm.stopPrank();
 
             vm.startPrank(PLAYER_TWO);

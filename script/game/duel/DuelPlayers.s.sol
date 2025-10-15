@@ -39,7 +39,7 @@ contract DuelPlayersScript is Script {
         Fighter.PlayerLoadout memory defenderLoadout =
             Fighter.PlayerLoadout({playerId: defenderId, skin: defenderStats.skin, stance: defenderStats.stance});
 
-        uint256 challengeId = duelGame.initiateChallenge(challengerLoadout, defenderId);
+        uint256 challengeId = duelGame.initiateChallengeWithTicket(challengerLoadout, defenderId);
 
         console2.log("\n=== Challenge Initiated ===");
         console2.log("Challenge ID:", challengeId);
