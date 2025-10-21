@@ -16,7 +16,7 @@ contract GameEngine is IGameEngine {
     error InvalidResults();
     error InvalidEquipment();
 
-    uint16 public constant version = 258;
+    uint16 public constant version = 259; // v1.3: Enhanced survival system
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -141,10 +141,10 @@ contract GameEngine is IGameEngine {
     uint8 private immutable MAX_ROUNDS = 70;
     uint8 private constant ATTACK_ACTION_COST = 149;
     uint8 private constant REACH_DODGE_BONUS = 5;
-    uint8 private constant BASE_SURVIVAL_CHANCE = 95;
+    uint8 private constant BASE_SURVIVAL_CHANCE = 70;
     uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
     uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
-    uint8 private constant MAX_DAMAGE_OVERAGE = 60;
+    uint8 private constant MAX_DAMAGE_OVERAGE = 75;
 
     // Weapon Types
     uint8 public constant WEAPON_ARMING_SWORD_KITE = 0;
@@ -338,10 +338,10 @@ contract GameEngine is IGameEngine {
             tempPowerMod = baseDamage + (uint32(player.attributes.strength) * 4) + (uint32(player.attributes.size) * 3)
                 + (uint32(player.attributes.agility) * 3);
         } else if (weaponStats.weaponClass == WeaponClass.REACH_CONTROL) {
-            // AGI+STR scaling buffed for technique masters: AGI*8 + STR*8 (16x total)
-            baseDamage = 35; // Dual stat even: Base 35
+            // AGI+STR scaling: AGI*5 + STR*5 (10x total, dual stat even split)
+            baseDamage = 30; // Dual stat even: Base 30
             tempPowerMod =
-                baseDamage + (uint32(player.attributes.agility) * 8) + (uint32(player.attributes.strength) * 8);
+                baseDamage + (uint32(player.attributes.agility) * 5) + (uint32(player.attributes.strength) * 5);
         } else {
             // Fallback to original formula if somehow no classification
             baseDamage = 20;
@@ -378,9 +378,9 @@ contract GameEngine is IGameEngine {
 
         uint16 physicalPowerMod = uint16(tempPowerMod < type(uint16).max ? tempPowerMod : type(uint16).max);
 
-        // Calculate base survival rate
+        // Calculate base survival rate (v1.3: Enhanced scaling LUCK×4 + CON×2, base 70)
         uint16 baseSurvivalRate =
-            BASE_SURVIVAL_CHANCE + (uint16(player.attributes.luck) * 2) + uint16(player.attributes.constitution);
+            BASE_SURVIVAL_CHANCE + (uint16(player.attributes.luck) * 4) + (uint16(player.attributes.constitution) * 2);
 
         // Apply level scaling (v1.0)
         // +5% health per level above 1 (max +45% at level 10)
@@ -1626,8 +1626,8 @@ contract GameEngine is IGameEngine {
 
     function QUARTERSTAFF() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 34,
-            maxDamage: 43,
+            minDamage: 42,
+            maxDamage: 54,
             attackSpeed: 80,
             parryChance: 140,
             riposteChance: 120,
@@ -1642,8 +1642,8 @@ contract GameEngine is IGameEngine {
 
     function SPEAR() public pure returns (WeaponStats memory) {
         return WeaponStats({
-            minDamage: 38,
-            maxDamage: 47,
+            minDamage: 46,
+            maxDamage: 58,
             attackSpeed: 80,
             parryChance: 130,
             riposteChance: 140,

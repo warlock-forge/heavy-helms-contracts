@@ -162,7 +162,7 @@ forge snapshot    # Create gas snapshots for tests
    - `Monster.sol`: Enemy monsters for PvE content
 
 2. **Game Engine** (`src/game/`)
-   - `GameEngine.sol`: Core combat mechanics and battle resolution (version 28)
+   - `GameEngine.sol`: Core combat mechanics and battle resolution (version 1.2)
    - `EquipmentRequirements.sol`: Equipment validation and requirements
    - Game Modes: `BaseGame.sol`, `PracticeGame.sol`, `DuelGame.sol`, `GauntletGame.sol`
 
@@ -199,20 +199,21 @@ forge snapshot    # Create gas snapshots for tests
   - VRF costs eliminated (50%+ gas savings)
   - Instant gauntlet completion (no VRF delays)
   - Comprehensive test coverage (23/23 tests passing)
-- **GameEngine v28 Weapon Classification System**: Complete rebalancing with attribute-based damage scaling
-  - AGI assassins now scale damage with AGI (not forced into STR+SIZE)
-  - 7 weapon classes with distinct damage formulas
-  - Size damage bonus system affects all weapons
+- **GameEngine v1.2 Weapon Classification System**: Complete rebalancing with attribute-based damage scaling
+  - 7 weapon classes with unique damage formulas (e.g., Light Finesse uses pure AGI×10)
+  - Universal size damage bonus system affects all weapons
   - Shield principle properly implemented (defense trades for offense)
+  - Level progression system with XP, attribute points, and damage/health scaling
+  - Weapon and armor specialization systems
 - **Enhanced Stamina System**: Stamina ramp-up with negative effects under 50%
 - All ticket types working correctly (Type 1-4)
 - 64-player gauntlet support (~15M gas, well under 30M block limit)
 
-### Current Focus: Level Progression Testing
-- v28 GameEngine shows promising results but inconsistent level scaling
-- Some archetypes scale well (Assassins: 85% L10 vs L1), others don't (Berserkers: 50%)
-- Need level-based scaling beyond just attribute points
-- Considering talent system and specialized archetype bonuses
+### Current Focus: Post v1.2 Balance Testing
+- v1.2 GameEngine implemented with full level progression (1-10)
+- Level benefits: +5% health/damage per level, +2 initiative, +1 attribute point
+- Weapon and armor specialization systems unlock at levels 10 and 5
+- Monitoring archetype balance across all levels
 
 ## Player Archetypes & Combat Balance
 
@@ -258,111 +259,146 @@ forge snapshot    # Create gas snapshots for tests
 - **Weapons**: TRIDENT, SPEAR, QUARTERSTAFF
 - **Identity**: Reach advantage, dodge-focused, technical combat
 
-## GameEngine v28 Mechanics Documentation
+## GameEngine v1.2 Mechanics Documentation
 
-### Core Combat Statistics
-
-#### Primary Attribute Effects
-Each attribute affects multiple combat statistics:
+### Core Attribute Effects
 
 **STRENGTH (STR)**:
-- Damage modifier: Weapon class dependent (see weapon classifications)
-- Crit multiplier: +3 per point (formula: `150 + STR * 3 + SIZE * 2`)
-- Parry chance: +0.4 per point
-- Counter chance: +1 per point
+- **Weapon Damage**: Primary for Pure Blunt (×10), major for Balanced Swords (×7), Heavy Demolition (×5)
+- **Block Chance**: +0.5 per point (primary stat for shield defense)
+- **Parry Chance**: +0.4 per point
+- **Counter Chance**: +2 per point
+- **Critical Multiplier**: +3 per point
+- **Endurance**: +5 per point
+- **Universal Damage Bonus**: -3% (STR 3-8), baseline (STR 9-16), +3% (STR 17-21), +5% (STR 22+)
 
 **CONSTITUTION (CON)**:
-- Health: +15 per point (formula: `50 + CON * 15 + SIZE * 6 + STA * 3`)
-- Block chance: +0.35 per point
-- Survival rate: +1 per point
+- **Health**: +17 per point (formula: `50 + CON * 17 + SIZE * 6 + STA * 3`)
+- **Survival Rate**: +1 per point
+- **Block Chance**: +0.2 per point
+- **Riposte Chance**: +0.3 per point
 
 **SIZE**:
-- Damage modifier: Weapon class dependent + universal size bonus
-- Health: +6 per point
-- Crit multiplier: +2 per point
-- Block chance: +0.3 per point
+- **Health**: +6 per point
+- **Weapon Damage**: Primary for Heavy Demolition (×5), contributes to Dual Wield Brute (×3)
+- **Block Chance**: +0.3 per point
+- **Critical Multiplier**: +2 per point
+- **Dodge Penalty**: Reduces dodge as size increases
+- **Universal Size Damage Bonus**: -5% (SIZE 3-8), baseline (SIZE 9-16), +5% (SIZE 17-21), +10% (SIZE 22+)
 
 **AGILITY (AGI)**:
-- Hit chance: +1 per point (formula: `50 + AGI + LUCK * 2`)
-- Initiative: +3 per point
-- Dodge chance: +0.3 per point
-- Crit chance: +0.33 per point
-- Parry chance: +0.35 per point
+- **Weapon Damage**: Primary for Light Finesse (×10), Curved Blade (×7), Reach Control (×8)
+- **Initiative**: +3 per point (determines turn order)
+- **Hit Chance**: +1 per point (formula: `50 + AGI/2 + LUCK * 2.5`)
+- **Dodge Chance**: +0.3 per point
+- **Critical Chance**: +0.33 per point
+- **Parry Chance**: +0.25 per point
 
 **STAMINA (STA)**:
-- Health: +3 per point
-- Endurance: +16 per point (formula: `35 + STA * 16 + STR * 2`)
-- Dodge chance: +0.2 per point
-- **NEW: Stamina below 50% causes negative effects**
+- **Endurance**: +20 per point (formula: `35 + STA * 20 + STR * 5`)
+- **Health**: +3 per point
+- **Dodge Chance**: +0.2 per point
+- **Parry Chance**: +0.3 per point
+- **Critical**: Below 50% stamina causes severe combat penalties
 
 **LUCK**:
-- Hit chance: +2 per point
-- Initiative: +2 per point
-- Crit chance: +0.33 per point
-- Survival rate: +2 per point
+- **Hit Chance**: +2.5 per point (major contributor)
+- **Initiative**: +2 per point
+- **Critical Chance**: +0.33 per point
+- **Riposte Chance**: +1 per point
+- **Survival Rate**: +2 per point
 
-### GameEngine v28 Weapon Classification System ✅
+### Weapon Classification System (7 Classes)
 
-#### Size Damage Bonus System
-Applied to ALL weapons regardless of class:
-- **SIZE 3-8**: -5% damage modifier
-- **SIZE 9-16**: 0% (baseline)
-- **SIZE 17-21**: +5% damage modifier  
-- **SIZE 22+**: +10% damage modifier
+**1. LIGHT_FINESSE** (Pure AGI×10 damage)
+- Formula: Base 20 + AGI×10
+- Weapons: Dual Daggers, Rapier+Dagger, Rapier+Buckler, Shortsword+Buckler, Shortsword+Tower
+- Specialization: +10 initiative, +10% endurance
 
-#### Weapon Classes (7 categories with different damage scaling):
+**2. CURVED_BLADE** (AGI×7 + STR×3)
+- Formula: Base 35 + AGI×7 + STR×3
+- Weapons: Dual Scimitars, Scimitar+Dagger, Scimitar+Buckler
+- Specialization: +5% crit chance, +3% dodge
 
-**LIGHT_FINESSE**: Pure AGI×10 damage scaling
-- DUAL_DAGGERS (39-61 dmg, 115 spd), RAPIER_DAGGER (48-62 dmg, 100 spd), RAPIER_BUCKLER (40-52 dmg, 90 spd), SHORTSWORD_BUCKLER (40-52 dmg, 90 spd), SHORTSWORD_TOWER (32-40 dmg, 85 spd)
+**3. BALANCED_SWORD** (STR×7 + AGI×3)
+- Formula: Base 35 + STR×7 + AGI×3
+- Weapons: Arming Sword variants
+- Specialization: +3% hit chance, +5% damage
 
-**CURVED_BLADE**: AGI×7 + STR×3 damage scaling
-- DUAL_SCIMITARS (48-62 dmg, 100 spd), SCIMITAR_DAGGER (46-60 dmg, 105 spd), SCIMITAR_BUCKLER (38-50 dmg, 85 spd)
+**4. PURE_BLUNT** (Pure STR×10)
+- Formula: Base 20 + STR×10
+- Weapons: Dual Clubs, Mace variants, Club+Tower
+- Specialization: +5% counter chance, +5% damage
 
-**BALANCED_SWORD**: STR×7 + AGI×3 damage scaling
-- ARMING_SWORD_SHORTSWORD (45-60 dmg, 85 spd), ARMING_SWORD_CLUB (50-65 dmg, 75 spd), ARMING_SWORD_KITE (35-43 dmg, 75 spd)
+**5. HEAVY_DEMOLITION** (STR×5 + SIZE×5)
+- Formula: Base 40 + STR×5 + SIZE×5
+- Weapons: Battleaxe, Maul, Greatsword, Axe+Shield variants
+- Specialization: +10% crit multiplier, +7% damage
 
-**PURE_BLUNT**: Pure STR×10 damage scaling
-- DUAL_CLUBS (54-66 dmg, 85 spd), MACE_KITE (43-53 dmg, 65 spd), MACE_TOWER (33-42 dmg, 70 spd), CLUB_TOWER (33-42 dmg, 70 spd)
+**6. DUAL_WIELD_BRUTE** (STR×4 + SIZE×3 + AGI×3)
+- Formula: Base 50 + STR×4 + SIZE×3 + AGI×3
+- Weapons: Axe+Mace, Mace+Shortsword
+- Specialization: +10% endurance, +3% parry
 
-**HEAVY_DEMOLITION**: STR×5 + SIZE×5 damage scaling (original formula)
-- BATTLEAXE (130-140 dmg, 40 spd), GREATSWORD (76-85 dmg, 60 spd), MAUL (130-140 dmg, 40 spd), AXE_KITE (36-44 dmg, 70 spd), AXE_TOWER (34-43 dmg, 65 spd)
+**7. REACH_CONTROL** (AGI×8 + STR×8)
+- Formula: Base 35 + AGI×8 + STR×8
+- Special: +5% base dodge chance bonus
+- Weapons: Trident, Spear, Quarterstaff
+- Specialization: +5% dodge, +5% parry
 
-**DUAL_WIELD_BRUTE**: STR×4 + SIZE×3 + AGI×3 damage scaling
-- AXE_MACE (66-90 dmg, 65 spd), MACE_SHORTSWORD (60-84 dmg, 70 spd)
+### Level Progression System
 
-**REACH_CONTROL**: AGI×5 + STR×5 damage scaling + 15 dodge bonus
-- TRIDENT (47-58 dmg, 55 spd), SPEAR (32-40 dmg, 80 spd), QUARTERSTAFF (29-36 dmg, 80 spd)
+**Experience & Levels**:
+- Maximum Level: 10
+- XP Requirements: 100 (L2), 250 (L3), 475 (L4), 812 (L5), 1318 (L6), 2077 (L7), 3216 (L8), 4924 (L9), 7486 (L10)
 
-### TRUE DPR (Damage Per Round) Calculation System
+**Level Benefits**:
+- **Health**: +5% per level (max +45% at level 10)
+- **Damage**: +5% per level (max +45% at level 10)
+- **Initiative**: +2 per level (max +18 at level 10)
+- **Attribute Points**: +1 per level (can exceed 21 cap, max 25)
 
-#### **Formula**
-```
-TRUE DPR = (Average Weapon Damage × Damage Modifier ÷ 100) × (Attack Speed ÷ 149)
-```
+**Specialization Unlocks**:
+- **Level 5**: Armor specialization
+- **Level 10**: Weapon specialization
 
-#### **Components**
+### Stamina System & Combat Penalties
 
-1. **Average Weapon Damage**: `(minDamage + maxDamage) ÷ 2`
+**Stamina Costs**:
+- Attack: 16 base
+- Block: 4 base
+- Dodge: 4 base
+- Parry: 4 base
+- Counter: 6 base
+- Riposte: 6 base
 
-2. **Damage Modifier Calculation by Weapon Class**:
-   - Use weapon class formula with archetype's STR/AGI/SIZE stats
-   - Apply universal STR/SIZE bonuses from archetype stats
+**Low Stamina Effects**:
+- **50-20% (Tired)**: -30% to all defensive stats, attackers gain +10 hit
+- **Below 20% (Exhausted)**: -40% to all defensive stats, triggers Predator Mode
+- **Predator Mode**: Attackers gain +30 hit, +50 crit chance, ×2 crit multiplier
+- **Exception**: Tower Shield + Defensive Stance immune to stamina penalties
 
-3. **Action Point System**: Attack cost = 149 points, gain = weapon.attackSpeed per round
+### Stance System
 
-#### **ARCHETYPE-BASED TRUE DPR RANKINGS (ALL 27 WEAPONS)**
+**Defensive Stance**:
+- Damage/Hit: -25%
+- Defensive stats: +40-50%
+- Stamina cost: -45%
+- Survival: +25%
+- Plate armor: 100% effectiveness
 
-1. **BATTLEAXE** - **91.6 DPR** (Berserker: 135×248.04÷100×40÷149)
-2. **MAUL** - **91.6 DPR** (Berserker: 135×248.04÷100×40÷149)
-3. **DUAL_DAGGERS** - **82.0 DPR** (Assassin: 50×221.45÷100×115÷149)
-4. **RAPIER_DAGGER** - **73.3 DPR** (Assassin: 55×221.45÷100×100÷149)
-5. **DUAL_SCIMITARS** - **73.3 DPR** (Assassin: 55×211÷100×100÷149)
-6. **AXE_MACE** - **68.8 DPR** (Bruiser: 78×213.57÷100×65÷149)
-7. **MACE_SHORTSWORD** - **67.0 DPR** (Bruiser: 72×213.57÷100×70÷149)
-8. **DUAL_CLUBS** - **64.5 DPR** (Bruiser: 60×213.57÷100×85÷149)
-9. **GREATSWORD** - **53.4 DPR** (Berserker: 80.5×248.04÷100×60÷149)
+**Balanced Stance**:
+- All stats at baseline (100%)
+- Plate armor: 75% effectiveness
 
-**Note**: Updated with GameEngine v28 actual weapon stats. Tower weapons maintain lowest DPR as intended per shield principle (defense trades for offense).
+**Offensive Stance**:
+- Damage: +15%
+- Hit chance: +30%
+- Crit multiplier: +50%
+- Defensive stats: -40%
+- Stamina cost: +45%
+- Survival: -25%
+- Plate armor: 50% effectiveness
 
 ## Testing Infrastructure
 
