@@ -16,7 +16,7 @@ contract GameEngine is IGameEngine {
     error InvalidResults();
     error InvalidEquipment();
 
-    uint16 public constant version = 259; // v1.3: Enhanced survival system
+    uint16 public constant version = 260; // v1.4: Improved initiative formula
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -681,18 +681,9 @@ contract GameEngine is IGameEngine {
     }
 
     function calculateTotalInitiative(CalculatedCombatStats memory stats) private pure returns (uint32) {
-        // Prevent division by zero
-        uint32 weight = stats.armor.weight > 0 ? stats.armor.weight : 1;
-
-        // Use uint256 for intermediate calculation to avoid overflow
-        uint256 equipmentInit = (uint256(stats.weapon.attackSpeed) * 100) / weight;
-        uint256 initiativeContribution = (uint256(stats.stats.initiative) * 10);
-
-        // Combine with safe arithmetic
-        uint256 totalInit = ((equipmentInit * 90) + initiativeContribution) / 100;
-
-        // Cap at uint32 max value before returning
-        return totalInit > type(uint32).max ? type(uint32).max : uint32(totalInit);
+        uint32 total = stats.stats.initiative * 4 + stats.weapon.attackSpeed * 2;
+        uint32 penalty = stats.armor.weight > 70 ? 60 : stats.armor.weight > 30 ? 35 : stats.armor.weight > 10 ? 10 : 0;
+        return total > penalty ? total - penalty : 1;
     }
 
     function processRound(
@@ -1240,21 +1231,12 @@ contract GameEngine is IGameEngine {
     }
 
     function getResistanceForDamageType(ArmorStats memory armor, DamageType damageType) private pure returns (uint16) {
-        if (damageType == DamageType.Slashing) {
-            return armor.slashResist;
-        } else if (damageType == DamageType.Piercing) {
-            return armor.pierceResist;
-        } else if (damageType == DamageType.Blunt) {
-            return armor.bluntResist;
-        } else if (damageType == DamageType.Hybrid_Slash_Pierce) {
-            // Use the lower resistance (more favorable to attacker)
-            return armor.slashResist < armor.pierceResist ? armor.slashResist : armor.pierceResist;
-        } else if (damageType == DamageType.Hybrid_Slash_Blunt) {
-            return armor.slashResist < armor.bluntResist ? armor.slashResist : armor.bluntResist;
-        } else if (damageType == DamageType.Hybrid_Pierce_Blunt) {
-            return armor.pierceResist < armor.bluntResist ? armor.pierceResist : armor.bluntResist;
-        }
-        return 0;
+        return damageType == DamageType.Slashing ? armor.slashResist :
+               damageType == DamageType.Piercing ? armor.pierceResist :
+               damageType == DamageType.Blunt ? armor.bluntResist :
+               damageType == DamageType.Hybrid_Slash_Pierce ? (armor.slashResist < armor.pierceResist ? armor.slashResist : armor.pierceResist) :
+               damageType == DamageType.Hybrid_Slash_Blunt ? (armor.slashResist < armor.bluntResist ? armor.slashResist : armor.bluntResist) :
+               damageType == DamageType.Hybrid_Pierce_Blunt ? (armor.pierceResist < armor.bluntResist ? armor.pierceResist : armor.bluntResist) : 0;
     }
 
     // Improved to prevent overflow when applying high multipliers (180%)
@@ -1527,12 +1509,8 @@ contract GameEngine is IGameEngine {
         }
 
         // Calculate armor impact using uint256
-        uint256 armorImpact;
-        if (actionType == ActionType.DODGE) {
-            armorImpact = 100 + (uint256(stats.armor.weight) * 3 / 2);
-        } else {
-            armorImpact = 100 + (uint256(stats.armor.weight) / 10);
-        }
+        uint256 armorImpact = 100 + (actionType == ActionType.DODGE ? 
+            (uint256(stats.armor.weight) * 3 / 2) : (uint256(stats.armor.weight) / 10));
 
         // Apply armor impact
         staminaCost = (staminaCost * armorImpact) / 100;
