@@ -547,10 +547,9 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
     /// @notice Updates reward configuration for winners.
     function setWinnerRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        uint256 total =
-            config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
-            + config.nameChangePercent;
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
+            + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         winnerRewards = config;
@@ -559,10 +558,9 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
     /// @notice Updates reward configuration for runner-up.
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        uint256 total =
-            config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
-            + config.nameChangePercent;
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
+            + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         runnerUpRewards = config;
@@ -571,10 +569,9 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
     /// @notice Updates reward configuration for 3rd-4th place.
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
-        uint256 total =
-            config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent + config.playerSlotPercent
-            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
-            + config.nameChangePercent;
+        uint256 total = config.nonePercent + config.attributeSwapPercent + config.createPlayerPercent
+            + config.playerSlotPercent + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent
+            + config.dailyResetPercent + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardPercentages();
 
         thirdFourthRewards = config;
@@ -1236,9 +1233,9 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             }
         } else if (rewardType == IPlayerTickets.RewardType.NAME_CHANGE_TICKET) {
             // Mint name change NFT with VRF randomness and gas limit
-            try playerTickets.mintNameChangeNFTSafe(
-                playerContract.getPlayerOwner(playerId), random
-            ) returns (uint256 newTicketId) {
+            try playerTickets.mintNameChangeNFTSafe(playerContract.getPlayerOwner(playerId), random) returns (
+                uint256 newTicketId
+            ) {
                 emit RewardDistributed(tournamentId, playerId, rewardType, newTicketId);
             } catch {
                 emit RewardDistributed(tournamentId, playerId, rewardType, 0);

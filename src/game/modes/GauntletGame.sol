@@ -1474,9 +1474,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setChampionRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
-        uint256 total =
-            config.nonePercent + config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent
-            + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent + config.nameChangePercent;
+        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardConfig();
 
         championRewards = config;
@@ -1487,9 +1487,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setRunnerUpRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
-        uint256 total =
-            config.nonePercent + config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent
-            + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent + config.nameChangePercent;
+        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardConfig();
 
         runnerUpRewards = config;
@@ -1500,9 +1500,9 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @dev Only Level 10 bracket gauntlets use rewards.
     function setThirdFourthRewards(IPlayerTickets.RewardConfig calldata config) external onlyOwner {
         if (levelBracket != LevelBracket.LEVEL_10) revert InvalidRewardConfig();
-        uint256 total =
-            config.nonePercent + config.createPlayerPercent + config.playerSlotPercent + config.weaponSpecPercent
-            + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent + config.nameChangePercent;
+        uint256 total = config.nonePercent + config.createPlayerPercent + config.playerSlotPercent
+            + config.weaponSpecPercent + config.armorSpecPercent + config.duelTicketPercent + config.dailyResetPercent
+            + config.nameChangePercent;
         if (total != 10000) revert InvalidRewardConfig();
 
         thirdFourthRewards = config;

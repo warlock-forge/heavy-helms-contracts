@@ -118,9 +118,8 @@ contract PlayerDataCodec is IPlayerDataCodec {
         stats.attributes.luck = uint8(packed[9]);
 
         // Decode skinIndex
-        uint32 skinIndex =
-            uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16 | uint32(uint8(packed[12])) << 8
-            | uint32(uint8(packed[13]));
+        uint32 skinIndex = uint32(uint8(packed[10])) << 24 | uint32(uint8(packed[11])) << 16 | uint32(uint8(packed[12]))
+            << 8 | uint32(uint8(packed[13]));
         uint16 skinTokenId = uint16(uint8(packed[14])) << 8 | uint16(uint8(packed[15]));
 
         // Decode stance

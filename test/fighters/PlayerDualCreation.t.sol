@@ -112,9 +112,9 @@ contract PlayerDualCreationTest is TestBase {
         assertTrue(stats.attributes.luck >= 3 && stats.attributes.luck <= 21);
 
         // Verify total is 72
-        uint256 total =
-            uint256(stats.attributes.strength) + uint256(stats.attributes.constitution) + uint256(stats.attributes.size)
-            + uint256(stats.attributes.agility) + uint256(stats.attributes.stamina) + uint256(stats.attributes.luck);
+        uint256 total = uint256(stats.attributes.strength) + uint256(stats.attributes.constitution)
+            + uint256(stats.attributes.size) + uint256(stats.attributes.agility) + uint256(stats.attributes.stamina)
+            + uint256(stats.attributes.luck);
         assertEq(total, 72);
     }
 

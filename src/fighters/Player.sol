@@ -1520,8 +1520,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         if (player.attributes.luck < MIN_STAT || player.attributes.luck > MAX_STAT) return false;
 
         // Calculate total stat points
-        uint256 total =
-            uint256(player.attributes.strength) + uint256(player.attributes.constitution)
+        uint256 total = uint256(player.attributes.strength) + uint256(player.attributes.constitution)
             + uint256(player.attributes.size) + uint256(player.attributes.agility) + uint256(player.attributes.stamina)
             + uint256(player.attributes.luck);
 
@@ -1539,9 +1538,9 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         pure
         returns (IPlayer.PlayerStats memory)
     {
-        uint16 total =
-            uint16(player.attributes.strength) + uint16(player.attributes.constitution) + uint16(player.attributes.size)
-            + uint16(player.attributes.agility) + uint16(player.attributes.stamina) + uint16(player.attributes.luck);
+        uint16 total = uint16(player.attributes.strength) + uint16(player.attributes.constitution)
+            + uint16(player.attributes.size) + uint16(player.attributes.agility) + uint16(player.attributes.stamina)
+            + uint16(player.attributes.luck);
 
         // First ensure all stats are within 3-21 range
         uint8[6] memory stats = [

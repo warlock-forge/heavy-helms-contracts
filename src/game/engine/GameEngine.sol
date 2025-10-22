@@ -16,7 +16,7 @@ contract GameEngine is IGameEngine {
     error InvalidResults();
     error InvalidEquipment();
 
-    uint16 public constant version = 260; // v1.4: Improved initiative formula
+    uint16 public constant version = 261; // v1.5: Unified armor stamina system
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -80,6 +80,7 @@ contract GameEngine is IGameEngine {
         uint16 slashResist; // Resistance to slashing (base 100)
         uint16 pierceResist; // Resistance to piercing (base 100)
         uint16 bluntResist; // Resistance to blunt (base 100)
+        uint16 staminaModifier; // 100 = baseline, 90 = -10%, 130 = +30%
     }
 
     struct StanceMultiplier {
@@ -543,11 +544,9 @@ contract GameEngine is IGameEngine {
 
         while (state.p1Health > 0 && state.p2Health > 0 && roundCount < MAX_ROUNDS) {
             // Determine if anyone can attack this round, including stamina check
-            bool canP1Attack =
-                state.p1ActionPoints >= ATTACK_ACTION_COST
+            bool canP1Attack = state.p1ActionPoints >= ATTACK_ACTION_COST
                 && state.p1Stamina >= calculateStaminaCost(ActionType.ATTACK, p1Calculated);
-            bool canP2Attack =
-                state.p2ActionPoints >= ATTACK_ACTION_COST
+            bool canP2Attack = state.p2ActionPoints >= ATTACK_ACTION_COST
                 && state.p2Stamina >= calculateStaminaCost(ActionType.ATTACK, p2Calculated);
 
             // First check if any player has 0 health - this should take precedence
@@ -777,7 +776,8 @@ contract GameEngine is IGameEngine {
         uint32 defenderCurrentStamina,
         uint16 defenderMaxStamina
     ) private pure returns (CalculatedCombatStats memory) {
-        uint256 defenderStaminaPercent = (uint256(defenderCurrentStamina) * 100) / defenderMaxStamina;
+        uint256 defenderStaminaPercent =
+            (uint256(defenderCurrentStamina) * 100) / defenderMaxStamina;
 
         if (defenderStaminaPercent >= 50) {
             return attacker; // No bonuses vs fresh opponents
@@ -907,7 +907,7 @@ contract GameEngine is IGameEngine {
                 // Apply both character and weapon crit multipliers AFTER armor reduction
                 uint64 totalMultiplier =
                     (uint64(modifiedAttacker.stats.critMultiplier) * uint64(modifiedAttacker.weapon.critMultiplier))
-                    / 100;
+                        / 100;
                 uint64 critDamage = (uint64(armorReducedDamage) * totalMultiplier) / 100;
                 attackDamage = critDamage > type(uint16).max ? type(uint16).max : uint16(critDamage);
                 attackResult = uint8(CombatResultType.CRIT);
@@ -1231,12 +1231,19 @@ contract GameEngine is IGameEngine {
     }
 
     function getResistanceForDamageType(ArmorStats memory armor, DamageType damageType) private pure returns (uint16) {
-        return damageType == DamageType.Slashing ? armor.slashResist :
-               damageType == DamageType.Piercing ? armor.pierceResist :
-               damageType == DamageType.Blunt ? armor.bluntResist :
-               damageType == DamageType.Hybrid_Slash_Pierce ? (armor.slashResist < armor.pierceResist ? armor.slashResist : armor.pierceResist) :
-               damageType == DamageType.Hybrid_Slash_Blunt ? (armor.slashResist < armor.bluntResist ? armor.slashResist : armor.bluntResist) :
-               damageType == DamageType.Hybrid_Pierce_Blunt ? (armor.pierceResist < armor.bluntResist ? armor.pierceResist : armor.bluntResist) : 0;
+        return damageType == DamageType.Slashing
+            ? armor.slashResist
+            : damageType == DamageType.Piercing
+                ? armor.pierceResist
+                : damageType == DamageType.Blunt
+                    ? armor.bluntResist
+                    : damageType == DamageType.Hybrid_Slash_Pierce
+                        ? (armor.slashResist < armor.pierceResist ? armor.slashResist : armor.pierceResist)
+                        : damageType == DamageType.Hybrid_Slash_Blunt
+                            ? (armor.slashResist < armor.bluntResist ? armor.slashResist : armor.bluntResist)
+                            : damageType == DamageType.Hybrid_Pierce_Blunt
+                                ? (armor.pierceResist < armor.bluntResist ? armor.pierceResist : armor.bluntResist)
+                                : 0;
     }
 
     // Improved to prevent overflow when applying high multipliers (180%)
@@ -1508,12 +1515,8 @@ contract GameEngine is IGameEngine {
             staminaCost = (staminaCost * uint256(shieldStaminaModifier)) / 100;
         }
 
-        // Calculate armor impact using uint256
-        uint256 armorImpact = 100 + (actionType == ActionType.DODGE ? 
-            (uint256(stats.armor.weight) * 3 / 2) : (uint256(stats.armor.weight) / 10));
-
-        // Apply armor impact
-        staminaCost = (staminaCost * armorImpact) / 100;
+        // Apply armor stamina modifier
+        staminaCost = (staminaCost * uint256(stats.armor.staminaModifier)) / 100;
 
         return staminaCost;
     }
@@ -1959,19 +1962,25 @@ contract GameEngine is IGameEngine {
     // =============================================
 
     function CLOTH() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 1, weight: 5, slashResist: 1, pierceResist: 1, bluntResist: 5});
+        return ArmorStats({defense: 1, weight: 5, slashResist: 1, pierceResist: 1, bluntResist: 5, staminaModifier: 80});
     }
 
     function LEATHER() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 6, weight: 15, slashResist: 8, pierceResist: 8, bluntResist: 20});
+        return
+            ArmorStats({defense: 6, weight: 15, slashResist: 8, pierceResist: 8, bluntResist: 20, staminaModifier: 100});
     }
 
     function CHAIN() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 13, weight: 50, slashResist: 25, pierceResist: 15, bluntResist: 40});
+        return
+            ArmorStats({
+                defense: 13, weight: 50, slashResist: 25, pierceResist: 15, bluntResist: 40, staminaModifier: 115
+            });
     }
 
     function PLATE() public pure returns (ArmorStats memory) {
-        return ArmorStats({defense: 28, weight: 100, slashResist: 50, pierceResist: 45, bluntResist: 20});
+        return ArmorStats({
+            defense: 28, weight: 100, slashResist: 50, pierceResist: 45, bluntResist: 20, staminaModifier: 130
+        });
     }
 
     function getArmorStats(uint8 armor) public pure returns (ArmorStats memory) {
