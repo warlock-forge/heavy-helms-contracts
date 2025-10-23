@@ -16,7 +16,7 @@ contract GameEngine is IGameEngine {
     error InvalidResults();
     error InvalidEquipment();
 
-    uint16 public constant version = 261; // v1.5: Unified armor stamina system
+    uint16 public constant version = 262; // v1.6: Fixed stance survival factor bug
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -2058,7 +2058,7 @@ contract GameEngine is IGameEngine {
         uint16 defenderMaxHealth,
         CalculatedStats memory defenderStats,
         WeaponStats memory weapon,
-        StanceMultiplier memory, /* defenderStance */
+        StanceMultiplier memory defenderStance,
         uint256 seed,
         uint16 lethalityFactor
     ) private pure returns (bool died) {
@@ -2085,6 +2085,9 @@ contract GameEngine is IGameEngine {
 
         // Apply weapon survival factor safely
         survivalChance = (survivalChance * uint256(weapon.survivalFactor)) / 100;
+
+        // Apply stance survival factor safely
+        survivalChance = (survivalChance * uint256(defenderStance.survivalFactor)) / 100;
 
         // Cap between min and max
         if (survivalChance < MINIMUM_SURVIVAL_CHANCE) {
