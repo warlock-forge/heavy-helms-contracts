@@ -23,6 +23,7 @@ import {Fighter} from "../../src/fighters/Fighter.sol";
 import {console2} from "forge-std/console2.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
+import {IPlayerTickets} from "../../src/interfaces/nft/IPlayerTickets.sol";
 
 // Helper contract to receive ETH
 contract EthReceiver {
@@ -2065,5 +2066,373 @@ contract GauntletGameTest is TestBase {
         }
 
         assertTrue(foundEvent, "GauntletCompleted event should be emitted");
+    }
+
+    /// @notice Test withdrawal after commit fills remaining slots with default players
+    function test_WithdrawalsAfterCommitFillWithDefaults() public {
+        // Set up an 8-player gauntlet scenario
+        game.setGameEnabled(false);
+        game.setGauntletSize(8);
+        game.setGameEnabled(true);
+
+        // Create and queue 8 players
+        uint32[8] memory playerIds;
+        address[8] memory playerOwners;
+
+        for (uint256 i = 0; i < 8; i++) {
+            playerOwners[i] = address(uint160(1000 + i));
+            vm.deal(playerOwners[i], 10 ether);
+
+            playerIds[i] = _createPlayerAndFulfillVRF(playerOwners[i], playerContract, false);
+
+            Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
+                playerId: playerIds[i],
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+                stance: 1 // BALANCED
+            });
+
+            vm.prank(playerOwners[i]);
+            game.queueForGauntlet(loadout);
+        }
+
+        // Verify we have 8 players in queue
+        assertEq(game.getQueueSize(), 8);
+
+        // PHASE 1: Commit the queue (this snapshots the current queue state)
+        vm.roll(block.number + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+        game.tryStartGauntlet(); // TX1: Commit phase
+
+        // Verify we're in the QUEUE_COMMIT phase
+        (GauntletGame.GauntletPhase phase,,,,) = game.pendingGauntlet();
+        assertEq(uint8(phase), uint8(GauntletGame.GauntletPhase.QUEUE_COMMIT));
+
+        // Now 6 players withdraw from the queue AFTER the commit (leaving only 2)
+        // This ensures we hit the math bug: poolSize=2, but loop tries to select 8 players
+        for (uint256 i = 0; i < 6; i++) {
+            vm.prank(playerOwners[i]);
+            game.withdrawFromQueue(playerIds[i]);
+        }
+
+        // Verify queue size is now 2 (8 - 6 = 2)
+        assertEq(game.getQueueSize(), 2);
+
+        // Move to the selection block (use +1 like other tests to get valid blockhash)
+        (, uint256 selectionBlock,,,) = game.pendingGauntlet();
+        vm.roll(selectionBlock + 1); // Move past selection block to get valid blockhash
+        vm.prevrandao(bytes32(uint256(67890)));
+
+        // PHASE 2: This reproduces the exact production bug
+        // _selectParticipants tries to select 8 players from a pool of only 2
+        // Loop: i=0 (remaining=2), i=1 (remaining=1), i=2 (remaining=0) -> uniform(0) = CRASH
+        // Even though there are 18 default players available, the function never reaches the backup logic
+
+        // Record logs to capture events
+        vm.recordLogs();
+
+        // Test should now work with the fix
+        game.tryStartGauntlet(); // TX2: Should now work properly with defaults
+
+        // Verify the gauntlet was created successfully by checking basic data
+        uint256 gauntletId = 0; // Should be the first gauntlet (0-indexed)
+        (
+            uint256 id,
+            uint8 size,
+            GauntletGame.GauntletState state,
+            uint256 startTime,
+            uint256 completionTime,
+            uint32 championId,
+            uint32 runnerUpId
+        ) = game.gauntlets(gauntletId);
+        assertEq(id, gauntletId);
+        assertEq(size, 8); // Should be 8 participants total
+        assertEq(uint8(state), uint8(GauntletGame.GauntletState.PENDING));
+
+        // Verify the actual participant IDs from the ParticipantsSelected event
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint32[] memory selectedIds;
+
+        // Find ParticipantsSelected event
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("ParticipantsSelected(uint256,uint256,uint32[])")) {
+                (uint256 tournamentBlock, uint32[] memory ids) = abi.decode(logs[i].data, (uint256, uint32[]));
+                selectedIds = ids;
+                break;
+            }
+        }
+
+        assertEq(selectedIds.length, 8, "Should have 8 participants");
+
+        uint256 realPlayerCount = 0;
+        uint256 defaultPlayerCount = 0;
+
+        for (uint256 i = 0; i < selectedIds.length; i++) {
+            uint32 participantId = selectedIds[i];
+
+            if (participantId >= 10001) {
+                realPlayerCount++;
+                // Should be one of the non-withdrawn players
+                assertTrue(participantId == playerIds[6] || participantId == playerIds[7], "Unexpected real player");
+            } else if (participantId >= 1 && participantId <= 2000) {
+                defaultPlayerCount++;
+            } else {
+                revert("Invalid participant ID range");
+            }
+        }
+
+        assertEq(realPlayerCount, 2, "Should have exactly 2 real players");
+        assertEq(defaultPlayerCount, 6, "Should have exactly 6 default players");
+    }
+
+    //=============================================================================
+    // Level 10 Reward Configuration Tests
+    //=============================================================================
+
+    function test_setRewardConfig_champion() public {
+        // Deploy a Level 10 gauntlet
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
+        );
+
+        // Create a valid reward config (must sum to 10000)
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 3000,
+            attributeSwapPercent: 1000,
+            createPlayerPercent: 1000,
+            playerSlotPercent: 1000,
+            weaponSpecPercent: 1000,
+            armorSpecPercent: 1000,
+            duelTicketPercent: 1000,
+            dailyResetPercent: 500,
+            nameChangePercent: 500
+        });
+
+        // Test setting champion rewards (placement = 0)
+        level10Game.setRewardConfig(0, config);
+
+        // Verify the rewards were set
+        (
+            uint256 none,
+            uint256 attr,
+            uint256 create,
+            uint256 slot,
+            uint256 weapon,
+            uint256 armor,
+            uint256 duel,
+            uint256 daily,
+            uint256 name
+        ) = level10Game.championRewards();
+        assertEq(none, 3000);
+        assertEq(attr, 1000);
+        assertEq(create, 1000);
+        assertEq(slot, 1000);
+        assertEq(weapon, 1000);
+        assertEq(armor, 1000);
+        assertEq(duel, 1000);
+        assertEq(daily, 500);
+        assertEq(name, 500);
+    }
+
+    function test_setRewardConfig_runnerUp() public {
+        // Deploy a Level 10 gauntlet
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
+        );
+
+        // Create a valid reward config (must sum to 10000)
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 4950,
+            attributeSwapPercent: 50,
+            createPlayerPercent: 200,
+            playerSlotPercent: 200,
+            weaponSpecPercent: 1500,
+            armorSpecPercent: 1500,
+            duelTicketPercent: 1200,
+            dailyResetPercent: 200,
+            nameChangePercent: 200
+        });
+
+        // Test setting runner-up rewards (placement = 1)
+        level10Game.setRewardConfig(1, config);
+
+        // Verify the rewards were set
+        (
+            uint256 none,
+            uint256 attr,
+            uint256 create,
+            uint256 slot,
+            uint256 weapon,
+            uint256 armor,
+            uint256 duel,
+            uint256 daily,
+            uint256 name
+        ) = level10Game.runnerUpRewards();
+        assertEq(none, 4950);
+        assertEq(attr, 50);
+        assertEq(create, 200);
+        assertEq(slot, 200);
+        assertEq(weapon, 1500);
+        assertEq(armor, 1500);
+        assertEq(duel, 1200);
+        assertEq(daily, 200);
+        assertEq(name, 200);
+    }
+
+    function test_setRewardConfig_thirdFourth() public {
+        // Deploy a Level 10 gauntlet
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
+        );
+
+        // Create a valid reward config (must sum to 10000)
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 7000,
+            attributeSwapPercent: 0,
+            createPlayerPercent: 0,
+            playerSlotPercent: 0,
+            weaponSpecPercent: 1000,
+            armorSpecPercent: 1000,
+            duelTicketPercent: 1000,
+            dailyResetPercent: 0,
+            nameChangePercent: 0
+        });
+
+        // Test setting 3rd-4th place rewards (placement = 2)
+        level10Game.setRewardConfig(2, config);
+
+        // Verify the rewards were set
+        (
+            uint256 none,
+            uint256 attr,
+            uint256 create,
+            uint256 slot,
+            uint256 weapon,
+            uint256 armor,
+            uint256 duel,
+            uint256 daily,
+            uint256 name
+        ) = level10Game.thirdFourthRewards();
+        assertEq(none, 7000);
+        assertEq(attr, 0);
+        assertEq(create, 0);
+        assertEq(slot, 0);
+        assertEq(weapon, 1000);
+        assertEq(armor, 1000);
+        assertEq(duel, 1000);
+        assertEq(daily, 0);
+        assertEq(name, 0);
+    }
+
+    function test_setRewardConfig_revertInvalidPlacement() public {
+        // Deploy a Level 10 gauntlet
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
+        );
+
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 10000,
+            attributeSwapPercent: 0,
+            createPlayerPercent: 0,
+            playerSlotPercent: 0,
+            weaponSpecPercent: 0,
+            armorSpecPercent: 0,
+            duelTicketPercent: 0,
+            dailyResetPercent: 0,
+            nameChangePercent: 0
+        });
+
+        // Should revert with placement > 2
+        vm.expectRevert(abi.encodeWithSignature("InvalidRewardConfig()"));
+        level10Game.setRewardConfig(3, config);
+    }
+
+    function test_setRewardConfig_revertInvalidTotal() public {
+        // Deploy a Level 10 gauntlet
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
+        );
+
+        // Create invalid config (doesn't sum to 10000)
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 5000,
+            attributeSwapPercent: 1000,
+            createPlayerPercent: 1000,
+            playerSlotPercent: 1000,
+            weaponSpecPercent: 1000,
+            armorSpecPercent: 500,
+            duelTicketPercent: 0,
+            dailyResetPercent: 0,
+            nameChangePercent: 0
+        }); // Total = 9500, not 10000
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidRewardConfig()"));
+        level10Game.setRewardConfig(0, config);
+    }
+
+    function test_setRewardConfig_revertNonLevel10() public {
+        // Use the existing game which is NOT Level 10
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 10000,
+            attributeSwapPercent: 0,
+            createPlayerPercent: 0,
+            playerSlotPercent: 0,
+            weaponSpecPercent: 0,
+            armorSpecPercent: 0,
+            duelTicketPercent: 0,
+            dailyResetPercent: 0,
+            nameChangePercent: 0
+        });
+
+        // Should revert for non-Level 10 gauntlet
+        vm.expectRevert(abi.encodeWithSignature("InvalidRewardConfig()"));
+        game.setRewardConfig(0, config);
+    }
+
+    function test_setRewardConfig_onlyOwner() public {
+        // Deploy a Level 10 gauntlet
+        GauntletGame level10Game = new GauntletGame(
+            address(gameEngine),
+            payable(address(playerContract)),
+            address(defaultPlayerContract),
+            GauntletGame.LevelBracket.LEVEL_10,
+            address(playerTickets)
+        );
+
+        IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
+            nonePercent: 10000,
+            attributeSwapPercent: 0,
+            createPlayerPercent: 0,
+            playerSlotPercent: 0,
+            weaponSpecPercent: 0,
+            armorSpecPercent: 0,
+            duelTicketPercent: 0,
+            dailyResetPercent: 0,
+            nameChangePercent: 0
+        });
+
+        // Try to set as non-owner
+        vm.prank(PLAYER_ONE);
+        vm.expectRevert("Only callable by owner");
+        level10Game.setRewardConfig(0, config);
     }
 }
