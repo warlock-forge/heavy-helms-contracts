@@ -22,9 +22,9 @@ contract MintMonsterSkin is Script {
         vm.startBroadcast();
 
         MonsterSkinNFT monsterSkin = MonsterSkinNFT(monsterSkinAddr);
-        
+
         uint16 tokenId = monsterSkin.mintMonsterSkin(weapon, armor, ipfsCid, skinTokenId);
-        
+
         console2.log("Minted Monster Skin with Token ID:", tokenId);
         console2.log("Weapon:", weapon);
         console2.log("Armor:", armor);

@@ -13,7 +13,6 @@ import {IMonster} from "../../interfaces/fighters/IMonster.sol";
 import {Fighter} from "../../fighters/Fighter.sol";
 
 library MonsterLibrary {
-
     //==============================================================//
     //                     MONSTER FUNCTIONS                        //
     //==============================================================//

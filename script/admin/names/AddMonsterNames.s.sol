@@ -28,7 +28,7 @@ contract AddMonsterNames is Script {
         string[] memory goblinNames = MonsterNameLibrary.getGoblinNames();
         monsterNameRegistry.addMonsterNames(goblinNames);
 
-        // Add undead names (indices 35-64)  
+        // Add undead names (indices 35-64)
         string[] memory undeadNames = MonsterNameLibrary.getUndeadNames();
         monsterNameRegistry.addMonsterNames(undeadNames);
 
@@ -41,7 +41,7 @@ contract AddMonsterNames is Script {
         console2.log("\n=== Monster Names Added ===");
         console2.log("MonsterNameRegistry:", address(monsterNameRegistry));
         console2.log("Goblin names added: 30 (indices 5-34)");
-        console2.log("Undead names added: 30 (indices 35-64)"); 
+        console2.log("Undead names added: 30 (indices 35-64)");
         console2.log("Demon names added: 30 (indices 65-94)");
         console2.log("Total new names: 90");
     }

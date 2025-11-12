@@ -15,7 +15,9 @@ import {MonsterLibrary} from "../../../src/fighters/lib/MonsterLibrary.sol";
 contract CreateMonster is Script {
     function setUp() public {}
 
-    function run(address monsterAddr, uint256 monsterType, uint256 monsterVersion, uint16 skinTokenId, uint16 nameIndex) public {
+    function run(address monsterAddr, uint256 monsterType, uint256 monsterVersion, uint16 skinTokenId, uint16 nameIndex)
+        public
+    {
         // Get values from .env
         string memory rpcUrl = vm.envString("RPC_URL");
 
@@ -26,7 +28,7 @@ contract CreateMonster is Script {
         Monster monster = Monster(monsterAddr);
 
         uint32 monsterId;
-        
+
         if (monsterType == 0) {
             // Goblin
             if (monsterVersion == 1) {

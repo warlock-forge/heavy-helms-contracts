@@ -232,9 +232,8 @@ abstract contract TestBase is Test, IERC1155Receiver {
     function _createPlayerRequest(address owner, IPlayer contractInstance, bool useSetB) internal returns (uint256) {
         vm.deal(owner, contractInstance.createPlayerFeeAmount());
         vm.startPrank(owner);
-        uint256 requestId = Player(payable(address(contractInstance))).requestCreatePlayer{
-            value: Player(payable(address(contractInstance))).createPlayerFeeAmount()
-        }(
+        uint256 requestId = Player(payable(address(contractInstance)))
+        .requestCreatePlayer{value: Player(payable(address(contractInstance))).createPlayerFeeAmount()}(
             useSetB
         );
         vm.stopPrank();
