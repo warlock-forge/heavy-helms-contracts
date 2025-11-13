@@ -181,7 +181,7 @@ abstract contract TestBase is Test, IERC1155Receiver {
 
         // Mint default characters and monsters
         _mintDefaultCharacters();
-        //_mintMonsters();
+        _mintMonsters();
     }
 
     function _registerSkin(address skinContract) internal returns (uint32) {
@@ -500,6 +500,31 @@ abstract contract TestBase is Test, IERC1155Receiver {
     /// @dev This creates a standard set of characters with different fighting styles
     function _mintDefaultCharacters() internal {
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
+    }
+
+    /// @notice Mints test monsters for testing (goblin, undead, demon)
+    /// @dev This creates three test monsters with IDs 2001, 2002, 2003
+    function _mintMonsters() internal {
+        // Monster 2001: Easy Goblin with DUAL_CLUBS (62-71 attribute points)
+        MonsterLibrary.createGoblinMonster001(
+            monsterContract,
+            1, // skinTokenId
+            5 // nameIndex
+        );
+
+        // Monster 2002: Normal Undead with DUAL_DAGGERS (72-81 attribute points)
+        MonsterLibrary.createUndeadMonster001(
+            monsterContract,
+            2, // skinTokenId
+            43 // nameIndex
+        );
+
+        // Monster 2003: Hard Demon with ARMING_SWORD_KITE (82-91 attribute points)
+        MonsterLibrary.createDemonMonster001(
+            monsterContract,
+            3, // skinTokenId
+            94 // nameIndex
+        );
     }
 
     // Helper functions
