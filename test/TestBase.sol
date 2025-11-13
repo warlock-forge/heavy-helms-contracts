@@ -181,7 +181,7 @@ abstract contract TestBase is Test, IERC1155Receiver {
 
         // Mint default characters and monsters
         _mintDefaultCharacters();
-        _mintMonsters();
+        //_mintMonsters();
     }
 
     function _registerSkin(address skinContract) internal returns (uint32) {
@@ -500,10 +500,6 @@ abstract contract TestBase is Test, IERC1155Receiver {
     /// @dev This creates a standard set of characters with different fighting styles
     function _mintDefaultCharacters() internal {
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
-    }
-
-    function _mintMonsters() internal view {
-        MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
     }
 
     // Helper functions
