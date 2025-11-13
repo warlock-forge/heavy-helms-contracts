@@ -232,9 +232,8 @@ abstract contract TestBase is Test, IERC1155Receiver {
     function _createPlayerRequest(address owner, IPlayer contractInstance, bool useSetB) internal returns (uint256) {
         vm.deal(owner, contractInstance.createPlayerFeeAmount());
         vm.startPrank(owner);
-        uint256 requestId = Player(payable(address(contractInstance))).requestCreatePlayer{
-            value: Player(payable(address(contractInstance))).createPlayerFeeAmount()
-        }(
+        uint256 requestId = Player(payable(address(contractInstance)))
+        .requestCreatePlayer{value: Player(payable(address(contractInstance))).createPlayerFeeAmount()}(
             useSetB
         );
         vm.stopPrank();
@@ -503,8 +502,29 @@ abstract contract TestBase is Test, IERC1155Receiver {
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
     }
 
-    function _mintMonsters() internal view {
-        MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
+    /// @notice Mints test monsters for testing (goblin, undead, demon)
+    /// @dev This creates three test monsters with IDs 2001, 2002, 2003
+    function _mintMonsters() internal {
+        // Monster 2001: Easy Goblin with DUAL_CLUBS (62-71 attribute points)
+        MonsterLibrary.createGoblinMonster001(
+            monsterContract,
+            1, // skinTokenId
+            5 // nameIndex
+        );
+
+        // Monster 2002: Normal Undead with DUAL_DAGGERS (72-81 attribute points)
+        MonsterLibrary.createUndeadMonster001(
+            monsterContract,
+            2, // skinTokenId
+            43 // nameIndex
+        );
+
+        // Monster 2003: Hard Demon with ARMING_SWORD_KITE (82-91 attribute points)
+        MonsterLibrary.createDemonMonster001(
+            monsterContract,
+            3, // skinTokenId
+            94 // nameIndex
+        );
     }
 
     // Helper functions

@@ -5,38 +5,44 @@
 // ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
 // ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
 //  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.20;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {MonsterSkinNFT} from "../../../src/nft/skins/MonsterSkinNFT.sol";
-import {MonsterLibrary} from "../../../src/fighters/lib/MonsterLibrary.sol";
-import {Monster} from "../../../src/fighters/Monster.sol";
+import {MonsterNameRegistry} from "../../../src/fighters/registries/names/MonsterNameRegistry.sol";
+import {MonsterNameLibrary} from "../../../src/fighters/registries/names/lib/MonsterNameLibrary.sol";
 
-contract MintMonsterSkinScript is Script {
-    function run(address monsterSkinAddr, address monsterAddr, MonsterLibrary.MonsterType monsterType) public {
-        require(monsterSkinAddr != address(0), "MonsterSkin address cannot be zero");
-        require(monsterAddr != address(0), "Monster address cannot be zero");
+contract AddMonsterNames is Script {
+    function setUp() public {}
 
-        // Get private key from .env
+    function run(address monsterNameRegistryAddress) public {
+        // Get values from .env
         string memory rpcUrl = vm.envString("RPC_URL");
 
         // Set the RPC URL
         vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
-        MonsterSkinNFT monsterSkin = MonsterSkinNFT(monsterSkinAddr);
-        Monster monster = Monster(monsterAddr);
+        MonsterNameRegistry monsterNameRegistry = MonsterNameRegistry(monsterNameRegistryAddress);
 
-        uint32 monsterSkinIndex = 1; // Monster collection index
-        uint16 tokenId = uint16(monsterType) + 1;
+        // Add goblin names (indices 5-34)
+        string[] memory goblinNames = MonsterNameLibrary.getGoblinNames();
+        monsterNameRegistry.addMonsterNames(goblinNames);
 
-        // Create the monster using the library's public interface
-        MonsterLibrary.createMonster(monsterSkin, monster, monsterSkinIndex, tokenId, monsterType);
+        // Add undead names (indices 35-64)
+        string[] memory undeadNames = MonsterNameLibrary.getUndeadNames();
+        monsterNameRegistry.addMonsterNames(undeadNames);
 
-        console2.log("Created monster type:", uint8(monsterType));
-        console2.log("Token ID:", tokenId);
+        // Add demon names (indices 65-94)
+        string[] memory demonNames = MonsterNameLibrary.getDemonNames();
+        monsterNameRegistry.addMonsterNames(demonNames);
 
         vm.stopBroadcast();
+
+        console2.log("\n=== Monster Names Added ===");
+        console2.log("MonsterNameRegistry:", address(monsterNameRegistry));
+        console2.log("Goblin names added: 30 (indices 5-34)");
+        console2.log("Undead names added: 30 (indices 35-64)");
+        console2.log("Demon names added: 30 (indices 65-94)");
+        console2.log("Total new names: 90");
     }
 }

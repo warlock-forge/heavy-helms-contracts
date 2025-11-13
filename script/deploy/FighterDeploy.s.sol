@@ -88,9 +88,6 @@ contract FighterDeployScript is Script {
         console2.log("\n=== Minting Default Characters ===");
         DefaultPlayerLibrary.createAllDefaultCharacters(defaultSkin, defaultPlayerContract, defaultSkinIndex);
 
-        console2.log("\n=== Minting Monsters ===");
-        MonsterLibrary.createAllMonsters(monsterSkin, monsterContract, monsterSkinIndex);
-
         console2.log("\n=== Deployed Addresses ===");
         console2.log("PlayerDataCodec:", address(playerDataCodec));
         console2.log("Player:", address(playerContract));

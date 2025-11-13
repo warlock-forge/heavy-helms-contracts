@@ -16,7 +16,7 @@ contract GameEngine is IGameEngine {
     error InvalidResults();
     error InvalidEquipment();
 
-    uint16 public constant version = 262; // v1.6: Fixed stance survival factor bug
+    uint16 public constant version = 263; // v1.7: Fixed survival chance
 
     struct CalculatedStats {
         uint16 maxHealth;
@@ -143,7 +143,7 @@ contract GameEngine is IGameEngine {
     uint8 private constant ATTACK_ACTION_COST = 149;
     uint8 private constant REACH_DODGE_BONUS = 5;
     uint8 private constant BASE_SURVIVAL_CHANCE = 70;
-    uint8 private constant MINIMUM_SURVIVAL_CHANCE = 35;
+    uint8 private constant MAXIMUM_SURVIVAL_CHANCE = 99;
     uint8 private constant DAMAGE_THRESHOLD_PERCENT = 20;
     uint8 private constant MAX_DAMAGE_OVERAGE = 75;
 
@@ -2078,10 +2078,7 @@ contract GameEngine is IGameEngine {
         excessDamage = excessDamage > MAX_DAMAGE_OVERAGE ? MAX_DAMAGE_OVERAGE : excessDamage;
         survivalChance = survivalChance > excessDamage ? survivalChance - excessDamage : 0;
 
-        // Safe division - prevent division by zero
-        if (lethalityFactor > 0) {
-            survivalChance = (survivalChance * 100) / lethalityFactor;
-        }
+        survivalChance = (survivalChance * 100) / lethalityFactor;
 
         // Apply weapon survival factor safely
         survivalChance = (survivalChance * uint256(weapon.survivalFactor)) / 100;
@@ -2090,10 +2087,10 @@ contract GameEngine is IGameEngine {
         survivalChance = (survivalChance * uint256(defenderStance.survivalFactor)) / 100;
 
         // Cap between min and max
-        if (survivalChance < MINIMUM_SURVIVAL_CHANCE) {
-            survivalChance = MINIMUM_SURVIVAL_CHANCE;
-        } else if (survivalChance > BASE_SURVIVAL_CHANCE) {
+        if (survivalChance < BASE_SURVIVAL_CHANCE) {
             survivalChance = BASE_SURVIVAL_CHANCE;
+        } else if (survivalChance > MAXIMUM_SURVIVAL_CHANCE) {
+            survivalChance = MAXIMUM_SURVIVAL_CHANCE;
         }
 
         // Generate random number and compare
