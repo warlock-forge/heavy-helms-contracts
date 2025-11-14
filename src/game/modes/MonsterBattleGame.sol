@@ -20,6 +20,7 @@ import {Fighter} from "../../fighters/Fighter.sol";
 import {IPlayerSkinNFT} from "../../interfaces/nft/skins/IPlayerSkinNFT.sol";
 import {IMonster} from "../../interfaces/fighters/IMonster.sol";
 import {IPlayerTickets} from "../../interfaces/nft/IPlayerTickets.sol";
+import {ITrophyNFT} from "../../interfaces/nft/ITrophyNFT.sol";
 
 //==============================================================//
 //                       CUSTOM ERRORS                          //
@@ -91,7 +92,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
     /// @notice Structure storing a monster battle data
     struct MonsterBattle {
         uint32 playerId;
-        uint32 monsterId;
+        uint32 monsterId; // Set to 0 initially, filled during VRF fulfillment
         DifficultyLevel difficulty;
         Fighter.PlayerLoadout playerLoadout;
         BattleState state;
@@ -115,6 +116,12 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
     IPlayerTicketsForMonsters public playerTickets;
     /// @notice Monster contract for reading monster data and kill counts
     IMonster public monsterContract;
+
+    // --- Trophy System ---
+    /// @notice Maps monster IDs to their trophy NFT contract addresses
+    mapping(uint32 => address) public monsterToTrophyNFT;
+    /// @notice Maps monster IDs to their type names for trophy minting
+    mapping(uint32 => string) public monsterTypeNames;
 
     // --- Game Configuration ---
     /// @notice Whether the game is enabled for battles
@@ -183,6 +190,8 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
     event MonsterKilled(uint32 indexed monsterId, uint32 indexed killerPlayerId, DifficultyLevel difficulty);
     /// @notice Emitted when a player dies in monster battle
     event PlayerDiedInBattle(uint32 indexed playerId, uint32 indexed monsterId);
+    /// @notice Emitted when a monster is randomly selected for battle
+    event MonsterSelectedForBattle(uint256 indexed battleId, uint32 indexed monsterId);
     /// @notice Emitted when game enabled state is updated
     event GameEnabledUpdated(bool enabled);
     /// @notice Emitted when lethality factor is updated
@@ -262,17 +271,15 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         // Validate player and loadout
         _validatePlayerBattle(loadout);
 
-        // Get random monster from difficulty tier
+        // Verify monsters are available for this difficulty
         uint32[] storage availableMonsters = availableMonstersByDifficulty[difficulty];
         if (availableMonsters.length == 0) revert NoMonstersAvailable();
-
-        // Use simple randomness for monster selection (VRF will be used for combat)
-        uint32 monsterId = availableMonsters[block.timestamp % availableMonsters.length];
 
         // Increment daily run counter
         _playerDailyRuns[loadout.playerId][today]++;
 
-        return _initiateBattle(loadout, monsterId, difficulty);
+        // Monster will be selected during VRF fulfillment for true randomness
+        return _initiateBattle(loadout, 0, difficulty); // 0 indicates monster not yet selected
     }
 
     /// @notice Fight a specific monster by ID (Level 10 bounty hunting only)
@@ -449,6 +456,22 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         SafeTransferLib.safeTransferETH(owner(), address(this).balance);
     }
 
+    /// @notice Sets trophy NFT contracts for multiple monsters
+    /// @param monsterIds Array of monster IDs
+    /// @param trophyContract The trophy contract address for all monsters
+    /// @param monsterTypeName The type name for these monsters
+    function setMonsterTrophyContractBatch(
+        uint32[] calldata monsterIds,
+        address trophyContract,
+        string calldata monsterTypeName
+    ) external onlyOwner {
+        uint256 length = monsterIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            monsterToTrophyNFT[monsterIds[i]] = trophyContract;
+            monsterTypeNames[monsterIds[i]] = monsterTypeName;
+        }
+    }
+
     /// @notice Sets a new game engine address
     /// @param _newEngine Address of the new game engine
     function setGameEngine(address _newEngine) public override(BaseGame) onlyOwner {
@@ -477,7 +500,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
 
     /// @notice Internal function to initiate a monster battle
     /// @param loadout The player's loadout
-    /// @param monsterId The ID of the monster to fight
+    /// @param monsterId The ID of the monster to fight (0 for random selection)
     /// @param difficulty The difficulty level of the monster
     /// @return battleId The ID of the created battle
     function _initiateBattle(Fighter.PlayerLoadout calldata loadout, uint32 monsterId, DifficultyLevel difficulty)
@@ -487,7 +510,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         uint256 battleId = nextBattleId++;
         battles[battleId] = MonsterBattle({
             playerId: loadout.playerId,
-            monsterId: monsterId,
+            monsterId: monsterId, // Will be 0 for random battles, set during fulfillment
             difficulty: difficulty,
             playerLoadout: loadout,
             state: BattleState.PENDING,
@@ -510,7 +533,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         emit MonsterBattleStarted(
             battleId,
             loadout.playerId,
-            monsterId,
+            monsterId, // Will be 0 for random battles
             difficulty,
             loadout.skin.skinIndex,
             loadout.skin.skinTokenId,
@@ -535,10 +558,25 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
 
         // Check if player is still alive
         if (IPlayer(playerContract).isPlayerRetired(battle.playerId)) return;
+
+        uint256 randomness = randomWords[0];
+
+        // If monsterId is 0, we need to randomly select a monster
+        if (battle.monsterId == 0) {
+            uint32[] storage availableMonsters = availableMonstersByDifficulty[battle.difficulty];
+            if (availableMonsters.length == 0) return; // No monsters available
+
+            // Use VRF randomness to select monster
+            uint256 monsterIndex = randomness % availableMonsters.length;
+            battle.monsterId = availableMonsters[monsterIndex];
+
+            // Emit event for monster selection
+            emit MonsterSelectedForBattle(battleId, battle.monsterId);
+        }
+
         // Check if monster is still alive
         if (_monsterRetired[battle.monsterId]) return;
 
-        uint256 randomness = randomWords[0];
         uint256 combinedSeed = uint256(keccak256(abi.encodePacked(randomness, requestId)));
 
         // Execute the battle with lethality
@@ -690,6 +728,9 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         // Distribute bounty rewards based on monster's battle record
         _distributeBountyRewards(killerPlayerId, monsterId, monsterRecord);
 
+        // Mint trophy NFT for the kill
+        _mintTrophyNFT(killerPlayerId, monsterId, difficulty);
+
         // Remove monster from availability array
         _removeMonsterFromAvailability(monsterId, difficulty);
 
@@ -767,6 +808,33 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         } else {
             // HARD
             return playerLevel + 1;
+        }
+    }
+
+    /// @notice Mints a trophy NFT for a monster kill
+    /// @param killerPlayerId The ID of the player who killed the monster
+    /// @param monsterId The ID of the killed monster
+    /// @param difficulty The difficulty level of the kill
+    function _mintTrophyNFT(uint32 killerPlayerId, uint32 monsterId, DifficultyLevel difficulty) internal {
+        address trophyContract = monsterToTrophyNFT[monsterId];
+        if (trophyContract == address(0)) return; // No trophy configured for this monster
+
+        address playerOwner = IPlayer(playerContract).getPlayerOwner(killerPlayerId);
+
+        // Get monster name from the monster contract
+        IMonster.MonsterStats memory monsterStats = monsterContract.getMonster(monsterId, 1); // Use level 1 for name
+        string memory monsterName = monsterContract.nameRegistry().getMonsterName(monsterStats.name.nameIndex);
+
+        // Get player name from the player contract
+        IPlayer.PlayerStats memory playerStats = IPlayer(playerContract).getPlayer(killerPlayerId);
+        (string memory firstName, string memory lastName) = IPlayer(playerContract).nameRegistry()
+            .getFullName(playerStats.name.firstNameIndex, playerStats.name.surnameIndex);
+        string memory playerName = string(abi.encodePacked(firstName, " ", lastName));
+
+        try ITrophyNFT(trophyContract)
+            .mintTrophy(playerOwner, monsterId, monsterName, uint8(difficulty), killerPlayerId, playerName) {}
+            catch {
+            // Trophy minting failed, but don't revert the monster kill
         }
     }
 

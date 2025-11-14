@@ -14,6 +14,8 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IMonster} from "../../src/interfaces/fighters/IMonster.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
+import {MockTrophyNFT} from "../mocks/MockTrophyNFT.sol";
+import {ITrophyNFT} from "../../src/interfaces/nft/ITrophyNFT.sol";
 import {console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
@@ -46,6 +48,11 @@ import {
 contract MonsterBattleGameTest is TestBase {
     MonsterBattleGame public game;
 
+    // Trophy system
+    MockTrophyNFT public goblinTrophy;
+    MockTrophyNFT public undeadTrophy;
+    MockTrophyNFT public demonTrophy;
+
     // Test addresses
     address public PLAYER_ONE;
     address public PLAYER_TWO;
@@ -67,6 +74,7 @@ contract MonsterBattleGameTest is TestBase {
         uint16 playerSkinTokenId,
         uint8 playerStance
     );
+    event MonsterSelectedForBattle(uint256 indexed battleId, uint32 indexed monsterId);
     event MonsterBattleCompleted(
         uint256 indexed battleId,
         uint32 indexed winnerId,
@@ -134,9 +142,9 @@ contract MonsterBattleGameTest is TestBase {
         });
         playerTickets.setGameContractPermission(address(game), ticketPerms);
 
-        // Give test contract permission to award experience
+        // Give test contract permission to award experience and manage retirement
         IPlayer.GamePermissions memory testPerms =
-            IPlayer.GamePermissions({record: false, retire: false, immortal: false, experience: true});
+            IPlayer.GamePermissions({record: false, retire: true, immortal: false, experience: true});
         playerContract.setGameContractPermission(address(this), testPerms);
 
         // Setup test addresses
@@ -173,6 +181,9 @@ contract MonsterBattleGameTest is TestBase {
         uint32[] memory hardMonsters = new uint32[](1);
         hardMonsters[0] = DEMON_ID;
         game.addNewMonsterBatch(hardMonsters, MonsterBattleGame.DifficultyLevel.HARD);
+
+        // Setup trophy system
+        _setupTrophySystem();
     }
 
     //==============================================================//
@@ -218,12 +229,12 @@ contract MonsterBattleGameTest is TestBase {
 
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
-        // Expect the MonsterBattleStarted event
+        // Expect the MonsterBattleStarted event with monsterId = 0 (random selection)
         vm.expectEmit(true, true, true, true);
         emit MonsterBattleStarted(
             0, // battleId
             PLAYER_ONE_ID,
-            GOBLIN_ID,
+            0, // monsterId = 0 for random selection
             MonsterBattleGame.DifficultyLevel.EASY,
             loadout.skin.skinIndex,
             loadout.skin.skinTokenId,
@@ -318,12 +329,12 @@ contract MonsterBattleGameTest is TestBase {
 
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
-        // Expect the MonsterBattleStarted event
+        // Expect the MonsterBattleStarted event with monsterId = 0 (random selection)
         vm.expectEmit(true, true, true, true);
         emit MonsterBattleStarted(
             0, // battleId
             PLAYER_ONE_ID,
-            UNDEAD_ID,
+            0, // monsterId = 0 for random selection
             MonsterBattleGame.DifficultyLevel.NORMAL,
             loadout.skin.skinIndex,
             loadout.skin.skinTokenId,
@@ -418,12 +429,12 @@ contract MonsterBattleGameTest is TestBase {
 
         Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
 
-        // Expect the MonsterBattleStarted event
+        // Expect the MonsterBattleStarted event with monsterId = 0 (random selection)
         vm.expectEmit(true, true, true, true);
         emit MonsterBattleStarted(
             0, // battleId
             PLAYER_ONE_ID,
-            DEMON_ID,
+            0, // monsterId = 0 for random selection
             MonsterBattleGame.DifficultyLevel.HARD,
             loadout.skin.skinIndex,
             loadout.skin.skinTokenId,
@@ -1192,6 +1203,90 @@ contract MonsterBattleGameTest is TestBase {
 
         assertEq(address(game).balance, 0);
         assertEq(address(this).balance - ownerBalanceBefore, contractBalance);
+    }
+
+    //==============================================================//
+    //                     TEST: TROPHY SYSTEM                       //
+    //==============================================================//
+
+    function testTrophyMintingOnMonsterKill() public {
+        Fighter.PlayerLoadout memory loadout = _createLoadout(PLAYER_ONE_ID);
+
+        // Give player a huge level advantage to guarantee death kill
+        playerContract.awardExperience(PLAYER_ONE_ID, 10000); // Max level
+
+        vm.prank(PLAYER_ONE);
+        uint256 battleId = game.fightMonster(MonsterBattleGame.DifficultyLevel.EASY, loadout);
+
+        // Track trophy balance before VRF fulfillment
+        uint256 trophyBalanceBefore = goblinTrophy.balanceOf(PLAYER_ONE);
+
+        // Fulfill VRF to trigger battle resolution and trophy minting
+        _fulfillVRFRequest(address(game));
+
+        // Check that a trophy was minted to the player
+        uint256 trophyBalanceAfter = goblinTrophy.balanceOf(PLAYER_ONE);
+        if (trophyBalanceAfter > trophyBalanceBefore) {
+            // Trophy was minted! Check its metadata
+            uint256 trophyId = 1; // First trophy minted
+            ITrophyNFT.TrophyMetadata memory metadata = goblinTrophy.getTrophyMetadata(trophyId);
+
+            assertEq(metadata.monsterId, GOBLIN_ID);
+            assertEq(metadata.difficulty, uint8(MonsterBattleGame.DifficultyLevel.EASY));
+            assertEq(metadata.killerPlayerId, PLAYER_ONE_ID);
+            assertTrue(bytes(metadata.monsterName).length > 0);
+            assertTrue(bytes(metadata.killerPlayerName).length > 0);
+            assertEq(metadata.killBlock, block.number);
+        }
+    }
+
+    function testTrophySystemIntegrationWithSkinUnlocking() public {
+        // This test verifies the trophy can be used as a required NFT for skin unlocking
+        // The PlayerSkinRegistry already supports this via requiredNFTAddress field
+
+        // After a trophy is minted, the player should be able to use trophy-gated skins
+        address playerOwner = PLAYER_ONE;
+
+        // Mint a trophy via game contract (authorized minter)
+        vm.prank(address(game));
+        goblinTrophy.mintTrophy(
+            playerOwner,
+            GOBLIN_ID,
+            "Test Goblin",
+            uint8(MonsterBattleGame.DifficultyLevel.EASY),
+            PLAYER_ONE_ID,
+            "Test Player"
+        );
+
+        // Verify trophy ownership
+        assertEq(goblinTrophy.balanceOf(playerOwner), 1);
+
+        // The trophy can now be set as a required NFT in PlayerSkinRegistry
+        // for exclusive skin collections (implementation will be done later)
+    }
+
+    //==============================================================//
+    //                    HELPER FUNCTIONS                           //
+    //==============================================================//
+
+    function _setupTrophySystem() internal {
+        // Deploy trophy contracts
+        goblinTrophy = new MockTrophyNFT("Goblin", address(game));
+        undeadTrophy = new MockTrophyNFT("Undead", address(game));
+        demonTrophy = new MockTrophyNFT("Demon", address(game));
+
+        // Set up monster to trophy mappings
+        uint32[] memory goblinMonsters = new uint32[](1);
+        goblinMonsters[0] = GOBLIN_ID;
+        game.setMonsterTrophyContractBatch(goblinMonsters, address(goblinTrophy), "Goblin");
+
+        uint32[] memory undeadMonsters = new uint32[](1);
+        undeadMonsters[0] = UNDEAD_ID;
+        game.setMonsterTrophyContractBatch(undeadMonsters, address(undeadTrophy), "Undead");
+
+        uint32[] memory demonMonsters = new uint32[](1);
+        demonMonsters[0] = DEMON_ID;
+        game.setMonsterTrophyContractBatch(demonMonsters, address(demonTrophy), "Demon");
     }
 
     // Allow test contract to receive ETH

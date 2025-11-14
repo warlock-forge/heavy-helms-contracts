@@ -38,6 +38,7 @@ import {DefaultPlayerLibrary} from "../src/fighters/lib/DefaultPlayerLibrary.sol
 import {MonsterLibrary} from "../src/fighters/lib/MonsterLibrary.sol";
 import {MonsterSkinNFT} from "../src/nft/skins/MonsterSkinNFT.sol";
 import {NameLibrary} from "../src/fighters/registries/names/lib/NameLibrary.sol";
+import {MonsterNameLibrary} from "../src/fighters/registries/names/lib/MonsterNameLibrary.sol";
 import {EquipmentRequirements} from "../src/game/engine/EquipmentRequirements.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts@4.9.6/token/ERC1155/IERC1155Receiver.sol";
 
@@ -121,8 +122,12 @@ abstract contract TestBase is Test, IERC1155Receiver {
 
         // Initialize monster name registry
         monsterNameRegistry = new MonsterNameRegistry();
-        string[] memory monsterNames = NameLibrary.getInitialMonsterNames();
-        monsterNameRegistry.addMonsterNames(monsterNames);
+        string[] memory goblinNames = MonsterNameLibrary.getGoblinNames();
+        string[] memory undeadNames = MonsterNameLibrary.getUndeadNames();
+        string[] memory demonNames = MonsterNameLibrary.getDemonNames();
+        monsterNameRegistry.addMonsterNames(goblinNames);
+        monsterNameRegistry.addMonsterNames(undeadNames);
+        monsterNameRegistry.addMonsterNames(demonNames);
 
         gameEngine = new GameEngine();
 
@@ -177,7 +182,7 @@ abstract contract TestBase is Test, IERC1155Receiver {
         });
         playerTickets.setGameContractPermission(address(ticketMinter), minterPerms);
         defaultPlayerContract = new DefaultPlayer(address(skinRegistry), address(nameRegistry));
-        monsterContract = new Monster(address(skinRegistry), address(nameRegistry));
+        monsterContract = new Monster(address(skinRegistry), address(monsterNameRegistry));
 
         // Mint default characters and monsters
         _mintDefaultCharacters();
