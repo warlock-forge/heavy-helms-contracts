@@ -272,8 +272,14 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         uint32 indexed replacementPlayerId,
         ReplacementReason reason
     );
-    /// @notice Emitted when a tournament is auto-recovered due to blockhash expiration.
-    event TournamentAutoRecovered(uint256 commitBlock, uint256 currentBlock, TournamentPhase phase);
+    /// @notice Emitted when queue commit phase times out - no tournament created, players remain queued.
+    /// @param targetBlock The selection block that expired.
+    event QueueRecovered(uint256 targetBlock);
+    /// @notice Emitted when tournament recovery occurs after participant selection - players returned to queue.
+    /// @param tournamentId The ID of the tournament being recovered.
+    /// @param targetBlock The tournament block that expired.
+    /// @param participantIds Array of participant IDs being returned to queue.
+    event TournamentRecovered(uint256 indexed tournamentId, uint256 targetBlock, uint32[] participantIds);
     /// @notice Emitted when a new season starts (synced from Player contract).
     /// @notice Emitted when the tournament size is changed.
     event TournamentSizeSet(uint8 oldSize, uint8 newSize);
@@ -410,15 +416,21 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
             uint256 selectionBlock = pendingTournament.selectionBlock;
             uint256 tournamentBlock = pendingTournament.tournamentBlock;
 
-            // Check if we're past the 256-block limit from initial commit for auto-recovery
-            uint256 commitBlock = (currentPhase == TournamentPhase.QUEUE_COMMIT)
-                ? selectionBlock - futureBlocksForSelection
-                : tournamentBlock - futureBlocksForTournament - futureBlocksForSelection;
+            // Check if we're past the 256-block limit for recovery
+            uint256 targetBlock;
+            bool shouldRecover;
 
-            if (block.number >= commitBlock + 256) {
-                // Auto-recovery if we missed the window
-                emit TournamentAutoRecovered(commitBlock, block.number, currentPhase);
-                _recoverPendingTournament();
+            if (currentPhase == TournamentPhase.QUEUE_COMMIT) {
+                targetBlock = selectionBlock;
+                shouldRecover = block.number >= selectionBlock + 256;
+            } else {
+                targetBlock = tournamentBlock;
+                shouldRecover = block.number >= tournamentBlock + 256;
+            }
+
+            if (shouldRecover) {
+                // Auto-recovery if we missed the window - just call the public recovery function
+                recoverPendingTournament();
                 return;
             }
 
@@ -596,6 +608,19 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     //                     INTERNAL FUNCTIONS                       //
     //==============================================================//
 
+    // --- Queue Management Helpers ---
+
+    /// @notice Internal helper to add a player to the queue with their loadout.
+    /// @param playerId The ID of the player to add.
+    /// @param loadout The player's loadout configuration.
+    /// @dev Used by both queueForTournament and recovery functions for DRY.
+    function _addPlayerToQueue(uint32 playerId, Fighter.PlayerLoadout memory loadout) internal {
+        registrationQueue[playerId] = RegisteredPlayer({playerId: playerId, loadout: loadout});
+        queueIndex.push(playerId);
+        playerIndexInQueue[playerId] = queueIndex.length; // 1-based index
+        playerStatus[playerId] = PlayerStatus.QUEUED;
+    }
+
     // --- Commit-Reveal Functions ---
 
     /// @notice Phase 1: Commits the queue and sets up for participant selection.
@@ -752,42 +777,80 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         _executeTournamentWithRandomness(tournamentId, seed);
     }
 
-    /// @notice Helper function to clean up pending tournament state during recovery.
-    function _recoverPendingTournament() private {
-        // If we have participants selected but not executed, restore them to queue
-        if (pendingTournament.phase == TournamentPhase.PARTICIPANT_SELECT) {
-            Tournament storage tournament = tournaments[pendingTournament.tournamentId];
+    /// @notice Recovers a pending tournament after the 256-block window expires.
+    /// @dev Can be called directly or through auto-recovery in tryStartTournament.
+    function recoverPendingTournament() public {
+        // Check if recovery is possible (256 blocks have passed)
+        if (pendingTournament.phase == TournamentPhase.NONE) revert NoPendingTournament();
 
-            // Restore selected players back to queue
-            uint256 participantCount = tournament.participants.length;
-            for (uint256 i = 0; i < participantCount; i++) {
-                uint32 playerId = tournament.participants[i].playerId;
+        TournamentPhase currentPhase = pendingTournament.phase;
+        uint256 targetBlock;
+        bool canRecover;
 
-                // Only restore real players, not default players
-                if (!_isDefaultPlayerId(playerId)) {
-                    // Restore player to queue
-                    queueIndex.push(playerId);
-                    playerIndexInQueue[playerId] = queueIndex.length;
-                    playerStatus[playerId] = PlayerStatus.QUEUED;
+        if (currentPhase == TournamentPhase.QUEUE_COMMIT) {
+            targetBlock = pendingTournament.selectionBlock;
+            canRecover = block.number > targetBlock + 256;
+        } else {
+            targetBlock = pendingTournament.tournamentBlock;
+            canRecover = block.number > targetBlock + 256;
+        }
+        if (!canRecover) revert CannotRecoverYet();
 
-                    // Restore registration data (it's still in the tournament.participants)
-                    registrationQueue[playerId] = tournament.participants[i];
+        // Cache data for event before deletion
+        uint256 tournamentId = pendingTournament.tournamentId;
+        uint32[] memory participantIds;
+
+        if (currentPhase == TournamentPhase.QUEUE_COMMIT) {
+            // No participants yet, just clear pending tournament
+            delete pendingTournament;
+            emit QueueRecovered(targetBlock);
+        } else {
+            // If we're past participant selection, need to clean up player states
+            Tournament storage tournament = tournaments[tournamentId];
+
+            // Only process if tournament exists and hasn't been executed
+            if (tournament.id == tournamentId && tournament.state == TournamentState.PENDING) {
+                uint256 participantCount = tournament.participants.length;
+
+                // Get participant IDs for event
+                participantIds = new uint32[](participantCount);
+                for (uint256 i = 0; i < participantCount; i++) {
+                    participantIds[i] = tournament.participants[i].playerId;
                 }
+
+                // Clear pending tournament after getting participant data
+                delete pendingTournament;
+
+                // Return all participants back to queue
+                for (uint256 i = 0; i < participantCount; i++) {
+                    uint32 playerId = tournament.participants[i].playerId;
+
+                    // Only restore real players, not default players
+                    if (!_isDefaultPlayerId(playerId)) {
+                        // Only reset if they're still in this tournament
+                        if (playerStatus[playerId] == PlayerStatus.IN_TOURNAMENT) {
+                            // Clear tournament status first
+                            playerStatus[playerId] = PlayerStatus.NONE;
+
+                            // Re-add to queue using shared helper
+                            _addPlayerToQueue(playerId, tournament.participants[i].loadout);
+                        }
+                    }
+                }
+
+                // Delete the tournament (different from gauntlet which marks COMPLETED)
+                delete tournaments[tournamentId];
+
+                // Roll back the tournament ID since it was never completed
+                nextTournamentId--;
+
+                emit TournamentRecovered(tournamentId, targetBlock, participantIds);
             }
-
-            // Clean up the incomplete tournament
-            delete tournaments[pendingTournament.tournamentId];
-
-            // Roll back the tournament ID since it was never completed
-            // (nextTournamentId was incremented in _selectParticipantsPhase)
-            nextTournamentId--;
         }
 
         // Reset daily timer since no tournament actually completed
-        // This allows immediate retry after recovery (1-day cooldown was already satisfied when original tournament started)
+        // This allows immediate retry after recovery
         lastTournamentStartTimestamp = 0;
-
-        delete pendingTournament;
     }
 
     // --- Tournament Execution ---
