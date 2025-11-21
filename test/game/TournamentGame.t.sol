@@ -11,6 +11,7 @@ import {TestBase} from "../TestBase.sol";
 import {
     TournamentGame,
     AlreadyInQueue,
+    PlayerNotInQueue,
     TournamentTooEarly,
     TournamentTooLate,
     MinTimeNotElapsed,
@@ -31,6 +32,10 @@ import {Vm} from "forge-std/Vm.sol";
 
 contract TournamentGameTest is TestBase {
     TournamentGame public game;
+
+    // Event declarations for testing
+    event QueueRecovered(uint256 targetBlock);
+    event TournamentRecovered(uint256 indexed tournamentId, uint256 targetBlock, uint32[] participantIds);
 
     address public PLAYER_ONE;
     address public PLAYER_TWO;
@@ -97,11 +102,11 @@ contract TournamentGameTest is TestBase {
         PLAYER_THREE_ID = _createPlayerAndFulfillVRF(PLAYER_THREE, playerContract, false);
         PLAYER_FOUR_ID = _createPlayerAndFulfillVRF(PLAYER_FOUR, playerContract, false);
 
-        // Level up ALL players to level 10 for tournament eligibility
-        _levelUpPlayer(PLAYER_ONE_ID, 9); // Level 10
-        _levelUpPlayer(PLAYER_TWO_ID, 9); // Level 10
-        _levelUpPlayer(PLAYER_THREE_ID, 9); // Level 10
-        _levelUpPlayer(PLAYER_FOUR_ID, 9); // Level 10
+        // Level up ALL players to level 10 for tournament eligibility (7489 XP total needed)
+        playerContract.awardExperience(PLAYER_ONE_ID, 7489);
+        playerContract.awardExperience(PLAYER_TWO_ID, 7489);
+        playerContract.awardExperience(PLAYER_THREE_ID, 7489);
+        playerContract.awardExperience(PLAYER_FOUR_ID, 7489);
 
         // Give them ETH
         vm.deal(PLAYER_ONE, 100 ether);
@@ -698,15 +703,6 @@ contract TournamentGameTest is TestBase {
         game.tryStartTournament();
     }
 
-    function _levelUpPlayer(uint32 playerId, uint256 levels) internal {
-        for (uint256 i = 0; i < levels; i++) {
-            // Award enough XP to level up (level 1->2 needs 100 XP, etc.)
-            IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
-            uint16 xpNeeded = playerContract.getXPRequiredForLevel(stats.level + 1) - stats.currentXP;
-            playerContract.awardExperience(playerId, xpNeeded);
-        }
-    }
-
     function _setTournamentTime() internal {
         // Set proper daily time (20:00 UTC) at least 48 hours after deployment
         uint256 futureTime = block.timestamp + 48 hours;
@@ -717,7 +713,8 @@ contract TournamentGameTest is TestBase {
     /// @notice Creates a level 10 player for tournament testing
     function _createLevel10Player(address owner, bool useSetB) internal returns (uint32) {
         uint32 playerId = _createPlayerAndFulfillVRF(owner, playerContract, useSetB);
-        _levelUpPlayer(playerId, 9); // Level up from 1 to 10
+        // Award XP to reach level 10 directly (7489 XP total needed)
+        playerContract.awardExperience(playerId, 7489);
         return playerId;
     }
 
@@ -996,14 +993,13 @@ contract TournamentGameTest is TestBase {
         assertTrue(exists, "Pending tournament should exist");
         assertEq(uint256(phase), 1, "Should be in QUEUE_COMMIT phase");
 
-        // Simulate 256+ blocks passing (blockhash expires)
-        // commitBlock = selectionBlock - futureBlocksForSelection = selectionBlock - 20
-        uint256 commitBlock = selectionBlock - 20;
-        vm.roll(commitBlock + 256); // Exactly at the recovery threshold
+        // Simulate 256+ blocks passing from selection block
+        // Recovery requires block.number > selectionBlock + 256
+        vm.roll(selectionBlock + 257);
 
         // Expect recovery event
-        vm.expectEmit(true, true, true, true);
-        emit TournamentAutoRecovered(commitBlock, commitBlock + 256, TournamentGame.TournamentPhase.QUEUE_COMMIT);
+        vm.expectEmit(false, false, false, true);
+        emit QueueRecovered(selectionBlock);
 
         // Try to proceed - should trigger recovery
         game.tryStartTournament();
@@ -1052,16 +1048,23 @@ contract TournamentGameTest is TestBase {
 
         // Verify tournament was created with participants
         assertEq(game.nextTournamentId(), 1, "Tournament ID should be 1");
-        TournamentGame.Tournament memory tournament = game.getTournamentData(0);
+        uint256 tournamentId = 0; // Tournament ID is 0 for the first tournament
+        TournamentGame.Tournament memory tournament = game.getTournamentData(tournamentId);
         assertEq(tournament.participants.length, 16, "Tournament should have 16 participants");
 
-        // Simulate 256+ blocks passing from the original commit block
-        uint256 commitBlock = tournamentBlock - 40; // tournamentBlock - futureBlocksForTournament - futureBlocksForSelection
-        vm.roll(commitBlock + 256); // Recovery threshold reached
+        // Build expected participant IDs for event
+        uint32[] memory expectedIds = new uint32[](16);
+        for (uint256 i = 0; i < 16; i++) {
+            expectedIds[i] = tournament.participants[i].playerId;
+        }
+
+        // Simulate 256+ blocks passing from tournament block
+        // Recovery requires block.number > tournamentBlock + 256
+        vm.roll(tournamentBlock + 257);
 
         // Expect recovery event
-        vm.expectEmit(true, true, true, true);
-        emit TournamentAutoRecovered(commitBlock, commitBlock + 256, TournamentGame.TournamentPhase.PARTICIPANT_SELECT);
+        vm.expectEmit(true, false, false, true);
+        emit TournamentRecovered(tournamentId, tournamentBlock, expectedIds);
 
         // Try to proceed - should trigger recovery
         game.tryStartTournament();
@@ -1251,7 +1254,8 @@ contract TournamentGameTest is TestBase {
         // Create a level 9 player (below required level 10)
         address lowLevelPlayer = address(0x7777);
         uint32 lowLevelPlayerId = _createPlayerAndFulfillVRF(lowLevelPlayer, playerContract, false);
-        _levelUpPlayer(lowLevelPlayerId, 8); // Level up from 1 to 9
+        // Award XP to reach level 9 (not 10) - 7486 XP gets to level 9
+        playerContract.awardExperience(lowLevelPlayerId, 7486);
 
         vm.startPrank(lowLevelPlayer);
         vm.expectRevert(abi.encodeWithSignature("PlayerLevelTooLow()"));
@@ -1269,16 +1273,13 @@ contract TournamentGameTest is TestBase {
         _setTournamentTime();
         game.tryStartTournament();
 
-        // Move exactly 256 blocks from initial commit block
+        // Move to recovery threshold (more than 256 blocks past selection block)
         (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
-        uint256 commitBlock = selectionBlock - 20; // futureBlocksForSelection = 20
-
-        vm.roll(commitBlock + 256);
-        vm.prevrandao(bytes32(uint256(12345)));
+        vm.roll(selectionBlock + 257);
 
         // Should trigger auto-recovery
-        vm.expectEmit(true, false, false, true);
-        emit TournamentAutoRecovered(commitBlock, commitBlock + 256, TournamentGame.TournamentPhase.QUEUE_COMMIT);
+        vm.expectEmit(false, false, false, true);
+        emit QueueRecovered(selectionBlock);
         game.tryStartTournament();
 
         // Verify no pending tournament exists after recovery
@@ -1453,6 +1454,197 @@ contract TournamentGameTest is TestBase {
         assertEq(tournament.participants.length, 16, "Should have 16 participants");
     }
 
-    // Helper function to simulate TournamentAutoRecovered event
-    event TournamentAutoRecovered(uint256 commitBlock, uint256 currentBlock, TournamentGame.TournamentPhase phase);
+    // Helper function to create a simple loadout (matching GauntletGame test pattern)
+    function _createSimpleLoadout(uint32 playerId) internal pure returns (Fighter.PlayerLoadout memory) {
+        return Fighter.PlayerLoadout({
+            playerId: playerId,
+            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}),
+            stance: 1 // BALANCED
+        });
+    }
+
+    // Test that recovery now properly checks player status before re-queuing
+    function testFix_RecoveryChecksPlayerStatus() public {
+        // Queue 16 players (tournament minimum)
+        _queuePlayers(16);
+
+        // Set time to tournament window
+        uint256 tournamentTime = block.timestamp + 48 hours;
+        tournamentTime = tournamentTime - (tournamentTime % 1 days) + 20 hours;
+        vm.warp(tournamentTime);
+
+        // TX1: Commit (QUEUE_COMMIT phase)
+        game.tryStartTournament();
+
+        // Verify players are still QUEUED after commit
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(TournamentGame.PlayerStatus.QUEUED),
+            "Should be QUEUED after commit"
+        );
+
+        // Need to advance past the selection block and mine a block so blockhash exists
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+        vm.roll(selectionBlock + 1);
+        vm.prevrandao(bytes32(uint256(12345)));
+
+        // TX2: Select participants (moves to IN_TOURNAMENT)
+        game.tryStartTournament();
+
+        // Verify players moved to IN_TOURNAMENT
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(TournamentGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_TWO_ID)),
+            uint8(TournamentGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_THREE_ID)),
+            uint8(TournamentGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_FOUR_ID)),
+            uint8(TournamentGame.PlayerStatus.IN_TOURNAMENT),
+            "Should be IN_TOURNAMENT after selection"
+        );
+
+        // Verify tournament was created
+        uint256 tournamentId = game.nextTournamentId() - 1;
+        TournamentGame.Tournament memory tournament = game.getTournamentData(tournamentId);
+        assertEq(tournamentId, 0, "Tournament ID should match");
+        assertEq(tournament.size, 16, "Tournament size should be 16");
+        assertEq(uint8(tournament.state), uint8(TournamentGame.TournamentState.PENDING), "Tournament should be PENDING");
+        assertEq(tournament.championId, 0, "Champion should be 0");
+        assertEq(tournament.runnerUpId, 0, "Runner up should be 0");
+
+        // Get the tournament block
+        (
+            bool pendingExists,
+            uint256 selectionBlockInfo,
+            uint256 tournamentBlock,
+            uint8 currentPhase,
+            uint256 tournamentIdInfo,
+        ) = game.getPendingTournamentInfo();
+
+        // With the fix, we now use the correct block calculation
+        // Advance past tournamentBlock + 256 to enable recovery
+        vm.roll(tournamentBlock + 257);
+
+        // Record logs to check for TournamentRecovered event
+        vm.recordLogs();
+
+        // Try to trigger recovery
+        game.tryStartTournament();
+
+        // Check that TournamentRecovered event was emitted with correct data
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 recoveredTopic = keccak256("TournamentRecovered(uint256,uint256,uint32[])");
+        bool foundEvent = false;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == recoveredTopic) {
+                foundEvent = true;
+                // Verify indexed tournamentId
+                assertEq(uint256(logs[i].topics[1]), tournamentId, "Tournament ID in event should match");
+                // Decode non-indexed params (targetBlock and participantIds)
+                (uint256 eventTargetBlock, uint32[] memory eventParticipantIds) =
+                    abi.decode(logs[i].data, (uint256, uint32[]));
+                assertEq(eventTargetBlock, tournamentBlock, "Target block in event should match");
+                assertEq(eventParticipantIds.length, 16, "Should have 16 participants in event");
+                break;
+            }
+        }
+        assertTrue(foundEvent, "TournamentRecovered event should be emitted");
+
+        // Verify recovery happened
+        (bool exists,,,,,) = game.getPendingTournamentInfo();
+        assertFalse(exists, "Pending tournament should be cleared after recovery");
+
+        // With the fix, recovery properly checks player status before re-queuing
+        // All players should be back to QUEUED status
+        assertEq(
+            uint8(game.playerStatus(PLAYER_ONE_ID)),
+            uint8(TournamentGame.PlayerStatus.QUEUED),
+            "Player properly returned to QUEUED"
+        );
+        assertEq(
+            uint8(game.playerStatus(PLAYER_TWO_ID)),
+            uint8(TournamentGame.PlayerStatus.QUEUED),
+            "Player properly returned to QUEUED"
+        );
+
+        // Check the queue has all players back
+        assertEq(game.getQueueSize(), 16, "All players returned to queue");
+
+        // Players can now withdraw properly
+        vm.prank(PLAYER_ONE);
+        game.withdrawFromQueue(PLAYER_ONE_ID);
+        assertEq(game.getQueueSize(), 15, "Player successfully withdrew");
+
+        // And can re-queue
+        vm.prank(PLAYER_ONE);
+        game.queueForTournament(_createSimpleLoadout(PLAYER_ONE_ID));
+        assertEq(game.getQueueSize(), 16, "Player successfully re-queued");
+    }
+
+    // Test that recovery now properly handles QUEUE_COMMIT phase
+    function testFix_RecoveryHandlesQueueCommitPhase() public {
+        // Queue 16 players
+        _queuePlayers(16);
+
+        // Set time to tournament window
+        uint256 tournamentTime = block.timestamp + 48 hours;
+        tournamentTime = tournamentTime - (tournamentTime % 1 days) + 20 hours;
+        vm.warp(tournamentTime);
+
+        // TX1: Commit (enters QUEUE_COMMIT phase)
+        game.tryStartTournament();
+
+        // Get the selection block from pending tournament info
+        (, uint256 selectionBlock,,,,) = game.getPendingTournamentInfo();
+
+        // Advance past 256 blocks from the selection block to enable recovery
+        vm.roll(selectionBlock + 257);
+
+        // Record logs to check for QueueRecovered event
+        vm.recordLogs();
+
+        // Try to trigger recovery
+        game.tryStartTournament();
+
+        // Check that QueueRecovered event was emitted
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 queueRecoveredTopic = keccak256("QueueRecovered(uint256)");
+        bool foundQueueEvent = false;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == queueRecoveredTopic) {
+                foundQueueEvent = true;
+                // Decode the target block
+                uint256 eventTargetBlock = abi.decode(logs[i].data, (uint256));
+                assertEq(eventTargetBlock, selectionBlock, "Target block in QueueRecovered event should match");
+                break;
+            }
+        }
+        assertTrue(foundQueueEvent, "QueueRecovered event should be emitted");
+
+        // Check pending tournament state
+        (bool exists,,,,,) = game.getPendingTournamentInfo();
+
+        // With the fix, QUEUE_COMMIT recovery now properly clears the tournament
+        // and emits QueueRecovered event
+
+        assertFalse(exists, "Tournament was cleared");
+
+        // But the queue is still intact because players were never removed in QUEUE_COMMIT
+        assertEq(game.getQueueSize(), 16, "Queue still has players");
+
+        // The real issue: players are still QUEUED but tournament state is gone
+        // This is inconsistent state - players think they're queued for a tournament that doesn't exist
+    }
 }
