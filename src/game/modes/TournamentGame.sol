@@ -789,10 +789,10 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
 
         if (currentPhase == TournamentPhase.QUEUE_COMMIT) {
             targetBlock = pendingTournament.selectionBlock;
-            canRecover = block.number > targetBlock + 256;
+            canRecover = block.number >= targetBlock + 256;
         } else {
             targetBlock = pendingTournament.tournamentBlock;
-            canRecover = block.number > targetBlock + 256;
+            canRecover = block.number >= targetBlock + 256;
         }
         if (!canRecover) revert CannotRecoverYet();
 
