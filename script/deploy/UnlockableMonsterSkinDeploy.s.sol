@@ -32,8 +32,8 @@ contract UnlockableSkinDeployScript is Script {
         // Set the IPFS base URI
         unlockableSkin.setBaseURI("ipfs://bafybeiaubu5krbuyexznxwjp6rov2xmvhebctsz26hm5ghr525gxwpuxue/");
 
-        // Enable minting
-        //unlockableSkin.setMintingEnabled(true);
+        // IMPORTANT: Set verified BEFORE minting so subgraph indexes mints correctly
+        skinRegistry.setSkinVerification(unlockableSkinIndex, true);
 
         console2.log("\n=== Minting Unlockable Characters ===");
 
@@ -57,9 +57,6 @@ contract UnlockableSkinDeployScript is Script {
             25, // WEAPON_MAUL
             1 // ARMOR_LEATHER
         );
-
-        // Set the collection as verified
-        skinRegistry.setSkinVerification(unlockableSkinIndex, true);
 
         // Disable minting after we're done
         //unlockableSkin.setMintingEnabled(false);
