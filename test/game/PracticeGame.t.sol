@@ -71,7 +71,7 @@ contract PracticeGameTest is TestBase {
             playerId: PLAYER_ONE_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.LowStaminaClubsWarrior) + 1 // LowStaminaClubsWarrior (ID 17)
+                skinTokenId: 17 // LowStaminaClubsWarrior
             }),
             stance: 2 // Aggressive (different from default neutral)
         });
@@ -80,7 +80,7 @@ contract PracticeGameTest is TestBase {
             playerId: PLAYER_TWO_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1 // DefaultWarrior (ID 1)
+                skinTokenId: 1 // DefaultWarrior // DefaultWarrior (ID 1)
             }),
             stance: 0 // Defensive (different from default neutral)
         });

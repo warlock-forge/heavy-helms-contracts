@@ -537,7 +537,7 @@ contract DuelGameTest is TestBase {
             playerId: PLAYER_ONE_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.LowStaminaClubsWarrior) + 1 // Uses dual clubs (18)
+                skinTokenId: 17 // LowStaminaClubsWarrior - Uses dual clubs (18)
             }),
             stance: 2 // Aggressive (different from default neutral)
         });
@@ -551,7 +551,7 @@ contract DuelGameTest is TestBase {
             playerId: PLAYER_TWO_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1 // Uses quarterstaff (5)
+                skinTokenId: 1 // DefaultWarrior // Uses quarterstaff (5)
             }),
             stance: 0 // Defensive (different from default neutral)
         });
@@ -571,14 +571,14 @@ contract DuelGameTest is TestBase {
         // Verify loadouts were stored as passed, not as equipped
         assertEq(
             storedChallengerLoadout.skin.skinTokenId,
-            uint16(DefaultPlayerLibrary.CharacterType.LowStaminaClubsWarrior) + 1,
+            17, // LowStaminaClubsWarrior
             "Challenger should use LowStaminaClubsWarrior skin from loadout"
         );
         assertEq(storedChallengerLoadout.stance, 2, "Challenger should use aggressive stance from loadout");
 
         assertEq(
             storedDefenderLoadout.skin.skinTokenId,
-            uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1,
+            1, // DefaultWarrior
             "Defender should use DefaultWarrior skin from loadout"
         );
         assertEq(storedDefenderLoadout.stance, 0, "Defender should use defensive stance from loadout");

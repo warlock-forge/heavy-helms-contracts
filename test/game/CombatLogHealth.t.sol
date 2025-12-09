@@ -38,7 +38,7 @@ contract CombatLogHealthTest is TestBase {
             playerId: PLAYER_ONE_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+                skinTokenId: 3 // GreatswordOffensive
             }),
             stance: 1
         });
@@ -46,7 +46,7 @@ contract CombatLogHealthTest is TestBase {
             playerId: PLAYER_TWO_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1
+                skinTokenId: 6 // MaceShieldDefensive
             }),
             stance: 1
         });
@@ -186,7 +186,7 @@ contract CombatLogHealthTest is TestBase {
             playerId: PLAYER_ONE_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+                skinTokenId: 3 // GreatswordOffensive
             }),
             stance: 1
         });
@@ -194,7 +194,7 @@ contract CombatLogHealthTest is TestBase {
             playerId: PLAYER_TWO_ID,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1
+                skinTokenId: 6 // MaceShieldDefensive
             }),
             stance: 1
         });

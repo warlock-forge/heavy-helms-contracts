@@ -10,7 +10,6 @@ pragma solidity ^0.8.13;
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
 import {TestBase} from "../TestBase.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
-import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 
 contract ActionPointsTest is TestBase {
     function setUp() public override {
@@ -20,8 +19,8 @@ contract ActionPointsTest is TestBase {
     }
 
     function test_DoubleAttack() public view {
-        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1;
-        uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1;
+        uint16 fastWeaponId = 7; // RapierShieldDefensive
+        uint16 slowWeaponId = 3; // GreatswordOffensive
 
         Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
             playerId: fastWeaponId,
@@ -66,8 +65,8 @@ contract ActionPointsTest is TestBase {
     }
 
     function test_DoubleAttackPlayerBias() public view {
-        uint16 fastWeaponId = uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1;
-        uint16 slowWeaponId = uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1;
+        uint16 fastWeaponId = 7; // RapierShieldDefensive
+        uint16 slowWeaponId = 3; // GreatswordOffensive
 
         Fighter.PlayerLoadout memory fastLoadout = Fighter.PlayerLoadout({
             playerId: fastWeaponId,
@@ -111,7 +110,7 @@ contract ActionPointsTest is TestBase {
     }
 
     function test_SameWeaponInitiative() public view {
-        uint16 weaponId = uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1;
+        uint16 weaponId = 1; // DefaultWarrior
 
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: weaponId, skin: Fighter.SkinInfo({skinIndex: defaultSkinIndex, skinTokenId: weaponId}), stance: 1

@@ -18,10 +18,8 @@ contract GameEngineTest is TestBase {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
         uint256 seed = _generateGameSeed();
 
-        Fighter.PlayerLoadout memory attackerLoadout =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        Fighter.PlayerLoadout memory defenderLoadout =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.DefaultWarrior) + 1);
+        Fighter.PlayerLoadout memory attackerLoadout = _createLoadout(3); // GreatswordOffensive
+        Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(1); // DefaultWarrior
 
         // Run combat with seed and verify mechanics
         bytes memory results = gameEngine.processGame(
@@ -35,10 +33,8 @@ contract GameEngineTest is TestBase {
 
     function testFuzz_Combat(uint256 seed) public view {
         // Create loadouts for fuzz testing
-        Fighter.PlayerLoadout memory player1 =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1);
-        Fighter.PlayerLoadout memory player2 =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.MaceAndShieldDefensive) + 1);
+        Fighter.PlayerLoadout memory player1 = _createLoadout(3); // GreatswordOffensive
+        Fighter.PlayerLoadout memory player2 = _createLoadout(6); // MaceShieldDefensive
 
         // Run game with fuzzed seed
         bytes memory results =
@@ -83,8 +79,7 @@ contract GameEngineTest is TestBase {
 
     function testParryChanceCalculation() public view {
         // Create a loadout for a defensive character
-        Fighter.PlayerLoadout memory defenderLoadout =
-            _createLoadout(uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1);
+        Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(7); // RapierShieldDefensive
 
         // Convert to FighterStats
         IGameEngine.FighterStats memory fighterStats = _convertToFighterStats(defenderLoadout);

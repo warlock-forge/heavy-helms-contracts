@@ -13,11 +13,10 @@ import {DefaultPlayerLibrary} from "../../../src/fighters/lib/DefaultPlayerLibra
 import {DefaultPlayer} from "../../../src/fighters/DefaultPlayer.sol";
 
 contract MintDefaultSkinScript is Script {
-    function run(address defaultSkinAddr, address defaultPlayerAddr, DefaultPlayerLibrary.CharacterType characterType)
-        public
-    {
+    function run(address defaultSkinAddr, address defaultPlayerAddr, uint16 characterId) public {
         require(defaultSkinAddr != address(0), "DefaultSkin address cannot be zero");
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");
+        require(characterId >= 1 && characterId <= DefaultPlayerLibrary.CHARACTER_COUNT, "Invalid character ID");
 
         // Get private key from .env
         string memory rpcUrl = vm.envString("RPC_URL");
@@ -31,15 +30,11 @@ contract MintDefaultSkinScript is Script {
         DefaultPlayer defaultPlayer = DefaultPlayer(defaultPlayerAddr);
 
         uint32 defaultSkinIndex = 0; // Default collection is always index 0
-        uint16 tokenId = uint16(characterType) + 1;
 
         // Create the default character using the library's public interface
-        DefaultPlayerLibrary.createDefaultCharacter(
-            defaultSkin, defaultPlayer, defaultSkinIndex, tokenId, characterType
-        );
+        DefaultPlayerLibrary.createDefaultCharacter(defaultSkin, defaultPlayer, defaultSkinIndex, characterId);
 
-        console2.log("Created default character type:", uint8(characterType));
-        console2.log("Token ID:", tokenId);
+        console2.log("Created default character ID:", characterId);
 
         vm.stopBroadcast();
     }

@@ -37,7 +37,7 @@ contract LethalDamageTest is TestBase {
             playerId: player1Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+                skinTokenId: 4 // BattleaxeOffensive
             }),
             stance: 2
         });
@@ -45,7 +45,7 @@ contract LethalDamageTest is TestBase {
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+                skinTokenId: 3 // GreatswordOffensive
             }),
             stance: 2
         });
@@ -78,7 +78,7 @@ contract LethalDamageTest is TestBase {
             playerId: player1Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+                skinTokenId: 4 // BattleaxeOffensive
             }),
             stance: 2
         });
@@ -86,7 +86,7 @@ contract LethalDamageTest is TestBase {
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+                skinTokenId: 3 // GreatswordOffensive
             }),
             stance: 2
         });
@@ -131,7 +131,7 @@ contract LethalDamageTest is TestBase {
             playerId: player1Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+                skinTokenId: 4 // BattleaxeOffensive
             }),
             stance: 2
         });
@@ -139,7 +139,7 @@ contract LethalDamageTest is TestBase {
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+                skinTokenId: 3 // GreatswordOffensive
             }),
             stance: 2
         });
@@ -184,7 +184,7 @@ contract LethalDamageTest is TestBase {
             playerId: player1Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+                skinTokenId: 4 // BattleaxeOffensive
             }),
             stance: 2
         });
@@ -192,7 +192,7 @@ contract LethalDamageTest is TestBase {
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.RapierAndShieldDefensive) + 1
+                skinTokenId: 7 // RapierShieldDefensive
             }),
             stance: 0
         });
@@ -238,7 +238,7 @@ contract LethalDamageTest is TestBase {
             playerId: player1Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.BattleaxeOffensive) + 1
+                skinTokenId: 4 // BattleaxeOffensive
             }),
             stance: 2
         });
@@ -246,7 +246,7 @@ contract LethalDamageTest is TestBase {
             playerId: player2Id,
             skin: Fighter.SkinInfo({
                 skinIndex: defaultSkinIndex,
-                skinTokenId: uint16(DefaultPlayerLibrary.CharacterType.GreatswordOffensive) + 1
+                skinTokenId: 3 // GreatswordOffensive
             }),
             stance: 2
         });
