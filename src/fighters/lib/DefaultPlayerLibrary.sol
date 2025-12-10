@@ -33,7 +33,7 @@ library DefaultPlayerLibrary {
     //==============================================================//
     //                          CONSTANTS                           //
     //==============================================================//
-    uint16 public constant CHARACTER_COUNT = 18;
+    uint16 public constant CHARACTER_COUNT = 21;
 
     //==============================================================//
     //                           STRUCTS                            //
@@ -81,7 +81,8 @@ library DefaultPlayerLibrary {
     //==============================================================//
     //                      INTERNAL FUNCTIONS                      //
     //==============================================================//
-    function _getCharacterDefs() internal pure returns (CharacterDef[18] memory defs) {
+    function _getCharacterDefs() internal pure returns (CharacterDef[] memory defs) {
+        defs = new CharacterDef[](CHARACTER_COUNT);
         // 1: DefaultWarrior
         defs[0] = CharacterDef({
             weapon: 5,
@@ -405,6 +406,60 @@ library DefaultPlayerLibrary {
             luck: 15,
             levelUps: hex"030303030303030304",
             ipfsCid: "bafkreieh2vw6eobqqawgujacaq7z6oc5gzqptczxa3ko42rlewahtyoxpe"
+        });
+        // 19: CrusaderTank
+        defs[18] = CharacterDef({
+            weapon: 8,
+            armor: 3,
+            stance: 0,
+            firstName: 1092,
+            surname: 142,
+            weaponSpec: 8,
+            armorSpec: 3,
+            str: 10,
+            con: 17,
+            size: 14,
+            agi: 10,
+            sta: 12,
+            luck: 9,
+            levelUps: hex"020202040401010101",
+            ipfsCid: "bafkreihbpwhdc75m6lbaq6vmr5ibywuavzbagq3kyy6vatwv6vcdbkq34u"
+        });
+        // 20: UmbrellaMonk
+        defs[19] = CharacterDef({
+            weapon: 5,
+            armor: 0,
+            stance: 1,
+            firstName: 16,
+            surname: 56,
+            weaponSpec: 5,
+            armorSpec: 0,
+            str: 17,
+            con: 10,
+            size: 7,
+            agi: 16,
+            sta: 12,
+            luck: 10,
+            levelUps: hex"030303030300000000",
+            ipfsCid: "bafkreic4vodwzwgzms3x2bqg7cyebzdyyok5vhoivtw7eraveddrnqnvrm"
+        });
+        // 21: BattleaxeViking
+        defs[20] = CharacterDef({
+            weapon: 4,
+            armor: 1,
+            stance: 2,
+            firstName: 1035,
+            surname: 192,
+            weaponSpec: 4,
+            armorSpec: 1,
+            str: 18,
+            con: 10,
+            size: 18,
+            agi: 6,
+            sta: 10,
+            luck: 10,
+            levelUps: hex"020202020000000005",
+            ipfsCid: "bafkreibpaq5vn7xbu5jvmtpjlo75wtfst5and3jt43mcri5qgl6f2lzm3i"
         });
     }
 
