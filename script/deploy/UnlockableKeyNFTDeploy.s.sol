@@ -12,14 +12,14 @@ import {UnlockableKeyNFT} from "../../src/nft/skins/UnlockableKeyNFT.sol";
 
 contract UnlockableKeyNFTDeployScript is Script {
     // --- Configuration ---
-    string constant NAME = "Heavy Helms Monster001";
-    string constant SYMBOL = "HHM001";
-    uint16 constant MAX_SUPPLY = 250;
-    uint16 constant PUBLIC_SUPPLY = 200;
-    uint16 constant RESERVE_AMOUNT = 50;
-    uint256 constant MINT_PRICE = 0.05 ether;
+    string constant NAME = "Heavy Helms Monster004";
+    string constant SYMBOL = "HHM004";
+    uint16 constant MAX_SUPPLY = 35;
+    uint16 constant PUBLIC_SUPPLY = 10;
+    uint16 constant RESERVE_AMOUNT = 25;
+    uint256 constant MINT_PRICE = 0.15 ether;
     uint96 constant ROYALTY_BPS = 500; // 5%
-    string constant BASE_URI = "ipfs://bafkreifnat57awyij2zxmrrn77ro4v3fryzajaqvf5yw6g6odvzgny2ove";
+    string constant BASE_URI = "ipfs://bafkreicnuowku5mzgz2kyuraarby66jzsm6mmxzfanckebfax4sgm2kecq";
 
     function run(address deployer) public {
         string memory rpcUrl = vm.envString("RPC_URL");

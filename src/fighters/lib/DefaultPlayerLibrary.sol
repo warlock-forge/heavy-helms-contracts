@@ -33,7 +33,7 @@ library DefaultPlayerLibrary {
     //==============================================================//
     //                          CONSTANTS                           //
     //==============================================================//
-    uint16 public constant CHARACTER_COUNT = 21;
+    uint16 public constant CHARACTER_COUNT = 24;
 
     //==============================================================//
     //                           STRUCTS                            //
@@ -460,6 +460,60 @@ library DefaultPlayerLibrary {
             luck: 10,
             levelUps: hex"020202020000000005",
             ipfsCid: "bafkreibpaq5vn7xbu5jvmtpjlo75wtfst5and3jt43mcri5qgl6f2lzm3i"
+        });
+        // 22: SpearGladiator
+        defs[21] = CharacterDef({
+            weapon: 6,
+            armor: 1,
+            stance: 2,
+            firstName: 1110,
+            surname: 190,
+            weaponSpec: 6,
+            armorSpec: 1,
+            str: 16,
+            con: 10,
+            size: 12,
+            agi: 16,
+            sta: 8,
+            luck: 10,
+            levelUps: hex"000305000300030003",
+            ipfsCid: "bafkreihbo23z4xmlyh6wmbull7t4kwytbrsmsfe25qm2nmrn7f6chuon44"
+        });
+        // 23: PlateGladiator
+        defs[22] = CharacterDef({
+            weapon: 3,
+            armor: 3,
+            stance: 1,
+            firstName: 1026,
+            surname: 34,
+            weaponSpec: 3,
+            armorSpec: 3,
+            str: 16,
+            con: 8,
+            size: 16,
+            agi: 6,
+            sta: 16,
+            luck: 10,
+            levelUps: hex"000204020202020200",
+            ipfsCid: "bafkreichn3t3n6nakqtc42kvyrtqsscppj47i4vip4cjmc6fswee5ysyh4"
+        });
+        // 24: AssassinSwords
+        defs[23] = CharacterDef({
+            weapon: 19,
+            armor: 1,
+            stance: 2,
+            firstName: 1050,
+            surname: 106,
+            weaponSpec: 19,
+            armorSpec: 1,
+            str: 17,
+            con: 8,
+            size: 8,
+            agi: 15,
+            sta: 12,
+            luck: 12,
+            levelUps: hex"000000000003030505",
+            ipfsCid: "bafkreigmhp4sowm7njghxscjzmd2spjcsq3uv7ea3mdcxzaaf5zmemla24"
         });
     }
 

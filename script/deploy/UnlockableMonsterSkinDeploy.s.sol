@@ -21,40 +21,40 @@ contract UnlockableSkinDeployScript is Script {
         PlayerSkinRegistry skinRegistry = PlayerSkinRegistry(payable(skinRegistryAddress));
 
         // Deploy unlockable skin collection
-        PlayerSkinNFT unlockableSkin = new PlayerSkinNFT("Player Monster Skin Goblin", "HHGOBLIN", 0);
+        PlayerSkinNFT unlockableSkin = new PlayerSkinNFT("Player Monster Skin Pantheon", "HHPANTHEON", 0);
 
         // Register unlockable skin collection
         uint32 unlockableSkinIndex = skinRegistry.registerSkin(address(unlockableSkin));
 
         // Set the unlock NFT address for this collection
-        skinRegistry.setRequiredNFT(unlockableSkinIndex, 0x0c493355A1880812470ADBCF9C2Ae2ecA8082e08);
+        skinRegistry.setRequiredNFT(unlockableSkinIndex, 0x842f92108c94bF8362dEF5910eFB318E302f7895);
 
         // Set the IPFS base URI
-        unlockableSkin.setBaseURI("ipfs://bafybeiaubu5krbuyexznxwjp6rov2xmvhebctsz26hm5ghr525gxwpuxue/");
+        unlockableSkin.setBaseURI("ipfs://bafybeicqhrdh6hpit4bq7stahzwjqujlv3rj4qzcm3eovx36s352k6i6nu/");
 
         // IMPORTANT: Set verified BEFORE minting so subgraph indexes mints correctly
         skinRegistry.setSkinVerification(unlockableSkinIndex, true);
 
         console2.log("\n=== Minting Unlockable Characters ===");
 
-        // Mint Clubs (ID 1)
+        // Mint Medusa (ID 1)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
-            18, // WEAPON_DUAL_CLUBS
+            3, // WEAPON_GREATSWORD
             1 // ARMOR_LEATHER
         );
 
-        // Mint Swords (ID 2)
+        // Mint Anubis (ID 2)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
-            19, // WEAPON_ARMING_SWORD_SHORTSWORD
-            1 // ARMOR_LEATHER
+            5, // WEAPON_QUARTERSTAFF
+            0 // ARMOR_CLOTH
         );
 
-        // Mint Maul (ID 3)
+        // Mint Devil (ID 3)
         unlockableSkin.mintSkin(
             address(unlockableSkin),
-            25, // WEAPON_MAUL
+            26, // WEAPON_TRIDENT
             1 // ARMOR_LEATHER
         );
 
