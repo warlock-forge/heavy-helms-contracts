@@ -1,5 +1,5 @@
 ---
-paths: src/**/*.sol, test/**/*.sol
+paths: src/**/*.sol, test/**/*.sol, script/**/*.sol
 ---
 
 # Heavy Helms Code Style Guide

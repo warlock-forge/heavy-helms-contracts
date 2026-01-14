@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "forge fmt 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "Bash(forge test*)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      },
+      {
+        "matcher": "Bash(forge build*)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      },
+      {
+        "matcher": "Bash(~/.slither-venv/bin/slither*)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      },
+      {
+        "matcher": "Bash(~/.cargo/bin/aderyn*)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      },
+      {
+        "matcher": "Bash(*analyze.py*)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      },
+      {
+        "matcher": "Bash(*deep_analyze.py*)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      },
+      {
+        "matcher": "Bash(mkdir -p .claude/audit-reports)",
+        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+# Generated scanner reports (large, regenerated each run)
+slither-report.json
+aderyn-report.json
+deep_analysis_queue.json
+
+# Keep findings_memory.json - valuable state!
+# Keep audit-report.txt - useful history

@@ -59,8 +59,6 @@ GameEngine → EquipmentRequirements → Registries → Fighters → Games
 
 ## Critical Memories
 
-- Never try a fresh `forge build` directly - it will timeout. Ask the user to run it.
-- ALWAYS run `forge fmt` before git add.
 - Via IR is enabled in foundry.toml - compilation is slow.
 - Solady is the primary dependency for gas-optimized contracts.
 
