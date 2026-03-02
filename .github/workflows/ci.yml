@@ -1,0 +1,74 @@
+name: CI
+on: [push, pull_request, workflow_dispatch]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - run: forge --version
+
+      - name: Install deps
+        run: |
+          forge install --no-git \
+            foundry-rs/forge-std@v1.15.0 \
+            bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 \
+            vectorized/solady@v0.1.24 \
+            smartcontractkit/chainlink-evm@v0.3.2 \
+            OpenZeppelin/openzeppelin-contracts@v4.9.6
+
+      - name: Check formatting
+        run: forge fmt --check
+
+      - name: Build contracts
+        run: forge build
+
+      - name: Run tests
+        run: forge test -vvv
+
+      - name: Run coverage
+        run: forge coverage
+        continue-on-error: true
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install deps
+        run: |
+          forge install --no-git \
+            foundry-rs/forge-std@v1.15.0 \
+            bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 \
+            vectorized/solady@v0.1.24 \
+            smartcontractkit/chainlink-evm@v0.3.2 \
+            OpenZeppelin/openzeppelin-contracts@v4.9.6
+
+      - name: Build
+        run: forge build
+
+      - name: Slither
+        uses: crytic/slither-action@v0.4.0
+        with:
+          target: "src/"
+          fail-on: high
+          slither-args: --exclude-dependencies
+
+      - name: Aderyn
+        uses: Cyfrin/aderyn-ci@v0
+        with:
+          fail-on: high
