@@ -64,6 +64,7 @@ jobs:
           target: "src/"
           fail-on: high
           slither-args: --exclude-dependencies
+          ignore-compile: true
 
       - name: Aderyn
         uses: Cyfrin/aderyn-ci@v0
