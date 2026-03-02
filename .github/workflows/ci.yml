@@ -58,13 +58,11 @@ jobs:
       - name: Build
         run: forge build
 
+      - name: Install Slither
+        run: pip install slither-analyzer
+
       - name: Slither
-        uses: crytic/slither-action@v0.4.0
-        with:
-          target: "src/"
-          fail-on: high
-          slither-args: --exclude-dependencies
-          ignore-compile: true
+        run: slither . --exclude-dependencies --fail-on high
 
       - name: Aderyn
         uses: Cyfrin/aderyn-ci@v0
