@@ -1,0 +1,6 @@
+{
+  "exclude_dependencies": true,
+  "filter_paths": "test/|script/|lib/",
+  "detectors_to_exclude": "naming-convention,solc-version,pragma",
+  "fail_on": "high"
+}

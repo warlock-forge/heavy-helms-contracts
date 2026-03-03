@@ -62,7 +62,7 @@ jobs:
         run: pip install slither-analyzer
 
       - name: Slither
-        run: slither . --exclude-dependencies --fail-high
+        run: slither .
 
       - name: Aderyn
         uses: Cyfrin/aderyn-ci@v0

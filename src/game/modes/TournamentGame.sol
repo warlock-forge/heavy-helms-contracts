@@ -457,6 +457,8 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         }
 
         // Phase 1: Queue Commit - Check daily timing constraints
+        // slither-disable-next-line weak-prng
+        // Not used for security-critical randomness, just calculating hour-of-day for scheduling
         uint256 currentHour = (block.timestamp / 1 hours) % 24;
         uint256 currentDay = block.timestamp / 1 days;
         uint256 lastTournamentDay = lastTournamentStartTimestamp / 1 days;

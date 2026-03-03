@@ -116,6 +116,8 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, ConfirmedOwner {
     function tokenURI(uint256 id) public view virtual override returns (string memory) {
         if (id >= type(uint16).max) revert InvalidTokenId();
         if (_ownerOf(id) == address(0)) revert TokenDoesNotExist();
+        // slither-disable-next-line encode-packed-collision
+        // No collision risk: toString(id) is numeric-only, ".json" is a literal suffix
         return string(abi.encodePacked(baseURI, toString(id), ".json"));
     }
 
