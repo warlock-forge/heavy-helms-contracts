@@ -49,6 +49,7 @@ error UnsupportedPlayerIdForDuelMode();
 //                         INTERFACES                           //
 //=============================================================//
 /// @notice Interface for PlayerTickets contract functions needed by DuelGame
+// aderyn-fp-next-line(reused-contract-name)
 interface IPlayerTickets {
     function DUEL_TICKET() external view returns (uint256);
     function burnFrom(address from, uint256 tokenId, uint256 amount) external;
@@ -61,6 +62,7 @@ interface IPlayerTickets {
 /// @title Duel Game Mode for Heavy Helms
 /// @notice Allows players to challenge each other to 1v1 combat
 /// @dev Integrates with VRF for fair, random combat resolution
+// aderyn-fp-next-line(contract-locks-ether)
 contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
     //==============================================================//
     //                    STATE VARIABLES                           //
@@ -256,16 +258,21 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         if (!isChallengeActive(challengeId)) revert ChallengeNotActive();
 
         // Check player existence by calling getPlayer (will revert if player doesn't exist)
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayer(playerContract).getPlayer(defenderLoadout.playerId);
 
         // Verify msg.sender owns the defender
+        // aderyn-fp-next-line(reentrancy-state-change)
         address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
         if (msg.sender != defender) revert NotDefender();
         if (defenderLoadout.playerId != challenge.defenderId) revert WrongDefenderId();
 
         // Validate player ownership and stats
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (IPlayer(playerContract).getPlayerOwner(defenderLoadout.playerId) != msg.sender) revert NotPlayerOwner();
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (IPlayer(playerContract).isPlayerRetired(defenderLoadout.playerId)) revert DefenderRetired();
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (IPlayer(playerContract).isPlayerRetired(challenge.challengerId)) revert ChallengerRetired();
 
         // Store defender loadout
@@ -276,6 +283,7 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         challenge.vrfRequestTimestamp = block.timestamp;
 
         // Request VRF for true randomness
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint256 requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: keyHash,
@@ -317,7 +325,9 @@ contract DuelGame is BaseGame, VRFConsumerBaseV2Plus {
         if (challenge.state != ChallengeState.PENDING) revert ChallengeNotPending();
 
         // Get player addresses early
+        // aderyn-fp-next-line(reentrancy-state-change)
         address challenger = IPlayer(playerContract).getPlayerOwner(challenge.challengerId);
+        // aderyn-fp-next-line(reentrancy-state-change)
         address defender = IPlayer(playerContract).getPlayerOwner(challenge.defenderId);
 
         // Require caller to be either challenger or defender

@@ -86,6 +86,7 @@ error InvalidSeasonLength();
 /// @title Player Contract for Heavy Helms
 /// @notice Manages player creation, attributes, skins, and persistent player data
 /// @dev Integrates with VRF for random stat generation and interfaces with skin/name registries
+// aderyn-fp-next-line(contract-locks-ether)
 contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
     using UniformRandomNumber for uint256;
     //==============================================================//
@@ -689,10 +690,12 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         }
 
         // Validate skin ownership through registry
+        // aderyn-fp-next-line(reentrancy-state-change)
         skinRegistry()
             .validateSkinOwnership(Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}), msg.sender);
 
         // Validate stat requirements
+        // aderyn-fp-next-line(reentrancy-state-change)
         skinRegistry()
             .validateSkinRequirements(
                 Fighter.SkinInfo({skinIndex: skinIndex, skinTokenId: skinTokenId}),
@@ -750,15 +753,18 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         onlyPlayerOwner(playerId)
     {
         // Get name data from the NFT
+        // aderyn-fp-next-line(reentrancy-state-change)
         (uint16 firstNameIndex, uint16 surnameIndex) = _playerTickets.getNameChangeData(nameChangeTokenId);
 
         // Validate name indices
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (!nameRegistry().isValidFirstNameIndex(firstNameIndex) || surnameIndex >= nameRegistry().getSurnamesLength())
         {
             revert InvalidNameIndex();
         }
 
         // Burn the name change NFT
+        // aderyn-fp-next-line(reentrancy-state-change)
         _playerTickets.burnFrom(msg.sender, nameChangeTokenId, 1);
 
         PlayerStats storage player = _players[playerId];
@@ -1444,6 +1450,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
                 randomSeed = uint256(keccak256(abi.encodePacked(randomSeed)));
 
                 // Update stat and remaining points
+                // aderyn-fp-next-line(unsafe-casting)
                 statArray[statIndex] += uint8(pointsToAdd);
                 remainingPoints -= pointsToAdd;
 

@@ -172,6 +172,7 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
         IPlayer.PlayerStats memory level1Stats = allLevelStats[0];
 
         // Verify skin exists and is valid for default players
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection =
             skinRegistry().getSkin(level1Stats.skin.skinIndex);
         if (skinCollection.skinType != IPlayerSkinRegistry.SkinType.DefaultPlayer) {
@@ -180,6 +181,7 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
 
         // Validate name indices
         if (
+            // aderyn-fp-next-line(reentrancy-state-change)
             !nameRegistry().isValidFirstNameIndex(level1Stats.name.firstNameIndex)
                 || level1Stats.name.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {
@@ -210,6 +212,7 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
         IPlayer.PlayerStats memory level1Stats = newAllLevelStats[0];
 
         // Verify skin exists and is valid for default players
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayerSkinRegistry.SkinCollectionInfo memory skinCollection =
             skinRegistry().getSkin(level1Stats.skin.skinIndex);
         if (skinCollection.skinType != IPlayerSkinRegistry.SkinType.DefaultPlayer) {
@@ -218,6 +221,7 @@ contract DefaultPlayer is IDefaultPlayer, ConfirmedOwner, Fighter {
 
         // Validate name indices
         if (
+            // aderyn-fp-next-line(reentrancy-state-change)
             !nameRegistry().isValidFirstNameIndex(level1Stats.name.firstNameIndex)
                 || level1Stats.name.surnameIndex >= nameRegistry().getSurnamesLength()
         ) {

@@ -40,6 +40,7 @@ error InvalidMintAmount();
 /// @title Unlockable Key NFT for Heavy Helms
 /// @notice ERC721 token that unlocks access to skin collections
 /// @dev Extends ERC721 with ERC2981 royalties, public minting, and owner reserves
+// aderyn-fp-next-line(contract-locks-ether)
 contract UnlockableKeyNFT is ERC721, ERC2981, ConfirmedOwner {
     //==============================================================//
     //                      STATE VARIABLES                         //

@@ -60,6 +60,7 @@ error InvalidRewardConfig();
 ///         of dynamic size (4, 8, 16, 32, or 64) with a dynamic entry fee.
 /// @dev Uses a commit-reveal pattern with future blockhash for randomness.
 ///      Eliminates VRF costs and delays while providing secure participant selection.
+// aderyn-fp-next-line(contract-locks-ether)
 contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     using UniformRandomNumber for uint256;
 
@@ -396,6 +397,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     {
         // Checks
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
 
         // Check daily limit
@@ -409,14 +411,18 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         _validatePlayerLevel(loadout.playerId);
 
         // Cache external contract references to save gas
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayerSkinRegistry skinRegistry = playerContract.skinRegistry();
+        // aderyn-fp-next-line(reentrancy-state-change)
         IEquipmentRequirements equipmentReqs = playerContract.equipmentRequirements();
 
         // Validate skin and equipment requirements via Player contract registries
+        // aderyn-fp-next-line(reentrancy-state-change)
         try skinRegistry.validateSkinOwnership(loadout.skin, msg.sender) {}
         catch {
             revert InvalidSkin();
         }
+        // aderyn-fp-next-line(reentrancy-state-change)
         try skinRegistry.validateSkinRequirements(
             loadout.skin, playerContract.getPlayer(loadout.playerId).attributes, equipmentReqs
         ) {}
@@ -499,6 +505,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         }
 
         // Checks & Effects - burn ticket after validation
+        // aderyn-fp-next-line(reentrancy-state-change)
         playerTickets.burnFrom(msg.sender, playerTickets.DAILY_RESET_TICKET(), 1);
 
         // Effects
@@ -706,11 +713,13 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     ) private {
         // Reward champion
         if (_getFighterType(gauntlet.championId) == Fighter.FighterType.PLAYER) {
+            // aderyn-fp-next-line(storage-array-memory-edit)
             _distributeReward(gauntletId, gauntlet.championId, championRewards, randomness);
         }
 
         // Reward runner-up
         if (_getFighterType(gauntlet.runnerUpId) == Fighter.FighterType.PLAYER) {
+            // aderyn-fp-next-line(storage-array-memory-edit)
             _distributeReward(gauntletId, gauntlet.runnerUpId, runnerUpRewards, randomness);
         }
 
@@ -721,6 +730,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         for (uint256 i = semiFinalistStart; i < semiFinalistEnd; i++) {
             uint32 playerId = eliminatedByRound[i];
             if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
+                // aderyn-fp-next-line(storage-array-memory-edit)
                 _distributeReward(gauntletId, playerId, thirdFourthRewards, randomness);
             }
         }
@@ -815,6 +825,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         uint256 seed = _getEnhancedRandomness(pendingGauntlet.selectionBlock);
 
         // Select participants using hybrid algorithm
+        // aderyn-fp-next-line(storage-array-memory-edit)
         uint32[] memory selectedIds = _selectParticipants(seed, queueIndex);
 
         // Create the actual gauntlet FIRST
@@ -996,6 +1007,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                         delete playerCurrentGauntlet[playerId];
 
                         // Re-add to queue using shared helper
+                        // aderyn-fp-next-line(storage-array-memory-edit)
                         _addPlayerToQueue(playerId, gauntlet.participants[i].loadout);
                     }
                 }
@@ -1076,6 +1088,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                 activeParticipants[i] = _loadDefaultPlayerData(activePlayerId);
             } else {
                 // Use original player's loadout since they passed validation
+                // aderyn-fp-next-line(storage-array-memory-edit)
                 activeParticipants[i] = _loadPlayerData(activePlayerId, regPlayer.loadout);
             }
         }
@@ -1548,6 +1561,7 @@ contract GauntletGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         uint256 baseHash = uint256(blockhash(futureBlock));
         if (baseHash == 0) revert InvalidBlockhash();
 
+        // aderyn-fp-next-line(weak-randomness)
         return uint256(keccak256(abi.encodePacked(baseHash, block.timestamp, block.number, gasleft(), tx.origin)));
     }
 

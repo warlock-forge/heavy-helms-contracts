@@ -48,6 +48,7 @@ error EquipmentRequirementsNotMet();
 //==============================================================//
 /// @title Player Skin Registry for Heavy Helms
 /// @notice Manages registration and verification of player skin collections
+// aderyn-fp-next-line(contract-locks-ether)
 contract PlayerSkinRegistry is IPlayerSkinRegistry, ConfirmedOwner {
     using SafeTransferLib for ERC20;
 

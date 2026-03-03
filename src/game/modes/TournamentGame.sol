@@ -345,25 +345,32 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         if (playerStatus[loadout.playerId] != PlayerStatus.NONE) revert AlreadyInQueue();
 
         // Get player stats first (this validates player exists)
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayer.PlayerStats memory playerStats = playerContract.getPlayer(loadout.playerId);
         if (playerStats.level < 10) revert PlayerLevelTooLow();
 
         // Get owner and validate caller (single external call)
+        // aderyn-fp-next-line(reentrancy-state-change)
         address owner = playerContract.getPlayerOwner(loadout.playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
 
         // Check retirement status (single external call)
+        // aderyn-fp-next-line(reentrancy-state-change)
         if (playerContract.isPlayerRetired(loadout.playerId)) revert PlayerIsRetired();
 
         // Cache equipment requirements and skin registry to avoid repeated external calls
+        // aderyn-fp-next-line(reentrancy-state-change)
         IEquipmentRequirements equipmentReqs = playerContract.equipmentRequirements();
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayerSkinRegistry skinRegistry = playerContract.skinRegistry();
 
         // Validate skin and equipment requirements via cached registry reference
+        // aderyn-fp-next-line(reentrancy-state-change)
         try skinRegistry.validateSkinOwnership(loadout.skin, owner) {}
         catch {
             revert InvalidSkin();
         }
+        // aderyn-fp-next-line(reentrancy-state-change)
         try skinRegistry.validateSkinRequirements(loadout.skin, playerStats.attributes, equipmentReqs) {}
         catch {
             revert InvalidLoadout();
@@ -384,6 +391,7 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     /// @param playerId The ID of the player to withdraw.
     function withdrawFromQueue(uint32 playerId) external {
         // Checks
+        // aderyn-fp-next-line(reentrancy-state-change)
         address owner = playerContract.getPlayerOwner(playerId);
         if (msg.sender != owner) revert CallerNotPlayerOwner();
         if (playerStatus[playerId] != PlayerStatus.QUEUED) {
@@ -835,6 +843,7 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                             playerStatus[playerId] = PlayerStatus.NONE;
 
                             // Re-add to queue using shared helper
+                            // aderyn-fp-next-line(storage-array-memory-edit)
                             _addPlayerToQueue(playerId, tournament.participants[i].loadout);
                         }
                     }
@@ -939,6 +948,7 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
                 activeParticipants[i] = _loadDefaultPlayerData(activePlayerId);
             } else {
                 // Use original player's loadout since they passed validation
+                // aderyn-fp-next-line(storage-array-memory-edit)
                 activeParticipants[i] = _loadPlayerData(activePlayerId, tournament.participants[i].loadout);
             }
         }
@@ -1206,11 +1216,13 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
     {
         // Reward champion
         if (_getFighterType(tournament.championId) == Fighter.FighterType.PLAYER) {
+            // aderyn-fp-next-line(storage-array-memory-edit)
             _distributeReward(tournament.id, tournament.championId, winnerRewards, randomness);
         }
 
         // Reward runner-up
         if (_getFighterType(tournament.runnerUpId) == Fighter.FighterType.PLAYER) {
+            // aderyn-fp-next-line(storage-array-memory-edit)
             _distributeReward(tournament.id, tournament.runnerUpId, runnerUpRewards, randomness);
         }
 
@@ -1221,6 +1233,7 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         for (uint256 i = semiFinalistStart; i < semiFinalistEnd; i++) {
             uint32 playerId = eliminatedByRound[i];
             if (_getFighterType(playerId) == Fighter.FighterType.PLAYER) {
+                // aderyn-fp-next-line(storage-array-memory-edit)
                 _distributeReward(tournament.id, playerId, thirdFourthRewards, randomness);
             }
         }
@@ -1326,6 +1339,7 @@ contract TournamentGame is BaseGame, ConfirmedOwner, ReentrancyGuard {
         uint256 baseHash = uint256(blockhash(futureBlock));
         if (baseHash == 0) revert InvalidBlockhash();
 
+        // aderyn-fp-next-line(weak-randomness)
         return uint256(keccak256(abi.encodePacked(baseHash, block.timestamp, block.number, gasleft(), tx.origin)));
     }
 

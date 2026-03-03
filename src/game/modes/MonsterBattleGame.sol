@@ -69,6 +69,7 @@ interface IPlayerTicketsForMonsters {
 /// @notice Allows players to fight monsters for XP and bounty rewards with real death risk
 /// @dev Integrates with VRF for fair, random combat resolution with lethality mechanics
 ///      XP Rewards: Easy (50 win/5 loss), Normal (100 win/15 loss), Hard (150 win/30 loss)
+// aderyn-fp-next-line(contract-locks-ether)
 contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
     //==============================================================//
     //                          ENUMS                               //
@@ -293,6 +294,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         returns (uint256)
     {
         // Check player level requirement for bounty hunting
+        // aderyn-fp-next-line(reentrancy-state-change)
         IPlayer.PlayerStats memory playerStats = IPlayer(playerContract).getPlayer(loadout.playerId);
         if (playerStats.level < 10) revert BountyHuntingRequiresLevel10();
 
@@ -346,6 +348,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
             revert ResetNotNeeded(currentRuns, dailyMonsterLimit);
         }
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         playerTickets.burnFrom(msg.sender, playerTickets.DAILY_RESET_TICKET(), 1);
         _playerDailyRuns[playerId][today] = 0;
         emit DailyLimitReset(playerId, today, true);
@@ -388,6 +391,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         if (battle.playerId == 0) revert BattleDoesNotExist();
         if (battle.state != BattleState.PENDING) revert BattleNotPending();
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         address playerOwner = IPlayer(playerContract).getPlayerOwner(battle.playerId);
         if (msg.sender != playerOwner) revert NotAuthorized();
 
@@ -829,6 +833,7 @@ contract MonsterBattleGame is BaseGame, VRFConsumerBaseV2Plus {
         IPlayer.PlayerStats memory playerStats = IPlayer(playerContract).getPlayer(killerPlayerId);
         (string memory firstName, string memory lastName) = IPlayer(playerContract).nameRegistry()
             .getFullName(playerStats.name.firstNameIndex, playerStats.name.surnameIndex);
+        // aderyn-fp-next-line(abi-encode-packed-hash-collision)
         string memory playerName = string(abi.encodePacked(firstName, " ", lastName));
 
         try ITrophyNFT(trophyContract)

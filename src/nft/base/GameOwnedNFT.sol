@@ -99,6 +99,7 @@ abstract contract GameOwnedNFT is ERC721, ConfirmedOwner, IPlayerSkinNFT {
     /// @return The IPFS URI for the token's metadata
     function tokenURI(uint256 id) public view override returns (string memory) {
         if (_ownerOf(id) == address(0)) revert TokenDoesNotExist();
+        // aderyn-fp-next-line(abi-encode-packed-hash-collision)
         return string(abi.encodePacked("ipfs://", _tokenCIDs[id]));
     }
 

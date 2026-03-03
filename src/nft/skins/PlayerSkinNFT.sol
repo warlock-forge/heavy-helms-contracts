@@ -38,6 +38,7 @@ error MintingDisabled();
 /// @title Player Skin NFT for Heavy Helms
 /// @notice Community mintable NFT collection for player skins
 /// @dev Extends ERC721 with public minting and owner controls
+// aderyn-fp-next-line(contract-locks-ether)
 contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, ConfirmedOwner {
     //==============================================================//
     //                      STATE VARIABLES                         //
@@ -118,6 +119,7 @@ contract PlayerSkinNFT is IPlayerSkinNFT, ERC721, ConfirmedOwner {
         if (_ownerOf(id) == address(0)) revert TokenDoesNotExist();
         // No collision risk: toString(id) is numeric-only, ".json" is a literal suffix
         // slither-disable-next-line encode-packed-collision
+        // aderyn-fp-next-line(abi-encode-packed-hash-collision)
         return string(abi.encodePacked(baseURI, toString(id), ".json"));
     }
 

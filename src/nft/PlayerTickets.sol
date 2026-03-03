@@ -183,6 +183,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     function uri(uint256 id) public view override returns (string memory) {
         // Fungible tickets (IDs 1-7) use IPFS metadata
         if (id >= 1 && id <= 7) {
+            // aderyn-fp-next-line(abi-encode-packed-hash-collision)
             return string(abi.encodePacked("ipfs://", fungibleMetadataCID, "/", LibString.toString(id), ".json"));
         }
         // Name change NFTs (IDs >= 100) use dynamic on-chain metadata
@@ -214,14 +215,19 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     {
         // Combine external seed with blockchain data to prevent manipulation
         uint256 entropy = uint256(
+            // aderyn-fp-next-line(weak-randomness)
             keccak256(
+                // aderyn-fp-next-line(weak-randomness)
                 abi.encode(seed, block.timestamp, block.prevrandao, to, nextNameChangeTokenId, address(this).balance)
             )
         );
 
         // Get current name counts from registry
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint16 setBLength = _nameRegistry.getNameSetBLength();
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint16 setALength = _nameRegistry.getNameSetALength();
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint16 surnameLength = _nameRegistry.getSurnamesLength();
 
         // Calculate total first names available
@@ -238,6 +244,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
             firstNameIndex = uint16(firstNameRandom);
         } else {
             // Selected from Set A (indices 1000+)
+            // aderyn-fp-next-line(reentrancy-state-change)
             firstNameIndex = _nameRegistry.getSetAStart() + uint16(firstNameRandom - setBLength);
         }
 
@@ -306,13 +313,18 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
     {
         // Same logic as mintNameChangeNFT but with gas-limited mint
         uint256 entropy = uint256(
+            // aderyn-fp-next-line(weak-randomness)
             keccak256(
+                // aderyn-fp-next-line(weak-randomness)
                 abi.encode(seed, block.timestamp, block.prevrandao, to, nextNameChangeTokenId, address(this).balance)
             )
         );
 
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint16 setBLength = _nameRegistry.getNameSetBLength();
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint16 setALength = _nameRegistry.getNameSetALength();
+        // aderyn-fp-next-line(reentrancy-state-change)
         uint16 surnameLength = _nameRegistry.getSurnamesLength();
         uint256 totalFirstNames = uint256(setALength) + uint256(setBLength);
 
@@ -324,6 +336,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         if (firstNameRandom < setBLength) {
             firstNameIndex = uint16(firstNameRandom);
         } else {
+            // aderyn-fp-next-line(reentrancy-state-change)
             firstNameIndex = _nameRegistry.getSetAStart() + uint16(firstNameRandom - setBLength);
         }
         // entropy source is Chainlink VRF, not block.timestamp
@@ -407,6 +420,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
                 }
             }
             // Load the returndata and compare it with the function selector.
+            // aderyn-fp-next-line(incorrect-shift-order)
             if iszero(eq(mload(m), shl(224, 0xf23a6e61))) {
                 mstore(0x00, 0x9c05499b) // `TransferToNonERC1155ReceiverImplementer()`.
                 revert(0x1c, 0x04)
@@ -518,6 +532,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
 
         // Generate SVG image with IPFS background and dynamic name overlay
         string memory svg = string(
+            // aderyn-fp-next-line(abi-encode-packed-hash-collision)
             abi.encodePacked(
                 '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">',
                 '<image href="ipfs://',
@@ -534,6 +549,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
 
         // Generate JSON metadata
         string memory json = string(
+            // aderyn-fp-next-line(abi-encode-packed-hash-collision)
             abi.encodePacked(
                 "{",
                 '"name":"Name Change: ',
@@ -565,6 +581,7 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
             )
         );
 
+        // aderyn-fp-next-line(abi-encode-packed-hash-collision)
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
     }
 }

@@ -202,6 +202,7 @@ contract PracticeGame is BaseGame, ConfirmedOwner {
         if (fighterType == Fighter.FighterType.PLAYER) {
             require(
                 !playerContract.isPlayerRetired(fighter.playerId),
+                // aderyn-fp-next-line(abi-encode-packed-hash-collision)
                 string(abi.encodePacked("Player ", bytes1(playerNumber + 48), " is retired"))
             );
 
@@ -297,6 +298,7 @@ contract PracticeGame is BaseGame, ConfirmedOwner {
     /// @param player2Id ID of the second fighter
     /// @return A pseudo-random number derived from block data and fighter IDs
     function _generatePseudoRandomSeed(uint32 player1Id, uint32 player2Id) private view returns (uint256) {
+        // aderyn-fp-next-line(weak-randomness)
         return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, player1Id, player2Id)));
     }
 }

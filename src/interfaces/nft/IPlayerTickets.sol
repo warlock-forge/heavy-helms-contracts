@@ -14,6 +14,7 @@ pragma solidity ^0.8.13;
 /// @title Player Tickets Interface for Heavy Helms
 /// @notice Defines functionality for game reward tickets and NFTs
 /// @dev Used by game contracts to mint rewards for players
+// aderyn-fp-next-line(reused-contract-name)
 interface IPlayerTickets {
     //==============================================================//
     //                          ENUMS                               //

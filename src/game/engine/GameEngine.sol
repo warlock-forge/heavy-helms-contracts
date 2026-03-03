@@ -749,6 +749,7 @@ contract GameEngine is IGameEngine {
         uint32 withMin = adjustedHitChance < 70 ? 70 : adjustedHitChance;
         uint32 withBothBounds = withMin > 95 ? 95 : withMin;
 
+        // aderyn-fp-next-line(unsafe-casting)
         return uint8(withBothBounds);
     }
 
@@ -865,7 +866,9 @@ contract GameEngine is IGameEngine {
 
         // BLOOD IN THE WATER: Apply stamina-based combat modifiers
         CalculatedCombatStats memory modifiedAttacker =
+            // aderyn-fp-next-line(unsafe-casting)
             applyStaminaModifiers(attacker, uint32(defenderStamina), defender.stats.maxEndurance);
+        // aderyn-fp-next-line(unsafe-casting)
         CalculatedCombatStats memory modifiedDefender = applyDefensivePenalties(defender, uint32(defenderStamina));
 
         // Hit check with predator bonuses
@@ -1130,6 +1133,7 @@ contract GameEngine is IGameEngine {
 
         // Cap the dodge chance
         uint32 cappedDodge = adjustedDodgeChance > 70 ? 70 : adjustedDodgeChance;
+        // aderyn-fp-next-line(unsafe-casting)
         return uint16(cappedDodge);
     }
 
@@ -1143,7 +1147,9 @@ contract GameEngine is IGameEngine {
     ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         // BLOOD IN THE WATER: Apply stamina modifiers for counter attacks
         CalculatedCombatStats memory modifiedDefender =
+            // aderyn-fp-next-line(unsafe-casting)
             applyStaminaModifiers(defender, uint32(targetStamina), target.stats.maxEndurance);
+        // aderyn-fp-next-line(unsafe-casting)
         CalculatedCombatStats memory modifiedTarget = applyDefensivePenalties(target, uint32(targetStamina));
         uint16 counterDamage;
         (counterDamage, seed) = calculateDamage(modifiedDefender, seed);
