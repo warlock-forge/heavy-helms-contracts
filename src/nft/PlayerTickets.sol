@@ -228,8 +228,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         uint256 totalFirstNames = uint256(setALength) + uint256(setBLength);
 
         // Pick a random first name with proportional probability
-        // slither-disable-next-line weak-prng
         // entropy source is Chainlink VRF, not block.timestamp
+        // slither-disable-next-line weak-prng
         uint256 firstNameRandom = entropy % totalFirstNames;
         uint16 firstNameIndex;
 
@@ -242,8 +242,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         }
 
         // Pick a random surname using different part of entropy
-        // slither-disable-next-line weak-prng
         // entropy source is Chainlink VRF, not block.timestamp
+        // slither-disable-next-line weak-prng
         uint16 surnameIndex = uint16((entropy >> 128) % surnameLength);
 
         // Create the NFT with the randomized indices
@@ -316,8 +316,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         uint16 surnameLength = _nameRegistry.getSurnamesLength();
         uint256 totalFirstNames = uint256(setALength) + uint256(setBLength);
 
-        // slither-disable-next-line weak-prng
         // entropy source is Chainlink VRF, not block.timestamp
+        // slither-disable-next-line weak-prng
         uint256 firstNameRandom = entropy % totalFirstNames;
         uint16 firstNameIndex;
 
@@ -326,9 +326,8 @@ contract PlayerTickets is ERC1155, ConfirmedOwner {
         } else {
             firstNameIndex = _nameRegistry.getSetAStart() + uint16(firstNameRandom - setBLength);
         }
-
-        // slither-disable-next-line weak-prng
         // entropy source is Chainlink VRF, not block.timestamp
+        // slither-disable-next-line weak-prng
         uint16 surnameIndex = uint16((entropy >> 128) % surnameLength);
 
         tokenId = nextNameChangeTokenId++;
