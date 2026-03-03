@@ -1,0 +1,17 @@
+name: Simulation Tests
+on:
+  workflow_dispatch:
+
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: ./.github/actions/setup-foundry
+
+      - name: Run simulation tests
+        env:
+          FOUNDRY_PROFILE: simulation
+        run: forge test -vv

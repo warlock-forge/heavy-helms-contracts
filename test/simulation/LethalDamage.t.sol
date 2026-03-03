@@ -28,7 +28,7 @@ contract LethalDamageTest is TestBase {
         PLAYER_TWO = address(0x2222);
     }
 
-    function test_NonLethalMode() public skipInCI {
+    function test_NonLethalMode() public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
@@ -69,7 +69,7 @@ contract LethalDamageTest is TestBase {
         assertTrue(condition != IGameEngine.WinCondition.DEATH, "Death should not occur in non-lethal mode");
     }
 
-    function test_BaseLethalMode() public skipInCI {
+    function test_BaseLethalMode() public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
@@ -122,7 +122,7 @@ contract LethalDamageTest is TestBase {
         assertTrue(deathCount > 0, "Should have some deaths in lethal mode");
     }
 
-    function test_HighLethalityMode() public skipInCI {
+    function test_HighLethalityMode() public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
@@ -175,7 +175,7 @@ contract LethalDamageTest is TestBase {
         assertTrue(deathCount > 0, "Should have deaths in high lethality mode");
     }
 
-    function test_MixedLoadoutLethalMode() public skipInCI {
+    function test_MixedLoadoutLethalMode() public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
@@ -229,7 +229,7 @@ contract LethalDamageTest is TestBase {
         //assertTrue(deathCount < totalFights / 2, "Should have lower death rate with defensive loadout");
     }
 
-    function test_ExtraBrutalLethalityMode() public skipInCI {
+    function test_ExtraBrutalLethalityMode() public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 

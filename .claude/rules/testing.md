@@ -79,7 +79,10 @@ If deterministic testing is being done, ensure that the `foundry.toml` file has 
 
 ## CI Considerations
 
-- Use `skipInCI` modifier for long-running balance tests
+- Non-deterministic simulation tests (balance, progression, lethality, tournament gas) live in `test/simulation/`
+- The default Foundry profile excludes `test/simulation/*` via `no_match_path` — `forge test` only runs unit tests
+- Run simulations locally with `FOUNDRY_PROFILE=simulation forge test -vv`
+- The `skipInCI` modifier still exists in `TestBase.sol` for VRF integration tests in `Player.t.sol`
 
 ## Critical Test Areas
 

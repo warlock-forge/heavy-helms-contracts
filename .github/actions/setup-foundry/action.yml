@@ -1,0 +1,35 @@
+name: Setup Foundry
+description: Install Foundry, cache dependencies, build contracts
+
+runs:
+  using: composite
+  steps:
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: stable
+
+    - run: forge --version
+      shell: bash
+
+    - name: Cache dependencies
+      id: cache-deps
+      uses: actions/cache@v4
+      with:
+        path: lib
+        key: foundry-deps-${{ hashFiles('.github/actions/setup-foundry/action.yml') }}
+
+    - name: Install dependencies
+      if: steps.cache-deps.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        forge install --no-git \
+          foundry-rs/forge-std@v1.15.0 \
+          bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 \
+          vectorized/solady@v0.1.24 \
+          smartcontractkit/chainlink-evm@v0.3.2 \
+          OpenZeppelin/openzeppelin-contracts@v4.9.6
+
+    - name: Build contracts
+      shell: bash
+      run: forge build

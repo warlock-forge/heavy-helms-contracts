@@ -7,33 +7,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
-
-      - run: forge --version
-
-      - name: Install deps
-        run: |
-          forge install --no-git \
-            foundry-rs/forge-std@v1.15.0 \
-            bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 \
-            vectorized/solady@v0.1.24 \
-            smartcontractkit/chainlink-evm@v0.3.2 \
-            OpenZeppelin/openzeppelin-contracts@v4.9.6
+      - name: Setup Foundry
+        uses: ./.github/actions/setup-foundry
 
       - name: Check formatting
         run: forge fmt --check
 
-      - name: Build contracts
-        run: forge build
-
       - name: Run tests
-        run: forge test -vvv
+        run: forge test -vv
 
+      - name: Check gas snapshots
+        run: forge snapshot --check --tolerance 10
+
+      # coverage requires via_ir disabled, --ir-minimum is the workaround.
+      # continue-on-error: BalanceTest.t.sol exceeds stack limits even with
+      # minimum IR optimization — known Foundry limitation
       - name: Run coverage
-        run: forge coverage
+        run: forge coverage --ir-minimum --report summary
         continue-on-error: true
 
   static-analysis:
@@ -41,22 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
-
-      - name: Install deps
-        run: |
-          forge install --no-git \
-            foundry-rs/forge-std@v1.15.0 \
-            bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 \
-            vectorized/solady@v0.1.24 \
-            smartcontractkit/chainlink-evm@v0.3.2 \
-            OpenZeppelin/openzeppelin-contracts@v4.9.6
-
-      - name: Build
-        run: forge build
+      - name: Setup Foundry
+        uses: ./.github/actions/setup-foundry
 
       - name: Install Slither
         run: pip install slither-analyzer

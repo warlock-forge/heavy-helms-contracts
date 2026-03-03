@@ -57,19 +57,19 @@ contract TournamentGasAnalysisTest is TestBase {
 
     // Tournaments only support sizes 16, 32, 64
 
-    function test16PlayerTournament3Transaction() public skipInCI {
+    function test16PlayerTournament3Transaction() public {
         _testTournamentSize(16);
     }
 
-    function test32PlayerTournament3Transaction() public skipInCI {
+    function test32PlayerTournament3Transaction() public {
         _testTournamentSize(32);
     }
 
-    function test64PlayerTournament3Transaction() public skipInCI {
+    function test64PlayerTournament3Transaction() public {
         _testTournamentSize(64);
     }
 
-    function test64PlayerTournamentFrom500Queue() public skipInCI {
+    function test64PlayerTournamentFrom500Queue() public {
         console2.log("=== TESTING 64 PLAYER TOURNAMENT FROM 500 QUEUE (REALISTIC SCENARIO) ===");
 
         // Set tournament size

@@ -231,14 +231,9 @@ Convert enum values to readable strings for logging.
 ```solidity
 modifier skipInCI()
 ```
-Skips test execution if `CI` environment variable is set.
+Skips test execution if `CI` environment variable is set. Only used for slow VRF integration tests in `Player.t.sol` (e.g., `testNameRandomness`).
 
-**Usage:**
-```solidity
-function testLongRunning() public skipInCI {
-    // Only runs locally
-}
-```
+**Note:** Combat simulation tests (balance, progression, lethality) live in `test/simulation/` and are excluded by the default Foundry profile via `no_match_path` — they do NOT use `skipInCI`. Run them with `FOUNDRY_PROFILE=simulation forge test -vv`.
 
 ## VRF Mock Configuration
 

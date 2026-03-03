@@ -12,6 +12,9 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
+# Exclude non-deterministic simulation tests from default test runs
+no_match_path = "test/simulation/*"
+
 # Remappings
 remappings = [
       "forge-std/=lib/forge-std/src/",
@@ -20,3 +23,7 @@ remappings = [
       "@chainlink/contracts/=lib/chainlink-evm/contracts/",
       "@openzeppelin/contracts@4.9.6/=lib/openzeppelin-contracts/contracts/"
 ]
+
+[profile.simulation]
+no_match_path = "NONE"
+match_path = "test/simulation/*"

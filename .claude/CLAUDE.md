@@ -13,10 +13,13 @@ forge build
 ### Test
 
 ```bash
-forge test                    # Run all tests
+forge test                    # Run unit tests only (default profile excludes test/simulation/)
 forge test -vv               # Run with verbose output
 forge test --match-test      # Run specific test function
 forge test --match-contract  # Run specific test contract
+
+# Simulation tests (balance, progression, lethality, tournament gas)
+FOUNDRY_PROFILE=simulation forge test -vv
 ```
 
 ### Deployment & Scripts
@@ -31,7 +34,7 @@ forge script <script-path>                # Dry run without broadcasting
 ```bash
 forge fmt         # Format Solidity code
 forge coverage    # Generate test coverage report
-forge snapshot    # Create gas snapshots for tests
+forge snapshot    # Create gas snapshots (unit tests only, excludes simulation)
 ```
 
 ## Fighter ID Ranges

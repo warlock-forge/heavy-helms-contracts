@@ -492,7 +492,7 @@ contract GameEngineProgressionTest is TestBase {
 
     // ==================== LEVEL PROGRESSION TESTS ====================
 
-    function testAssassinProgression() public skipInCI {
+    function testAssassinProgression() public {
         TestFighter memory assassinL1 = createLeveledAssassin(0);
         TestFighter memory assassinL10 = createLeveledAssassin(9);
 
@@ -500,7 +500,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(assassinL10, assassinL1, 75, 100);
     }
 
-    function testBerserkerProgression() public skipInCI {
+    function testBerserkerProgression() public {
         TestFighter memory berserkerL1 = createLeveledBerserker(0);
         TestFighter memory berserkerL10 = createLeveledBerserker(9);
 
@@ -508,7 +508,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(berserkerL10, berserkerL1, 75, 100);
     }
 
-    function testShieldTankProgression() public skipInCI {
+    function testShieldTankProgression() public {
         TestFighter memory tankL1 = createLeveledShieldTank(0);
         TestFighter memory tankL10 = createLeveledShieldTank(9);
 
@@ -516,7 +516,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(tankL10, tankL1, 90, 100);
     }
 
-    function testMonkProgression() public skipInCI {
+    function testMonkProgression() public {
         TestFighter memory monkL1 = createLeveledMonk(0);
         TestFighter memory monkL10 = createLeveledMonk(9);
 
@@ -524,7 +524,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(monkL10, monkL1, 80, 100);
     }
 
-    function testParryMasterProgression() public skipInCI {
+    function testParryMasterProgression() public {
         TestFighter memory parryL1 = createLeveledParryMaster(0);
         TestFighter memory parryL10 = createLeveledParryMaster(9);
 
@@ -532,7 +532,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(parryL10, parryL1, 80, 100);
     }
 
-    function testVanguardProgression() public skipInCI {
+    function testVanguardProgression() public {
         TestFighter memory vanguardL1 = createLeveledVanguard(0);
         TestFighter memory vanguardL10 = createLeveledVanguard(9);
 
@@ -542,7 +542,7 @@ contract GameEngineProgressionTest is TestBase {
 
     // ==================== CROSS-ARCHETYPE PROGRESSION TESTS ====================
 
-    function testLeveledAssassinVsBaseBerserker() public skipInCI {
+    function testLeveledAssassinVsBaseBerserker() public {
         TestFighter memory assassinL10 = createLeveledAssassin(9);
         TestFighter memory berserkerL1 = createLeveledBerserker(0);
 
@@ -551,7 +551,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(assassinL10, berserkerL1, 90, 100);
     }
 
-    function testLeveledMonkVsBaseShieldTank() public skipInCI {
+    function testLeveledMonkVsBaseShieldTank() public {
         TestFighter memory monkL10 = createLeveledMonk(9);
         TestFighter memory tankL1 = createLeveledShieldTank(0);
 
@@ -560,7 +560,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(monkL10, tankL1, 60, 100);
     }
 
-    function testLeveledTankVsBaseAssassin() public skipInCI {
+    function testLeveledTankVsBaseAssassin() public {
         TestFighter memory tankL10 = createLeveledShieldTank(9);
         TestFighter memory assassinL1 = createLeveledAssassin(0);
 
@@ -569,7 +569,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(tankL10, assassinL1, 90, 100);
     }
 
-    function testLeveledParryMasterVsBaseBruiser() public skipInCI {
+    function testLeveledParryMasterVsBaseBruiser() public {
         TestFighter memory parryL10 = createLeveledParryMaster(9);
         TestFighter memory bruiserL1 = createLeveledBruiser(0);
 
@@ -579,7 +579,7 @@ contract GameEngineProgressionTest is TestBase {
 
     // ==================== MAX STAT TESTS ====================
 
-    function testMaxStatAssassinVsMaxStatBerserker() public skipInCI {
+    function testMaxStatAssassinVsMaxStatBerserker() public {
         // Both at max stats (L10+)
         TestFighter memory assassinMax = createLeveledAssassin(12); // 12 points to max both AGI and STR
         TestFighter memory berserkerMax = createLeveledBerserker(12); // 12 points to max both STR and SIZE
@@ -588,7 +588,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(assassinMax, berserkerMax, 75, 100);
     }
 
-    function testMaxStatMonkVsMaxStatShieldTank() public skipInCI {
+    function testMaxStatMonkVsMaxStatShieldTank() public {
         // Both at max stats
         TestFighter memory monkMax = createLeveledMonk(12); // 12 points to max AGI and CON
         TestFighter memory tankMax = createLeveledShieldTank(12); // 12 points to max CON and SIZE
@@ -600,7 +600,7 @@ contract GameEngineProgressionTest is TestBase {
     // ==================== MINIMAL PROGRESSION TESTS ====================
     // Testing that even small amounts of progression matter
 
-    function testMinimalProgressionAssassin() public skipInCI {
+    function testMinimalProgressionAssassin() public {
         TestFighter memory assassinL1 = createLeveledAssassin(0);
         TestFighter memory assassinL3 = createLeveledAssassin(2); // Just 2 attribute points
 
@@ -608,7 +608,7 @@ contract GameEngineProgressionTest is TestBase {
         runProgressionTest(assassinL3, assassinL1, 70, 95);
     }
 
-    function testMinimalProgressionBerserker() public skipInCI {
+    function testMinimalProgressionBerserker() public {
         TestFighter memory berserkerL1 = createLeveledBerserker(0);
         TestFighter memory berserkerL3 = createLeveledBerserker(2); // Just 2 attribute points
 
@@ -619,7 +619,7 @@ contract GameEngineProgressionTest is TestBase {
     // ==================== LEVEL SCALING PLACEHOLDER ====================
     // These tests demonstrate where we might add level-based scaling beyond attributes
 
-    function testLevelScalingPlaceholder() public skipInCI {
+    function testLevelScalingPlaceholder() public {
         // This test demonstrates the complete v1.0 level progression system
         // Includes 5%/5% health/damage scaling + attribute points + specializations
 

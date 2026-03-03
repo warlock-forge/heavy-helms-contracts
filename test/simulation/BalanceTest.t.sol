@@ -386,7 +386,7 @@ contract BalanceTest is TestBase {
     // ==================== ARCHETYPE VALIDATION TESTS ====================
 
     // Test all Shield Tank variants vs Assassin variants
-    function testShieldTankArchetypeVsAssassinArchetype() public skipInCI {
+    function testShieldTankArchetypeVsAssassinArchetype() public {
         // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
         uint8[] memory shieldTankWeapons = new uint8[](4);
         shieldTankWeapons[0] = 1; // MACE_TOWER
@@ -468,7 +468,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test all Parry Master variants vs Bruiser variants
-    function testParryMasterArchetypeVsBruiserArchetype() public skipInCI {
+    function testParryMasterArchetypeVsBruiserArchetype() public {
         // Parry Master weapons: RAPIER_BUCKLER, SCIMITAR_BUCKLER, SHORTSWORD_BUCKLER, RAPIER_DAGGER, SCIMITAR_DAGGER
         uint8[] memory parryWeapons = new uint8[](5);
         parryWeapons[0] = 2; // RAPIER_BUCKLER
@@ -557,7 +557,7 @@ contract BalanceTest is TestBase {
     // Test Assassin archetype consistency: REMOVED - no mage archetype to test against
 
     // Test all Berserker variants vs Shield Tank variants
-    function testBerserkerArchetypeVsShieldTankArchetype() public skipInCI {
+    function testBerserkerArchetypeVsShieldTankArchetype() public {
         // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL (all HEAVY_DEMOLITION: STR+SIZE)
         uint8[] memory berserkerWeapons = new uint8[](3);
         berserkerWeapons[0] = 4; // BATTLEAXE
@@ -636,7 +636,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Assassin archetype vs Berserker archetype (assassins should counter)
-    function testAssassinArchetypeVsBerserkerArchetype() public skipInCI {
+    function testAssassinArchetypeVsBerserkerArchetype() public {
         // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -717,7 +717,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Vanguard archetype vs Bruiser archetype (vanguards should counter)
-    function testVanguardArchetypeVsBruiserArchetype() public skipInCI {
+    function testVanguardArchetypeVsBruiserArchetype() public {
         // Vanguard weapons: GREATSWORD, AXE_KITE, QUARTERSTAFF, MACE_KITE
         uint8[] memory vanguardWeapons = new uint8[](4);
         vanguardWeapons[0] = 3; // GREATSWORD
@@ -798,7 +798,7 @@ contract BalanceTest is TestBase {
     // Test Mage archetype: REMOVED - Mage archetype eliminated from game
 
     // Test Bruiser archetype vs Shield Tank archetype (bruisers should have advantage - blunt vs plate)
-    function testBruiserArchetypeVsShieldTankArchetype() public skipInCI {
+    function testBruiserArchetypeVsShieldTankArchetype() public {
         // Bruiser weapons: DUAL_WIELD_BRUTE weapons ONLY (no shields!)
         uint8[] memory bruiserWeapons = new uint8[](4);
         bruiserWeapons[0] = 18; // DUAL_CLUBS (DUAL_WIELD_BRUTE)
@@ -878,7 +878,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Parry Master archetype vs Berserker archetype (parry masters should counter)
-    function testParryMasterArchetypeVsBerserkerArchetype() public skipInCI {
+    function testParryMasterArchetypeVsBerserkerArchetype() public {
         // Parry Master weapons: RAPIER_BUCKLER, SCIMITAR_BUCKLER, SHORTSWORD_BUCKLER, RAPIER_DAGGER, SCIMITAR_DAGGER
         uint8[] memory parryWeapons = new uint8[](5);
         parryWeapons[0] = 2; // RAPIER_BUCKLER
@@ -958,7 +958,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Bruiser archetype (monks should counter with reach and technique)
-    function testMonkArchetypeVsBruiserArchetype() public skipInCI {
+    function testMonkArchetypeVsBruiserArchetype() public {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1034,7 +1034,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Berserker archetype (monks should counter with reach and mobility)
-    function testMonkArchetypeVsBerserkerArchetype() public skipInCI {
+    function testMonkArchetypeVsBerserkerArchetype() public {
         // Monk weapons: QUARTERSTAFF, SPEAR, TRIDENT
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
@@ -1113,7 +1113,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Assassin archetype (assassins should win with speed and damage)
-    function testMonkArchetypeVsAssassinArchetype() public skipInCI {
+    function testMonkArchetypeVsAssassinArchetype() public {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1186,7 +1186,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Shield Tank archetype (tanks should absorb reach advantage)
-    function testMonkArchetypeVsShieldTankArchetype() public skipInCI {
+    function testMonkArchetypeVsShieldTankArchetype() public {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1261,7 +1261,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Parry Master archetype (parry masters should counter with technique)
-    function testMonkArchetypeVsParryMasterArchetype() public skipInCI {
+    function testMonkArchetypeVsParryMasterArchetype() public {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1337,7 +1337,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Vanguard archetype (should be competitive)
-    function testMonkArchetypeVsVanguardArchetype() public skipInCI {
+    function testMonkArchetypeVsVanguardArchetype() public {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1416,7 +1416,7 @@ contract BalanceTest is TestBase {
     // Getting ~50% against most archetypes is actually the CORRECT behavior for Balanced
 
     // TEST: Balanced should not dominate other archetypes
-    function testBalancedArchetypeVsAssassinArchetype() public skipInCI {
+    function testBalancedArchetypeVsAssassinArchetype() public {
         // Balanced weapons: ARMING_SWORD_KITE, ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, MACE_KITE
         uint8[] memory balancedWeapons = new uint8[](4);
         balancedWeapons[0] = 0; // ARMING_SWORD_KITE
@@ -1494,7 +1494,7 @@ contract BalanceTest is TestBase {
         );
     }
 
-    function testBalancedArchetypeVsBerserkerArchetype() public skipInCI {
+    function testBalancedArchetypeVsBerserkerArchetype() public {
         // Balanced weapons: ARMING_SWORD_KITE, ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, MACE_KITE
         uint8[] memory balancedWeapons = new uint8[](4);
         balancedWeapons[0] = 0; // ARMING_SWORD_KITE
@@ -1573,7 +1573,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Assassin archetype vs Parry Master archetype (speed vs technique - should be competitive)
-    function testAssassinArchetypeVsParryMasterArchetype() public skipInCI {
+    function testAssassinArchetypeVsParryMasterArchetype() public {
         // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -1653,7 +1653,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Assassin archetype vs Bruiser archetype (finesse vs brute force - assassins should counter)
-    function testAssassinArchetypeVsBruiserArchetype() public skipInCI {
+    function testAssassinArchetypeVsBruiserArchetype() public {
         // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -1733,7 +1733,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Shield Tank archetype vs Parry Master archetype (heavy defense vs technical defense - shields should dominate)
-    function testShieldTankArchetypeVsParryMasterArchetype() public skipInCI {
+    function testShieldTankArchetypeVsParryMasterArchetype() public {
         // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
         uint8[] memory shieldTankWeapons = new uint8[](4);
         shieldTankWeapons[0] = 1; // MACE_TOWER

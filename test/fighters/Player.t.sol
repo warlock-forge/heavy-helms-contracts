@@ -67,7 +67,7 @@ contract PlayerTest is TestBase {
         PLAYER_TWO = address(0x2222);
     }
 
-    function testCreatePlayerWithVRF() public skipInCI {
+    function testCreatePlayerWithVRF() public {
         // Create player and verify ownership
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 

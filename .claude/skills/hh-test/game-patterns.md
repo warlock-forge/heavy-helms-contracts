@@ -29,7 +29,7 @@ uint32 playerId = _getPlayerIdFromLogs(PLAYER_ONE, requestId);
 
 ### Stat Distribution Testing
 ```solidity
-function test_statDistribution() public skipInCI {
+function test_statDistribution() public {
     uint256 maxStats;
     uint256 highStats;
     uint256 medStats;

@@ -315,8 +315,47 @@ forge script script/deploy/TournamentGameDeploy.s.sol \
 # 4. Note the VRF Coordinator address, subscription ID, and key hash for deployments
 ```
 
-### Test
+### Testing
 
-```shell
-$ forge test
+Tests are split into two categories via Foundry profiles:
+
+**Unit tests** (`test/game/`, `test/fighters/`, etc.) — deterministic, fast (~10s):
+
+```bash
+forge test              # Run all unit tests
+forge test -vv          # Verbose output
+forge test --match-test testFunctionName   # Run specific test
+forge test --match-contract ContractName   # Run specific contract
 ```
+
+**Simulation tests** (`test/simulation/`) — non-deterministic combat simulations (balance matchups, progression scaling, lethality, tournament gas analysis). These run hundreds of fights and assert win rates within ranges:
+
+```bash
+FOUNDRY_PROFILE=simulation forge test -vv          # Run all simulations
+FOUNDRY_PROFILE=simulation forge test -vv --match-contract BalanceTest  # Specific simulation
+```
+
+The default Foundry profile excludes `test/simulation/*` via `no_match_path` in `foundry.toml`, so `forge test` always runs only unit tests.
+
+### Gas Snapshots
+
+Gas snapshots are tracked in `.gas-snapshot` and checked in CI with 10% tolerance:
+
+```bash
+forge snapshot                          # Regenerate snapshot
+forge snapshot --check --tolerance 10   # Verify against committed snapshot
+```
+
+Only unit tests are included in the snapshot (simulation tests are excluded by the default profile).
+
+### CI Pipeline
+
+The CI workflow (`.github/workflows/ci.yml`) runs on push/PR:
+
+1. **Format check** — `forge fmt --check`
+2. **Unit tests** — `forge test -vv`
+3. **Gas snapshots** — `forge snapshot --check --tolerance 10`
+4. **Coverage** — `forge coverage --ir-minimum --report summary`
+5. **Static analysis** — Slither + Aderyn
+
+Simulation tests can be run manually from the GitHub Actions tab via the **Simulation Tests** workflow (`workflow_dispatch`).
