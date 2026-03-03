@@ -866,8 +866,8 @@ contract GameEngine is IGameEngine {
 
         // BLOOD IN THE WATER: Apply stamina-based combat modifiers
         CalculatedCombatStats memory modifiedAttacker =
-            // aderyn-fp-next-line(unsafe-casting)
-            applyStaminaModifiers(attacker, uint32(defenderStamina), defender.stats.maxEndurance);
+        // aderyn-fp-next-line(unsafe-casting)
+        applyStaminaModifiers(attacker, uint32(defenderStamina), defender.stats.maxEndurance);
         // aderyn-fp-next-line(unsafe-casting)
         CalculatedCombatStats memory modifiedDefender = applyDefensivePenalties(defender, uint32(defenderStamina));
 
@@ -1147,8 +1147,8 @@ contract GameEngine is IGameEngine {
     ) private pure returns (uint8 result, uint16 damage, uint8 staminaCost, uint256 nextSeed) {
         // BLOOD IN THE WATER: Apply stamina modifiers for counter attacks
         CalculatedCombatStats memory modifiedDefender =
-            // aderyn-fp-next-line(unsafe-casting)
-            applyStaminaModifiers(defender, uint32(targetStamina), target.stats.maxEndurance);
+        // aderyn-fp-next-line(unsafe-casting)
+        applyStaminaModifiers(defender, uint32(targetStamina), target.stats.maxEndurance);
         // aderyn-fp-next-line(unsafe-casting)
         CalculatedCombatStats memory modifiedTarget = applyDefensivePenalties(target, uint32(targetStamina));
         uint16 counterDamage;
