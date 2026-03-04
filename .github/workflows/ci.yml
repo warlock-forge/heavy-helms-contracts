@@ -16,12 +16,20 @@ jobs:
       - name: Run tests
         run: forge test -vv
 
-      # coverage requires via_ir disabled, --ir-minimum is the workaround.
-      # continue-on-error: BalanceTest.t.sol exceeds stack limits even with
-      # minimum IR optimization — known Foundry limitation
+      # coverage requires via_ir disabled, --ir-minimum is the workaround
       - name: Run coverage
-        run: forge coverage --ir-minimum --report summary
-        continue-on-error: true
+        run: forge coverage --ir-minimum --report summary --report lcov
+
+      - name: Filter test/script from coverage
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -yqq lcov > /dev/null
+          lcov --remove lcov.info 'test/*' 'script/*' --output-file lcov.info --rc lcov_branch_coverage=1
+
+      - name: Enforce minimum coverage
+        uses: zgosalvez/github-actions-report-lcov@v4
+        with:
+          coverage-files: ./lcov.info
+          minimum-coverage: 80
 
   static-analysis:
     runs-on: ubuntu-latest

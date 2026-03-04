@@ -22,6 +22,7 @@ contract BalanceTest is TestBase {
 
     // Test iterations for statistical significance
     uint256 private matchCount = 100;
+    uint256 private constant ARCHETYPE_TEST_ROUNDS = 25;
 
     struct MatchStatistics {
         uint256 wins;
@@ -403,7 +404,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalShieldWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25; // Reduced for multiple combinations
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < shieldTankWeapons.length; i++) {
@@ -436,7 +437,7 @@ contract BalanceTest is TestBase {
 
                 // Run reduced test set
                 uint256 shieldWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -449,7 +450,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalShieldWins += shieldWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -486,7 +487,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalParryWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < parryWeapons.length; i++) {
@@ -518,7 +519,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 parryWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -530,7 +531,7 @@ contract BalanceTest is TestBase {
                     if (parryWon) parryWins++;
                 }
 
-                uint256 individualWinRate = (parryWins * 100) / testRounds;
+                uint256 individualWinRate = (parryWins * 100) / ARCHETYPE_TEST_ROUNDS;
 
                 // Log each individual matchup for debugging
                 emit log_named_uint("Parry weapon", parryWeapons[i]);
@@ -538,7 +539,7 @@ contract BalanceTest is TestBase {
                 emit log_named_uint("Win rate", individualWinRate);
 
                 totalParryWins += parryWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -573,7 +574,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalBerserkerWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < berserkerWeapons.length; i++) {
@@ -605,7 +606,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 berserkerWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -618,7 +619,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalBerserkerWins += berserkerWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -652,7 +653,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < assassinWeapons.length; i++) {
@@ -686,7 +687,7 @@ contract BalanceTest is TestBase {
                 uint256 assassinWins = 0;
                 console.log("Assassin weapon:", assassinWeapons[i]);
                 console.log("Berserker weapon:", berserkerWeapons[j]);
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
 
@@ -697,9 +698,9 @@ contract BalanceTest is TestBase {
                     if (assassinWon) assassinWins++;
                 }
 
-                console.log("Win rate:", (assassinWins * 100) / testRounds);
+                console.log("Win rate:", (assassinWins * 100) / ARCHETYPE_TEST_ROUNDS);
                 totalAssassinWins += assassinWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -734,7 +735,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalVanguardWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < vanguardWeapons.length; i++) {
@@ -766,7 +767,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 vanguardWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -779,7 +780,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalVanguardWins += vanguardWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -815,7 +816,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalBruiserWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < bruiserWeapons.length; i++) {
@@ -847,7 +848,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 bruiserWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -860,7 +861,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalBruiserWins += bruiserWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -895,7 +896,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalParryWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < parryWeapons.length; i++) {
@@ -927,7 +928,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 parryWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -940,7 +941,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalParryWins += parryWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -972,7 +973,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
@@ -1004,7 +1005,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 monkWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1017,7 +1018,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalMonkWins += monkWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1049,7 +1050,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
@@ -1081,7 +1082,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 monkWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1094,7 +1095,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalMonkWins += monkWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1127,7 +1128,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
@@ -1159,7 +1160,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 monkWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1172,7 +1173,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalMonkWins += monkWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1200,7 +1201,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
@@ -1232,7 +1233,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 monkWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1245,7 +1246,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalMonkWins += monkWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1276,7 +1277,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
@@ -1308,7 +1309,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 monkWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1321,7 +1322,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalMonkWins += monkWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1351,7 +1352,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
@@ -1383,7 +1384,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 monkWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1396,7 +1397,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalMonkWins += monkWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1433,7 +1434,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalBalancedWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < balancedWeapons.length; i++) {
@@ -1465,7 +1466,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 balancedWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1478,7 +1479,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalBalancedWins += balancedWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1510,7 +1511,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalBalancedWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < balancedWeapons.length; i++) {
@@ -1542,7 +1543,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 balancedWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1555,7 +1556,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalBalancedWins += balancedWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1591,7 +1592,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < assassinWeapons.length; i++) {
@@ -1623,7 +1624,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 assassinWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1636,7 +1637,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalAssassinWins += assassinWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1670,7 +1671,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < assassinWeapons.length; i++) {
@@ -1702,7 +1703,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 assassinWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1715,7 +1716,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalAssassinWins += assassinWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 
@@ -1751,7 +1752,7 @@ contract BalanceTest is TestBase {
 
         uint256 totalShieldWins = 0;
         uint256 totalMatches = 0;
-        uint256 testRounds = 25;
+
         uint256 baseSeed = _generateTestSeed();
 
         for (uint256 i = 0; i < shieldTankWeapons.length; i++) {
@@ -1783,7 +1784,7 @@ contract BalanceTest is TestBase {
                 );
 
                 uint256 shieldWins = 0;
-                for (uint256 k = 0; k < testRounds; k++) {
+                for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
                     vm.roll(block.number + 1);
                     vm.warp(block.timestamp + 15);
                     vm.roll(block.number + 1);
@@ -1796,7 +1797,7 @@ contract BalanceTest is TestBase {
                 }
 
                 totalShieldWins += shieldWins;
-                totalMatches += testRounds;
+                totalMatches += ARCHETYPE_TEST_ROUNDS;
             }
         }
 

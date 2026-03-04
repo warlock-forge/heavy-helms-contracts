@@ -15,5 +15,8 @@ cache/
 out/
 /lib/
 
+# Coverage artifacts
+lcov.info
+
 # Claude Code generated artifacts
 .claude/audit-reports/

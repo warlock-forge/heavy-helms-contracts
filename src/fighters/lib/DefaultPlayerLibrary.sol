@@ -83,6 +83,12 @@ library DefaultPlayerLibrary {
     //==============================================================//
     function _getCharacterDefs() internal pure returns (CharacterDef[] memory defs) {
         defs = new CharacterDef[](CHARACTER_COUNT);
+        _fillDefs1to8(defs);
+        _fillDefs9to16(defs);
+        _fillDefs17to24(defs);
+    }
+
+    function _fillDefs1to8(CharacterDef[] memory defs) private pure {
         // 1: DefaultWarrior
         defs[0] = CharacterDef({
             weapon: 5,
@@ -227,6 +233,9 @@ library DefaultPlayerLibrary {
             levelUps: hex"030303030303030303",
             ipfsCid: "bafkreichxvcymgfql6t2qrbiyjlerxcrei7kriqv4abc7d2f5xjbi54zpy"
         });
+    }
+
+    function _fillDefs9to16(CharacterDef[] memory defs) private pure {
         // 9: ScimitarBucklerUser
         defs[8] = CharacterDef({
             weapon: 11,
@@ -371,6 +380,9 @@ library DefaultPlayerLibrary {
             levelUps: hex"000000010202020205",
             ipfsCid: "bafkreibzvmc7skc5v7lsghi6ug5vehttoxcqpsi7nraewkr6z72pcjhfwy"
         });
+    }
+
+    function _fillDefs17to24(CharacterDef[] memory defs) private pure {
         // 17: LowStaminaClubsWarrior
         defs[16] = CharacterDef({
             weapon: 18,

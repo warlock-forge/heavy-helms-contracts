@@ -14,6 +14,28 @@ import {Fighter} from "../../fighters/Fighter.sol";
 
 library MonsterLibrary {
     //==============================================================//
+    //                           STRUCTS                            //
+    //==============================================================//
+
+    /// @dev Compact monster definition - base stats + level-up pattern
+    struct MonsterDef {
+        uint8 str;
+        uint8 con;
+        uint8 size;
+        uint8 agi;
+        uint8 sta;
+        uint8 luck;
+        uint8 stance;
+        uint8 armorSpec;
+        uint8 weaponSpec;
+        uint8 armorFromLevel;
+        uint8 weaponFromLevel;
+        // Which stat index to bump at levels 2-10
+        // Values: 0=STR, 1=CON, 2=SIZE, 3=AGI, 4=STA, 5=LUCK
+        uint8[9] levelUps;
+    }
+
+    //==============================================================//
     //                     MONSTER FUNCTIONS                        //
     //==============================================================//
 
@@ -32,139 +54,30 @@ library MonsterLibrary {
         return monster.createMonster(allLevelStats);
     }
 
-    // Individual monster type data functions...
+    //==============================================================//
+    //                     PRIVATE FUNCTIONS                        //
+    //==============================================================//
+
     function getGoblinMonster001Stats(uint16 skinTokenId, uint16 nameIndex)
         private
         pure
         returns (IMonster.MonsterStats[10] memory)
     {
-        IMonster.MonsterStats[10] memory stats;
-        IMonster.MonsterName memory name = IMonster.MonsterName({nameIndex: nameIndex});
-        uint8 stance = 1;
-
-        // Level 1 - 62 attribute points (Easy tier)
-        stats[0] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 12, constitution: 9, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 1,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
+        MonsterDef memory def = MonsterDef({
+            str: 12,
+            con: 9,
+            size: 6,
+            agi: 11,
+            sta: 11,
+            luck: 13,
+            stance: 1,
+            armorSpec: 1,
+            weaponSpec: 18,
+            armorFromLevel: 5,
+            weaponFromLevel: 10,
+            levelUps: [uint8(0), 0, 0, 0, 0, 1, 1, 5, 5]
         });
-        stats[1] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 13, constitution: 9, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 2,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
-        });
-        stats[2] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 14, constitution: 9, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 3,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
-        });
-        stats[3] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 15, constitution: 9, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 4,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
-        });
-        stats[4] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 16, constitution: 9, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 5,
-            currentXP: 0,
-            armorSpecialization: 1,
-            weaponSpecialization: 255
-        });
-        stats[5] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 17, constitution: 9, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 6,
-            currentXP: 0,
-            armorSpecialization: 1,
-            weaponSpecialization: 255
-        });
-        stats[6] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 17, constitution: 10, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 7,
-            currentXP: 0,
-            armorSpecialization: 1,
-            weaponSpecialization: 255
-        });
-        stats[7] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 17, constitution: 11, size: 6, agility: 11, stamina: 11, luck: 13
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 8,
-            currentXP: 0,
-            armorSpecialization: 1,
-            weaponSpecialization: 255
-        });
-        stats[8] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 17, constitution: 11, size: 6, agility: 11, stamina: 11, luck: 14
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 9,
-            currentXP: 0,
-            armorSpecialization: 1,
-            weaponSpecialization: 255
-        });
-        stats[9] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 17, constitution: 11, size: 6, agility: 11, stamina: 11, luck: 15
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 10,
-            currentXP: 0,
-            armorSpecialization: 1,
-            weaponSpecialization: 18
-        });
-
-        return stats;
+        return _buildStats(def, skinTokenId, nameIndex);
     }
 
     function getUndeadMonster001Stats(uint16 skinTokenId, uint16 nameIndex)
@@ -172,133 +85,21 @@ library MonsterLibrary {
         pure
         returns (IMonster.MonsterStats[10] memory)
     {
-        IMonster.MonsterStats[10] memory stats;
-        IMonster.MonsterName memory name = IMonster.MonsterName({nameIndex: nameIndex});
-        uint8 stance = 2;
-
-        // Level 1 - 72 attribute points (Normal tier)
-        stats[0] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 16, stamina: 10, luck: 14
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 1,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
+        MonsterDef memory def = MonsterDef({
+            str: 10,
+            con: 10,
+            size: 12,
+            agi: 16,
+            sta: 10,
+            luck: 14,
+            stance: 2,
+            armorSpec: 0,
+            weaponSpec: 9,
+            armorFromLevel: 5,
+            weaponFromLevel: 10,
+            levelUps: [uint8(3), 5, 5, 5, 4, 4, 3, 3, 5]
         });
-        stats[1] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 17, stamina: 10, luck: 14
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 2,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
-        });
-        stats[2] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 17, stamina: 10, luck: 15
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 3,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
-        });
-        stats[3] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 17, stamina: 10, luck: 16
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 4,
-            currentXP: 0,
-            armorSpecialization: 255,
-            weaponSpecialization: 255
-        });
-        stats[4] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 17, stamina: 10, luck: 17
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 5,
-            currentXP: 0,
-            armorSpecialization: 0,
-            weaponSpecialization: 255
-        });
-        stats[5] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 17, stamina: 11, luck: 17
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 6,
-            currentXP: 0,
-            armorSpecialization: 0,
-            weaponSpecialization: 255
-        });
-        stats[6] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 17, stamina: 12, luck: 17
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 7,
-            currentXP: 0,
-            armorSpecialization: 0,
-            weaponSpecialization: 255
-        });
-        stats[7] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 18, stamina: 12, luck: 17
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 8,
-            currentXP: 0,
-            armorSpecialization: 0,
-            weaponSpecialization: 255
-        });
-        stats[8] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 19, stamina: 12, luck: 17
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 9,
-            currentXP: 0,
-            armorSpecialization: 0,
-            weaponSpecialization: 255
-        });
-        stats[9] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 10, constitution: 10, size: 12, agility: 19, stamina: 12, luck: 18
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 10,
-            currentXP: 0,
-            armorSpecialization: 0,
-            weaponSpecialization: 9
-        });
-
-        return stats;
+        return _buildStats(def, skinTokenId, nameIndex);
     }
 
     function getDemonMonster001Stats(uint16 skinTokenId, uint16 nameIndex)
@@ -306,132 +107,53 @@ library MonsterLibrary {
         pure
         returns (IMonster.MonsterStats[10] memory)
     {
-        IMonster.MonsterStats[10] memory stats;
+        MonsterDef memory def = MonsterDef({
+            str: 18,
+            con: 18,
+            size: 14,
+            agi: 10,
+            sta: 10,
+            luck: 12,
+            stance: 1,
+            armorSpec: 3,
+            weaponSpec: 0,
+            armorFromLevel: 1,
+            weaponFromLevel: 5,
+            levelUps: [uint8(2), 2, 2, 2, 0, 0, 0, 1, 1]
+        });
+        return _buildStats(def, skinTokenId, nameIndex);
+    }
+
+    function _buildStats(MonsterDef memory def, uint16 skinTokenId, uint16 nameIndex)
+        private
+        pure
+        returns (IMonster.MonsterStats[10] memory stats)
+    {
+        uint8[6] memory current = [def.str, def.con, def.size, def.agi, def.sta, def.luck];
         IMonster.MonsterName memory name = IMonster.MonsterName({nameIndex: nameIndex});
-        uint8 stance = 1;
 
-        // Level 1 - 82 attribute points (Hard tier)
-        stats[0] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 18, constitution: 18, size: 14, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 1,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 255
-        });
-        stats[1] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 18, constitution: 18, size: 15, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 2,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 255
-        });
-        stats[2] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 18, constitution: 18, size: 16, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 3,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 255
-        });
-        stats[3] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 18, constitution: 18, size: 17, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 4,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 255
-        });
-        stats[4] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 18, constitution: 18, size: 18, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 5,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 0
-        });
-        stats[5] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 19, constitution: 18, size: 18, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 6,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 0
-        });
-        stats[6] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 20, constitution: 18, size: 18, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 7,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 0
-        });
-        stats[7] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 21, constitution: 18, size: 18, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 8,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 0
-        });
-        stats[8] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 21, constitution: 19, size: 18, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 9,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 0
-        });
-        stats[9] = IMonster.MonsterStats({
-            attributes: Fighter.Attributes({
-                strength: 21, constitution: 20, size: 18, agility: 10, stamina: 10, luck: 12
-            }),
-            skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
-            stance: stance,
-            name: name,
-            level: 10,
-            currentXP: 0,
-            armorSpecialization: 3,
-            weaponSpecialization: 0
-        });
+        for (uint8 level = 1; level <= 10; level++) {
+            if (level > 1) {
+                current[def.levelUps[level - 2]]++;
+            }
 
-        return stats;
+            stats[level - 1] = IMonster.MonsterStats({
+                attributes: Fighter.Attributes({
+                    strength: current[0],
+                    constitution: current[1],
+                    size: current[2],
+                    agility: current[3],
+                    stamina: current[4],
+                    luck: current[5]
+                }),
+                skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: skinTokenId}),
+                stance: def.stance,
+                name: name,
+                level: level,
+                currentXP: 0,
+                armorSpecialization: level >= def.armorFromLevel ? def.armorSpec : 255,
+                weaponSpecialization: level >= def.weaponFromLevel ? def.weaponSpec : 255
+            });
+        }
     }
 }
