@@ -112,7 +112,7 @@ cd heavy-helms-contracts
 2. Install dependencies:
 
 ```bash
-forge install --no-git foundry-rs/forge-std@1eea5ba bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.1.24 smartcontractkit/chainlink-evm@v0.3.2 OpenZeppelin/openzeppelin-contracts@v4.9.6
+forge install --no-git foundry-rs/forge-std@v1.15.0 bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.1.24 smartcontractkit/chainlink-evm@v0.3.2 OpenZeppelin/openzeppelin-contracts@v4.9.6
 ```
 
 3. Deploy GameEngine contract _(choose auth method)_
