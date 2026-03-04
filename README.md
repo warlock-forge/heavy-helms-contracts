@@ -337,25 +337,13 @@ FOUNDRY_PROFILE=simulation forge test -vv --match-contract BalanceTest  # Specif
 
 The default Foundry profile excludes `test/simulation/*` via `no_match_path` in `foundry.toml`, so `forge test` always runs only unit tests.
 
-### Gas Snapshots
-
-Gas snapshots are tracked in `.gas-snapshot` and checked in CI with 10% tolerance:
-
-```bash
-forge snapshot                          # Regenerate snapshot
-forge snapshot --check --tolerance 10   # Verify against committed snapshot
-```
-
-Only unit tests are included in the snapshot (simulation tests are excluded by the default profile).
-
 ### CI Pipeline
 
 The CI workflow (`.github/workflows/ci.yml`) runs on push/PR:
 
 1. **Format check** — `forge fmt --check`
 2. **Unit tests** — `forge test -vv`
-3. **Gas snapshots** — `forge snapshot --check --tolerance 10`
-4. **Coverage** — `forge coverage --ir-minimum --report summary`
-5. **Static analysis** — Slither + Aderyn
+3. **Coverage** — `forge coverage --ir-minimum --report summary`
+4. **Static analysis** — Slither + Aderyn
 
 Simulation tests can be run manually from the GitHub Actions tab via the **Simulation Tests** workflow (`workflow_dispatch`).

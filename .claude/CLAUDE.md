@@ -34,7 +34,6 @@ forge script <script-path>                # Dry run without broadcasting
 ```bash
 forge fmt         # Format Solidity code
 forge coverage    # Generate test coverage report
-forge snapshot    # Create gas snapshots (unit tests only, excludes simulation)
 ```
 
 ## Fighter ID Ranges

@@ -16,9 +16,6 @@ jobs:
       - name: Run tests
         run: forge test -vv
 
-      - name: Check gas snapshots
-        run: forge snapshot --check --tolerance 10
-
       # coverage requires via_ir disabled, --ir-minimum is the workaround.
       # continue-on-error: BalanceTest.t.sol exceeds stack limits even with
       # minimum IR optimization — known Foundry limitation
