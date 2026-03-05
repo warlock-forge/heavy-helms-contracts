@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {console2} from "forge-std/console2.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {
@@ -15,9 +8,14 @@ import {
     NotPlayerOwner,
     NoPermission,
     PlayerDoesNotExist,
+    PlayerIsRetired,
     InsufficientFeeAmount,
     GasPriceTooHighForVRF,
-    GasPriceMustBePositive
+    GasPriceMustBePositive,
+    BadZeroAddress,
+    ValueMustBePositive,
+    NoPendingRequest,
+    ContractPaused
 } from "../../src/fighters/Player.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skins/IPlayerSkinRegistry.sol";
@@ -108,7 +106,7 @@ contract PlayerTest is TestBase {
         }
     }
 
-    function test_RevertWhen_MaxPlayersReached() public {
+    function testRevertWhen_MaxPlayersReached() public {
         // Fill up default slots first
         uint256 defaultSlots = playerContract.getPlayerSlots(PLAYER_ONE);
         for (uint256 i = 0; i < defaultSlots; i++) {
@@ -128,7 +126,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_RevertWhen_AbsoluteMaxSlotsReached() public {
+    function testRevertWhen_AbsoluteMaxSlotsReached() public {
         // Fill up to max slots (100)
         while (playerContract.getPlayerSlots(PLAYER_ONE) < 100) {
             // Purchase slots
@@ -183,7 +181,7 @@ contract PlayerTest is TestBase {
         _assertStatRanges(stats2);
     }
 
-    function test_RevertWhen_CreatePlayerWithInsufficientFee() public {
+    function testRevertWhen_CreatePlayerWithInsufficientFee() public {
         uint256 feeAmount = playerContract.createPlayerFeeAmount();
         // Try to create a player with insufficient fee
         vm.deal(PLAYER_ONE, feeAmount / 2);
@@ -243,7 +241,7 @@ contract PlayerTest is TestBase {
         assertEq(player.skin.skinTokenId, tokenId, "Token ID should be updated");
     }
 
-    function testCannotEquipToUnownedPlayer() public {
+    function testRevertWhen_EquipToUnownedPlayer() public {
         // First create a player owned by PLAYER_ONE
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
@@ -277,7 +275,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotEquipInvalidSkinIndex() public {
+    function testRevertWhen_EquipInvalidSkinIndex() public {
         // First create a player
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
@@ -288,7 +286,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_PlayerCreation(address player) public {
+    function testFuzz_PlayerCreation(address player) public {
         // Skip zero address and contracts
         vm.assume(player != address(0));
         vm.assume(uint160(player) > 0x10000); // Skip precompiles
@@ -326,7 +324,7 @@ contract PlayerTest is TestBase {
         assertTrue(totalPoints >= 18 && totalPoints <= 126, "Total points out of range");
     }
 
-    function test_statDistribution() public {
+    function testStatDistribution() public {
         uint256 numPlayers = 100;
         // Ensure we have enough slots for the test
         _ensurePlayerSlots(PLAYER_ONE, numPlayers, playerContract);
@@ -361,13 +359,6 @@ contract PlayerTest is TestBase {
         // Total stats checked = numPlayers * 6 stats per player
         uint256 totalStats = numPlayers * 6;
 
-        // Log distributions
-        console2.log("Stat Distribution for %d total stats:", totalStats);
-        console2.log("Max stats (19-21): %d (%d%%)", maxStatCount, (maxStatCount * 100) / totalStats);
-        console2.log("High stats (16-18): %d (%d%%)", highStatCount, (highStatCount * 100) / totalStats);
-        console2.log("Med stats (13-15): %d (%d%%)", medStatCount, (medStatCount * 100) / totalStats);
-        console2.log("Low stats (3-12): %d (%d%%)", lowStatCount, (lowStatCount * 100) / totalStats);
-
         // Verify rough distributions
         // Max stats should still be relatively rare (<20%)
         assertLt(maxStatCount * 100 / totalStats, 20);
@@ -388,7 +379,7 @@ contract PlayerTest is TestBase {
         assertTrue(playerContract.isPlayerRetired(playerId), "Player should be retired");
     }
 
-    function testCannotRetireOtherPlayerCharacter() public {
+    function testRevertWhen_RetireOtherPlayerCharacter() public {
         // Create a player owned by address(1)
         vm.prank(address(1));
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
@@ -602,7 +593,7 @@ contract PlayerTest is TestBase {
         assertFalse(playerContract.isPlayerImmortal(playerId));
     }
 
-    function testCannotSetImmortalWithoutPermission() public {
+    function testRevertWhen_SetImmortalWithoutPermission() public {
         // Create a player
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
@@ -611,7 +602,7 @@ contract PlayerTest is TestBase {
         playerContract.setPlayerImmortal(playerId, true);
     }
 
-    function testCannotSetImmortalForNonexistentPlayer() public {
+    function testRevertWhen_SetImmortalForNonexistentPlayer() public {
         // Grant immortal permission to test contract
         IPlayer.GamePermissions memory permissions =
             IPlayer.GamePermissions({record: false, retire: false, immortal: true, experience: false});
@@ -845,7 +836,7 @@ contract PlayerTest is TestBase {
         assertTrue(foundKillEvent, "PlayerKillRecorded event not emitted");
     }
 
-    function testCannotEquipSkinWithoutMeetingRequirements() public {
+    function testRevertWhen_EquipSkinWithoutMeetingRequirements() public {
         // Create a player with minimum stats
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
@@ -885,7 +876,7 @@ contract PlayerTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotEquipDefaultSkinWithoutMeetingRequirements() public {
+    function testRevertWhen_EquipDefaultSkinWithoutMeetingRequirements() public {
         // Create players until we find one that doesn't meet battleaxe requirements
         uint32 playerId;
         bool foundIneligiblePlayer = false;
@@ -1117,6 +1108,187 @@ contract PlayerTest is TestBase {
         vm.prank(PLAYER_ONE);
         vm.expectRevert();
         playerContract.setMaxVRFGasPrice(100000000);
+    }
+
+    // --- Retirement Edge Cases ---
+
+    function testRevertWhen_RetireAlreadyRetired() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        vm.prank(PLAYER_ONE);
+        playerContract.retireOwnPlayer(playerId);
+
+        vm.expectRevert(abi.encodeWithSelector(PlayerIsRetired.selector, playerId));
+        vm.prank(PLAYER_ONE);
+        playerContract.retireOwnPlayer(playerId);
+    }
+
+    function testRevertWhen_RetireNotOwner() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        vm.expectRevert(NotPlayerOwner.selector);
+        vm.prank(PLAYER_TWO);
+        playerContract.retireOwnPlayer(playerId);
+    }
+
+    // --- Active Player Count ---
+
+    function testGetActivePlayerCount() public {
+        uint32 id1 = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, true);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 2);
+
+        // Retire one — count should decrease
+        vm.prank(PLAYER_ONE);
+        playerContract.retireOwnPlayer(id1);
+        assertEq(playerContract.getActivePlayerCount(PLAYER_ONE), 1);
+    }
+
+    // --- GetPlayerOwner ---
+
+    function testGetPlayerOwner() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+        assertEq(playerContract.getPlayerOwner(playerId), PLAYER_ONE);
+    }
+
+    // --- Admin Functions ---
+
+    function testSetCreatePlayerFeeAmount() public {
+        playerContract.setCreatePlayerFeeAmount(0.05 ether);
+        assertEq(playerContract.createPlayerFeeAmount(), 0.05 ether);
+    }
+
+    function testSetSlotBatchCost() public {
+        playerContract.setSlotBatchCost(0.02 ether);
+        assertEq(playerContract.slotBatchCost(), 0.02 ether);
+    }
+
+    function testSetEquipmentRequirements() public {
+        address newAddr = address(0xBEEF);
+        playerContract.setEquipmentRequirements(newAddr);
+    }
+
+    function testRevertWhen_SetEquipmentRequirementsZero() public {
+        vm.expectRevert(BadZeroAddress.selector);
+        playerContract.setEquipmentRequirements(address(0));
+    }
+
+    function testSetVrfRequestTimeout() public {
+        playerContract.setVrfRequestTimeout(600);
+        assertEq(playerContract.vrfRequestTimeout(), 600);
+    }
+
+    function testRevertWhen_SetVrfRequestTimeoutZero() public {
+        vm.expectRevert(ValueMustBePositive.selector);
+        playerContract.setVrfRequestTimeout(0);
+    }
+
+    function testSetVRFConfig() public {
+        bytes32 newKeyHash = bytes32(uint256(0x1234));
+        playerContract.setVRFConfig(newKeyHash, 500000, 3);
+    }
+
+    function testRevertWhen_SetVRFConfigZeroKeyHash() public {
+        vm.expectRevert(BadZeroAddress.selector);
+        playerContract.setVRFConfig(bytes32(0), 500000, 3);
+    }
+
+    function testSetSubscriptionId() public {
+        playerContract.setSubscriptionId(42);
+    }
+
+    function testRevertWhen_SetSubscriptionIdZero() public {
+        vm.expectRevert(ValueMustBePositive.selector);
+        playerContract.setSubscriptionId(0);
+    }
+
+    function testRecoverTimedOutRequest() public {
+        // Create a player request using the helper (it doesn't fulfill VRF)
+        uint256 fee = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, 10 ether);
+        vm.prank(PLAYER_ONE);
+        playerContract.requestCreatePlayer{value: fee}(false);
+
+        // Fast forward past VRF timeout
+        uint256 timeout = playerContract.vrfRequestTimeout();
+        vm.warp(block.timestamp + timeout + 1);
+
+        // Recover
+        uint256 balBefore = PLAYER_ONE.balance;
+        vm.prank(PLAYER_ONE);
+        playerContract.recoverTimedOutRequest();
+
+        // Should get refund
+        assertTrue(PLAYER_ONE.balance > balBefore);
+    }
+
+    function testRevertWhen_RecoverTimedOutRequestNoPending() public {
+        vm.expectRevert(NoPendingRequest.selector);
+        vm.prank(PLAYER_ONE);
+        playerContract.recoverTimedOutRequest();
+    }
+
+    function testSetStance() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        vm.prank(PLAYER_ONE);
+        playerContract.setStance(playerId, 2);
+
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+        assertEq(stats.stance, 2);
+    }
+
+    function testRevertWhen_SetStanceNotOwner() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        vm.expectRevert(NotPlayerOwner.selector);
+        vm.prank(PLAYER_TWO);
+        playerContract.setStance(playerId, 2);
+    }
+
+    function testRevertWhen_SetStanceRetired() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        vm.prank(PLAYER_ONE);
+        playerContract.retireOwnPlayer(playerId);
+
+        vm.expectRevert(abi.encodeWithSelector(PlayerIsRetired.selector, playerId));
+        vm.prank(PLAYER_ONE);
+        playerContract.setStance(playerId, 2);
+    }
+
+    function testChangeName() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, playerContract, false);
+
+        // Mint a name change NFT to PLAYER_ONE using TestBase helper
+        uint256 nameTokenId = _mintNameChangeNFT(PLAYER_ONE, 12345);
+
+        // PLAYER_ONE must approve the player contract to burn the NFT
+        vm.prank(PLAYER_ONE);
+        playerTickets.setApprovalForAll(address(playerContract), true);
+
+        // Apply name change
+        vm.prank(PLAYER_ONE);
+        playerContract.changeName(playerId, nameTokenId);
+
+        // Token should be burned
+        assertEq(playerTickets.balanceOf(PLAYER_ONE, nameTokenId), 0);
+    }
+
+    function testRevertWhen_PausedCreatePlayer() public {
+        playerContract.setPaused(true);
+
+        uint256 fee = playerContract.createPlayerFeeAmount();
+        vm.deal(PLAYER_ONE, 10 ether);
+        vm.expectRevert(ContractPaused.selector);
+        vm.prank(PLAYER_ONE);
+        playerContract.requestCreatePlayer{value: fee}(false);
+    }
+
+    function testGameContractPermissions() public view {
+        IPlayer.GamePermissions memory perms = playerContract.gameContractPermissions(address(this));
+        // This test contract doesn't have permissions unless set
+        assertFalse(perms.record);
     }
 
     // Events for gas protection tests

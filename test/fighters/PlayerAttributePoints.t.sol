@@ -33,7 +33,7 @@ contract PlayerAttributePointsTest is TestBase {
         playerContract.setGameContractPermission(address(this), permissions);
     }
 
-    function testPlayerLevelUpAwarsAttributePoints() public {
+    function testPlayerLevelUpAwardsAttributePoints() public {
         // Check initial state
         assertEq(playerContract.attributePoints(playerId1), 0);
 
@@ -125,7 +125,7 @@ contract PlayerAttributePointsTest is TestBase {
         }
     }
 
-    function testCannotUseAttributePointsWithoutPoints() public {
+    function testRevertWhen_UseAttributePointsWithoutPoints() public {
         // Player starts with 0 attribute points
         assertEq(playerContract.attributePoints(playerId1), 0);
 
@@ -135,7 +135,7 @@ contract PlayerAttributePointsTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotUseAttributePointsForNonOwnedPlayer() public {
+    function testRevertWhen_UseAttributePointsForNonOwnedPlayer() public {
         // Level up player 1 to get attribute points
         playerContract.awardExperience(playerId1, 100);
         assertEq(playerContract.attributePoints(playerId1), 1);
@@ -147,7 +147,7 @@ contract PlayerAttributePointsTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotIncreaseStatBeyond25() public {
+    function testRevertWhen_IncreaseStatBeyond25() public {
         // This is a theoretical test since we'd need a player with 25 in a stat
         // Create a player with high stats, then level them up to 25
 

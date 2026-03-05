@@ -76,7 +76,7 @@ contract PlayerAttributeSwapsTest is TestBase {
         );
     }
 
-    function testCannotSwapWithoutCharge() public {
+    function testRevertWhen_SwapWithoutCharge() public {
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Try to swap without having any tickets - should revert when trying to burn
@@ -86,7 +86,7 @@ contract PlayerAttributeSwapsTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotSwapForNonOwnedPlayer() public {
+    function testRevertWhen_SwapForNonOwnedPlayer() public {
         uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
 
         // Grant permission and award ticket to PLAYER_TWO
@@ -144,7 +144,7 @@ contract PlayerAttributeSwapsTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotMintTicketsToZeroAddress() public {
+    function testRevertWhen_MintTicketsToZeroAddress() public {
         // Grant permission
         PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
             playerCreation: false,

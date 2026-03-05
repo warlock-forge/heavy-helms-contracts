@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {TestBase} from "../TestBase.sol";
@@ -16,7 +10,6 @@ import {Fighter} from "../../src/fighters/Fighter.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {MockTrophyNFT} from "../mocks/MockTrophyNFT.sol";
 import {ITrophyNFT} from "../../src/interfaces/nft/ITrophyNFT.sol";
-import {console2} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 // Import custom errors
@@ -641,7 +634,7 @@ contract MonsterBattleGameTest is TestBase {
         game.resetMonsterDailyLimitWithTicket(PLAYER_ONE_ID);
     }
 
-    function testCannotResetWhenNotNeeded() public {
+    function testRevertWhen_ResetNotNeeded() public {
         // Player has not used any battles
 
         // Try to reset with ETH - should fail
@@ -725,14 +718,6 @@ contract MonsterBattleGameTest is TestBase {
         game.fightSpecificMonster(GOBLIN_ID, loadout);
     }
 
-    function testFightSpecificMonsterWithKills() public {
-        // This test would require setting up a monster with kills
-        // In a real scenario, we'd need to either:
-        // 1. Add a test helper to set monster kills
-        // 2. Actually run battles where the monster wins
-        // For now, we'll test the basic flow without kills
-    }
-
     function testFightSpecificMonsterRespectsDailyLimit() public {
         // Advance player to level 10
         playerContract.awardExperience(PLAYER_ONE_ID, 7489);
@@ -749,14 +734,6 @@ contract MonsterBattleGameTest is TestBase {
         vm.expectRevert(abi.encodeWithSelector(DailyLimitExceeded.selector, 5, 5));
         vm.prank(PLAYER_ONE);
         game.fightSpecificMonster(GOBLIN_ID, loadout);
-    }
-
-    function testFightSpecificMonsterDeadMonster() public {
-        // Advance player to level 10
-        playerContract.awardExperience(PLAYER_ONE_ID, 7489);
-
-        // For this test, we'd need a way to mark a monster as dead
-        // This would typically happen when a monster dies in battle
     }
 
     function testPlayerDeathMechanics() public {
@@ -808,7 +785,6 @@ contract MonsterBattleGameTest is TestBase {
         } else {
             // If player didn't die after max attempts, that's okay - death is probabilistic
             // We can't guarantee death even with high lethality
-            console2.log("Player survived all attempts with max lethality factor");
         }
     }
 
@@ -895,8 +871,6 @@ contract MonsterBattleGameTest is TestBase {
                 }
             }
         }
-
-        console2.log("Monster death rate: %s deaths out of %s battles", totalMonsterDeaths, totalBattles);
 
         // Verify at least one monster died with max lethality
         assertTrue(totalMonsterDeaths > 0, "Should have at least one monster death with max lethality");
@@ -1002,12 +976,8 @@ contract MonsterBattleGameTest is TestBase {
                 }
             }
 
-            if (!bountyDistributed) {
-                console2.log("Monster was not killed in bounty hunt");
-            }
-        } else {
-            console2.log("Could not set up test - no player died to give monster kills");
-        }
+            if (!bountyDistributed) {}
+        } else {}
     }
 
     function testDeathMechanicsMultiplePlayers() public {
@@ -1061,8 +1031,6 @@ contract MonsterBattleGameTest is TestBase {
                 }
             }
         }
-
-        console2.log("Death rate: %s deaths out of %s battles", totalDeaths, totalBattles);
 
         // With max lethality and multiple attempts, we should see at least one death
         assertTrue(totalDeaths > 0, "Should have at least one death with max lethality");
@@ -1287,6 +1255,19 @@ contract MonsterBattleGameTest is TestBase {
         uint32[] memory demonMonsters = new uint32[](1);
         demonMonsters[0] = DEMON_ID;
         game.setMonsterTrophyContractBatch(demonMonsters, address(demonTrophy), "Demon");
+    }
+
+    // --- Admin Functions ---
+
+    function testSetGameEngine() public {
+        address newEngine = address(0xBEEF);
+        game.setGameEngine(newEngine);
+    }
+
+    function testGetMonsterKillCount() public view {
+        // No battles yet, kill count should be 0
+        uint32 kills = game.getMonsterKillCount(GOBLIN_ID);
+        assertEq(kills, 0);
     }
 
     // Allow test contract to receive ETH

@@ -62,7 +62,7 @@ contract PlayerDualCreationTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotCreatePlayerWithTicketWithoutTickets() public {
+    function testRevertWhen_CreatePlayerWithTicketWithoutTickets() public {
         vm.startPrank(USER);
 
         // Try to create player with ticket without having any tickets
@@ -72,7 +72,7 @@ contract PlayerDualCreationTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotCreatePlayerWithETHWithoutPayment() public {
+    function testRevertWhen_CreatePlayerWithETHWithoutPayment() public {
         vm.startPrank(USER);
 
         // Try to create player with ETH without payment

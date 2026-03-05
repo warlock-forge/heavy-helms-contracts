@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {console2} from "forge-std/console2.sol";
 import {DuelGame} from "../../src/game/modes/DuelGame.sol";
 import {TestBase} from "../TestBase.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
@@ -185,7 +178,7 @@ contract DuelGameTest is TestBase {
         assertEq(game.nextChallengeId(), 1, "Next challenge ID should increment");
     }
 
-    function test_RevertWhen_UsingDefaultCharacter() public {
+    function testRevertWhen_UsingDefaultCharacter() public {
         vm.startPrank(PLAYER_ONE);
 
         Fighter.PlayerLoadout memory loadout =
@@ -196,7 +189,7 @@ contract DuelGameTest is TestBase {
         vm.stopPrank();
     }
 
-    function test_RevertWhen_WrongDefenderAccepts() public {
+    function testRevertWhen_WrongDefenderAccepts() public {
         // First create a valid challenge
         vm.startPrank(PLAYER_ONE);
 
@@ -351,19 +344,13 @@ contract DuelGameTest is TestBase {
         assertEq(playerTickets.balanceOf(newPlayer, playerTickets.DUEL_TICKET()), 0);
     }
 
-    function test_RevertWhen_AcceptingExpiredChallenge() public {
+    function testChallengeAlwaysAcceptable() public {
         // Create a challenge
         vm.startPrank(PLAYER_ONE);
         uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);
         vm.stopPrank();
 
-        // Get current challenge state
-        (,,,,, DuelGame.ChallengeState state) = game.challenges(challengeId);
-        console2.log("Initial state:", uint256(state));
-        console2.log("Current block:", block.number);
-        console2.log("Current timestamp:", block.timestamp);
-        // Since there's no expiry anymore, challenges should always be acceptable
-        // Try to accept the challenge - should work
+        // Challenges have no expiry — should always be acceptable
         vm.startPrank(PLAYER_TWO);
         game.acceptChallenge(challengeId, _createLoadout(PLAYER_TWO_ID));
         vm.stopPrank();
@@ -372,7 +359,7 @@ contract DuelGameTest is TestBase {
         assertTrue(game.isChallengePending(challengeId), "Challenge should be pending after acceptance");
     }
 
-    function test_RevertWhen_PlayerRetiredDuringFulfillment() public {
+    function testRevertWhen_PlayerRetiredDuringFulfillment() public {
         // First, we need to give ourselves permission to retire players
         IPlayer.GamePermissions memory perms = IPlayer.GamePermissions({
             record: false,
@@ -405,7 +392,7 @@ contract DuelGameTest is TestBase {
         game.rawFulfillRandomWords(1, randomWords);
     }
 
-    function test_RevertWhen_ChallengerRetiredBeforeAcceptance() public {
+    function testRevertWhen_ChallengerRetiredBeforeAcceptance() public {
         // Create a challenge
         vm.startPrank(PLAYER_ONE);
         uint256 challengeId = game.initiateChallengeWithTicket(_createLoadout(PLAYER_ONE_ID), PLAYER_TWO_ID);

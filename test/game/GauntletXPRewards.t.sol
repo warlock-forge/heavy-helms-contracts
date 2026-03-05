@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
 import {TestBase} from "../TestBase.sol";
@@ -6,7 +6,6 @@ import {GauntletGame} from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
-import {console2} from "forge-std/console2.sol";
 
 contract GauntletXPRewardsTest is TestBase {
     GauntletGame public game;
@@ -133,50 +132,8 @@ contract GauntletXPRewardsTest is TestBase {
         // Record XP after the gauntlet
         uint256 totalXPAfter = _getTotalPlayerXP();
 
-        // Debug: Print individual XP and level values
-        console2.log(
-            "Player 1 Level:",
-            playerContract.getPlayer(playerOneId).level,
-            "XP:",
-            playerContract.getPlayer(playerOneId).currentXP
-        );
-        console2.log(
-            "Player 2 Level:",
-            playerContract.getPlayer(playerTwoId).level,
-            "XP:",
-            playerContract.getPlayer(playerTwoId).currentXP
-        );
-        console2.log(
-            "Player 3 Level:",
-            playerContract.getPlayer(playerThreeId).level,
-            "XP:",
-            playerContract.getPlayer(playerThreeId).currentXP
-        );
-        console2.log(
-            "Player 4 Level:",
-            playerContract.getPlayer(playerFourId).level,
-            "XP:",
-            playerContract.getPlayer(playerFourId).currentXP
-        );
-        console2.log("Champion ID:", gauntlet.championId, "- should get 100 XP");
-        console2.log("Runner-up ID:", gauntlet.runnerUpId, "- should get 60 XP");
-
-        // Debug champion ID range
-        console2.log("Champion ID:", gauntlet.championId, "is zero?", gauntlet.championId == 0);
-        console2.log("Runner-up ID:", gauntlet.runnerUpId, "is zero?", gauntlet.runnerUpId == 0);
-        console2.log("Gauntlet size:", gauntlet.size);
-        console2.log("Level bracket: 0=L1-4, 1=L5-9, 2=L10:", uint8(game.levelBracket()));
-        console2.log("Total XP awarded:", totalXPAfter - totalXPBefore);
-        console2.log("Expected: Champion=100, Runner-up=60, Round1 losers=30 each = 220 total");
-
-        // Expected total: 100 + 60 = 160 XP (top 50% rule for 4-player)
-        uint256 expectedTotalXP = 160;
-        console2.log("Expected XP:", expectedTotalXP);
-
-        // Champion leveled up (1→2 = 100 XP consumed) + Runner-up has 60 XP = 160 total
-        // Test passes - champion and runner-up both got correct XP amounts!
-        // Champion: 100 XP (leveled up 1→2), Runner-up: 60 XP (at level 1)
-        assertTrue(true, "XP system working correctly - champion leveled up!");
+        // Expected total: 100 (champion) + 60 (runner-up) = 160 XP (top 50% rule for 4-player)
+        assertTrue(totalXPAfter > totalXPBefore, "XP should have been awarded");
     }
 
     function test4PlayerGauntlet_L5to9_XPRewards() public {
@@ -374,8 +331,6 @@ contract GauntletXPRewardsTest is TestBase {
 
         // 8-player gauntlet: top 4 get XP (champion=100, runner-up=60, 3rd-4th=30 each, 5th-8th=0 each)
         // Expected visible: 0 (champion leveled up) + 60 + 30 + 30 + 0 + 0 + 0 + 0 = 120 XP
-        console2.log("8-player: Champion:", gauntlet.championId, "Runner-up:", gauntlet.runnerUpId);
-        console2.log("Players at Level 2:", level2Players, "Total visible XP:", totalVisibleXP);
 
         // Should have 1 champion leveled up (100 XP) + visible XP = total 160
         assertTrue(level2Players == 1, "Champion should level up");
@@ -428,8 +383,6 @@ contract GauntletXPRewardsTest is TestBase {
 
         // 16-player gauntlet: top 8 get XP (champion=100, runner-up=60, 3rd-4th=30, 5th-8th=20, 9th-16th=0)
         // Expected visible: 0 (champion leveled up) + 60 + 60 + 80 + 0 = 200 XP
-        console2.log("16-player: Champion:", gauntlet.championId, "Runner-up:", gauntlet.runnerUpId);
-        console2.log("Players at Level 2:", level2Players, "Total visible XP:", totalVisibleXP);
 
         // Should have 1 champion leveled up (100 XP) + visible XP = total 200
         assertTrue(level2Players == 1, "Champion should level up");
@@ -482,9 +435,6 @@ contract GauntletXPRewardsTest is TestBase {
 
         // 32-player gauntlet: top 16 get XP (champion=100, runner-up=60, 3rd-4th=30, 5th-8th=20, 9th-16th=5, 17th-32nd=0)
         // Expected visible: 0 (champion leveled up) + 60 + 60 + 80 + 40 + 0 = 240 XP
-        console2.log("32-player: Champion:", gauntlet.championId, "Runner-up:", gauntlet.runnerUpId);
-        console2.log("Players at Level 2:", level2Players, "Total visible XP:", totalVisibleXP);
-
         // Should have 1 champion leveled up (100 XP) + visible XP = total 240
         assertTrue(level2Players == 1, "Champion should level up");
         assertEq(totalVisibleXP, 240, "Should have 60+60+80+40=240 visible XP");
@@ -536,9 +486,6 @@ contract GauntletXPRewardsTest is TestBase {
 
         // 64-player gauntlet: top 32 get XP (champion=100, runner-up=60, 3rd-4th=30, 5th-8th=20, 9th-16th=10, 17th-32nd=5, 33rd-64th=0)
         // Expected visible: 0 (champion leveled up) + 60 + 60 + 80 + 80 + 80 + 0 = 360 XP
-        console2.log("64-player: Champion:", gauntlet.championId, "Runner-up:", gauntlet.runnerUpId);
-        console2.log("Players at Level 2:", level2Players, "Total visible XP:", totalVisibleXP);
-
         // Should have 1 champion leveled up (100 XP) + visible XP = total 360
         assertTrue(level2Players == 1, "Champion should level up");
         assertEq(totalVisibleXP, 360, "Should have 60+60+80+80+80=360 visible XP");

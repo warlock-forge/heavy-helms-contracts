@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {TestBase} from "../TestBase.sol";
@@ -27,7 +21,6 @@ import {IPlayerSkinRegistry} from "../../src/interfaces/fighters/registries/skin
 import {IPlayerTickets} from "../../src/interfaces/nft/IPlayerTickets.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
-import {console2} from "forge-std/console2.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract TournamentGameTest is TestBase {
@@ -137,7 +130,7 @@ contract TournamentGameTest is TestBase {
         assertEq(uint256(game.playerStatus(PLAYER_ONE_ID)), uint256(TournamentGame.PlayerStatus.QUEUED));
     }
 
-    function testCannotDoubleQueue() public {
+    function testRevertWhen_DoubleQueue() public {
         Fighter.PlayerLoadout memory loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID, skin: Fighter.SkinInfo({skinIndex: 0, skinTokenId: 1}), stance: 2
         });
@@ -303,7 +296,6 @@ contract TournamentGameTest is TestBase {
         uint16[] memory eventRatings;
         bool ratingsEventFound = false;
 
-        console2.log("Looking for TournamentRatingsAwarded event:");
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics.length > 0 && logs[i].topics[0] == ratingEventTopic) {
                 // Decode: TournamentRatingsAwarded(uint256 indexed tournamentId, uint256 indexed seasonId, uint32[] playerIds, uint256[] ratings)
@@ -311,16 +303,11 @@ contract TournamentGameTest is TestBase {
                 (eventPlayerIds, eventRatings) = abi.decode(logs[i].data, (uint32[], uint16[]));
                 ratingsEventFound = true;
 
-                console2.log("Found TournamentRatingsAwarded event with", eventPlayerIds.length, "ratings");
-                for (uint256 j = 0; j < eventPlayerIds.length; j++) {
-                    console2.log("Event: Player", eventPlayerIds[j], "awarded rating:", eventRatings[j]);
-                }
                 break;
             }
         }
 
         assertTrue(ratingsEventFound, "TournamentRatingsAwarded event should be emitted");
-        console2.log("Total ratings in event:", eventPlayerIds.length);
 
         // Cross-reference events with actual player state
         uint256 playersWithRating = 0;
@@ -335,7 +322,6 @@ contract TournamentGameTest is TestBase {
 
                 if (actualRating > 0) {
                     playersWithRating++;
-                    console2.log("State: Player", playerId, "has rating:", actualRating);
 
                     // Find this player in the events and verify rating matches
                     bool foundInEvents = false;
@@ -343,7 +329,6 @@ contract TournamentGameTest is TestBase {
                         if (eventPlayerIds[j] == playerId) {
                             foundInEvents = true;
                             assertEq(eventRatings[j], actualRating, "Event rating should match actual rating");
-                            console2.log("VERIFIED: Event and state match for player", playerId);
                             break;
                         }
                     }
@@ -366,10 +351,6 @@ contract TournamentGameTest is TestBase {
         if (tournament.runnerUpId >= 10001) {
             assertEq(game.getPlayerRating(tournament.runnerUpId), 60, "Runner-up should get 60 rating");
         }
-
-        console2.log("Total test players:", totalTestPlayers);
-        console2.log("Players with rating:", playersWithRating);
-        console2.log("Ratings in event:", eventPlayerIds.length);
 
         // Verify events match state: exactly same number of ratings in event as players with ratings
         assertEq(
@@ -481,9 +462,6 @@ contract TournamentGameTest is TestBase {
     function testTournamentSelectionPoolSize() public {
         // Queue 50 players to test the "first half" selection pool
         _queuePlayers(50);
-        console2.log("Queued 50 players");
-        console2.log("Tournament size: 16");
-        console2.log("Expected pool size: 25 (first half since 50 >= 16*2)");
 
         // Set proper daily time
         uint256 futureTime = block.timestamp + 48 hours;
@@ -501,13 +479,6 @@ contract TournamentGameTest is TestBase {
         // Get selected participants
         TournamentGame.Tournament memory tournament = game.getTournamentData(0);
 
-        // First, let's debug our queue order
-        console2.log("Queue order (first 10 players in queue):");
-        for (uint256 i = 0; i < 10 && i < playerIds.length; i++) {
-            console2.log("  Queue pos %s: Player %s", i + 1, playerIds[i]);
-        }
-
-        console2.log("Selected participants:");
         bool foundSecondHalf = false;
         for (uint256 i = 0; i < tournament.participants.length; i++) {
             uint32 playerId = tournament.participants[i].playerId;
@@ -523,11 +494,9 @@ contract TournamentGameTest is TestBase {
 
             // Since we queued in REVERSE order, queue position = 50 - arrayIndex
             uint256 queuePosition = 50 - arrayIndex;
-            console2.log("  Tournament pos %s: Player %s (queue pos %s)", i, playerId, queuePosition);
 
             // Should be from first 25 queue positions
             if (queuePosition > 25) {
-                console2.log("    ^^ ERROR: This is from second half!");
                 foundSecondHalf = true;
             }
         }
@@ -542,35 +511,24 @@ contract TournamentGameTest is TestBase {
 
         // First tournament - queue 50 players (tournament will only take 16)
         _queuePlayers(50);
-        console2.log("Initial queue size: %s", game.getQueueSize());
 
         _runFullTournamentWithSeed(randomSeed);
 
         // Get champion and runner-up from first tournament
         TournamentGame.Tournament memory firstTournament = game.getTournamentData(0);
 
-        // Log Tournament 1 participants to see if we get high IDs
-        console2.log("Tournament 1 participants:");
-        for (uint256 i = 0; i < firstTournament.participants.length; i++) {
-            console2.log("  Position %s: Player %s", i, firstTournament.participants[i].playerId);
-        }
         uint32 championId = firstTournament.championId;
         uint32 runnerUpId = firstTournament.runnerUpId;
 
         // Skip test if winners are default players (1-2000)
         if ((championId >= 1 && championId <= 2000) || (runnerUpId >= 1 && runnerUpId <= 2000)) {
-            console2.log("Skipping test - default player won (champion: %s, runner-up: %s)", championId, runnerUpId);
             return; // Can't test with default players
         }
-
-        console2.log("Tournament 1 - Champion: %s, Runner-up: %s", championId, runnerUpId);
-        console2.log("Queue size after first tournament: %s", game.getQueueSize()); // Should be 34!
 
         // Move to next day
         vm.warp(block.timestamp + 1 days);
 
         // Now requeue ALL 16 players from first tournament (they were removed from queue)
-        console2.log("Requeueing all 16 players from first tournament...");
         for (uint256 i = 0; i < firstTournament.participants.length; i++) {
             uint32 playerId = firstTournament.participants[i].playerId;
 
@@ -588,7 +546,6 @@ contract TournamentGameTest is TestBase {
 
         // Verify we have 50 players queued
         uint256 actualQueueSize = game.getQueueSize();
-        console2.log("Queue size after requeueing all players: %s", actualQueueSize);
         assertEq(actualQueueSize, 50, "Should have 50 players queued");
 
         // Start the second tournament phases with new random seed
@@ -606,12 +563,6 @@ contract TournamentGameTest is TestBase {
 
         // Get the tournament data to check participants
         TournamentGame.Tournament memory secondTournament = game.getTournamentData(tournamentId);
-
-        // Log all participants to see what's happening
-        console2.log("Second tournament participants:");
-        for (uint256 i = 0; i < secondTournament.participants.length; i++) {
-            console2.log("  Position %s: Player %s", i, secondTournament.participants[i].playerId);
-        }
 
         // Verify champion and runner-up are in the participant list
         bool championFound = false;
@@ -720,8 +671,6 @@ contract TournamentGameTest is TestBase {
 
     // Test that our skin validation logic works and replaces invalid players
     function testSkinOwnershipValidationDuringTournament() public {
-        console2.log("=== TESTING SKIN OWNERSHIP VALIDATION ===");
-
         // Create a PlayerSkinNFT as the owner (test contract)
         PlayerSkinNFT testSkinNFT = new PlayerSkinNFT("Test Skins", "TST", 0);
 
@@ -753,8 +702,6 @@ contract TournamentGameTest is TestBase {
         // Mint a skin NFT for the cheater - as owner we can mint for free
         // Use weapon=5 (QUARTERSTAFF), armor=0 (CLOTH) - zero requirements, fits everyone
         uint256 skinTokenId = testSkinNFT.mintSkin(cheater, 5, 0); // weapon=5 (QUARTERSTAFF), armor=0 (CLOTH)
-        console2.log("Minted skin token ID:", skinTokenId);
-        console2.log("Cheater owns the skin:", testSkinNFT.ownerOf(skinTokenId) == cheater);
 
         // Queue all normal players with default skin (index 0)
         for (uint256 i = 0; i < 15; i++) {
@@ -769,9 +716,6 @@ contract TournamentGameTest is TestBase {
         }
 
         // Queue the cheater with their special skin
-        console2.log("Test skin index:", testSkinIndex);
-        console2.log("Skin token ID:", skinTokenId);
-
         Fighter.PlayerLoadout memory cheaterLoadout = Fighter.PlayerLoadout({
             playerId: cheaterPlayerId,
             skin: Fighter.SkinInfo({skinIndex: testSkinIndex, skinTokenId: uint16(skinTokenId)}),
@@ -781,7 +725,6 @@ contract TournamentGameTest is TestBase {
         vm.prank(cheater);
         game.queueForTournament(cheaterLoadout);
 
-        console2.log("Queue size after all players joined:", game.getQueueSize());
         assertEq(game.getQueueSize(), 16, "Should have 16 players in queue");
 
         // Set time to daily tournament time (20:00 UTC)
@@ -815,67 +758,32 @@ contract TournamentGameTest is TestBase {
         vm.prank(cheater);
         testSkinNFT.transferFrom(cheater, skinThief, skinTokenId);
 
-        console2.log("Skin NFT transferred from cheater to skinThief");
-        console2.log("Cheater owns skin:", testSkinNFT.ownerOf(skinTokenId) == cheater);
-        console2.log("SkinThief owns skin:", testSkinNFT.ownerOf(skinTokenId) == skinThief);
-
         // TRANSACTION 3: Tournament Execution - This should detect the cheater no longer owns the skin
         vm.roll(tournamentBlock + 1);
         vm.prevrandao(bytes32(uint256(67890)));
 
-        // Debug: Check how many default players are available
-        console2.log("Default players available:", defaultPlayerContract.validDefaultPlayerCount());
-
         // Record logs to capture the TournamentCompleted event
         vm.recordLogs();
 
-        try game.tryStartTournament() {
-            console2.log("Tournament execution succeeded");
-        } catch Error(string memory reason) {
-            console2.log("Tournament execution failed with reason:", reason);
-            revert(reason);
-        } catch (bytes memory lowLevelData) {
-            console2.log("Tournament execution failed with low level error");
-            // Try to decode common errors
-            if (lowLevelData.length >= 4) {
-                bytes4 errorSelector = bytes4(lowLevelData);
-                console2.log("Error selector:", vm.toString(errorSelector));
-                if (errorSelector == InvalidBlockhash.selector) {
-                    console2.log("InvalidBlockhash error detected");
-                } else if (errorSelector == InsufficientDefaultPlayers.selector) {
-                    console2.log("InsufficientDefaultPlayers error detected");
-                }
-            }
-            assembly {
-                revert(add(lowLevelData, 0x20), mload(lowLevelData))
-            }
-        }
+        game.tryStartTournament();
 
         // Get the recorded logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        console2.log("Total logs captured:", logs.length);
 
         // Look for PlayerReplaced events
         bytes32 playerReplacedTopic = keccak256("PlayerReplaced(uint256,uint32,uint32,string)");
-        console2.log("Looking for PlayerReplaced events:");
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics.length > 0 && logs[i].topics[0] == playerReplacedTopic) {
-                console2.log("Found PlayerReplaced event at log index", i);
                 // Decode indexed parameters from topics
                 uint256 tournamentId = uint256(logs[i].topics[1]);
                 uint32 originalPlayerId = uint32(uint256(logs[i].topics[2]));
                 uint32 replacementPlayerId = uint32(uint256(logs[i].topics[3]));
                 // Decode non-indexed parameter from data
                 (string memory reason) = abi.decode(logs[i].data, (string));
-                console2.log("Tournament ID:", tournamentId);
-                console2.log("Original Player ID:", originalPlayerId);
-                console2.log("Replacement Player ID:", replacementPlayerId);
-                console2.log("Replacement Reason:", reason);
 
                 // Verify this is our expected replacement
                 if (originalPlayerId == cheaterPlayerId) {
                     assertEq(reason, "SKIN_OWNERSHIP_LOST", "Expected SKIN_OWNERSHIP_LOST as replacement reason");
-                    console2.log("VERIFIED: Replacement reason for cheater is correct");
                 }
             }
         }
@@ -884,29 +792,26 @@ contract TournamentGameTest is TestBase {
         // The event signature is: TournamentCompleted(uint256,uint8,uint32,uint32,uint256,uint32[],uint32[])
         bytes32 tournamentCompletedTopic =
             keccak256("TournamentCompleted(uint256,uint8,uint32,uint32,uint256,uint32[],uint32[])");
-        console2.log("Looking for topic:", vm.toString(tournamentCompletedTopic));
 
         uint32[] memory emittedParticipants;
         bool eventFound = false;
 
         for (uint256 i = 0; i < logs.length; i++) {
-            console2.log("Log", i, "- topics:", logs[i].topics.length);
             if (logs[i].topics.length > 0) {
-                console2.log("Topic 0:", vm.toString(logs[i].topics[0]));
                 if (logs[i].topics[0] == tournamentCompletedTopic) {
-                    console2.log("Found matching TournamentCompleted event at log index", i);
                     // Decode the event data - only non-indexed parameters are in data
                     // Event: TournamentCompleted(uint256 indexed tournamentId, uint8 size, uint32 indexed championId, uint32 runnerUpId, uint256 seasonId, uint32[] participantIds, uint32[] roundWinners)
                     // In data: size, runnerUpId, seasonId, participantIds, roundWinners
                     try this.decodeTournamentEvent(logs[i].data) returns (uint32[] memory participantIds) {
                         emittedParticipants = participantIds;
                         eventFound = true;
-                        console2.log("Successfully decoded event with", participantIds.length, "participants");
                         break;
-                    } catch Error(string memory reason) {
-                        console2.log("Failed to decode TournamentCompleted event data:", reason);
-                    } catch {
-                        console2.log("Failed to decode TournamentCompleted event data - unknown error");
+                    }
+                        catch Error(string memory) {
+                        // Decode failed
+                    }
+                        catch {
+                        // Decode failed
                     }
                 }
             }
@@ -916,9 +821,7 @@ contract TournamentGameTest is TestBase {
 
         // Check the emitted participant list for the cheater
         bool cheaterFoundInEmittedList = false;
-        console2.log("Checking emitted participant list from TournamentCompleted event:");
         for (uint256 i = 0; i < emittedParticipants.length; i++) {
-            console2.log("Emitted Participant", i, ":", emittedParticipants[i]);
             if (emittedParticipants[i] == cheaterPlayerId) {
                 cheaterFoundInEmittedList = true;
             }
@@ -933,20 +836,12 @@ contract TournamentGameTest is TestBase {
 
         // Check all participants in storage to ensure cheater is NOT in the list
         bool cheaterFoundInStoredParticipants = false;
-        console2.log("\nChecking stored tournament participants:");
         for (uint256 i = 0; i < tournament.participants.length; i++) {
             uint32 participantId = tournament.participants[i].playerId;
-            console2.log("Stored Participant", i, ":", participantId);
             if (participantId == cheaterPlayerId) {
                 cheaterFoundInStoredParticipants = true;
             }
         }
-
-        console2.log("Tournament Champion ID:", tournament.championId);
-        console2.log("Tournament Runner-up ID:", tournament.runnerUpId);
-        console2.log("Cheater Player ID:", cheaterPlayerId);
-        console2.log("Cheater found in stored participants:", cheaterFoundInStoredParticipants);
-        console2.log("Cheater found in emitted participants:", cheaterFoundInEmittedList);
 
         // The critical assertions:
         // 1. Cheater should NOT be in emitted participant list (they were replaced during execution)
@@ -962,8 +857,6 @@ contract TournamentGameTest is TestBase {
         // Also verify they're not champion/runner-up
         assertTrue(tournament.championId != cheaterPlayerId, "Cheater should not be champion");
         assertTrue(tournament.runnerUpId != cheaterPlayerId, "Cheater should not be runner-up");
-
-        console2.log("=== SKIN OWNERSHIP VALIDATION TEST PASSED ===");
     }
 
     // Helper function for decoding tournament event

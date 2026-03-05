@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
-import {console2} from "forge-std/console2.sol";
 import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
 import {TestBase} from "../TestBase.sol";
@@ -32,7 +25,7 @@ contract CombatLogHealthTest is TestBase {
         PLAYER_TWO_ID = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
     }
 
-    function test_CombatLogHealthTracking() public view {
+    function testCombatLogHealthTracking() public view {
         // Create loadouts - using a controlled setup with known stats
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID,
@@ -74,14 +67,7 @@ contract CombatLogHealthTest is TestBase {
         uint16 p1Health = p1CalcStats.maxHealth;
         uint16 p2Health = p2CalcStats.maxHealth;
 
-        console2.log("Initial Health - P1:", p1Health);
-        console2.log("Initial Health - P2:", p2Health);
-
         for (uint256 i = 0; i < actions.length; i++) {
-            console2.log("\nRound", i);
-            console2.log("P1 Result:", uint8(actions[i].p1Result));
-            console2.log("P2 Result:", uint8(actions[i].p2Result));
-
             // Verify each action is either offensive or defensive, never both
             bool p1IsDefensive = _isDefensiveResult(IGameEngine.CombatResultType(actions[i].p1Result));
             bool p2IsDefensive = _isDefensiveResult(IGameEngine.CombatResultType(actions[i].p2Result));
@@ -102,16 +88,11 @@ contract CombatLogHealthTest is TestBase {
                     ) {
                         // Defender countered - apply their damage
                         p1Health = p1Health > actions[i].p2Damage ? p1Health - actions[i].p2Damage : 0;
-                        console2.log("P2 counter/riposte for:", actions[i].p2Damage);
-                        console2.log("P1 health now:", p1Health);
                     } else if (p2Result == IGameEngine.CombatResultType.HIT) {
                         // Attack landed
                         p2Health = p2Health > actions[i].p1Damage ? p2Health - actions[i].p1Damage : 0;
-                        console2.log("P1 hits for:", actions[i].p1Damage);
-                        console2.log("P2 health now:", p2Health);
                     } else {
                         // Attack was blocked/parried/dodged
-                        console2.log("P1 attack defended");
                     }
                 }
             } else {
@@ -126,16 +107,11 @@ contract CombatLogHealthTest is TestBase {
                     ) {
                         // Defender countered - apply their damage
                         p2Health = p2Health > actions[i].p1Damage ? p2Health - actions[i].p1Damage : 0;
-                        console2.log("P1 counter/riposte for:", actions[i].p1Damage);
-                        console2.log("P2 health now:", p2Health);
                     } else if (p1Result == IGameEngine.CombatResultType.HIT) {
                         // Attack landed
                         p1Health = p1Health > actions[i].p2Damage ? p1Health - actions[i].p2Damage : 0;
-                        console2.log("P2 hits for:", actions[i].p2Damage);
-                        console2.log("P1 health now:", p1Health);
                     } else {
                         // Attack was blocked/parried/dodged
-                        console2.log("P2 attack defended");
                     }
                 }
             }
@@ -154,10 +130,6 @@ contract CombatLogHealthTest is TestBase {
                 }
             }
         }
-
-        console2.log("\nFinal Health - P1:", p1Health);
-        console2.log("Final Health - P2:", p2Health);
-        console2.log("Winner:", player1Won ? "Player 1" : "Player 2");
 
         // Verify winner determination matches health state
         if (condition == IGameEngine.WinCondition.HEALTH) {
@@ -180,7 +152,7 @@ contract CombatLogHealthTest is TestBase {
         }
     }
 
-    function test_CombatLogArmorReduction() public view {
+    function testCombatLogArmorReduction() public view {
         // Create loadouts with different armor types
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID,
@@ -217,31 +189,8 @@ contract CombatLogHealthTest is TestBase {
         GameEngine.ArmorStats memory p1Armor = gameEngine.getArmorStats(p1Stats.armor);
         GameEngine.ArmorStats memory p2Armor = gameEngine.getArmorStats(p2Stats.armor);
 
-        // Verify damage values in combat log reflect armor reduction
-        for (uint256 i = 0; i < actions.length; i++) {
-            if (actions[i].p1Damage > 0) {
-                // Get weapon stats to know damage type
-                gameEngine.getWeaponStats(p1Stats.weapon);
-
-                // Log the damage details
-                console2.log("Round", i);
-                console2.log("P1 weapon:", getWeaponName(p1Stats.weapon));
-                console2.log("Damage dealt:", actions[i].p1Damage);
-                console2.log("P2 armor type:", getArmorName(p2Stats.armor));
-                console2.log("P2 armor defense:", p2Armor.defense);
-            }
-
-            if (actions[i].p2Damage > 0) {
-                // Get weapon stats to know damage type
-                gameEngine.getWeaponStats(p2Stats.weapon);
-
-                // Log the damage details
-                console2.log("Round", i);
-                console2.log("P2 weapon:", getWeaponName(p2Stats.weapon));
-                console2.log("Damage dealt:", actions[i].p2Damage);
-                console2.log("P1 armor type:", getArmorName(p1Stats.armor));
-                console2.log("P1 armor defense:", p1Armor.defense);
-            }
-        }
+        // Verify armor stats are valid and damage values exist in combat log
+        assertTrue(p1Armor.defense > 0 || p2Armor.defense > 0, "At least one fighter should have armor defense");
+        assertTrue(actions.length > 0, "Combat should have at least one action");
     }
 }

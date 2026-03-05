@@ -93,7 +93,7 @@ contract PlayerSlotsTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotPurchaseSlotsWithoutTickets() public {
+    function testRevertWhen_PurchaseSlotsWithoutTickets() public {
         vm.startPrank(USER_ONE);
 
         // Try to purchase without tickets - should revert

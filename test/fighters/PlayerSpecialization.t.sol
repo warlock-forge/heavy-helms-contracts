@@ -30,7 +30,7 @@ contract PlayerSpecializationTest is TestBase {
     }
 
     // Helper function to level up a player to specific level
-    function levelUpPlayerTo(uint32 targetPlayerId, uint8 targetLevel) internal {
+    function _levelUpPlayerTo(uint32 targetPlayerId, uint8 targetLevel) internal {
         // Get current player level
         IPlayer.PlayerStats memory stats = playerContract.getPlayer(targetPlayerId);
         uint8 currentLevel = stats.level;
@@ -52,7 +52,7 @@ contract PlayerSpecializationTest is TestBase {
 
     function testWeaponSpecializationFreeAtLevel10() public {
         // Level up player to level 10
-        levelUpPlayerTo(playerId, 10);
+        _levelUpPlayerTo(playerId, 10);
 
         vm.startPrank(PLAYER_ONE);
 
@@ -76,13 +76,13 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setWeaponSpecialization(playerId, 1);
 
         // Level up to 9, should still fail
-        levelUpPlayerTo(playerId, 9);
+        _levelUpPlayerTo(playerId, 9);
         vm.expectRevert(WeaponSpecializationLevelTooLow.selector);
         vm.prank(PLAYER_ONE);
         playerContract.setWeaponSpecialization(playerId, 1);
 
         // Level up to 10, should succeed
-        levelUpPlayerTo(playerId, 10);
+        _levelUpPlayerTo(playerId, 10);
         vm.prank(PLAYER_ONE);
         playerContract.setWeaponSpecialization(playerId, 1); // Should not revert
     }
@@ -91,7 +91,7 @@ contract PlayerSpecializationTest is TestBase {
         PlayerTickets tickets = playerContract.playerTickets();
 
         // Level up to 10 and set initial specialization
-        levelUpPlayerTo(playerId, 10);
+        _levelUpPlayerTo(playerId, 10);
         vm.prank(PLAYER_ONE);
         playerContract.setWeaponSpecialization(playerId, 1);
 
@@ -124,7 +124,7 @@ contract PlayerSpecializationTest is TestBase {
 
     function testArmorSpecializationFreeAtLevel5() public {
         // Level up player to level 5
-        levelUpPlayerTo(playerId, 5);
+        _levelUpPlayerTo(playerId, 5);
 
         vm.startPrank(PLAYER_ONE);
 
@@ -148,13 +148,13 @@ contract PlayerSpecializationTest is TestBase {
         playerContract.setArmorSpecialization(playerId, 1);
 
         // Level up to 4, should still fail
-        levelUpPlayerTo(playerId, 4);
+        _levelUpPlayerTo(playerId, 4);
         vm.expectRevert(ArmorSpecializationLevelTooLow.selector);
         vm.prank(PLAYER_ONE);
         playerContract.setArmorSpecialization(playerId, 1);
 
         // Level up to 5, should succeed
-        levelUpPlayerTo(playerId, 5);
+        _levelUpPlayerTo(playerId, 5);
         vm.prank(PLAYER_ONE);
         playerContract.setArmorSpecialization(playerId, 1); // Should not revert
     }
@@ -163,7 +163,7 @@ contract PlayerSpecializationTest is TestBase {
         PlayerTickets tickets = playerContract.playerTickets();
 
         // Level up to 5 and set initial specialization
-        levelUpPlayerTo(playerId, 5);
+        _levelUpPlayerTo(playerId, 5);
         vm.prank(PLAYER_ONE);
         playerContract.setArmorSpecialization(playerId, 1);
 
@@ -197,7 +197,7 @@ contract PlayerSpecializationTest is TestBase {
     function testCanSetAnyWeaponValue() public {
         PlayerTickets tickets = playerContract.playerTickets();
 
-        levelUpPlayerTo(playerId, 10);
+        _levelUpPlayerTo(playerId, 10);
 
         // First change from 255 should be free - can use any uint8 value
         vm.prank(PLAYER_ONE);
@@ -221,7 +221,7 @@ contract PlayerSpecializationTest is TestBase {
     function testCanSetAnyArmorValue() public {
         PlayerTickets tickets = playerContract.playerTickets();
 
-        levelUpPlayerTo(playerId, 5);
+        _levelUpPlayerTo(playerId, 5);
 
         // First change from 255 should be free - can use any uint8 value
         vm.prank(PLAYER_ONE);
@@ -242,13 +242,13 @@ contract PlayerSpecializationTest is TestBase {
         vm.stopPrank();
     }
 
-    function testCannotChangeSpecializationForNonOwnedPlayer() public {
+    function testRevertWhen_ChangeSpecializationForNonOwnedPlayer() public {
         address PLAYER_TWO = address(0x2222);
         uint32 playerId2 = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
         // Level up both players
-        levelUpPlayerTo(playerId, 10);
-        levelUpPlayerTo(playerId2, 10);
+        _levelUpPlayerTo(playerId, 10);
+        _levelUpPlayerTo(playerId2, 10);
 
         // Try to change PLAYER_TWO's specialization as PLAYER_ONE
         vm.expectRevert(NotPlayerOwner.selector);
@@ -264,7 +264,7 @@ contract PlayerSpecializationTest is TestBase {
         PlayerTickets tickets = playerContract.playerTickets();
 
         // Test multiple weapon respecs
-        levelUpPlayerTo(playerId, 10);
+        _levelUpPlayerTo(playerId, 10);
 
         // Initial free specialization
         vm.prank(PLAYER_ONE);

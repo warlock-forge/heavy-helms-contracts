@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
@@ -13,7 +7,7 @@ import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.
 import {Fighter} from "../../src/fighters/Fighter.sol";
 import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 
-contract GameEngineTest is TestBase {
+contract GameEngineCombatTest is TestBase {
     function testCombatMechanics() public view {
         // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
         uint256 seed = _generateGameSeed();

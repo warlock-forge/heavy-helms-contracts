@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {TestBase} from "../TestBase.sol";
@@ -20,15 +14,10 @@ import {
 } from "../../src/game/modes/GauntletGame.sol";
 import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {Fighter} from "../../src/fighters/Fighter.sol";
-import {console2} from "forge-std/console2.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {IPlayerTickets} from "../../src/interfaces/nft/IPlayerTickets.sol";
-
-// Helper contract to receive ETH
-contract EthReceiver {
-    receive() external payable {}
-}
+import {EthReceiver} from "../helpers/EthReceiver.sol";
 
 contract GauntletGameTest is TestBase {
     GauntletGame public game;
@@ -562,7 +551,6 @@ contract GauntletGameTest is TestBase {
         vm.roll(selectionBlock);
         // In Foundry, blockhash of current block returns 0, so this should revert
         uint256 testBlockhash = uint256(blockhash(selectionBlock));
-        console2.log("Blockhash at exact selection block:", testBlockhash);
 
         vm.expectRevert(InvalidBlockhash.selector);
         game.tryStartGauntlet();
@@ -1848,7 +1836,7 @@ contract GauntletGameTest is TestBase {
         assertEq(tickets.balanceOf(PLAYER_ONE, tickets.DAILY_RESET_TICKET()), 1);
     }
 
-    function test_GauntletXPDistribution() public {
+    function testGauntletXPDistribution() public {
         // Set up 8-player gauntlet to test XP distribution clearly
         game.setGameEnabled(false);
         game.setGauntletSize(8);
@@ -1916,13 +1904,10 @@ contract GauntletGameTest is TestBase {
             if (gotReward) {
                 playersWithRewards++;
             }
-
-            console2.log("Player %d leveled up:", testPlayerIds[i], finalLevels[i] > startingLevels[i]);
         }
 
         // For 8-player gauntlet, top 50% = top 4 should get XP/rewards
         // Expected: Champion (100%), Runner-up (60%), 3rd-4th place (30%), 5th-8th place (0%)
-        console2.log("Players with rewards:", playersWithRewards);
         assertEq(playersWithRewards, 4, "Exactly 4 players (top 50%) should receive XP in 8-player gauntlet");
 
         // Find the GauntletXPAwarded event to see actual distribution
@@ -1936,8 +1921,6 @@ contract GauntletGameTest is TestBase {
                 // Decode the XP event - gauntletId is indexed, others are in data
                 (uint8 levelBracket, uint32[] memory awardedPlayerIds, uint16[] memory awardedXP) =
                     abi.decode(logs[i].data, (uint8, uint32[], uint16[]));
-
-                console2.log("XP Event - Level bracket:", levelBracket, "Number of awards:", awardedPlayerIds.length);
 
                 // Cross-reference event data with actual player state changes
                 for (uint256 j = 0; j < awardedPlayerIds.length; j++) {
@@ -1974,7 +1957,7 @@ contract GauntletGameTest is TestBase {
         assertTrue(foundXPEvent, "Should emit GauntletXPAwarded event");
     }
 
-    function test_GauntletCompleted_roundWinners() public {
+    function testGauntletCompletedRoundWinners() public {
         // Queue 4 players for a gauntlet
         Fighter.PlayerLoadout memory loadout1 = Fighter.PlayerLoadout({
             playerId: PLAYER_ONE_ID,
@@ -2069,7 +2052,7 @@ contract GauntletGameTest is TestBase {
     }
 
     /// @notice Test withdrawal after commit fills remaining slots with default players
-    function test_WithdrawalsAfterCommitFillWithDefaults() public {
+    function testWithdrawalsAfterCommitFillWithDefaults() public {
         // Set up an 8-player gauntlet scenario
         game.setGameEnabled(false);
         game.setGauntletSize(8);
@@ -2188,7 +2171,7 @@ contract GauntletGameTest is TestBase {
     // Level 10 Reward Configuration Tests
     //=============================================================================
 
-    function test_setRewardConfig_champion() public {
+    function testSetRewardConfigChampion() public {
         // Deploy a Level 10 gauntlet
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
@@ -2237,7 +2220,7 @@ contract GauntletGameTest is TestBase {
         assertEq(name, 500);
     }
 
-    function test_setRewardConfig_runnerUp() public {
+    function testSetRewardConfigRunnerUp() public {
         // Deploy a Level 10 gauntlet
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
@@ -2286,7 +2269,7 @@ contract GauntletGameTest is TestBase {
         assertEq(name, 200);
     }
 
-    function test_setRewardConfig_thirdFourth() public {
+    function testSetRewardConfigThirdFourth() public {
         // Deploy a Level 10 gauntlet
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
@@ -2335,7 +2318,7 @@ contract GauntletGameTest is TestBase {
         assertEq(name, 0);
     }
 
-    function test_setRewardConfig_revertInvalidPlacement() public {
+    function testRevertWhen_SetRewardConfigInvalidPlacement() public {
         // Deploy a Level 10 gauntlet
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
@@ -2362,7 +2345,7 @@ contract GauntletGameTest is TestBase {
         level10Game.setRewardConfig(3, config);
     }
 
-    function test_setRewardConfig_revertInvalidTotal() public {
+    function testRevertWhen_SetRewardConfigInvalidTotal() public {
         // Deploy a Level 10 gauntlet
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),
@@ -2389,7 +2372,7 @@ contract GauntletGameTest is TestBase {
         level10Game.setRewardConfig(0, config);
     }
 
-    function test_setRewardConfig_revertNonLevel10() public {
+    function testRevertWhen_SetRewardConfigNonLevel10() public {
         // Use the existing game which is NOT Level 10
         IPlayerTickets.RewardConfig memory config = IPlayerTickets.RewardConfig({
             nonePercent: 10000,
@@ -2408,7 +2391,7 @@ contract GauntletGameTest is TestBase {
         game.setRewardConfig(0, config);
     }
 
-    function test_setRewardConfig_onlyOwner() public {
+    function testRevertWhen_SetRewardConfigNotOwner() public {
         // Deploy a Level 10 gauntlet
         GauntletGame level10Game = new GauntletGame(
             address(gameEngine),

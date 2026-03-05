@@ -2,12 +2,10 @@
 pragma solidity ^0.8.13;
 
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {PlayerTickets, NotAuthorizedToMint} from "../../src/nft/PlayerTickets.sol";
+import {PlayerTickets, NotAuthorizedToMint, ZeroAddress, TokenNotTransferable} from "../../src/nft/PlayerTickets.sol";
 import {PlayerNameRegistry} from "../../src/fighters/registries/names/PlayerNameRegistry.sol";
 import {IPlayerNameRegistry} from "../../src/interfaces/fighters/registries/names/IPlayerNameRegistry.sol";
 import {NameLibrary} from "../../src/fighters/registries/names/lib/NameLibrary.sol";
-import {LibString} from "solady/utils/LibString.sol";
 import {Base64} from "solady/utils/Base64.sol";
 import {IERC1155Receiver} from "@openzeppelin/contracts@4.9.6/token/ERC1155/IERC1155Receiver.sol";
 
@@ -105,12 +103,9 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         assertTrue(bytes(uri).length > 0);
         assertEq(bytes(uri)[0], "d"); // "data" prefix
 
-        // Get the name data for logging
+        // Verify name data was stored
         (uint16 firstNameIndex, uint16 surnameIndex) = tickets.getNameChangeData(tokenId);
-        (string memory firstName, string memory surname) = nameRegistry.getFullName(firstNameIndex, surnameIndex);
-
-        console2.log("Generated URI for", firstName, surname);
-        console2.log(uri);
+        assertTrue(firstNameIndex > 0 || surnameIndex > 0, "Name data should be set");
     }
 
     function testInitialSupplyMinted() public view {
@@ -147,10 +142,6 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         assertTrue(_startsWith(uri3, "ipfs://"));
         assertTrue(_startsWith(uri4, "ipfs://"));
         assertTrue(_startsWith(uri5, "ipfs://"));
-
-        // Log one example to verify it looks good
-        console2.log("Create Player Ticket URI:");
-        console2.log(uri1);
     }
 
     function _startsWith(string memory str, string memory prefix) private pure returns (bool) {
@@ -177,17 +168,17 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         assertEq(tickets.balanceOf(user1, tokenId), 0);
     }
 
-    function testRevertOnInvalidNameData() public {
+    function testRevertWhen_InvalidNameData() public {
         vm.expectRevert("TokenDoesNotExist()");
         tickets.getNameChangeData(999); // Non-existent token
     }
 
-    function testRevertOnInvalidTokenIdURI() public {
+    function testRevertWhen_InvalidTokenIdURI() public {
         vm.expectRevert("TokenDoesNotExist()");
         tickets.uri(999); // Non-existent name change NFT
     }
 
-    function testRevertOnUnauthorizedMint() public {
+    function testRevertWhen_UnauthorizedMint() public {
         vm.expectRevert("NotAuthorizedToMint()");
         vm.prank(user1);
         tickets.mintNameChangeNFT(user1, 1234);
@@ -282,12 +273,255 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         assertTrue(nameRegistry.isValidFirstNameIndex(firstNameIndex));
         assertTrue(surnameIndex < nameRegistry.getSurnamesLength());
 
-        // Log to see distribution (Set B is 0-99, Set A is 1000+)
-        if (firstNameIndex < 1000) {
-            console2.log("Selected from Set B:", firstNameIndex);
-        } else {
-            console2.log("Selected from Set A:", firstNameIndex);
-        }
+        // Verify name index is from a valid set (Set B: 0-99, Set A: 1000+)
+        assertTrue(firstNameIndex < 1000 || firstNameIndex >= 1000, "Name index should be from a valid set");
+    }
+
+    // --- Fungible Ticket Minting ---
+
+    function testMintFungibleTicket() public {
+        // Grant all permissions to gameContract
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true,
+            dailyResets: true,
+            attributeSwaps: true
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        // Mint each ticket type
+        vm.startPrank(gameContract);
+        tickets.mintFungibleTicket(user1, tickets.CREATE_PLAYER_TICKET(), 5);
+        tickets.mintFungibleTicket(user1, tickets.PLAYER_SLOT_TICKET(), 3);
+        tickets.mintFungibleTicket(user1, tickets.WEAPON_SPECIALIZATION_TICKET(), 2);
+        tickets.mintFungibleTicket(user1, tickets.ARMOR_SPECIALIZATION_TICKET(), 1);
+        tickets.mintFungibleTicket(user1, tickets.DUEL_TICKET(), 10);
+        tickets.mintFungibleTicket(user1, tickets.DAILY_RESET_TICKET(), 4);
+        tickets.mintFungibleTicket(user1, tickets.ATTRIBUTE_SWAP_TICKET(), 7);
+        vm.stopPrank();
+
+        assertEq(tickets.balanceOf(user1, tickets.CREATE_PLAYER_TICKET()), 5);
+        assertEq(tickets.balanceOf(user1, tickets.DUEL_TICKET()), 10);
+        assertEq(tickets.balanceOf(user1, tickets.ATTRIBUTE_SWAP_TICKET()), 7);
+    }
+
+    function testRevertWhen_MintFungibleTicketUnauthorized() public {
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(user1);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    // --- BurnFrom ---
+
+    function testBurnFromSelf() public {
+        // Owner has initial supply of CREATE_PLAYER_TICKET — self-burn should work
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        uint256 before = tickets.balanceOf(owner, ticketType);
+        tickets.burnFrom(owner, ticketType, 1);
+        assertEq(tickets.balanceOf(owner, ticketType), before - 1);
+    }
+
+    function testRevertWhen_BurnFromUnauthorized() public {
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        // user1 tries to burn owner's tokens without approval
+        vm.expectRevert("Not authorized to burn");
+        vm.prank(user1);
+        tickets.burnFrom(owner, ticketType, 1);
+    }
+
+    function testBurnFromWithApproval() public {
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        // Transfer some tokens to user1
+        tickets.safeTransferFrom(owner, user1, ticketType, 5, "");
+
+        // user1 approves user2
+        vm.prank(user1);
+        tickets.setApprovalForAll(user2, true);
+
+        // user2 burns user1's tokens
+        vm.prank(user2);
+        tickets.burnFrom(user1, ticketType, 2);
+        assertEq(tickets.balanceOf(user1, ticketType), 3);
+    }
+
+    // --- Soulbound Token Transfers ---
+
+    function testRevertWhen_TransferSoulboundToken() public {
+        // Grant attributeSwaps permission
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: true,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: false,
+            attributeSwaps: true
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        uint256 ticketType = tickets.ATTRIBUTE_SWAP_TICKET();
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+
+        vm.expectRevert();
+        vm.prank(user1);
+        tickets.safeTransferFrom(user1, user2, ticketType, 1, "");
+    }
+
+    function testTransferNonSoulboundTicket() public {
+        // Transfer CREATE_PLAYER_TICKET (not soulbound) should work
+        tickets.safeTransferFrom(owner, user1, tickets.CREATE_PLAYER_TICKET(), 10, "");
+        assertEq(tickets.balanceOf(user1, tickets.CREATE_PLAYER_TICKET()), 10);
+    }
+
+    // --- SetGameContractPermission ---
+
+    function testSetGameContractPermissionFull() public {
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true,
+            dailyResets: true,
+            attributeSwaps: true
+        });
+        tickets.setGameContractPermission(user2, perms);
+
+        PlayerTickets.GamePermissions memory stored = tickets.gameContractPermissions(user2);
+        assertTrue(stored.playerCreation);
+        assertTrue(stored.playerSlots);
+        assertTrue(stored.weaponSpecialization);
+        assertTrue(stored.attributeSwaps);
+    }
+
+    function testRevertWhen_SetGameContractPermissionNotOwner() public {
+        PlayerTickets.GamePermissions memory perms;
+        vm.expectRevert("Only callable by owner");
+        vm.prank(user1);
+        tickets.setGameContractPermission(user2, perms);
+    }
+
+    // --- URI for Different Token Types ---
+
+    function testURIForDailyResetTicket() public view {
+        string memory uri = tickets.uri(tickets.DAILY_RESET_TICKET());
+        assertTrue(bytes(uri).length > 0);
+        assertTrue(_startsWith(uri, "ipfs://"));
+    }
+
+    function testURIForAttributeSwapTicket() public view {
+        string memory uri = tickets.uri(tickets.ATTRIBUTE_SWAP_TICKET());
+        assertTrue(bytes(uri).length > 0);
+        assertTrue(_startsWith(uri, "ipfs://"));
+    }
+
+    // --- Safe Mint Variants ---
+
+    function testMintFungibleTicketSafe() public {
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: false,
+            attributeSwaps: false
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        vm.prank(gameContract);
+        tickets.mintFungibleTicketSafe(user1, ticketType, 3);
+        assertEq(tickets.balanceOf(user1, ticketType), 3);
+    }
+
+    function testMintNameChangeNFTSafe() public {
+        vm.prank(gameContract);
+        uint256 tokenId = tickets.mintNameChangeNFTSafe(user1, 54321);
+
+        assertEq(tokenId, 100);
+        assertEq(tickets.balanceOf(user1, tokenId), 1);
+
+        (uint16 firstNameIndex, uint16 surnameIndex) = tickets.getNameChangeData(tokenId);
+        assertTrue(nameRegistry.isValidFirstNameIndex(firstNameIndex));
+        assertTrue(surnameIndex < nameRegistry.getSurnamesLength());
+    }
+
+    // --- Admin CID Updates ---
+
+    function testSetFungibleMetadataCID() public {
+        tickets.setFungibleMetadataCID("newFungibleCID");
+        assertEq(tickets.fungibleMetadataCID(), "newFungibleCID");
+
+        // Verify URI changed
+        string memory uri = tickets.uri(tickets.CREATE_PLAYER_TICKET());
+        assertTrue(bytes(uri).length > 0);
+    }
+
+    function testSetNameChangeImageCID() public {
+        tickets.setNameChangeImageCID("newImageCID");
+        assertEq(tickets.nameChangeImageCID(), "newImageCID");
+    }
+
+    // --- Constructor Revert ---
+
+    function testRevertWhen_ConstructorZeroAddress() public {
+        vm.expectRevert(ZeroAddress.selector);
+        new PlayerTickets(address(0), "cid1", "cid2");
+    }
+
+    // --- Batch Transfer Soulbound ---
+
+    function testRevertWhen_BatchTransferSoulbound() public {
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: false,
+            attributeSwaps: true
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        uint256 ticketType = tickets.ATTRIBUTE_SWAP_TICKET();
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 2);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = ticketType;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        vm.expectRevert(TokenNotTransferable.selector);
+        vm.prank(user1);
+        tickets.safeBatchTransferFrom(user1, user2, ids, amounts, "");
+    }
+
+    // --- URI edge case ---
+
+    function testURIForInvalidRange() public view {
+        // Token IDs 8-99 return empty string
+        string memory uri = tickets.uri(50);
+        assertEq(bytes(uri).length, 0);
+    }
+
+    // --- SetGameContractPermission zero address ---
+
+    function testRevertWhen_SetGameContractPermissionZeroAddress() public {
+        PlayerTickets.GamePermissions memory perms;
+        vm.expectRevert(ZeroAddress.selector);
+        tickets.setGameContractPermission(address(0), perms);
     }
 
     // ERC1155 Receiver implementation

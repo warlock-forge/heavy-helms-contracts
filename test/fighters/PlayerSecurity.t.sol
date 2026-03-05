@@ -4,62 +4,10 @@ pragma solidity ^0.8.13;
 import {Player, PendingRequestExists} from "../../src/fighters/Player.sol";
 import {PlayerTickets} from "../../src/nft/PlayerTickets.sol";
 import {TestBase} from "../TestBase.sol";
+import {ReentrancyAttacker} from "../helpers/ReentrancyAttacker.sol";
+import {MaliciousERC1155Receiver} from "../helpers/MaliciousERC1155Receiver.sol";
 
-// Malicious contracts for testing attack vectors
-contract ReentrancyAttacker {
-    Player public target;
-    uint256 public attackCount;
-    bool public attacking;
-
-    constructor(Player _target) {
-        target = _target;
-    }
-
-    // Try to reenter during ETH purchase
-    receive() external payable {
-        if (attacking && attackCount < 2) {
-            attackCount++;
-            // Try to purchase again during the first purchase
-            target.purchasePlayerSlots{value: msg.value}();
-        }
-    }
-
-    function attack() external payable {
-        attacking = true;
-        attackCount = 0;
-        target.purchasePlayerSlots{value: msg.value}();
-        attacking = false;
-    }
-}
-
-contract MaliciousERC1155Receiver {
-    Player public target;
-    PlayerTickets public tickets;
-    bool public attacking;
-
-    constructor(Player _target, PlayerTickets _tickets) {
-        target = _target;
-        tickets = _tickets;
-    }
-
-    // ERC1155 callback
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external returns (bytes4) {
-        if (attacking) {
-            // Try to purchase slots during token transfer
-            target.purchasePlayerSlotsWithTickets();
-        }
-        return this.onERC1155Received.selector;
-    }
-
-    function attack() external {
-        attacking = true;
-        // This would only be called if tickets were being transferred TO us
-        // But burnFrom doesn't trigger callbacks, so this won't execute
-        attacking = false;
-    }
-}
-
-contract PlayerSecurityTests is TestBase {
+contract PlayerSecurityTest is TestBase {
     address public USER;
     ReentrancyAttacker public ethAttacker;
     MaliciousERC1155Receiver public tokenAttacker;
@@ -152,7 +100,7 @@ contract PlayerSecurityTests is TestBase {
         assertEq(playerContract.getPlayerSlots(USER), initialSlots + 2);
     }
 
-    function testCannotExploitMixedPurchaseMethods() public {
+    function testRevertWhen_ExploitMixedPurchaseMethods() public {
         PlayerTickets tickets = playerContract.playerTickets();
 
         // Setup permissions

@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
@@ -18,7 +12,7 @@ contract ActionPointsTest is TestBase {
         // with deterministic seeds based purely on block state
     }
 
-    function test_DoubleAttack() public view {
+    function testDoubleAttack() public view {
         uint16 fastWeaponId = 7; // RapierShieldDefensive
         uint16 slowWeaponId = 3; // GreatswordOffensive
 
@@ -58,13 +52,13 @@ contract ActionPointsTest is TestBase {
 
         // Assert ratio is between 1.5 and 3.0 (using integer math)
         // 15/10 = 1.5, 30/10 = 3.0
-        require(
+        assertTrue(
             fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
             "Fast weapon should attack roughly twice as often as slow weapon"
         );
     }
 
-    function test_DoubleAttackPlayerBias() public view {
+    function testDoubleAttackPlayerBias() public view {
         uint16 fastWeaponId = 7; // RapierShieldDefensive
         uint16 slowWeaponId = 3; // GreatswordOffensive
 
@@ -103,13 +97,13 @@ contract ActionPointsTest is TestBase {
 
         // Assert ratio is between 1.5 and 3.0 (using integer math)
         // 15/10 = 1.5, 30/10 = 3.0
-        require(
+        assertTrue(
             fastAttacks * 10 >= slowAttacks * 15 && fastAttacks * 10 <= slowAttacks * 30,
             "Fast weapon should attack roughly twice as often as slow weapon"
         );
     }
 
-    function test_SameWeaponInitiative() public view {
+    function testSameWeaponInitiative() public view {
         uint16 weaponId = 1; // DefaultWarrior
 
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
@@ -141,7 +135,7 @@ contract ActionPointsTest is TestBase {
         }
 
         // Assert attack counts differ by at most 1
-        require(
+        assertTrue(
             p1Attacks == p2Attacks || p1Attacks == p2Attacks + 1 || p1Attacks + 1 == p2Attacks,
             "Attack counts should differ by at most 1"
         );
@@ -150,7 +144,7 @@ contract ActionPointsTest is TestBase {
         for (uint256 i = 0; i < actions.length; i++) {
             bool p1Attacked = !_isDefensiveResult(actions[i].p1Result);
             bool p2Attacked = !_isDefensiveResult(actions[i].p2Result);
-            require(p1Attacked != p2Attacked, "Each round should have exactly one attacker");
+            assertTrue(p1Attacked != p2Attacked, "Each round should have exactly one attacker");
         }
     }
 }

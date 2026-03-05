@@ -29,7 +29,7 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@v4
         with:
           coverage-files: ./lcov.info
-          minimum-coverage: 80
+          minimum-coverage: 90
 
   static-analysis:
     runs-on: ubuntu-latest

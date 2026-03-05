@@ -60,7 +60,7 @@ contract TournamentGameRecoveryTest is TestBase {
     }
 
     // Test that recovery cannot be called too early
-    function testRevert_CannotRecoverTooEarly() public {
+    function testRevertWhen_CannotRecoverTooEarly() public {
         // Queue players
         for (uint256 i = 0; i < 16; i++) {
             uint32 playerId = uint32(10001 + i);
@@ -137,7 +137,7 @@ contract TournamentGameRecoveryTest is TestBase {
     }
 
     // Test recovery with no pending tournament
-    function testRevert_NoPendingTournament() public {
+    function testRevertWhen_NoPendingTournament() public {
         vm.expectRevert(NoPendingTournament.selector);
         game.recoverPendingTournament();
     }

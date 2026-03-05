@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// ██╗    ██╗ █████╗ ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗    ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-// ██║    ██║██╔══██╗██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝    ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-// ██║ █╗ ██║███████║██████╔╝██║     ██║   ██║██║     █████╔╝     █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
-// ██║███╗██║██╔══██║██╔══██╗██║     ██║   ██║██║     ██╔═██╗     ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
-// ╚███╔███╔╝██║  ██║██║  ██║███████╗╚██████╔╝╚██████╗██║  ██╗    ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-//  ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
 pragma solidity ^0.8.13;
 
 import {PracticeGame} from "../../src/game/modes/PracticeGame.sol";
+import {ZeroAddress} from "../../src/game/modes/BaseGame.sol";
 import {TestBase} from "../TestBase.sol";
 import {DefaultPlayerLibrary} from "../../src/fighters/lib/DefaultPlayerLibrary.sol";
 import {IGameEngine} from "../../src/interfaces/game/engine/IGameEngine.sol";
@@ -169,5 +164,100 @@ contract PracticeGameTest is TestBase {
         }
 
         assertTrue(attackActionFound, "No attack actions found in combat log");
+    }
+
+    // --- Constructor Zero-Address Reverts ---
+
+    function testRevertWhen_ConstructorZeroDefaultPlayer() public {
+        vm.expectRevert(ZeroAddress.selector);
+        new PracticeGame(address(gameEngine), payable(address(playerContract)), address(0), address(monsterContract));
+    }
+
+    function testRevertWhen_ConstructorZeroMonster() public {
+        vm.expectRevert(ZeroAddress.selector);
+        new PracticeGame(
+            address(gameEngine), payable(address(playerContract)), address(defaultPlayerContract), address(0)
+        );
+    }
+
+    // --- Player vs DefaultPlayer ---
+
+    function testPlayPlayerVsDefaultPlayer() public view {
+        Fighter.PlayerLoadout memory p1 = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory p2 = _createLoadout(1); // DefaultPlayer ID 1
+
+        bytes memory results = practiceGame.play(p1, p2);
+        (, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+        _assertValidCombatResult(version, condition, actions);
+    }
+
+    // --- Player vs Monster ---
+
+    function testPlayPlayerVsMonster() public view {
+        Fighter.PlayerLoadout memory p1 = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory p2 = _createLoadout(2001); // Monster ID
+
+        bytes memory results = practiceGame.play(p1, p2);
+        (, uint16 version, GameEngine.WinCondition condition, GameEngine.CombatAction[] memory actions) =
+            gameEngine.decodeCombatLog(results);
+        _assertValidCombatResult(version, condition, actions);
+    }
+
+    // --- Revert Paths ---
+
+    function testRevertWhen_Player1NotPlayer() public {
+        Fighter.PlayerLoadout memory p1 = _createLoadout(1); // DefaultPlayer
+        Fighter.PlayerLoadout memory p2 = _createLoadout(PLAYER_TWO_ID);
+
+        vm.expectRevert("Player1 must be a Player");
+        practiceGame.play(p1, p2);
+    }
+
+    function testRevertWhen_SamePlayerFight() public {
+        Fighter.PlayerLoadout memory p1 = _createLoadout(PLAYER_ONE_ID);
+        Fighter.PlayerLoadout memory p2 = _createLoadout(PLAYER_ONE_ID);
+
+        vm.expectRevert("Cannot fight yourself");
+        practiceGame.play(p1, p2);
+    }
+
+    // --- Admin Setters ---
+
+    function testSetGameEngine() public {
+        address newEngine = address(0xBEEF);
+        practiceGame.setGameEngine(newEngine);
+        assertEq(address(practiceGame.gameEngine()), newEngine);
+    }
+
+    function testRevertWhen_SetGameEngineZeroAddress() public {
+        vm.expectRevert(ZeroAddress.selector);
+        practiceGame.setGameEngine(address(0));
+    }
+
+    function testSetDefaultPlayerContract() public {
+        practiceGame.setDefaultPlayerContract(address(0xBEEF));
+        assertEq(address(practiceGame.defaultPlayerContract()), address(0xBEEF));
+    }
+
+    function testRevertWhen_SetDefaultPlayerContractZeroAddress() public {
+        vm.expectRevert(ZeroAddress.selector);
+        practiceGame.setDefaultPlayerContract(address(0));
+    }
+
+    function testSetMonsterContract() public {
+        practiceGame.setMonsterContract(address(0xBEEF));
+        assertEq(address(practiceGame.monsterContract()), address(0xBEEF));
+    }
+
+    function testRevertWhen_SetMonsterContractZeroAddress() public {
+        vm.expectRevert(ZeroAddress.selector);
+        practiceGame.setMonsterContract(address(0));
+    }
+
+    function testRevertWhen_SetGameEngineNotOwner() public {
+        vm.expectRevert("Only callable by owner");
+        vm.prank(PLAYER_ONE);
+        practiceGame.setGameEngine(address(0xBEEF));
     }
 }
