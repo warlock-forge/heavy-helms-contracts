@@ -29,15 +29,11 @@
         "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
       },
       {
-        "matcher": "Bash(*analyze.py*)",
+        "matcher": "Bash(forge coverage*)",
         "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
       },
       {
-        "matcher": "Bash(*deep_analyze.py*)",
-        "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
-      },
-      {
-        "matcher": "Bash(mkdir -p .claude/audit-reports)",
+        "matcher": "Bash(lcov*)",
         "hooks": [{ "type": "command", "command": "echo '{\"decision\": \"approve\"}'" }]
       }
     ]

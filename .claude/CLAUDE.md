@@ -32,8 +32,9 @@ forge script <script-path>                # Dry run without broadcasting
 ### Code Quality
 
 ```bash
-forge fmt         # Format Solidity code
-forge coverage    # Generate test coverage report
+forge fmt                                           # Format Solidity code
+forge fmt --check                                   # Check formatting (CI runs this)
+forge coverage --ir-minimum --report summary --report lcov  # Coverage (CI-matching)
 ```
 
 ## Fighter ID Ranges
