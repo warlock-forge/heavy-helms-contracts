@@ -43,7 +43,7 @@ ERC-721 skins alter combat strategy by changing weapon and armor loadouts. Skins
 - XP and leveling across all game modes (+1 allocatable attribute point per level)
 - Season system with time-bounded competition
 - Gauntlet difficulty tiers gated by player level (L1-4, L5-9, L10)
-- Rewards are in-game utility tickets only: stat respec, new fighter rolls, roster expansion. No gambling mechanics.
+- Rewards are in-game utility tickets only: stat respec, new fighter rolls, roster expansion.
 
 ### Stack
 
