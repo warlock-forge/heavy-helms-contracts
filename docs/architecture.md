@@ -1,119 +1,100 @@
 # Heavy Helms Architecture
 
-## Core Contract Structure
+## Contract Structure
 
 ### Fighter System (`src/fighters/`)
 
-- `Fighter.sol`: Base contract for all fighter types
-- `Player.sol`: Main player characters owned by users
-- `DefaultPlayer.sol`: AI-controlled default players
-- `Monster.sol`: Enemy monsters for PvE content
+- `Fighter.sol`: Base contract, defines shared structs (PlayerLoadout, SkinInfo, FighterStats)
+- `Player.sol`: User-owned fighters. Soulbound mappings, VRF-based creation, XP/leveling, attribute allocation
+- `DefaultPlayer.sol`: Game-owned AI fighters (IDs 1-2000) used to fill gauntlet/tournament brackets
+- `Monster.sol`: PvE enemies (IDs 2001-10000) with predefined stat templates
 
 ### Game Engine (`src/game/`)
 
-- `GameEngine.sol`: Core combat mechanics and battle resolution (version 1.2)
-- `EquipmentRequirements.sol`: Equipment validation and requirements
-- Game Modes: `BaseGame.sol`, `PracticeGame.sol`, `DuelGame.sol`, `GauntletGame.sol`
+- `GameEngine.sol` (v1.2): Core combat simulation. Resolves fights purely onchain, outputs bit-packed combat logs
+- `EquipmentRequirements.sol`: Validates weapon/armor combinations against fighter stats
+- `BaseGame.sol`: Abstract base for all game modes
+- `PracticeGame.sol`: Free play against default players and monsters
+- `DuelGame.sol`: 1v1 challenge-accept PvP via Chainlink VRF
+- `GauntletGame.sol`: Elimination brackets (4-32 players) via blockhash commit-reveal
+- `TournamentGame.sol`: Scheduled daily tournaments (16-32 players) with death mechanics and rewards
+- `MonsterBattleGame.sol`: PvE progression via Chainlink VRF
 
 ### NFT System (`src/nft/`)
 
-- `GameOwnedNFT.sol`: Base NFT contract
-- Skin NFTs: `DefaultPlayerSkinNFT.sol`, `MonsterSkinNFT.sol`, `PlayerSkinNFT.sol`
+- `GameOwnedNFT.sol`: Base ERC-721 (Solady) for game-managed NFTs
+- `PlayerSkinNFT.sol`: Tradeable ERC-721 skins that define weapon + armor loadouts
+- `DefaultPlayerSkinNFT.sol`, `MonsterSkinNFT.sol`: Game-owned skin sets
+- `UnlockableKeyNFT.sol`: Key-gated skin unlocks
+- `PlayerTickets.sol`: ERC-1155 (Solady) utility tickets (stat respec, new fighter, roster slot, daily resets)
 
 ### Registry System (`src/fighters/registries/`)
 
-- `PlayerSkinRegistry.sol`: Manages skin collections and validation
-- `PlayerNameRegistry.sol`, `MonsterNameRegistry.sol`: Name generation systems
+- `PlayerSkinRegistry.sol`: Manages skin collections, validates ownership and equipment compatibility
+- `PlayerNameRegistry.sol`, `MonsterNameRegistry.sol`: Onchain name generation from predefined word lists
 
-## Key Design Patterns
+### Libraries (`src/lib/`)
 
-### Randomness Systems
+- `PlayerDataCodec.sol`: Bit-packing for player attributes into efficient storage
+- `UniformRandomNumber.sol`: Uniform random number generation within ranges
+- `DefaultPlayerLibrary.sol`, `MonsterLibrary.sol`: Predefined fighter templates
 
-- **GauntletGame**: Uses blockhash-based commit-reveal for security and gas efficiency
-- **Other Games**: Use Chainlink VRF for on-chain randomness
-- Mock system available for testing (Chainlink VRF v2.5 mocks)
+## Randomness
 
-### Fighter ID Ranges
+Two distinct approaches based on game mode requirements:
 
-- Default Players: 1-2000 (game owned)
-- Monsters: 2001-10000 (game owned)
-- Players: 10001+ (user owned)
+### Blockhash Commit-Reveal (Gauntlets, Tournaments)
 
-### Combat System
+Three-transaction flow for high-frequency game modes where VRF latency and cost are impractical:
 
-- Turn-based combat with stamina management
-- Multiple combat results (miss, attack, crit, block, counter, etc.)
-- Equipment affects combat outcomes
+1. **Commit**: Records current block number, locks queue state
+2. **Select**: At future block, uses `blockhash` to randomly select participants from queue
+3. **Execute**: At another future block, uses `blockhash` as combat seed, runs full bracket
 
-### VRF/Randomness Patterns
+Tradeoff: Base uses a centralized sequencer, so the sequencer could theoretically influence outcomes. Accepted because entry values are low and the UX benefit (instant resolution, no VRF callback delay) outweighs the risk.
 
-- GauntletGame: Blockhash-based commit-reveal
-- Other Games: Chainlink VRF
-- Clear phase management for multi-step processes
+### Chainlink VRF v2.5 (Player Creation, Duels, Monster Battles)
 
-### Registry Pattern
+Standard request-callback pattern for operations where latency is acceptable and provable fairness matters more:
 
-- External registries for skins, names, etc.
-- Validation through registry interfaces
+- Player creation: random stat distribution
+- Duels: combat resolution seed
+- Monster battles: combat resolution seed
 
-## Security Considerations
+## Fighter ID Ranges
 
-### Checks-Effects-Interactions Pattern
+| Range | Type | Contract |
+|---|---|---|
+| 1-2000 | Default Players | DefaultPlayer (game-owned) |
+| 2001-10000 | Monsters | Monster (game-owned) |
+| 10001+ | Players | Player (user-owned) |
 
-Always followed for reentrancy protection
+## Combat Log Format
 
-### Access Control
+Binary-encoded for gas efficiency and frontend replay:
 
-Owner-based permissions, whitelisting for games
+- Byte 0-3: `uint32` packed winner + win condition
+- Byte 4: header flags
+- Bytes 5+: 8 bytes per combat action, containing both players' results per round
+- Damage values packed as `uint16`
 
-### VRF Security
+The frontend decodes this byte array and replays the fight visually.
 
-Proper validation of VRF responses
+## Access Control
 
-### Fee Handling
+Owner-based via OpenZeppelin Ownable. Game contracts are granted specific permissions on the Player contract:
 
-Careful arithmetic to prevent overflow/underflow
+```
+GamePermissions {
+    record: bool,   // Can record wins/losses
+    retire: bool,   // Can kill fighters (tournaments only)
+    immortal: bool, // Fighters can't die in this mode
+    experience: bool // Can award XP
+}
+```
 
-## Common Patterns
+PlayerTickets has its own permission system controlling which game contracts can mint which ticket types.
 
-### Error Handling
+## Season System
 
-Custom errors used throughout
-
-### Events
-
-Comprehensive events for all state changes
-
-### Modifiers
-
-Common validation in modifiers
-
-### Libraries
-
-Extensive use of libraries for code reuse and gas optimization
-
-## Current Development Priorities
-
-### Completed
-
-- **Blockhash Gauntlet System**: Complete 3-transaction commit-reveal implementation
-  - Queue selection timing exploit FIXED
-  - VRF costs eliminated (50%+ gas savings)
-  - Instant gauntlet completion (no VRF delays)
-  - Comprehensive test coverage (23/23 tests passing)
-- **GameEngine v1.2 Weapon Classification System**: Complete rebalancing with attribute-based damage scaling
-  - 7 weapon classes with unique damage formulas (e.g., Light Finesse uses pure AGI×10)
-  - Universal size damage bonus system affects all weapons
-  - Shield principle properly implemented (defense trades for offense)
-  - Level progression system with XP, attribute points, and damage/health scaling
-  - Weapon and armor specialization systems
-- **Enhanced Stamina System**: Stamina ramp-up with negative effects under 50%
-- All ticket types working correctly (Type 1-4)
-- 64-player gauntlet support (~15M gas, well under 30M block limit)
-
-### Current Focus: Post v1.2 Balance Testing
-
-- v1.2 GameEngine implemented with full level progression (1-10)
-- Level benefits: +5% health/damage per level, +2 initiative, +1 attribute point
-- Weapon and armor specialization systems unlock at levels 10 and 5
-- Monitoring archetype balance across all levels
+Time-bounded competition periods using BokkyPooBah's DateTime library. Seasons gate tournament participation and track per-season rankings. Season transitions reset certain progression metrics while preserving permanent fighter state (level, attributes).

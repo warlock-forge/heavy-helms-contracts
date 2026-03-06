@@ -1,80 +1,101 @@
-# Heavy Helms Development Guide
+# Development
 
-## Important Notes
+## Build
 
-- **Via IR**: Enabled in foundry.toml for optimization
-- **Solady**: Primary dependency for gas-optimized contracts
-- **Testing**: Extensive test coverage expected, use `-vv` for debugging
-- **Gas Optimization**: Critical due to on-chain game nature
-
-## Performance Optimization
-
-- Optimize contracts for gas efficiency, considering storage layout and function optimization
-- Implement efficient indexing and querying strategies for off-chain data
-- Pack related storage variables to optimize gas usage (same storage slot)
-- Minimize on-chain storage and computation when possible
-- Use events for data that doesn't need to be accessed on-chain
-- Batch operations to save gas when possible
-- Consider using bitmap/bitwise operations for storing boolean flags
-- Cache storage variables in memory within functions to reduce sload operations
-- Be conscious of SSTORE costs - especially when frequently updating the same variable
-- Consider unifying related functions to save on contract size and reduce deployment costs
-
-## Development Workflow Guidelines
-
-- Utilize Foundry's forge for compilation, testing, and deployment
-- Use Foundry's cast for command-line interaction with contracts
-- Implement comprehensive Foundry scripts for deployment and verification
-- Use Foundry's script capabilities for complex deployment sequences
-- Implement a robust CI/CD pipeline for smart contract deployments
-- Use static type checking and linting tools in pre-commit hooks
-- Utilize `forge fmt` if prompted about consistent code formatting
-- Use a well-defined versioning strategy for contract deployments
-- Implement a formal code review process before deployment
-- Maintain a deployment registry with contract addresses and ABIs
-- Implement monitoring and alerting systems for production contracts
-
-## Documentation Standards
-
-- Document code thoroughly, focusing on why rather than what
-- Maintain up-to-date API documentation for smart contracts
-- Create and maintain comprehensive project documentation, including architecture diagrams and decision logs
-- Document test scenarios and their purpose clearly
-- Document any assumptions made in the contract design
-- Create detailed diagrams of contract interactions for complex systems
-- Include explicit permission models in documentation
-- Document expected gas costs for key operations
-- Include contingency plans for potential failure modes
-
-## Dependencies Management
-
-- Use Solady (vectorized/solady) as a primary source of gas-optimized dependencies
-- Ensure that any libraries used are installed with forge, and remappings are set
-- Place remappings in `foundry.toml` instead of a `remappings.txt` file
-- Periodically audit and update dependencies to benefit from security patches
-- Pin dependency versions to ensure deterministic builds
-
-## Environment Configuration
-
-### When via_ir is required:
-
-```toml
-# via_ir pipeline is very slow - use a separate profile to pre-compile and then use vm.getCode to deploy
-[profile.via_ir]
-via_ir = true
-# do not compile tests when compiling via-ir
-test = 'src'
-out = 'via_ir-out'
+```bash
+forge build
 ```
 
-### When deterministic deployment is required:
+`via_ir` is enabled in foundry.toml. Compilation is slow but produces optimized bytecode.
 
-```toml
-[profile.deterministic]
-# ensure that block number + timestamp are realistic when running tests
-block_number = 17722462
-block_timestamp = 1689711647
-# don't pollute bytecode with metadata
-bytecode_hash = 'none'
-cbor_metadata = false
+## Test
+
+```bash
+forge test                    # Unit tests only (default profile excludes test/simulation/)
+forge test -vv                # Verbose output
+forge test --match-test       # Run specific test function
+forge test --match-contract   # Run specific test contract
+```
+
+### Simulation Tests
+
+Non-deterministic combat simulations live in `test/simulation/`. These run hundreds of fights and assert statistical outcomes (win rates within ranges, progression scaling, gas limits):
+
+```bash
+FOUNDRY_PROFILE=simulation forge test -vv
+FOUNDRY_PROFILE=simulation forge test -vv --match-contract BalanceTest
+```
+
+The default Foundry profile excludes `test/simulation/*` via `no_match_path` in `foundry.toml`.
+
+## Coverage
+
+```bash
+forge coverage --ir-minimum --report summary --report lcov
+```
+
+CI filters out `test/` and `script/` from the LCOV report and enforces a 90% minimum gate.
+
+## Formatting
+
+```bash
+forge fmt           # Format
+forge fmt --check   # Check only (CI runs this)
+```
+
+## Static Analysis
+
+Both run in CI on every push/PR:
+
+```bash
+pip install slither-analyzer
+slither .
+
+# Aderyn runs via GitHub Action (Cyfrin/aderyn-ci)
+```
+
+False positives are suppressed inline:
+- Slither: `// slither-disable-next-line <detector>`
+- Aderyn: `// aderyn-fp` on the same line as the finding
+
+## Dependencies
+
+Installed via forge with pinned versions:
+
+```bash
+forge install --no-git foundry-rs/forge-std@v1.15.0 bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.1.24 smartcontractkit/chainlink-evm@v0.3.2 OpenZeppelin/openzeppelin-contracts@v4.9.6
+```
+
+Remappings are in `foundry.toml`, not `remappings.txt`.
+
+## Gas Optimization Notes
+
+- Solady ERC-721 and ERC-1155 over OpenZeppelin equivalents
+- `PlayerDataCodec` bit-packs 6 attributes + metadata into minimal storage slots
+- Combat logs use custom binary encoding (8 bytes per action) instead of structs/events
+- `via_ir` optimizer enabled with 200 runs
+- Storage variables packed where possible (uint8, uint32 grouped in structs)
+
+## Project Structure
+
+```
+src/
+  fighters/          # Player, Monster, DefaultPlayer, registries
+  game/
+    engine/          # GameEngine, EquipmentRequirements
+    modes/           # PracticeGame, DuelGame, GauntletGame, TournamentGame, MonsterBattleGame
+  interfaces/        # All contract interfaces
+  lib/               # PlayerDataCodec, UniformRandomNumber, fighter libraries
+  nft/               # PlayerSkinNFT, PlayerTickets, GameOwnedNFT, UnlockableKeyNFT
+test/
+  fighters/          # Player, Monster, registry tests
+  game/              # Game mode tests, gas analysis
+  nft/               # NFT and ticket tests
+  simulation/        # Balance, progression, lethality, gas simulations
+  helpers/           # Test utilities (reentrancy attacker, malicious receivers)
+  mocks/             # Mock contracts for testing
+script/
+  deploy/            # Deployment scripts
+  game/              # Usage scripts (create player, equip skin, duel)
+  admin/             # Admin operation scripts
 ```
