@@ -65,7 +65,7 @@
 ### CONSTITUTION (CON)
 
 - **Health**: +17 per point (formula: `50 + CON * 17 + SIZE * 6 + STA * 3`)
-- **Survival Rate**: +1 per point
+- **Survival Rate**: +2 per point
 - **Block Chance**: +0.2 per point
 - **Riposte Chance**: +0.3 per point
 
@@ -80,11 +80,11 @@
 
 ### AGILITY (AGI)
 
-- **Weapon Damage**: Primary for Light Finesse (×10), Curved Blade (×7), Reach Control (×8)
+- **Weapon Damage**: Primary for Light Finesse (×10), Curved Blade (×7), Reach Control (×5)
 - **Initiative**: +3 per point (determines turn order)
-- **Hit Chance**: +1 per point (formula: `50 + AGI/2 + LUCK * 2.5`)
+- **Hit Chance**: +0.5 per point (formula: `50 + AGI/2 + LUCK * 2.5`)
 - **Dodge Chance**: +0.3 per point
-- **Critical Chance**: +0.33 per point
+- **Critical Chance**: +0.2 per point
 - **Parry Chance**: +0.25 per point
 
 ### STAMINA (STA)
@@ -99,9 +99,9 @@
 
 - **Hit Chance**: +2.5 per point (major contributor)
 - **Initiative**: +2 per point
-- **Critical Chance**: +0.33 per point
+- **Critical Chance**: +0.5 per point
 - **Riposte Chance**: +1 per point
-- **Survival Rate**: +2 per point
+- **Survival Rate**: +4 per point
 
 ## Weapon Classification System (7 Classes)
 
@@ -141,9 +141,9 @@
 - **Weapons**: Axe+Mace, Mace+Shortsword
 - **Specialization**: +10% endurance, +3% parry
 
-### 7. REACH_CONTROL (AGI×8 + STR×8)
+### 7. REACH_CONTROL (AGI×5 + STR×5)
 
-- **Formula**: Base 35 + AGI×8 + STR×8
+- **Formula**: Base 30 + AGI×5 + STR×5
 - **Special**: +5% base dodge chance bonus
 - **Weapons**: Trident, Spear, Quarterstaff
 - **Specialization**: +5% dodge, +5% parry

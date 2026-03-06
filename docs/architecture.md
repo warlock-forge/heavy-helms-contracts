@@ -11,7 +11,7 @@
 
 ### Game Engine (`src/game/`)
 
-- `GameEngine.sol` (v1.2): Core combat simulation. Resolves fights purely onchain, outputs bit-packed combat logs
+- `GameEngine.sol` (v1.7): Core combat simulation. Resolves fights purely onchain, outputs bit-packed combat logs
 - `EquipmentRequirements.sol`: Validates weapon/armor combinations against fighter stats
 - `BaseGame.sol`: Abstract base for all game modes
 - `PracticeGame.sol`: Free play against default players and monsters
@@ -73,16 +73,18 @@ Standard request-callback pattern for operations where latency is acceptable and
 
 Binary-encoded for gas efficiency and frontend replay:
 
-- Byte 0-3: `uint32` packed winner + win condition
-- Byte 4: header flags
-- Bytes 5+: 8 bytes per combat action, containing both players' results per round
-- Damage values packed as `uint16`
+- Byte 0: Winner (`0` = player 1, `1` = player 2)
+- Bytes 1-2: Game engine version (`uint16`)
+- Byte 3: Win condition (enum)
+- Bytes 4+: 8 bytes per round, both players' results packed per action
+  - Bytes 0-3: Player 1 (result, `uint16` damage, stamina cost)
+  - Bytes 4-7: Player 2 (result, `uint16` damage, stamina cost)
 
 The frontend decodes this byte array and replays the fight visually.
 
 ## Access Control
 
-Owner-based via OpenZeppelin Ownable. Game contracts are granted specific permissions on the Player contract:
+Owner-based via Chainlink's ConfirmedOwner. Game contracts are granted specific permissions on the Player contract:
 
 ```
 GamePermissions {

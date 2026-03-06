@@ -25,7 +25,7 @@ Production contracts deployed on Base mainnet with a Farcaster miniapp frontend.
 
 The entire combat simulation runs in the EVM. A single `GameEngine` contract resolves fights for all game modes: practice, duels, gauntlets, tournaments, and monster battles. New modes deploy without touching player data.
 
-Combat logs use a custom binary format: 5-byte header (`uint32` winner + condition), 8 bytes per combat action with `uint16` damage packing. The frontend decodes and replays fights from this byte array.
+Combat logs use a custom binary format: 4-byte header (winner, engine version, win condition), then 8 bytes per combat action with `uint16` damage packing. The frontend decodes and replays fights from this byte array.
 
 ### Fighter System
 
@@ -36,7 +36,7 @@ ERC-721 skins alter combat strategy by changing weapon and armor loadouts. Skins
 ### Randomness
 
 - Gauntlets & Tournaments: Blockhash commit-reveal with multi-phase entropy. No VRF overhead for high-frequency game modes.
-- Player Creation & Duels: Chainlink VRF v2.5 for random stat rolls and combat resolution seeds.
+- Player Creation, Duels & Monster Battles: Chainlink VRF v2.5 for random stat rolls and combat resolution seeds.
 
 ### Progression (v2)
 
