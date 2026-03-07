@@ -524,6 +524,203 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         tickets.setGameContractPermission(address(0), perms);
     }
 
+    // --- Invalid ticket type ---
+
+    function testRevertWhen_MintInvalidTicketType() public {
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: true,
+            nameChanges: true,
+            weaponSpecialization: true,
+            armorSpecialization: true,
+            duels: true,
+            dailyResets: true,
+            attributeSwaps: true
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        vm.prank(gameContract);
+        vm.expectRevert();
+        tickets.mintFungibleTicket(user1, 99, 1); // Invalid ticket type
+    }
+
+    // --- Per-permission denial coverage ---
+
+    function testRevertWhen_MintWithoutPlayerCreationPerm() public {
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    function testRevertWhen_MintWithoutPlayerSlotsPerm() public {
+        uint256 ticketType = tickets.PLAYER_SLOT_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    function testRevertWhen_MintWithoutWeaponSpecPerm() public {
+        uint256 ticketType = tickets.WEAPON_SPECIALIZATION_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    function testRevertWhen_MintWithoutArmorSpecPerm() public {
+        uint256 ticketType = tickets.ARMOR_SPECIALIZATION_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    function testRevertWhen_MintWithoutDuelPerm() public {
+        uint256 ticketType = tickets.DUEL_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    function testRevertWhen_MintWithoutDailyResetPerm() public {
+        uint256 ticketType = tickets.DAILY_RESET_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    function testRevertWhen_MintWithoutAttributeSwapPerm() public {
+        uint256 ticketType = tickets.ATTRIBUTE_SWAP_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, ticketType, 1);
+    }
+
+    // --- Mint to non-receiver contract ---
+
+    function testRevertWhen_MintToNonReceiverContract() public {
+        // nameRegistry is a contract that doesn't implement IERC1155Receiver
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: true,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: false,
+            attributeSwaps: false
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        vm.prank(gameContract);
+        vm.expectRevert();
+        tickets.mintFungibleTicket(address(nameRegistry), ticketType, 1);
+    }
+
+    // --- Batch transfer non-soulbound success ---
+
+    function testBatchTransferNonSoulbound() public {
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = tickets.CREATE_PLAYER_TICKET();
+        ids[1] = tickets.DAILY_RESET_TICKET();
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 5;
+        amounts[1] = 3;
+
+        tickets.safeBatchTransferFrom(owner, user1, ids, amounts, "");
+        assertEq(tickets.balanceOf(user1, tickets.CREATE_PLAYER_TICKET()), 5);
+        assertEq(tickets.balanceOf(user1, tickets.DAILY_RESET_TICKET()), 3);
+    }
+
+    // --- Batch transfer with soulbound mixed in ---
+
+    function testRevertWhen_BatchTransferMixedSoulbound() public {
+        PlayerTickets.GamePermissions memory perms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: false,
+            attributeSwaps: true
+        });
+        tickets.setGameContractPermission(gameContract, perms);
+
+        uint256 swapTicket = tickets.ATTRIBUTE_SWAP_TICKET();
+        uint256 createTicket = tickets.CREATE_PLAYER_TICKET();
+
+        vm.prank(gameContract);
+        tickets.mintFungibleTicket(user1, swapTicket, 2);
+
+        // Transfer some CREATE_PLAYER tickets to user1 so they have both types
+        tickets.safeTransferFrom(owner, user1, createTicket, 5, "");
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = createTicket; // not soulbound
+        ids[1] = swapTicket; // soulbound
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1;
+        amounts[1] = 1;
+
+        vm.expectRevert(TokenNotTransferable.selector);
+        vm.prank(user1);
+        tickets.safeBatchTransferFrom(user1, user2, ids, amounts, "");
+    }
+
+    // --- Admin CID non-owner reverts ---
+
+    function testRevertWhen_SetFungibleMetadataCIDNotOwner() public {
+        vm.expectRevert("Only callable by owner");
+        vm.prank(user1);
+        tickets.setFungibleMetadataCID("hacked");
+    }
+
+    function testRevertWhen_SetNameChangeImageCIDNotOwner() public {
+        vm.expectRevert("Only callable by owner");
+        vm.prank(user1);
+        tickets.setNameChangeImageCID("hacked");
+    }
+
+    // --- getNameChangeData boundary cases ---
+
+    function testRevertWhen_GetNameChangeDataTooLow() public {
+        // tokenId 99 is below the name NFT range
+        vm.expectRevert();
+        tickets.getNameChangeData(99);
+    }
+
+    function testRevertWhen_GetNameChangeDataUnminted() public {
+        // nextNameChangeTokenId is 100, so 100 is not yet minted
+        vm.expectRevert();
+        tickets.getNameChangeData(100);
+    }
+
+    // --- URI for unminted name NFT in valid range ---
+
+    function testRevertWhen_URIForUnmintedNameNFT() public {
+        // Token 100 hasn't been minted yet
+        vm.expectRevert();
+        tickets.uri(100);
+    }
+
+    // --- mintFungibleTicketSafe non-owner revert ---
+
+    function testRevertWhen_MintFungibleTicketSafeUnauthorized() public {
+        uint256 ticketType = tickets.CREATE_PLAYER_TICKET();
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(user1);
+        tickets.mintFungibleTicketSafe(user1, ticketType, 1);
+    }
+
+    // --- mintNameChangeNFTSafe non-owner revert ---
+
+    function testRevertWhen_MintNameChangeNFTSafeUnauthorized() public {
+        vm.expectRevert(NotAuthorizedToMint.selector);
+        vm.prank(user1);
+        tickets.mintNameChangeNFTSafe(user1, 123);
+    }
+
     // ERC1155 Receiver implementation
     function onERC1155Received(address, address, uint256, uint256, bytes calldata)
         external
