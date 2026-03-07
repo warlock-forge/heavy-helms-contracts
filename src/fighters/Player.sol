@@ -791,7 +791,7 @@ contract Player is IPlayer, VRFConsumerBaseV2Plus, Fighter {
         uint8 decreaseValue = _getAttributeValue(player, decreaseAttribute);
         uint8 increaseValue = _getAttributeValue(player, increaseAttribute);
 
-        if (decreaseValue <= MIN_STAT || increaseValue >= MAX_STAT) {
+        if (decreaseValue <= MIN_STAT || increaseValue >= MAX_LEVELING_STAT) {
             revert InvalidAttributeSwap();
         }
 
