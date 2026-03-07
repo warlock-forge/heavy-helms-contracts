@@ -20,14 +20,11 @@ contract.someMethod(calculatedParam);
 
 ## CI & Simulation Tests
 
-- Non-deterministic simulation tests (balance, progression, lethality, tournament gas) live in `test/simulation/`
-- The default Foundry profile excludes `test/simulation/*` via `no_match_path` — `forge test` only runs unit tests
+- Simulation tests (balance, progression, lethality, tournament gas) live in `test/simulation/`
+- The default Foundry profile excludes `test/simulation/*` via `no_match_path` -- `forge test` only runs unit tests
 - Run simulations locally with `FOUNDRY_PROFILE=simulation forge test -vv`
-- The `skipInCI` modifier still exists in `TestBase.sol` for VRF integration tests in `Player.t.sol`
-
-## Deterministic Testing
-
-If deterministic testing is being done, ensure that the `foundry.toml` file has `block_number` and `block_timestamp` values.
+- Simulation tests use Foundry fuzz seeds (`testFuzz_` prefix) for randomness -- no self-seeding or `vm.roll`/`vm.warp` hacks
+- Unit tests use deterministic constant seeds (e.g. `12345`) -- never fake randomness from block state
 
 ## Critical Test Areas
 

@@ -305,7 +305,7 @@ contract PlayerTest is TestBase {
 
         vm.prank(vrfCoordinator);
         uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, player)));
+        randomWords[0] = uint256(keccak256(abi.encodePacked(player)));
         playerContract.rawFulfillRandomWords(requestId, randomWords);
 
         // Get player ID from logs using our helper

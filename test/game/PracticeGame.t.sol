@@ -37,9 +37,6 @@ contract PracticeGameTest is TestBase {
     }
 
     function testBasicCombat() public view {
-        // Test basic combat functionality with actual players
-        _generateGameSeed();
-
         Fighter.PlayerLoadout memory player1 = _createLoadout(PLAYER_ONE_ID);
         Fighter.PlayerLoadout memory player2 = _createLoadout(PLAYER_TWO_ID);
 

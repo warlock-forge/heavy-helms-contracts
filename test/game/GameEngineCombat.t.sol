@@ -9,8 +9,7 @@ import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 
 contract GameEngineCombatTest is TestBase {
     function testCombatMechanics() public view {
-        // Test combat mechanics with offensive vs defensive setup and pseudo-random seed
-        uint256 seed = _generateGameSeed();
+        uint256 seed = 12345;
 
         Fighter.PlayerLoadout memory attackerLoadout = _createLoadout(3); // GreatswordOffensive
         Fighter.PlayerLoadout memory defenderLoadout = _createLoadout(1); // DefaultWarrior

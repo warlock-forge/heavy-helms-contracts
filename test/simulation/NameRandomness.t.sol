@@ -5,7 +5,7 @@ import {IPlayer} from "../../src/interfaces/fighters/IPlayer.sol";
 import {TestBase} from "../TestBase.sol";
 
 contract NameRandomnessTest is TestBase {
-    function testNameRandomness() public {
+    function testFuzz_NameRandomness(uint256 seed) public {
         // Create multiple players and track name frequencies
         uint256 numPlayers = 20; // Reduced from 50 to avoid gas limits
         uint256[] memory firstNameCounts = new uint256[](nameRegistry.getSetAStart() + nameRegistry.getNameSetALength());
@@ -26,7 +26,7 @@ contract NameRandomnessTest is TestBase {
 
             vm.prank(vrfCoordinator);
             uint256[] memory randomWords = new uint256[](1);
-            randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, i)));
+            randomWords[0] = uint256(keccak256(abi.encodePacked(seed, i)));
             playerContract.rawFulfillRandomWords(requestId, randomWords);
 
             // Now extract the player ID right after the transaction that emitted the event

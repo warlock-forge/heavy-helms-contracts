@@ -15,22 +15,7 @@ contract BalanceTest is TestBase {
     uint8 private highStat = 19;
 
     // Test iterations for statistical significance
-    uint256 private matchCount = 100;
     uint256 private constant ARCHETYPE_TEST_ROUNDS = 25;
-
-    struct MatchStatistics {
-        uint256 wins;
-        uint256 totalDamageDealt;
-        uint256 totalRounds;
-        uint256 successfulBlocks;
-        uint256 successfulParries;
-        uint256 successfulDodges;
-        uint256 criticalHits;
-        uint256 totalHits;
-        uint256 totalAttacks;
-        uint256 deathsByExhaustion;
-        uint256 deathsByLethalDamage;
-    }
 
     struct TestFighter {
         string name;
@@ -266,122 +251,13 @@ contract BalanceTest is TestBase {
 
     // ==================== TEST INFRASTRUCTURE ====================
 
-    function _generateTestSeed() internal view returns (uint256) {
-        return uint256(
-            keccak256(
-                abi.encodePacked(
-                    block.timestamp,
-                    block.prevrandao,
-                    blockhash(block.number - 1),
-                    msg.sender,
-                    block.number,
-                    gasleft() // Add gas left as entropy
-                )
-            )
-        );
-    }
-
-    function runDuel(TestFighter memory fighter1, TestFighter memory fighter2)
-        private
-        returns (MatchStatistics memory stats1, MatchStatistics memory stats2)
-    {
-        // Initialize statistics
-        stats1 = MatchStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        stats2 = MatchStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-
-        // Generate base seed per test run (different every time)
-        uint256 baseSeed = _generateTestSeed();
-
-        for (uint256 i = 0; i < matchCount; i++) {
-            // Change blockchain state for new entropy
-            vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 15);
-
-            // Use a new seed for each match
-            uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, i, block.timestamp)));
-
-            // Run the combat
-            bytes memory results = gameEngine.processGame(fighter1.stats, fighter2.stats, matchSeed, 0);
-
-            // Decode and analyze results
-            (bool player1Won,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
-                gameEngine.decodeCombatLog(results);
-
-            // Update win counts
-            if (player1Won) {
-                stats1.wins++;
-            } else {
-                stats2.wins++;
-            }
-
-            // Update condition counts
-            if (condition == IGameEngine.WinCondition.EXHAUSTION) {
-                if (player1Won) stats2.deathsByExhaustion++;
-                else stats1.deathsByExhaustion++;
-            } else if (condition == IGameEngine.WinCondition.DEATH) {
-                if (player1Won) stats2.deathsByLethalDamage++;
-                else stats1.deathsByLethalDamage++;
-            }
-
-            // Analyze each action
-            for (uint256 j = 0; j < actions.length; j++) {
-                IGameEngine.CombatAction memory action = actions[j];
-
-                // Count rounds
-                stats1.totalRounds++;
-                stats2.totalRounds++;
-
-                // Track player 1's actions
-                processActionData(action.p1Result, action.p1Damage, stats1);
-
-                // Track player 2's actions
-                processActionData(action.p2Result, action.p2Damage, stats2);
-            }
-        }
-
-        return (stats1, stats2);
-    }
-
-    function processActionData(IGameEngine.CombatResultType resultType, uint16 damage, MatchStatistics memory stats)
-        private
-        pure
-    {
-        // Track successful hits
-        if (resultType == IGameEngine.CombatResultType.ATTACK || resultType == IGameEngine.CombatResultType.CRIT) {
-            stats.totalHits++;
-            stats.totalDamageDealt += damage;
-        }
-
-        // Track total attacks
-        if (resultType == IGameEngine.CombatResultType.ATTACK || resultType == IGameEngine.CombatResultType.MISS) {
-            stats.totalAttacks++;
-        }
-
-        // Track action results
-        if (resultType == IGameEngine.CombatResultType.BLOCK) {
-            stats.successfulBlocks++;
-        }
-
-        if (resultType == IGameEngine.CombatResultType.PARRY) {
-            stats.successfulParries++;
-        }
-
-        if (resultType == IGameEngine.CombatResultType.DODGE) {
-            stats.successfulDodges++;
-        }
-
-        if (resultType == IGameEngine.CombatResultType.CRIT) {
-            stats.criticalHits++;
-        }
-    }
-
     // ==================== ARCHETYPE VS ARCHETYPE TESTS ====================
     // Pure archetype testing approach - each archetype uses their full weapon pool
 
     // ==================== ARCHETYPE VALIDATION TESTS ====================
 
     // Test all Shield Tank variants vs Assassin variants
-    function testShieldTankArchetypeVsAssassinArchetype() public {
+    function testFuzz_ShieldTankArchetypeVsAssassinArchetype(uint256 seed) public view {
         // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
         uint8[] memory shieldTankWeapons = new uint8[](4);
         shieldTankWeapons[0] = 1; // MACE_TOWER
@@ -399,7 +275,7 @@ contract BalanceTest is TestBase {
         uint256 totalShieldWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < shieldTankWeapons.length; i++) {
             for (uint256 j = 0; j < assassinWeapons.length; j++) {
@@ -432,12 +308,8 @@ contract BalanceTest is TestBase {
                 // Run reduced test set
                 uint256 shieldWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(shieldTank.stats, assassin.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(shieldTank.stats, assassin.stats, matchSeed, 0);
 
                     (bool shieldWon,,,) = gameEngine.decodeCombatLog(results);
                     if (shieldWon) shieldWins++;
@@ -463,7 +335,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test all Parry Master variants vs Bruiser variants
-    function testParryMasterArchetypeVsBruiserArchetype() public {
+    function testFuzz_ParryMasterArchetypeVsBruiserArchetype(uint256 seed) public {
         // Parry Master weapons: RAPIER_BUCKLER, SCIMITAR_BUCKLER, SHORTSWORD_BUCKLER, RAPIER_DAGGER, SCIMITAR_DAGGER
         uint8[] memory parryWeapons = new uint8[](5);
         parryWeapons[0] = 2; // RAPIER_BUCKLER
@@ -482,7 +354,7 @@ contract BalanceTest is TestBase {
         uint256 totalParryWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < parryWeapons.length; i++) {
             for (uint256 j = 0; j < bruiserWeapons.length; j++) {
@@ -514,12 +386,8 @@ contract BalanceTest is TestBase {
 
                 uint256 parryWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(parryMaster.stats, bruiser.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(parryMaster.stats, bruiser.stats, matchSeed, 0);
 
                     (bool parryWon,,,) = gameEngine.decodeCombatLog(results);
                     if (parryWon) parryWins++;
@@ -552,7 +420,7 @@ contract BalanceTest is TestBase {
     // Test Assassin archetype consistency: REMOVED - no mage archetype to test against
 
     // Test all Berserker variants vs Shield Tank variants
-    function testBerserkerArchetypeVsShieldTankArchetype() public {
+    function testFuzz_BerserkerArchetypeVsShieldTankArchetype(uint256 seed) public view {
         // Berserker weapons: BATTLEAXE, GREATSWORD, MAUL (all HEAVY_DEMOLITION: STR+SIZE)
         uint8[] memory berserkerWeapons = new uint8[](3);
         berserkerWeapons[0] = 4; // BATTLEAXE
@@ -569,7 +437,7 @@ contract BalanceTest is TestBase {
         uint256 totalBerserkerWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < berserkerWeapons.length; i++) {
             for (uint256 j = 0; j < shieldWeapons.length; j++) {
@@ -601,12 +469,8 @@ contract BalanceTest is TestBase {
 
                 uint256 berserkerWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(berserker.stats, shieldTank.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(berserker.stats, shieldTank.stats, matchSeed, 0);
 
                     (bool berserkerWon,,,) = gameEngine.decodeCombatLog(results);
                     if (berserkerWon) berserkerWins++;
@@ -631,7 +495,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Assassin archetype vs Berserker archetype (assassins should counter)
-    function testAssassinArchetypeVsBerserkerArchetype() public {
+    function testFuzz_AssassinArchetypeVsBerserkerArchetype(uint256 seed) public {
         // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -648,7 +512,7 @@ contract BalanceTest is TestBase {
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < assassinWeapons.length; i++) {
             for (uint256 j = 0; j < berserkerWeapons.length; j++) {
@@ -682,11 +546,8 @@ contract BalanceTest is TestBase {
                 console.log("Assassin weapon:", assassinWeapons[i]);
                 console.log("Berserker weapon:", berserkerWeapons[j]);
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-
-                    uint256 seed = uint256(keccak256(abi.encodePacked(baseSeed, k, i, j, block.timestamp)));
-                    bytes memory results = gameEngine.processGame(assassin.stats, berserker.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k, i, j)));
+                    bytes memory results = gameEngine.processGame(assassin.stats, berserker.stats, matchSeed, 0);
 
                     (bool assassinWon,,,) = gameEngine.decodeCombatLog(results);
                     if (assassinWon) assassinWins++;
@@ -712,7 +573,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Vanguard archetype vs Bruiser archetype (vanguards should counter)
-    function testVanguardArchetypeVsBruiserArchetype() public {
+    function testFuzz_VanguardArchetypeVsBruiserArchetype(uint256 seed) public view {
         // Vanguard weapons: GREATSWORD, AXE_KITE, QUARTERSTAFF, MACE_KITE
         uint8[] memory vanguardWeapons = new uint8[](4);
         vanguardWeapons[0] = 3; // GREATSWORD
@@ -730,7 +591,7 @@ contract BalanceTest is TestBase {
         uint256 totalVanguardWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < vanguardWeapons.length; i++) {
             for (uint256 j = 0; j < bruiserWeapons.length; j++) {
@@ -762,12 +623,8 @@ contract BalanceTest is TestBase {
 
                 uint256 vanguardWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(vanguard.stats, bruiser.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(vanguard.stats, bruiser.stats, matchSeed, 0);
 
                     (bool vanguardWon,,,) = gameEngine.decodeCombatLog(results);
                     if (vanguardWon) vanguardWins++;
@@ -793,7 +650,7 @@ contract BalanceTest is TestBase {
     // Test Mage archetype: REMOVED - Mage archetype eliminated from game
 
     // Test Bruiser archetype vs Shield Tank archetype (bruisers should have advantage - blunt vs plate)
-    function testBruiserArchetypeVsShieldTankArchetype() public {
+    function testFuzz_BruiserArchetypeVsShieldTankArchetype(uint256 seed) public view {
         // Bruiser weapons: DUAL_WIELD_BRUTE weapons ONLY (no shields!)
         uint8[] memory bruiserWeapons = new uint8[](4);
         bruiserWeapons[0] = 18; // DUAL_CLUBS (DUAL_WIELD_BRUTE)
@@ -811,7 +668,7 @@ contract BalanceTest is TestBase {
         uint256 totalBruiserWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < bruiserWeapons.length; i++) {
             for (uint256 j = 0; j < shieldTankWeapons.length; j++) {
@@ -843,12 +700,8 @@ contract BalanceTest is TestBase {
 
                 uint256 bruiserWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(bruiser.stats, shieldTank.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(bruiser.stats, shieldTank.stats, matchSeed, 0);
 
                     (bool bruiserWon,,,) = gameEngine.decodeCombatLog(results);
                     if (bruiserWon) bruiserWins++;
@@ -873,7 +726,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Parry Master archetype vs Berserker archetype (parry masters should counter)
-    function testParryMasterArchetypeVsBerserkerArchetype() public {
+    function testFuzz_ParryMasterArchetypeVsBerserkerArchetype(uint256 seed) public view {
         // Parry Master weapons: RAPIER_BUCKLER, SCIMITAR_BUCKLER, SHORTSWORD_BUCKLER, RAPIER_DAGGER, SCIMITAR_DAGGER
         uint8[] memory parryWeapons = new uint8[](5);
         parryWeapons[0] = 2; // RAPIER_BUCKLER
@@ -891,7 +744,7 @@ contract BalanceTest is TestBase {
         uint256 totalParryWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < parryWeapons.length; i++) {
             for (uint256 j = 0; j < berserkerWeapons.length; j++) {
@@ -923,12 +776,8 @@ contract BalanceTest is TestBase {
 
                 uint256 parryWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(parryMaster.stats, berserker.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(parryMaster.stats, berserker.stats, matchSeed, 0);
 
                     (bool parryWon,,,) = gameEngine.decodeCombatLog(results);
                     if (parryWon) parryWins++;
@@ -953,7 +802,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Bruiser archetype (monks should counter with reach and technique)
-    function testMonkArchetypeVsBruiserArchetype() public {
+    function testFuzz_MonkArchetypeVsBruiserArchetype(uint256 seed) public view {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -968,7 +817,7 @@ contract BalanceTest is TestBase {
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
             for (uint256 j = 0; j < bruiserWeapons.length; j++) {
@@ -1000,12 +849,8 @@ contract BalanceTest is TestBase {
 
                 uint256 monkWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(monk.stats, bruiser.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(monk.stats, bruiser.stats, matchSeed, 0);
 
                     (bool monkWon,,,) = gameEngine.decodeCombatLog(results);
                     if (monkWon) monkWins++;
@@ -1029,7 +874,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Berserker archetype (monks should counter with reach and mobility)
-    function testMonkArchetypeVsBerserkerArchetype() public {
+    function testFuzz_MonkArchetypeVsBerserkerArchetype(uint256 seed) public view {
         // Monk weapons: QUARTERSTAFF, SPEAR, TRIDENT
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
@@ -1045,7 +890,7 @@ contract BalanceTest is TestBase {
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
             for (uint256 j = 0; j < berserkerWeapons.length; j++) {
@@ -1077,12 +922,8 @@ contract BalanceTest is TestBase {
 
                 uint256 monkWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(monk.stats, berserker.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(monk.stats, berserker.stats, matchSeed, 0);
 
                     (bool monkWon,,,) = gameEngine.decodeCombatLog(results);
                     if (monkWon) monkWins++;
@@ -1108,7 +949,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Assassin archetype (assassins should win with speed and damage)
-    function testMonkArchetypeVsAssassinArchetype() public {
+    function testFuzz_MonkArchetypeVsAssassinArchetype(uint256 seed) public view {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1123,7 +964,7 @@ contract BalanceTest is TestBase {
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
             for (uint256 j = 0; j < assassinWeapons.length; j++) {
@@ -1155,12 +996,8 @@ contract BalanceTest is TestBase {
 
                 uint256 monkWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(monk.stats, assassin.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(monk.stats, assassin.stats, matchSeed, 0);
 
                     (bool monkWon,,,) = gameEngine.decodeCombatLog(results);
                     if (monkWon) monkWins++;
@@ -1181,7 +1018,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Shield Tank archetype (tanks should absorb reach advantage)
-    function testMonkArchetypeVsShieldTankArchetype() public {
+    function testFuzz_MonkArchetypeVsShieldTankArchetype(uint256 seed) public view {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1196,7 +1033,7 @@ contract BalanceTest is TestBase {
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
             for (uint256 j = 0; j < tankWeapons.length; j++) {
@@ -1228,12 +1065,8 @@ contract BalanceTest is TestBase {
 
                 uint256 monkWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(monk.stats, tank.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(monk.stats, tank.stats, matchSeed, 0);
 
                     (bool monkWon,,,) = gameEngine.decodeCombatLog(results);
                     if (monkWon) monkWins++;
@@ -1256,7 +1089,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Parry Master archetype (parry masters should counter with technique)
-    function testMonkArchetypeVsParryMasterArchetype() public {
+    function testFuzz_MonkArchetypeVsParryMasterArchetype(uint256 seed) public view {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1272,7 +1105,7 @@ contract BalanceTest is TestBase {
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
             for (uint256 j = 0; j < parryWeapons.length; j++) {
@@ -1304,12 +1137,8 @@ contract BalanceTest is TestBase {
 
                 uint256 monkWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(monk.stats, parryMaster.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(monk.stats, parryMaster.stats, matchSeed, 0);
 
                     (bool monkWon,,,) = gameEngine.decodeCombatLog(results);
                     if (monkWon) monkWins++;
@@ -1332,7 +1161,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Monk archetype vs Vanguard archetype (should be competitive)
-    function testMonkArchetypeVsVanguardArchetype() public {
+    function testFuzz_MonkArchetypeVsVanguardArchetype(uint256 seed) public view {
         uint8[] memory monkWeapons = new uint8[](3);
         monkWeapons[0] = 5; // QUARTERSTAFF
         monkWeapons[1] = 6; // SPEAR
@@ -1347,7 +1176,7 @@ contract BalanceTest is TestBase {
         uint256 totalMonkWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < monkWeapons.length; i++) {
             for (uint256 j = 0; j < vanguardWeapons.length; j++) {
@@ -1379,12 +1208,8 @@ contract BalanceTest is TestBase {
 
                 uint256 monkWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(monk.stats, vanguard.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(monk.stats, vanguard.stats, matchSeed, 0);
 
                     (bool monkWon,,,) = gameEngine.decodeCombatLog(results);
                     if (monkWon) monkWins++;
@@ -1411,7 +1236,7 @@ contract BalanceTest is TestBase {
     // Getting ~50% against most archetypes is actually the CORRECT behavior for Balanced
 
     // TEST: Balanced should not dominate other archetypes
-    function testBalancedArchetypeVsAssassinArchetype() public {
+    function testFuzz_BalancedArchetypeVsAssassinArchetype(uint256 seed) public view {
         // Balanced weapons: ARMING_SWORD_KITE, ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, MACE_KITE
         uint8[] memory balancedWeapons = new uint8[](4);
         balancedWeapons[0] = 0; // ARMING_SWORD_KITE
@@ -1429,7 +1254,7 @@ contract BalanceTest is TestBase {
         uint256 totalBalancedWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < balancedWeapons.length; i++) {
             for (uint256 j = 0; j < assassinWeapons.length; j++) {
@@ -1461,12 +1286,8 @@ contract BalanceTest is TestBase {
 
                 uint256 balancedWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(balanced.stats, assassin.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(balanced.stats, assassin.stats, matchSeed, 0);
 
                     (bool balancedWon,,,) = gameEngine.decodeCombatLog(results);
                     if (balancedWon) balancedWins++;
@@ -1489,7 +1310,7 @@ contract BalanceTest is TestBase {
         );
     }
 
-    function testBalancedArchetypeVsBerserkerArchetype() public {
+    function testFuzz_BalancedArchetypeVsBerserkerArchetype(uint256 seed) public view {
         // Balanced weapons: ARMING_SWORD_KITE, ARMING_SWORD_SHORTSWORD, ARMING_SWORD_CLUB, MACE_KITE
         uint8[] memory balancedWeapons = new uint8[](4);
         balancedWeapons[0] = 0; // ARMING_SWORD_KITE
@@ -1506,7 +1327,7 @@ contract BalanceTest is TestBase {
         uint256 totalBalancedWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < balancedWeapons.length; i++) {
             for (uint256 j = 0; j < berserkerWeapons.length; j++) {
@@ -1538,12 +1359,8 @@ contract BalanceTest is TestBase {
 
                 uint256 balancedWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = baseSeed + k;
-                    bytes memory results = gameEngine.processGame(balanced.stats, berserker.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, k)));
+                    bytes memory results = gameEngine.processGame(balanced.stats, berserker.stats, matchSeed, 0);
 
                     (bool balancedWon,,,) = gameEngine.decodeCombatLog(results);
                     if (balancedWon) balancedWins++;
@@ -1568,7 +1385,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Assassin archetype vs Parry Master archetype (speed vs technique - should be competitive)
-    function testAssassinArchetypeVsParryMasterArchetype() public {
+    function testFuzz_AssassinArchetypeVsParryMasterArchetype(uint256 seed) public view {
         // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -1587,7 +1404,7 @@ contract BalanceTest is TestBase {
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < assassinWeapons.length; i++) {
             for (uint256 j = 0; j < parryWeapons.length; j++) {
@@ -1619,12 +1436,8 @@ contract BalanceTest is TestBase {
 
                 uint256 assassinWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = uint256(keccak256(abi.encodePacked(baseSeed, i, j, k)));
-                    bytes memory results = gameEngine.processGame(assassin.stats, parryMaster.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, i, j, k)));
+                    bytes memory results = gameEngine.processGame(assassin.stats, parryMaster.stats, matchSeed, 0);
 
                     (bool assassinWon,,,) = gameEngine.decodeCombatLog(results);
                     if (assassinWon) assassinWins++;
@@ -1648,7 +1461,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Assassin archetype vs Bruiser archetype (finesse vs brute force - assassins should counter)
-    function testAssassinArchetypeVsBruiserArchetype() public {
+    function testFuzz_AssassinArchetypeVsBruiserArchetype(uint256 seed) public view {
         // Assassin weapons: DUAL_DAGGERS, RAPIER_DAGGER, SCIMITAR_DAGGER, DUAL_SCIMITARS
         uint8[] memory assassinWeapons = new uint8[](4);
         assassinWeapons[0] = 9; // DUAL_DAGGERS
@@ -1666,7 +1479,7 @@ contract BalanceTest is TestBase {
         uint256 totalAssassinWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < assassinWeapons.length; i++) {
             for (uint256 j = 0; j < bruiserWeapons.length; j++) {
@@ -1698,12 +1511,8 @@ contract BalanceTest is TestBase {
 
                 uint256 assassinWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = uint256(keccak256(abi.encodePacked(baseSeed, i, j, k)));
-                    bytes memory results = gameEngine.processGame(assassin.stats, bruiser.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, i, j, k)));
+                    bytes memory results = gameEngine.processGame(assassin.stats, bruiser.stats, matchSeed, 0);
 
                     (bool assassinWon,,,) = gameEngine.decodeCombatLog(results);
                     if (assassinWon) assassinWins++;
@@ -1728,7 +1537,7 @@ contract BalanceTest is TestBase {
     }
 
     // Test Shield Tank archetype vs Parry Master archetype (heavy defense vs technical defense - shields should dominate)
-    function testShieldTankArchetypeVsParryMasterArchetype() public {
+    function testFuzz_ShieldTankArchetypeVsParryMasterArchetype(uint256 seed) public view {
         // Shield Tank weapons: MACE_TOWER, AXE_TOWER, CLUB_TOWER, SHORTSWORD_TOWER
         uint8[] memory shieldTankWeapons = new uint8[](4);
         shieldTankWeapons[0] = 1; // MACE_TOWER
@@ -1747,7 +1556,7 @@ contract BalanceTest is TestBase {
         uint256 totalShieldWins = 0;
         uint256 totalMatches = 0;
 
-        uint256 baseSeed = _generateTestSeed();
+        uint256 baseSeed = seed;
 
         for (uint256 i = 0; i < shieldTankWeapons.length; i++) {
             for (uint256 j = 0; j < parryWeapons.length; j++) {
@@ -1779,12 +1588,8 @@ contract BalanceTest is TestBase {
 
                 uint256 shieldWins = 0;
                 for (uint256 k = 0; k < ARCHETYPE_TEST_ROUNDS; k++) {
-                    vm.roll(block.number + 1);
-                    vm.warp(block.timestamp + 15);
-                    vm.roll(block.number + 1);
-
-                    uint256 seed = uint256(keccak256(abi.encodePacked(baseSeed, i, j, k)));
-                    bytes memory results = gameEngine.processGame(shieldTank.stats, parryMaster.stats, seed, 0);
+                    uint256 matchSeed = uint256(keccak256(abi.encodePacked(baseSeed, i, j, k)));
+                    bytes memory results = gameEngine.processGame(shieldTank.stats, parryMaster.stats, matchSeed, 0);
 
                     (bool shieldWon,,,) = gameEngine.decodeCombatLog(results);
                     if (shieldWon) shieldWins++;

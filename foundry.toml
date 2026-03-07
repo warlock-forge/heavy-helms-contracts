@@ -27,3 +27,11 @@ remappings = [
 [profile.simulation]
 no_match_path = "NONE"
 match_path = "test/simulation/*"
+
+[invariant]
+runs = 256
+depth = 50
+
+[profile.ci.invariant]
+runs = 64
+depth = 32

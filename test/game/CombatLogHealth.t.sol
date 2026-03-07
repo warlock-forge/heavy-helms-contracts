@@ -59,7 +59,7 @@ contract CombatLogHealthTest is TestBase {
         GameEngine.CalculatedStats memory p2CalcStats = gameEngine.calculateStats(p2Stats);
 
         // Process game and get combat log
-        bytes memory results = gameEngine.processGame(p1Stats, p2Stats, _generateGameSeed(), 0);
+        bytes memory results = gameEngine.processGame(p1Stats, p2Stats, 12345, 0);
         (bool player1Won,, IGameEngine.WinCondition condition, IGameEngine.CombatAction[] memory actions) =
             gameEngine.decodeCombatLog(results);
 
@@ -182,7 +182,7 @@ contract CombatLogHealthTest is TestBase {
         IGameEngine.FighterStats memory p2Stats = _convertToFighterStats(p2Loadout);
 
         // Process game and get combat log
-        bytes memory results = gameEngine.processGame(p1Stats, p2Stats, _generateGameSeed(), 0);
+        bytes memory results = gameEngine.processGame(p1Stats, p2Stats, 12345, 0);
         (,,, IGameEngine.CombatAction[] memory actions) = gameEngine.decodeCombatLog(results);
 
         // Get armor stats for verification

@@ -345,6 +345,76 @@ contract PlayerAttributeSwapsTest is TestBase {
         );
     }
 
+    /// @notice BUG: swapAttributes checks increaseValue >= MAX_STAT (21) instead of MAX_LEVELING_STAT (25).
+    /// A player who used attribute points to push a stat above 21 cannot swap INTO that stat,
+    /// even though the real ceiling is 25.
+    function testBug_SwapToStatAbove21() public {
+        uint32 playerId = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
+
+        // Grant game permissions for XP
+        IPlayer.GamePermissions memory gamePerms =
+            IPlayer.GamePermissions({record: true, retire: false, immortal: false, experience: true});
+        playerContract.setGameContractPermission(address(this), gamePerms);
+
+        // Grant ticket permissions and mint swap tickets
+        PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({
+            playerCreation: false,
+            playerSlots: false,
+            nameChanges: false,
+            weaponSpecialization: false,
+            armorSpecialization: false,
+            duels: false,
+            dailyResets: false,
+            attributeSwaps: true
+        });
+        playerTickets.setGameContractPermission(address(this), ticketPerms);
+        playerTickets.mintFungibleTicket(PLAYER_ONE, playerTickets.ATTRIBUTE_SWAP_TICKET(), 10);
+
+        vm.prank(PLAYER_ONE);
+        playerTickets.setApprovalForAll(address(playerContract), true);
+
+        // Award enough XP to hit level 10 (9 attribute points)
+        // Total XP needed: 100+150+225+338+506+759+1139+1709+2563 = 7489
+        playerContract.awardExperience(playerId, 7489);
+
+        IPlayer.PlayerStats memory stats = playerContract.getPlayer(playerId);
+        assertEq(stats.level, 10, "Should be level 10");
+        assertEq(playerContract.attributePoints(playerId), 9, "Should have 9 attribute points");
+
+        // Find the highest stat and pump it above 21 with attribute points
+        // Use STR for simplicity -- pump it with all 9 points if possible
+        uint8 str = stats.attributes.strength;
+
+        // Use attribute points on STR until it's above 21 (or we run out)
+        uint256 pointsToUse = 0;
+        if (str < 25) {
+            pointsToUse = str >= 21 ? 1 : (22 - str); // get it to at least 22
+            if (pointsToUse > 9) pointsToUse = 9;
+        }
+
+        vm.startPrank(PLAYER_ONE);
+        for (uint256 i = 0; i < pointsToUse; i++) {
+            playerContract.useAttributePoint(playerId, IPlayer.Attribute.STRENGTH);
+        }
+        vm.stopPrank();
+
+        stats = playerContract.getPlayer(playerId);
+        uint8 newStr = stats.attributes.strength;
+
+        // Only proceed if we actually got above 21
+        if (newStr > 21) {
+            // Now try to swap CON -> STR (increase STR further, should be valid since < 25)
+            // BUG: This reverts with InvalidAttributeSwap because swapAttributes checks >= MAX_STAT (21)
+            vm.prank(PLAYER_ONE);
+            // This SHOULD succeed (STR is 22, below the real max of 25, and CON > 3)
+            // but it reverts because the contract checks >= 21 instead of >= 25
+            playerContract.swapAttributes(playerId, IPlayer.Attribute.CONSTITUTION, IPlayer.Attribute.STRENGTH);
+
+            stats = playerContract.getPlayer(playerId);
+            assertEq(stats.attributes.strength, newStr + 1, "STR should increase by 1 via swap");
+        }
+    }
+
     function testMixedBatchTransferWithSoulboundTokens() public {
         // Grant permissions for multiple ticket types
         PlayerTickets.GamePermissions memory ticketPerms = PlayerTickets.GamePermissions({

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.13;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
@@ -37,8 +37,6 @@ import {EquipmentRequirements} from "../src/game/engine/EquipmentRequirements.so
 import {IERC1155Receiver} from "@openzeppelin/contracts@4.9.6/token/ERC1155/IERC1155Receiver.sol";
 
 abstract contract TestBase is Test, IERC1155Receiver {
-    bool private constant CI_MODE = true;
-    uint256 private constant DEFAULT_FORK_BLOCK = 19_000_000;
     uint256 private constant VRF_ROUND = 335;
     address public vrfCoordinator;
 
@@ -61,14 +59,6 @@ abstract contract TestBase is Test, IERC1155Receiver {
     PlayerTickets public playerTickets;
     TestPlayerTicketMinter public ticketMinter;
 
-    /// @notice Modifier to skip tests in CI environment
-    /// @dev Uses vm.envOr to check if CI environment variable is set
-    modifier skipInCI() {
-        if (!vm.envOr("CI", false)) {
-            _;
-        }
-    }
-
     function setUp() public virtual {
         // Give this contract some ETH to fund VRF subscriptions
         vm.deal(address(this), 1000 ether);
@@ -89,7 +79,6 @@ abstract contract TestBase is Test, IERC1155Receiver {
         // Use a test keyHash (doesn't matter for mock, but needs to be set)
         bytes32 testKeyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
 
-        setupRandomness();
         skinRegistry = new PlayerSkinRegistry();
         defaultSkin = new DefaultPlayerSkinNFT();
         monsterSkin = new MonsterSkinNFT();
@@ -187,26 +176,6 @@ abstract contract TestBase is Test, IERC1155Receiver {
         vm.deal(address(this), skinRegistry.registrationFee());
         vm.prank(address(this));
         return skinRegistry.registerSkin{value: skinRegistry.registrationFee()}(skinContract);
-    }
-
-    function setupRandomness() internal {
-        // Check if we're in CI environment
-        try vm.envString("CI") returns (string memory) {
-            console2.log("Testing in CI mode with mock randomness");
-            vm.warp(1_000_000);
-            vm.roll(DEFAULT_FORK_BLOCK);
-            vm.prevrandao(bytes32(uint256(0x1234567890)));
-        } catch {
-            // Try to use RPC fork, fallback to mock if not available
-            try vm.envString("RPC_URL") returns (string memory rpcUrl) {
-                vm.createSelectFork(rpcUrl);
-            } catch {
-                console2.log("No RPC_URL found, using mock randomness");
-                vm.warp(1_000_000);
-                vm.roll(DEFAULT_FORK_BLOCK);
-                vm.prevrandao(bytes32(uint256(0x1234567890)));
-            }
-        }
     }
 
     // Helper function for VRF fulfillment with Chainlink VRF
@@ -439,13 +408,6 @@ abstract contract TestBase is Test, IERC1155Receiver {
             || result == IGameEngine.CombatResultType.COUNTER_CRIT || result == IGameEngine.CombatResultType.RIPOSTE
             || result == IGameEngine.CombatResultType.RIPOSTE_CRIT;
         // Note: ATTACK/CRIT/EXHAUSTED are offensive actions
-    }
-
-    // Helper function to generate a deterministic but unpredictable seed for game actions
-    function _generateGameSeed() internal view returns (uint256) {
-        return uint256(
-            keccak256(abi.encodePacked(block.timestamp, block.prevrandao, blockhash(block.number - 1), msg.sender))
-        );
     }
 
     // Helper function to assert player ownership and basic state

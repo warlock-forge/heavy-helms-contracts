@@ -388,7 +388,7 @@ contract DuelGameTest is TestBase {
         vm.prank(vrfCoordinator);
         vm.expectRevert(ChallengerRetired.selector);
         uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao)));
+        randomWords[0] = 42;
         game.rawFulfillRandomWords(1, randomWords);
     }
 

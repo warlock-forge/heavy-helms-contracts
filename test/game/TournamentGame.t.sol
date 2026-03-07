@@ -453,10 +453,8 @@ contract TournamentGameTest is TestBase {
         game.setWinnerRewards(invalidConfig);
     }
 
-    function testPreviousWinnersGuaranteedSelection() public {
-        // Use actual blockchain entropy for true randomness
-        uint256 randomSeed = uint256(keccak256(abi.encode(block.prevrandao, block.timestamp, gasleft())));
-        _testPreviousWinnersWithRandomness(randomSeed);
+    function testFuzz_PreviousWinnersGuaranteedSelection(uint256 seed) public {
+        _testPreviousWinnersWithRandomness(seed);
     }
 
     function testTournamentSelectionPoolSize() public {
@@ -551,7 +549,7 @@ contract TournamentGameTest is TestBase {
         // Start the second tournament phases with new random seed
         game.tryStartTournament(); // Phase 1: Commit queue
         vm.roll(block.number + 21);
-        vm.prevrandao(bytes32(randomSeed + 1000)); // Different seed for second tournament
+        vm.prevrandao(bytes32(randomSeed ^ 0xDEAD)); // Different seed for second tournament
         game.tryStartTournament(); // Phase 2: Select participants
 
         // Get the pending tournament info to verify it's been created
@@ -624,7 +622,7 @@ contract TournamentGameTest is TestBase {
     }
 
     function _runFullTournament() internal {
-        _runFullTournamentWithSeed(uint256(keccak256(abi.encode(block.timestamp, gasleft()))));
+        _runFullTournamentWithSeed(12345);
     }
 
     function _runFullTournamentWithSeed(uint256 baseSeed) internal {
@@ -650,7 +648,7 @@ contract TournamentGameTest is TestBase {
 
         // Phase 3: Execute tournament (advance PAST the tournament block)
         vm.roll(tournamentBlock + 1);
-        vm.prevrandao(bytes32(baseSeed + 12345));
+        vm.prevrandao(bytes32(baseSeed ^ 0xBEEF));
         game.tryStartTournament();
     }
 

@@ -22,11 +22,10 @@ contract LethalDamageTest is TestBase {
         PLAYER_TWO = address(0x2222);
     }
 
-    function test_NonLethalMode() public {
+    function testFuzz_NonLethalMode(uint256 seed) public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
-        // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skin: Fighter.SkinInfo({
@@ -44,16 +43,13 @@ contract LethalDamageTest is TestBase {
             stance: 2
         });
 
-        // Get the appropriate Fighter contracts
-        /* Fighter p1Fighter = */
         _getFighterContract(p1Loadout.playerId);
-        /* Fighter p2Fighter = */
         _getFighterContract(p2Loadout.playerId);
 
         bytes memory results = gameEngine.processGame(
             _convertToFighterStats(p1Loadout),
             _convertToFighterStats(p2Loadout),
-            _generateGameSeed(),
+            seed,
             0 // lethalityFactor = 0
         );
 
@@ -63,11 +59,10 @@ contract LethalDamageTest is TestBase {
         assertTrue(condition != IGameEngine.WinCondition.DEATH, "Death should not occur in non-lethal mode");
     }
 
-    function test_BaseLethalMode() public {
+    function testFuzz_BaseLethalMode(uint256 seed) public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
-        // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skin: Fighter.SkinInfo({
@@ -85,20 +80,18 @@ contract LethalDamageTest is TestBase {
             stance: 2
         });
 
-        // Get the appropriate Fighter contracts
-        /* Fighter p1Fighter = */
         _getFighterContract(p1Loadout.playerId);
-        /* Fighter p2Fighter = */
         _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 100;
 
         for (uint256 i = 0; i < totalFights; i++) {
+            uint256 matchSeed = uint256(keccak256(abi.encodePacked(seed, i)));
             bytes memory results = gameEngine.processGame(
                 _convertToFighterStats(p1Loadout),
                 _convertToFighterStats(p2Loadout),
-                _generateGameSeed() + i,
+                matchSeed,
                 50 // Base lethality (0.5x)
             );
 
@@ -116,11 +109,10 @@ contract LethalDamageTest is TestBase {
         assertTrue(deathCount > 0, "Should have some deaths in lethal mode");
     }
 
-    function test_HighLethalityMode() public {
+    function testFuzz_HighLethalityMode(uint256 seed) public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
-        // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skin: Fighter.SkinInfo({
@@ -138,20 +130,18 @@ contract LethalDamageTest is TestBase {
             stance: 2
         });
 
-        // Get the appropriate Fighter contracts
-        /* Fighter p1Fighter = */
         _getFighterContract(p1Loadout.playerId);
-        /* Fighter p2Fighter = */
         _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 50;
 
         for (uint256 i = 0; i < totalFights; i++) {
+            uint256 matchSeed = uint256(keccak256(abi.encodePacked(seed, i)));
             bytes memory results = gameEngine.processGame(
                 _convertToFighterStats(p1Loadout),
                 _convertToFighterStats(p2Loadout),
-                _generateGameSeed() + i,
+                matchSeed,
                 100 // Base lethality (1x)
             );
 
@@ -169,11 +159,10 @@ contract LethalDamageTest is TestBase {
         assertTrue(deathCount > 0, "Should have deaths in high lethality mode");
     }
 
-    function test_MixedLoadoutLethalMode() public {
+    function testFuzz_MixedLoadoutLethalMode(uint256 seed) public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
-        // Create offensive vs defensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skin: Fighter.SkinInfo({
@@ -191,20 +180,18 @@ contract LethalDamageTest is TestBase {
             stance: 0
         });
 
-        // Get the appropriate Fighter contracts
-        /* Fighter p1Fighter = */
         _getFighterContract(p1Loadout.playerId);
-        /* Fighter p2Fighter = */
         _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 100;
 
         for (uint256 i = 0; i < totalFights; i++) {
+            uint256 matchSeed = uint256(keccak256(abi.encodePacked(seed, i)));
             bytes memory results = gameEngine.processGame(
                 _convertToFighterStats(p1Loadout),
                 _convertToFighterStats(p2Loadout),
-                _generateGameSeed() + i,
+                matchSeed,
                 100 // Base lethality (1x)
             );
 
@@ -220,14 +207,12 @@ contract LethalDamageTest is TestBase {
         console2.log("Deaths in mixed loadout mode: ", deathCount);
         console2.log("Total fights: ", totalFights);
         assertTrue(deathCount > 0, "Should have some deaths in lethal mode");
-        //assertTrue(deathCount < totalFights / 2, "Should have lower death rate with defensive loadout");
     }
 
-    function test_ExtraBrutalLethalityMode() public {
+    function testFuzz_ExtraBrutalLethalityMode(uint256 seed) public {
         uint32 player1Id = _createPlayerAndFulfillVRF(PLAYER_ONE, false);
         uint32 player2Id = _createPlayerAndFulfillVRF(PLAYER_TWO, false);
 
-        // Create offensive loadouts
         Fighter.PlayerLoadout memory p1Loadout = Fighter.PlayerLoadout({
             playerId: player1Id,
             skin: Fighter.SkinInfo({
@@ -245,20 +230,18 @@ contract LethalDamageTest is TestBase {
             stance: 2
         });
 
-        // Get the appropriate Fighter contracts
-        /* Fighter p1Fighter = */
         _getFighterContract(p1Loadout.playerId);
-        /* Fighter p2Fighter = */
         _getFighterContract(p2Loadout.playerId);
 
         uint256 deathCount = 0;
         uint256 totalFights = 50;
 
         for (uint256 i = 0; i < totalFights; i++) {
+            uint256 matchSeed = uint256(keccak256(abi.encodePacked(seed, i)));
             bytes memory results = gameEngine.processGame(
                 _convertToFighterStats(p1Loadout),
                 _convertToFighterStats(p2Loadout),
-                _generateGameSeed() + i,
+                matchSeed,
                 200 // Extra brutal lethality (2x brutal)
             );
 
@@ -274,6 +257,5 @@ contract LethalDamageTest is TestBase {
         console2.log("Deaths in extra brutal lethality mode: ", deathCount);
         console2.log("Total fights: ", totalFights);
         assertTrue(deathCount > 0, "Should have deaths in extra brutal mode");
-        //assertTrue(deathCount > totalFights / 2, "Should have very high death rate in extra brutal mode");
     }
 }
