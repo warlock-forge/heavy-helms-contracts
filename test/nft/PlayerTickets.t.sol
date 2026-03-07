@@ -273,8 +273,11 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         assertTrue(nameRegistry.isValidFirstNameIndex(firstNameIndex));
         assertTrue(surnameIndex < nameRegistry.getSurnamesLength());
 
-        // Verify name index is from a valid set (Set B: 0-99, Set A: 1000+)
-        assertTrue(firstNameIndex < 1000 || firstNameIndex >= 1000, "Name index should be from a valid set");
+        // Verify name index is from a valid set (Set B: 0-setBLength, Set A: 1000+)
+        assertTrue(
+            firstNameIndex < nameRegistry.getNameSetBLength() || firstNameIndex >= nameRegistry.getSetAStart(),
+            "Name index should be from Set A or Set B"
+        );
     }
 
     // --- Fungible Ticket Minting ---
@@ -305,7 +308,11 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         vm.stopPrank();
 
         assertEq(tickets.balanceOf(user1, tickets.CREATE_PLAYER_TICKET()), 5);
+        assertEq(tickets.balanceOf(user1, tickets.PLAYER_SLOT_TICKET()), 3);
+        assertEq(tickets.balanceOf(user1, tickets.WEAPON_SPECIALIZATION_TICKET()), 2);
+        assertEq(tickets.balanceOf(user1, tickets.ARMOR_SPECIALIZATION_TICKET()), 1);
         assertEq(tickets.balanceOf(user1, tickets.DUEL_TICKET()), 10);
+        assertEq(tickets.balanceOf(user1, tickets.DAILY_RESET_TICKET()), 4);
         assertEq(tickets.balanceOf(user1, tickets.ATTRIBUTE_SWAP_TICKET()), 7);
     }
 
@@ -369,7 +376,7 @@ contract PlayerTicketsTest is Test, IERC1155Receiver {
         vm.prank(gameContract);
         tickets.mintFungibleTicket(user1, ticketType, 1);
 
-        vm.expectRevert();
+        vm.expectRevert(TokenNotTransferable.selector);
         vm.prank(user1);
         tickets.safeTransferFrom(user1, user2, ticketType, 1, "");
     }

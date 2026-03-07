@@ -29,7 +29,7 @@ Owner is currently an EOA. Production intent is to migrate to a multisig.
 | PlayerSkinNFT | Yes | Mint proceeds |
 | UnlockableKeyNFT | Yes | Mint proceeds |
 
-All ETH withdrawal is owner-only via `withdrawFees()` or equivalent, transferring the full contract balance to `owner()`. No user-facing ETH withdrawals exist (except Player creation fee refunds on VRF timeout recovery).
+All ETH withdrawal is owner-only (`withdrawFees()` on game contracts, `withdraw()` on skin NFTs, `collect(address(0))` on PlayerSkinRegistry), transferring the full contract balance to `owner()`. No user-facing ETH withdrawals exist (except Player creation fee refunds on VRF timeout via `recoverTimedOutRequest()`).
 
 ### What the contracts control
 
@@ -91,7 +91,7 @@ Used by: Player creation, DuelGame, MonsterBattleGame
 
 Standard request-callback pattern. The VRF coordinator is a trusted Chainlink contract. Request IDs are mapped to pending operations, and `rawFulfillRandomWords` is the callback entry point. VRF requests have a configurable timeout for recovery if callbacks never arrive.
 
-Gas protection: Player creation and DuelGame have optional gas price checks (`maxVRFGasPrice`, `maxAcceptGasPrice`) to prevent frontrunning during high-gas periods. These are toggleable by the owner.
+Gas protection: Player creation and DuelGame have optional gas price checks (`maxVRFGasPrice`, `maxAcceptGasPrice`) to prevent frontrunning during high-gas periods. These are toggleable by the owner. MonsterBattleGame does not have gas protection (single-player mode, lower manipulation incentive).
 
 ### Blockhash commit-reveal
 
@@ -120,7 +120,7 @@ Uses `block.prevrandao` directly. No stakes, cosmetic-only outcomes. Not a secur
 
 ### ETH transfers
 
-All ETH transfers to external addresses use Solady's `SafeTransferLib.safeTransferETH`. The only user-facing ETH transfer is the Player creation fee refund during VRF timeout recovery (`clearPendingRequestsForAddress`). This follows checks-effects-interactions: the pending request is cleared from storage before the refund is sent.
+All ETH transfers to external addresses use Solady's `SafeTransferLib.safeTransferETH`. The only user-facing ETH transfer is the Player creation fee refund during VRF timeout recovery (`recoverTimedOutRequest`). This follows checks-effects-interactions: the pending request is cleared from storage before the refund is sent. GauntletGame and TournamentGame also use Solady's `ReentrancyGuard` as defense-in-depth.
 
 All other ETH transfers are owner-only fee withdrawals (`withdrawFees`), which transfer the full balance to `owner()`.
 
@@ -151,16 +151,16 @@ Daily reset cooldowns use `block.timestamp`. Miners/sequencers can manipulate ti
 
 ### No formal audit
 
-The codebase has not been externally audited. Testing includes 535+ unit/fuzz/invariant tests, 90% LCOV coverage gate in CI, and continuous static analysis. This does not replace a formal audit.
+The codebase has not been externally audited. Testing includes 550+ unit/fuzz/invariant tests, 90% LCOV coverage gate in CI, and continuous static analysis. This does not replace a formal audit.
 
 ## Testing
 
 | Category | Count | What it covers |
 |---|---|---|
-| Unit tests | ~475 | Individual function behavior, reverts, permissions, edge cases |
-| Fuzz tests | ~35 | Randomized inputs for player creation, combat simulations, progression |
-| Invariant tests | 21 | System properties across random action sequences (queue consistency, stat conservation, fee accounting) |
-| Simulation tests | ~25 | Statistical combat balance, progression scaling, lethality, gas profiling |
+| Unit tests | ~520 | Individual function behavior, reverts, permissions, edge cases |
+| Fuzz tests | 4 | Randomized inputs for player creation, combat, name generation |
+| Invariant tests | 26 | System properties across random action sequences (queue consistency, stat conservation, fee accounting) |
+| Simulation tests | ~40 | Statistical combat balance, progression scaling, lethality, gas profiling (separate Foundry profile) |
 
 Invariant tests exercise the full state machine of each major contract via handler contracts that generate random sequences of queue/withdraw/start/accept/fulfill/retire/level/swap operations, then verify system-wide properties hold after every sequence.
 

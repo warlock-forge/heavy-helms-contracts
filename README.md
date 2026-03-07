@@ -57,7 +57,7 @@ ERC-721 skins alter combat strategy by changing weapon and armor loadouts. Skins
 |                     |                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------- |
 | Production Solidity | 14k+ lines across 39 contracts                                                  |
-| Test Code           | 17k+ lines (1.2:1 test-to-source ratio)                                         |
+| Test Code           | 18k+ lines (1.3:1 test-to-source ratio)                                         |
 | CI Pipeline         | fmt check, unit tests, 90% LCOV coverage gate, Slither + Aderyn static analysis |
 | Verified Contracts  | 16+ on Base mainnet                                                             |
 | Audit Status        | Self-audited with Slither + Aderyn in CI. No formal external audit.             |
@@ -183,6 +183,7 @@ See [docs/deployment.md](docs/deployment.md) for the complete deployment walkthr
 
 - [Architecture](docs/architecture.md): contract structure and design patterns
 - [Game Mechanics](docs/game-mechanics.md): combat, archetypes, weapon formulas
+- [Security](docs/security.md): threat model, access control, randomness, known limitations
 - [Development](docs/development.md): workflow and optimization notes
 - [Deployment](docs/deployment.md): step-by-step deployment guide
 
