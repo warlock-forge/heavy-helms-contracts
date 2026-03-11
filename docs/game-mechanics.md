@@ -2,6 +2,8 @@
 
 ## Player Archetypes & Combat Balance
 
+These are reference builds illustrating how stat distributions and weapon choices create distinct playstyles. They are not enforced by the contracts -- players allocate stats freely within the 72-point budget.
+
 ### 1. Assassin (Fast AGI Damage Dealer)
 
 - **Stats**: STR=19, CON=5, SIZE=12, AGI=19, STA=5, LUCK=12 (Total: 72)

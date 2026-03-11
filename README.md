@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://farcaster.xyz/miniapps/uky1-yNerDOD/heavy-helms">Farcaster Miniapp</a> &middot;
-  <a href="https://app.heavyhelms.xyz">Web App</a> &middot;
+  <a href="https://farcaster.xyz/miniapps/TWsKeNpGe80j/testnet-hh-preview">Miniapp Testnet (Base Sepolia)</a> &middot;
   <a href="https://heavyhelms.xyz/sunset">Origins (Archived)</a> &middot;
   <a href="#documentation">Documentation</a>
 </p>
