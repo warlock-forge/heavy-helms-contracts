@@ -14,12 +14,6 @@ import {NameLibrary} from "../../src/fighters/registries/names/lib/NameLibrary.s
 
 contract NameRegistryDeploy is Script {
     function run() public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Deploy and initialize PlayerNameRegistry

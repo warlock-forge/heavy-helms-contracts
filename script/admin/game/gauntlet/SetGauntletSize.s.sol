@@ -14,11 +14,6 @@ contract SetGauntletSizeScript is Script {
     function setUp() public {}
 
     function run(address gauntletGameAddr, uint8 size) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         GauntletGame gauntletGame = GauntletGame(gauntletGameAddr);

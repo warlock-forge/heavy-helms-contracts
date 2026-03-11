@@ -17,12 +17,6 @@ contract UpdateEquipmentRequirementsScript is Script {
         require(newEquipmentRequirementsAddr != address(0), "EquipmentRequirements address cannot be zero");
         require(playerContractAddr != address(0), "Player contract address cannot be zero");
 
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Cast the address to Player

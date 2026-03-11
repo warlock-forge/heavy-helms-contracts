@@ -31,12 +31,6 @@ contract MonsterBattleGameDeployScript is Script {
         require(vrfCoordinator != address(0), "VRF Coordinator address cannot be zero");
         require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
 
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Deploy MonsterBattleGame

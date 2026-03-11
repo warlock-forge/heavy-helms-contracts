@@ -19,10 +19,6 @@ contract MintDefaultSkinScript is Script {
         require(characterId >= 1 && characterId <= DefaultPlayerLibrary.CHARACTER_COUNT, "Invalid character ID");
 
         // Get private key from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
 
         vm.startBroadcast();
 

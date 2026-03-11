@@ -22,9 +22,6 @@ contract UnlockableKeyNFTDeployScript is Script {
     string constant BASE_URI = "ipfs://bafkreicnuowku5mzgz2kyuraarby66jzsm6mmxzfanckebfax4sgm2kecq";
 
     function run(address deployer) public {
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         console2.log("\n=== Deploying UnlockableKeyNFT ===");

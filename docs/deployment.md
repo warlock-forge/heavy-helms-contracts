@@ -4,27 +4,20 @@
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation.html)
 
-## .env file
-
-```
-RPC_URL=<YOUR RPC URL>
-ETHERSCAN_API_KEY=<YOUR ETHERSCAN API KEY>
-```
-
 ## Security & Key Management
 
-Heavy Helms supports three authentication methods for deployments:
+All scripts use `--rpc-url` to specify the target chain. How you manage `$RPC_URL` and `$ETHERSCAN_API_KEY` is up to you (environment variables, `.env`, shell profile, etc.).
 
 ### Hardware Wallet (Recommended for Production)
 
 ```bash
-forge script <script> --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script <script> --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### Private Key Flag (Standard)
 
 ```bash
-forge script <script> --broadcast --private-key 0xYOUR_PRIVATE_KEY --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script <script> --rpc-url $RPC_URL --broadcast --private-key 0xYOUR_PRIVATE_KEY --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### Encrypted Keystore (Automated/CI)
@@ -34,7 +27,7 @@ forge script <script> --broadcast --private-key 0xYOUR_PRIVATE_KEY --verify --et
 cast wallet import deployer --private-key 0xYOUR_PRIVATE_KEY
 
 # Deploy using keystore
-forge script <script> --broadcast --keystore ./keystore/deployer --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script <script> --rpc-url $RPC_URL --broadcast --keystore ./keystore/deployer --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ## Deployment Order
@@ -48,25 +41,25 @@ All examples below show the hardware wallet method. Substitute your preferred au
 ### 1. GameEngine
 
 ```bash
-forge script script/deploy/GameEngineDeploy.s.sol --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script script/deploy/GameEngineDeploy.s.sol --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 2. EquipmentRequirements
 
 ```bash
-forge script script/deploy/EquipmentRequirementsDeploy.s.sol --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script script/deploy/EquipmentRequirementsDeploy.s.sol --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 3. PlayerSkinRegistry
 
 ```bash
-forge script script/deploy/PlayerSkinRegistryDeploy.s.sol --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script script/deploy/PlayerSkinRegistryDeploy.s.sol --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 4. NameRegistry
 
 ```bash
-forge script script/deploy/NameRegistryDeploy.s.sol --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script script/deploy/NameRegistryDeploy.s.sol --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 5. Fighters
@@ -83,13 +76,13 @@ forge script script/deploy/FighterDeploy.s.sol \
   --sig "run(address,address,address,address,address,uint256,bytes32)" \
   <SKIN_REGISTRY_ADDRESS> <PLAYER_NAME_REGISTRY_ADDRESS> <MONSTER_NAME_REGISTRY_ADDRESS> \
   <EQUIPMENT_REQUIREMENTS_ADDRESS> <VRF_COORDINATOR> <SUBSCRIPTION_ID> <KEY_HASH> \
-  --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+  --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 6. Unlockable Skin Collection (Optional)
 
 ```bash
-forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS> --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN_REGISTRY_ADDRESS> --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 7. PracticeGame
@@ -98,7 +91,7 @@ forge script script/deploy/UnlockableSkinDeploy.s.sol --sig "run(address)" <SKIN
 forge script script/deploy/PracticeGameDeploy.s.sol \
   --sig "run(address,address,address,address)" \
   <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <MONSTER_CONTRACT_ADDRESS> \
-  --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+  --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 8. DuelGame
@@ -108,7 +101,7 @@ forge script script/deploy/DuelGameDeploy.s.sol \
   --sig "run(address,address,address,address,uint256,bytes32)" \
   <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS> \
   <VRF_COORDINATOR> <SUBSCRIPTION_ID> <KEY_HASH> \
-  --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+  --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 9. GauntletGame
@@ -117,7 +110,7 @@ forge script script/deploy/DuelGameDeploy.s.sol \
 forge script script/deploy/GauntletGameDeploy.s.sol \
   --sig "run(address,address,address,address)" \
   <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS> \
-  --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+  --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 10. TournamentGame
@@ -126,7 +119,7 @@ forge script script/deploy/GauntletGameDeploy.s.sol \
 forge script script/deploy/TournamentGameDeploy.s.sol \
   --sig "run(address,address,address,address)" \
   <GAME_ENGINE_ADDRESS> <PLAYER_CONTRACT_ADDRESS> <DEFAULT_PLAYER_CONTRACT_ADDRESS> <PLAYER_TICKETS_ADDRESS> \
-  --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
+  --rpc-url $RPC_URL --broadcast --ledger --verify --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 11. Chainlink VRF Setup
@@ -141,17 +134,17 @@ forge script script/deploy/TournamentGameDeploy.s.sol \
 ### Create Player
 
 ```bash
-forge script script/game/player/CreatePlayer.s.sol:CreatePlayerScript --sig "run(address,bool)" <PLAYER_CONTRACT_ADDRESS> <IS_FEMALE> --broadcast --ledger
+forge script script/game/player/CreatePlayer.s.sol:CreatePlayerScript --sig "run(address,bool)" <PLAYER_CONTRACT_ADDRESS> <IS_FEMALE> --rpc-url $RPC_URL --broadcast --ledger
 ```
 
 ### Equip Skin
 
 ```bash
-forge script script/game/player/EquipSkin.s.sol --sig "run(address,uint32,uint32,uint16)" <PLAYER_CONTRACT_ADDRESS> <PLAYER_ID> <SKIN_INDEX> <TOKEN_ID> --broadcast --ledger
+forge script script/game/player/EquipSkin.s.sol --sig "run(address,uint32,uint32,uint16)" <PLAYER_CONTRACT_ADDRESS> <PLAYER_ID> <SKIN_INDEX> <TOKEN_ID> --rpc-url $RPC_URL --broadcast --ledger
 ```
 
 ### Duel Players
 
 ```bash
-forge script script/game/duel/DuelPlayers.s.sol --sig "run(address,uint32,uint32)" <DUEL_GAME_ADDRESS> <CHALLENGER_ID> <DEFENDER_ID> --broadcast --ledger
+forge script script/game/duel/DuelPlayers.s.sol --sig "run(address,uint32,uint32)" <DUEL_GAME_ADDRESS> <CHALLENGER_ID> <DEFENDER_ID> --rpc-url $RPC_URL --broadcast --ledger
 ```

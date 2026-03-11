@@ -14,11 +14,6 @@ contract MintMonsterSkin is Script {
     function setUp() public {}
 
     function run(address monsterSkinAddr, uint8 weapon, uint8 armor, string memory ipfsCid, uint16 skinTokenId) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         MonsterSkinNFT monsterSkin = MonsterSkinNFT(monsterSkinAddr);

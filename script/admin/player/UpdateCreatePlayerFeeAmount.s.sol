@@ -16,11 +16,6 @@ contract UpdateCreatePlayerFeeAmountScript is Script {
     function run(address payable playerContractAddr, uint256 newCreatePlayerFeeAmount) public {
         require(playerContractAddr != address(0), "Player contract address cannot be zero");
         require(newCreatePlayerFeeAmount > 0, "Create player fee amount must be greater than zero");
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
 
         vm.startBroadcast();
 

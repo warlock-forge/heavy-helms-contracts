@@ -21,12 +21,6 @@ contract PracticeGameDeployScript is Script {
         require(defaultPlayerAddr != address(0), "DefaultPlayer address cannot be zero");
         require(monsterAddr != address(0), "Monster address cannot be zero");
 
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Deploy PracticeGame

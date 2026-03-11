@@ -14,12 +14,6 @@ contract UpdateSkinAttributesScript is Script {
     function setUp() public {}
 
     function run(address defaultSkinAddr, uint32 tokenId, uint8 weapon, uint8 armor) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Get the NFT contract

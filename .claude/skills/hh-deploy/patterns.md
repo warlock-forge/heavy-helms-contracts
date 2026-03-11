@@ -37,23 +37,17 @@ contract {ContractName}DeployScript is Script {
         require(param1 != address(0), "Param1 address cannot be zero");
         require(param2 != address(0), "Param2 address cannot be zero");
 
-        // 2. Get RPC from env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // 3. Create fork
-        vm.createSelectFork(rpcUrl);
-
-        // 4. Start broadcast
+        // 2. Start broadcast (target chain set via --rpc-url on CLI)
         vm.startBroadcast();
 
-        // 5. Deploy and configure
+        // 3. Deploy and configure
         // ... deployment logic ...
 
-        // 6. Log results (BEFORE stopBroadcast)
+        // 4. Log results (BEFORE stopBroadcast)
         console2.log("\n=== Deployed Addresses ===");
         console2.log("ContractName:", address(contract));
 
-        // 7. Stop broadcast
+        // 5. Stop broadcast
         vm.stopBroadcast();
     }
 }
@@ -65,9 +59,6 @@ For contracts with no constructor args:
 
 ```solidity
 function run() public {
-    string memory rpcUrl = vm.envString("RPC_URL");
-    vm.createSelectFork(rpcUrl);
-
     vm.startBroadcast();
 
     ContractName instance = new ContractName();

@@ -15,11 +15,6 @@ contract WhitelistGameScript is Script {
     function setUp() public {}
 
     function run(address gameAddr, address payable playerAddr) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         Player playerContract = Player(playerAddr);

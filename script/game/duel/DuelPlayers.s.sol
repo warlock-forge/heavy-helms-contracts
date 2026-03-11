@@ -16,11 +16,6 @@ contract DuelPlayersScript is Script {
     function setUp() public {}
 
     function run(address duelGameAddr, uint32 challengerId, uint32 defenderId) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         DuelGame duelGame = DuelGame(payable(duelGameAddr));

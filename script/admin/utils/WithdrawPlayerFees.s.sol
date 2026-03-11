@@ -14,11 +14,6 @@ contract WithdrawPlayerFeesScript is Script {
     function setUp() public {}
 
     function run(address payable playerContractAddr) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         // Get the deployed Player contract

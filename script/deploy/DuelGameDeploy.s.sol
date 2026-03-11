@@ -27,12 +27,6 @@ contract DuelGameDeployScript is Script {
         require(playerAddr != address(0), "Player address cannot be zero");
         require(playerTicketsAddr != address(0), "PlayerTickets address cannot be zero");
 
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Deploy DuelGame

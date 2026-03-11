@@ -15,11 +15,6 @@ contract AddMonsterNames is Script {
     function setUp() public {}
 
     function run(address monsterNameRegistryAddress) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         MonsterNameRegistry monsterNameRegistry = MonsterNameRegistry(monsterNameRegistryAddress);

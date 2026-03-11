@@ -14,12 +14,6 @@ contract UpdateNFTCidScript is Script {
     function setUp() public {}
 
     function run(address defaultSkinAddr, uint32 tokenId, string memory newCid) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Get the NFT contract

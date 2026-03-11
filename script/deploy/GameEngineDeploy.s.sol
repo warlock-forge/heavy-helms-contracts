@@ -12,12 +12,6 @@ import {GameEngine} from "../../src/game/engine/GameEngine.sol";
 
 contract GameEngineDeployScript is Script {
     function run() public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Deploy GameEngine

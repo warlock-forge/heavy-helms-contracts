@@ -17,12 +17,6 @@ contract UpdateGameEngineScript is Script {
         require(newGameEngineAddr != address(0), "GameEngine address cannot be zero");
         require(gameContractAddr != address(0), "Game contract address cannot be zero");
 
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Cast the address to BaseGame since all game contracts inherit from it

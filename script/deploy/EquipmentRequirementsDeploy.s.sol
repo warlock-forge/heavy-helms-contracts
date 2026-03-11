@@ -12,12 +12,6 @@ import {EquipmentRequirements} from "../../src/game/engine/EquipmentRequirements
 
 contract EquipmentRequirementsDeployScript is Script {
     function run() public returns (address) {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // Deploy EquipmentRequirements

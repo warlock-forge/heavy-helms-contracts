@@ -18,11 +18,6 @@ contract CreateMonster is Script {
     function run(address monsterAddr, uint256 monsterType, uint256 monsterVersion, uint16 skinTokenId, uint16 nameIndex)
         public
     {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
         vm.startBroadcast();
 
         Monster monster = Monster(monsterAddr);

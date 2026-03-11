@@ -36,7 +36,7 @@ These are Chainlink infrastructure addresses and our subscription IDs. All publi
 
 ## RPC Endpoints
 
-Stored in `.env` file as `RPC_URL`. Not committed to repo.
+Passed via `--rpc-url $RPC_URL` on the CLI. How the user sets `$RPC_URL` is up to them (env var, `.env`, shell profile, etc.).
 
 Common providers:
 - Alchemy

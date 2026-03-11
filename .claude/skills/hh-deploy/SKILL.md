@@ -58,9 +58,7 @@ See `networks.md` for VRF infrastructure addresses (these ARE stable and can be 
 5. Empty `setUp() public {}`
 6. `run()` function with address params for dependencies
 7. Zero-address validation for all address params
-8. RPC from env: `vm.envString("RPC_URL")`
-9. `vm.createSelectFork(rpcUrl)`
-10. Broadcast wrapper
+8. Broadcast wrapper (no fork creation -- `--rpc-url` is passed on the CLI)
 11. Console logging before `stopBroadcast()`
 
 ## Executing Deployments

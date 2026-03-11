@@ -32,12 +32,6 @@ contract FighterDeployScript is Script {
         uint256 subscriptionId,
         bytes32 keyHash
     ) public {
-        // Get values from .env
-        string memory rpcUrl = vm.envString("RPC_URL");
-
-        // Set the RPC URL
-        vm.createSelectFork(rpcUrl);
-
         vm.startBroadcast();
 
         // 1. Deploy PlayerDataCodec helper contract

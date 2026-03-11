@@ -49,13 +49,6 @@ forge coverage --ir-minimum --report summary --report lcov  # Coverage (CI-match
 forge install --no-git foundry-rs/forge-std@v1.15.0 bokkypoobah/BokkyPooBahsDateTimeLibrary@1dc26f9 vectorized/solady@v0.1.24 smartcontractkit/chainlink-evm@v0.3.2 OpenZeppelin/openzeppelin-contracts@v4.9.6
 ```
 
-## Configuration (.env file)
-
-```
-RPC_URL=<YOUR RPC URL>
-PK=<YOUR PRIVATE KEY>
-```
-
 ## Deployment Order
 
 GameEngine → EquipmentRequirements → Registries → Fighters → Games
