@@ -35,7 +35,7 @@
 
 ### Libraries (`src/lib/`)
 
-- `PlayerDataCodec.sol`: Bit-packing for player attributes into efficient storage
+- `PlayerDataCodec.sol`: Encodes player data into `bytes32` snapshots for combat event logs
 - `UniformRandomNumber.sol`: Uniform random number generation within ranges
 - `DefaultPlayerLibrary.sol`, `MonsterLibrary.sol`: Predefined fighter templates
 

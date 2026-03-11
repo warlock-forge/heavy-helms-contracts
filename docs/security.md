@@ -39,7 +39,7 @@ All ETH withdrawal is owner-only (`withdrawFees()` on game contracts, `withdraw(
 - Game mode state machines (queues, challenges, tournaments)
 - Combat outcomes (via GameEngine)
 
-None of these have direct financial value outside the game. There is no token, no staking, no DeFi integration.
+There is no token, no staking, no DeFi integration. Game outcomes do not affect external financial positions.
 
 ## Access Control
 
@@ -151,13 +151,13 @@ Daily reset cooldowns use `block.timestamp`. Miners/sequencers can manipulate ti
 
 ### No formal audit
 
-The codebase has not been externally audited. Testing includes 550+ unit/fuzz/invariant tests, 90% LCOV coverage gate in CI, and continuous static analysis. This does not replace a formal audit.
+The codebase has not been externally audited. Testing includes 590+ unit/fuzz/invariant tests, 90% LCOV coverage gate in CI, and continuous static analysis. This does not replace a formal audit.
 
 ## Testing
 
 | Category | Count | What it covers |
 |---|---|---|
-| Unit tests | ~520 | Individual function behavior, reverts, permissions, edge cases |
+| Unit tests | ~560 | Individual function behavior, reverts, permissions, edge cases |
 | Fuzz tests | 4 | Randomized inputs for player creation, combat, name generation |
 | Invariant tests | 26 | System properties across random action sequences (queue consistency, stat conservation, fee accounting) |
 | Simulation tests | ~40 | Statistical combat balance, progression scaling, lethality, gas profiling (separate Foundry profile) |

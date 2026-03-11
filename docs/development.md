@@ -71,7 +71,7 @@ Remappings are in `foundry.toml`, not `remappings.txt`.
 ## Gas Optimization Notes
 
 - Solady ERC-721 and ERC-1155 over OpenZeppelin equivalents
-- `PlayerDataCodec` bit-packs 6 attributes + metadata into minimal storage slots
+- `PlayerDataCodec` encodes player snapshots (attributes, skin, name, record, progression) into `bytes32` for combat event emission
 - Combat logs use custom binary encoding (8 bytes per action) instead of structs/events
 - `via_ir` optimizer enabled with 200 runs
 - Storage variables packed where possible (uint8, uint32 grouped in structs)

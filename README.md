@@ -29,7 +29,7 @@ Combat logs use a custom binary format: 4-byte header (winner, engine version, w
 
 ### Fighter System
 
-Warriors are soulbound contract mappings, not NFTs. You can't buy your way to the top. Stats are bit-packed via `PlayerDataCodec` for efficient storage. Every fighter is created with 72 attribute points randomly distributed across 6 stats (range 3-21 each).
+Warriors are soulbound contract mappings, not NFTs. You can't buy your way to the top. Every fighter is created with 72 attribute points randomly distributed across 6 stats (range 3-21 each). The full `PlayerStats` struct packs into a single storage slot; `PlayerDataCodec` encodes a point-in-time snapshot into `bytes32` for combat event logs.
 
 ERC-721 skins alter combat strategy by changing weapon and armor loadouts. Skins are tradeable; fighters are not. A stance system (offensive / balanced / defensive) layers on top of skin choice.
 
@@ -82,7 +82,7 @@ All combat runs onchain. Gas totals include the full 3-transaction blockhash com
 
 | Contract              | Address                                                                                                                 |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| GameEngine v1.2       | [`0xD351cF16cBc8A8732D6E5aB46B3d8b350075567a`](https://basescan.org/address/0xD351cF16cBc8A8732D6E5aB46B3d8b350075567a) |
+| GameEngine v1.7       | [`0xD351cF16cBc8A8732D6E5aB46B3d8b350075567a`](https://basescan.org/address/0xD351cF16cBc8A8732D6E5aB46B3d8b350075567a) |
 | EquipmentRequirements | [`0xB7710a3C16f71bD46E174E5806F4274Cbc934837`](https://basescan.org/address/0xB7710a3C16f71bD46E174E5806F4274Cbc934837) |
 | PlayerSkinRegistry    | [`0xA308ECAD719A4d8708462318727a6001e6604f10`](https://basescan.org/address/0xA308ECAD719A4d8708462318727a6001e6604f10) |
 | PlayerNameRegistry    | [`0x6106E1f3De585b968CEAa4b9f732cCd201aD9811`](https://basescan.org/address/0x6106E1f3De585b968CEAa4b9f732cCd201aD9811) |
